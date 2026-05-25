@@ -1,0 +1,26 @@
+-- =====================================================================
+-- 0004_grant_profiles.sql
+--
+-- Hotfix: grant table-level SELECT on public.profiles to the
+-- `authenticated` role.
+--
+-- 背景:
+--   migration 0001/0002 で RLS ポリシーは整っていたが、テーブル本体への
+--   GRANT を入れ忘れていた。PostgreSQL では RLS が「どの行を返すか」を
+--   制御する一方、テーブルへのアクセス自体は GRANT が無いと拒否される。
+--   その結果、authenticated ユーザーが getCurrentUser() の profile 取得で
+--     permission denied for table profiles
+--   を踏み、requireAdmin() が isAdmin=false の default 値で /403 に飛ぶ
+--   原因になっていた。
+--
+--   `anon` には profiles の SELECT を許可しない(public.public_profiles
+--   ビュー経由でのみ公開項目を見せる)。
+--
+-- スコープ:
+--   今回は profiles のみを最小修正対象とする。他テーブル
+--   (products / purchases / product_tags / creator_applications /
+--    admin_audit_logs) も同じく GRANT が欠落している可能性が高いが、
+--   ACCEPTANCE で具体症状が出てから別 migration で対応する方針。
+-- =====================================================================
+
+grant select on public.profiles to authenticated;

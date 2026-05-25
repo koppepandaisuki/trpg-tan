@@ -1,16 +1,25 @@
 import Link from "next/link";
-import { Search, Bell, User } from "lucide-react";
+import type { Route } from "next";
+import { Search, Bell, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { getCurrentUser } from "@/lib/session/get-user";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
+const NAV_ITEMS: Array<{ href: Route; label: string }> = [
   { href: "/store", label: "探す" },
   { href: "/creator/products/new", label: "作成する" },
   { href: "/library", label: "ライブラリ" },
 ];
 
-export function TopHeader({ className }: { className?: string }) {
+/**
+ * Top-level header. Server Component so it can render auth state.
+ * Sign-out is a small POST form to /auth/sign-out (CSRF-friendlier than GET).
+ */
+export async function TopHeader({ className }: { className?: string }) {
+  const user = await getCurrentUser();
+
   return (
     <header
       className={cn(
@@ -55,15 +64,65 @@ export function TopHeader({ className }: { className?: string }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="sm" aria-label="通知(未実装)" disabled>
-            <Bell className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" disabled>
-            <User className="h-4 w-4" />
-            <span className="hidden sm:inline">ログイン</span>
-          </Button>
+          {user ? <AuthedMenu user={user} /> : <UnauthedMenu />}
         </div>
       </div>
     </header>
+  );
+}
+
+function UnauthedMenu() {
+  return (
+    <>
+      <Link
+        href="/login"
+        className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+      >
+        ログイン
+      </Link>
+      <Link
+        href="/signup"
+        className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+      >
+        新規登録
+      </Link>
+    </>
+  );
+}
+
+function AuthedMenu({
+  user,
+}: {
+  user: { displayName: string; email: string; isCreator: boolean; isAdmin: boolean };
+}) {
+  return (
+    <>
+      <Button variant="ghost" size="sm" aria-label="通知(未実装)" disabled>
+        <Bell className="h-4 w-4" />
+      </Button>
+
+      <div className="hidden flex-col items-end leading-tight sm:flex">
+        <span className="text-sm font-medium">{user.displayName || user.email}</span>
+        <span className="flex gap-1">
+          {user.isAdmin && (
+            <Badge variant="category" className="text-[10px]">
+              admin
+            </Badge>
+          )}
+          {user.isCreator && (
+            <Badge variant="muted" className="text-[10px]">
+              creator
+            </Badge>
+          )}
+        </span>
+      </div>
+
+      <form action="/auth/sign-out" method="post">
+        <Button type="submit" variant="outline" size="sm">
+          <LogOut className="h-4 w-4" />
+          <span className="hidden sm:inline">ログアウト</span>
+        </Button>
+      </form>
+    </>
   );
 }

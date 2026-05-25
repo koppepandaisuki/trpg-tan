@@ -1,0 +1,25 @@
+-- =====================================================================
+-- 0005_grant_products.sql
+--
+-- Hotfix: grant table-level SELECT on public.products to the
+-- `authenticated` role.
+--
+-- 背景:
+--   0004 で profiles の GRANT 漏れを補填したが、products テーブルにも
+--   同じ漏れがある。/admin/products(admin として全件閲覧する経路)で
+--   listProductsForAdmin が
+--     permission denied for table products
+--   を踏み、UI 上は「該当する作品が見つかりません」を出して silent に
+--   failure する状態だった。
+--
+--   anon への SELECT は今回は付与しない。/store(公開閲覧)で products
+--   を読む必要が生じた段階で別途判断する。今回のスコープは
+--   /admin/products を開けるようにする最小修正のみ。
+--
+-- スコープ:
+--   products テーブル本体の SELECT のみ。product_tags / purchases も
+--   同種の GRANT 漏れである可能性が高いが、ACCEPTANCE で具体症状が
+--   出てから個別 migration で対応する方針。
+-- =====================================================================
+
+grant select on public.products to authenticated;

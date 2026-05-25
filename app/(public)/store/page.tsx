@@ -1,21 +1,39 @@
+import type { Route } from "next";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { CategoryTabs } from "@/components/store/category-tabs";
+import { WorkCard } from "@/components/store/work-card";
+import { EmptyState } from "@/components/store/empty-state";
+import { StorePagination } from "@/components/store/pagination";
+import { listPublishedProducts } from "@/lib/queries/products";
+import { parseCategoryParam, categoryLabel } from "@/lib/format/category";
 
-const CATEGORIES = [
-  "すべて",
-  "シナリオ",
-  "ルールブック",
-  "マップ・バトルマップ",
-  "アートワーク",
-  "BGM・効果音",
-  "その他素材",
-];
+export const metadata = { title: "ストア | TRPG プラットフォーム" };
 
-const PLACEHOLDER_CARDS = Array.from({ length: 8 });
+interface StorePageProps {
+  searchParams: {
+    category?: string;
+    page?: string;
+  };
+}
 
-export default function StorePage() {
+export default async function StorePage({ searchParams }: StorePageProps) {
+  const category = parseCategoryParam(searchParams.category);
+  const page = Number.parseInt(searchParams.page ?? "1", 10) || 1;
+
+  const { items, totalPages, total } = await listPublishedProducts({
+    category,
+    page,
+  });
+
+  const buildHref = (p: number): Route => {
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return (qs ? `/store?${qs}` : "/store") as Route;
+  };
+
   return (
     <>
       <TopHeader />
@@ -24,42 +42,45 @@ export default function StorePage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">ストア</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              公開中のTRPG作品を探す(Phase 4 で実装)
+              {category
+                ? `カテゴリ: ${categoryLabel(category)}(${total}件)`
+                : `公開中の作品(${total}件)`}
             </p>
           </div>
-          <Badge variant="muted">プレースホルダー / P4</Badge>
         </div>
 
-        <nav className="mt-6 flex flex-wrap gap-2 border-b border-border pb-2">
-          {CATEGORIES.map((c, i) => (
-            <button
-              key={c}
-              disabled
-              className={
-                "rounded-md px-3 py-1.5 text-sm " +
-                (i === 0
-                  ? "bg-foreground/5 font-medium text-foreground"
-                  : "text-muted-foreground")
+        <div className="mt-6">
+          <CategoryTabs current={category} />
+        </div>
+
+        <div className="mt-6">
+          {items.length === 0 ? (
+            <EmptyState
+              title={
+                category
+                  ? "該当する作品が見つかりませんでした"
+                  : "公開中の作品はまだありません"
               }
-            >
-              {c}
-            </button>
-          ))}
-        </nav>
-
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {PLACEHOLDER_CARDS.map((_, i) => (
-            <Card key={i} className="overflow-hidden shadow-sm">
-              <div className="aspect-[16/10] w-full bg-muted" aria-hidden />
-              <CardContent className="space-y-2 p-4">
-                <Badge variant="category">カテゴリ</Badge>
-                <p className="text-sm font-medium">作品タイトル(ダミー)</p>
-                <p className="text-xs text-muted-foreground">対応システム</p>
-                <p className="text-sm font-semibold">¥—</p>
-              </CardContent>
-            </Card>
-          ))}
+              description={
+                category
+                  ? "別のカテゴリも見てみてください。"
+                  : "クリエイターが作品を公開すると、ここに表示されます。"
+              }
+              resetHref={category ? "/store" : undefined}
+              resetLabel={category ? "すべての作品を見る" : undefined}
+            />
+          ) : (
+            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {items.map((product) => (
+                <li key={product.id}>
+                  <WorkCard product={product} />
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+
+        <StorePagination page={page} totalPages={totalPages} buildHref={buildHref} />
       </PageContainer>
     </>
   );

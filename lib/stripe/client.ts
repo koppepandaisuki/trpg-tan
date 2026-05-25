@@ -1,0 +1,48 @@
+import "server-only";
+import Stripe from "stripe";
+
+/**
+ * Stripe client — single source of truth.
+ *
+ * Why centralize here:
+ *   - One apiVersion pin for the whole app, never drifts between routes.
+ *   - One place to update the SDK in lockstep with the Dashboard.
+ *   - Avoids `new Stripe(...)` being scattered across route handlers.
+ *
+ * The pinned API version should match the Dashboard's "Stripe API version"
+ * setting. Update both together. See README for the rotation procedure.
+ */
+
+const STRIPE_API_VERSION = "2024-06-20" as const;
+
+let cachedClient: Stripe | null = null;
+
+export function getStripe(): Stripe {
+  if (cachedClient) return cachedClient;
+
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    // Fail loudly. We never want a silent fallback to a real account.
+    throw new Error(
+      "[stripe] STRIPE_SECRET_KEY is not configured. Set it in .env.local.",
+    );
+  }
+
+  cachedClient = new Stripe(key, {
+    apiVersion: STRIPE_API_VERSION as Stripe.LatestApiVersion,
+    typescript: true,
+    // Keep timeouts conservative; Stripe Hosted Checkout is fast.
+    timeout: 20_000,
+  });
+  return cachedClient;
+}
+
+export function getWebhookSecret(): string {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    throw new Error(
+      "[stripe] STRIPE_WEBHOOK_SECRET is not configured. Webhook verification cannot proceed.",
+    );
+  }
+  return secret;
+}

@@ -1,0 +1,99 @@
+import { NextResponse, type NextRequest } from "next/server";
+import type Stripe from "stripe";
+import { getStripe, getWebhookSecret } from "@/lib/stripe/client";
+import {
+  handleCheckoutCompleted,
+  handleChargeRefunded,
+} from "@/lib/stripe/webhook";
+
+/**
+ * POST /api/stripe/webhook
+ *
+ * Stripe -> our backend. We verify the signature before doing anything,
+ * dispatch to per-event handlers, and ack 200 to suppress retries on
+ * events we don't care about.
+ *
+ * IMPORTANT:
+ *   - Read the raw body via request.text(). Do NOT parse JSON before
+ *     signature verification or constructEvent will reject it.
+ *   - No auth here — the signature IS the auth.
+ *   - Never log the body, headers, secrets, or PII in production.
+ */
+
+// Force Node.js runtime — Stripe SDK uses Node crypto for signature
+// verification and is not Edge-compatible.
+export const runtime = "nodejs";
+
+export async function POST(request: NextRequest) {
+  const sig = request.headers.get("stripe-signature");
+  if (!sig) {
+    return NextResponse.json({ error: "missing signature" }, { status: 400 });
+  }
+
+  const rawBody = await request.text();
+
+  let event: Stripe.Event;
+  try {
+    const stripe = getStripe();
+    const secret = getWebhookSecret();
+    event = stripe.webhooks.constructEvent(rawBody, sig, secret);
+  } catch (err) {
+    // Do not log the body or signature — keep the footprint small.
+    console.warn(
+      "[webhook] signature verification failed:",
+      err instanceof Error ? err.message : "unknown",
+    );
+    return NextResponse.json({ error: "invalid signature" }, { status: 400 });
+  }
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleCheckoutCompleted(session);
+        break;
+      }
+
+      case "charge.refunded": {
+        // Full refund only — partial refunds are intentionally ignored
+        // (see decideRefundOutcome in lib/stripe/webhook.ts).
+        const charge = event.data.object as Stripe.Charge;
+        await handleChargeRefunded(charge);
+        break;
+      }
+
+      case "charge.refund.updated":
+      case "refund.created":
+      case "refund.updated": {
+        // Sibling refund events: ack-only. The canonical "charge is now
+        // fully refunded" signal we act on is charge.refunded; the
+        // siblings would over-fire and double-handle if we treated them
+        // as triggers too.
+        console.info("[webhook] refund event acknowledged", {
+          type: event.type,
+          id: event.id,
+        });
+        break;
+      }
+
+      default:
+        // Acknowledge unknown event types to prevent unnecessary retries.
+        break;
+    }
+
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (err) {
+    // Return 500 so Stripe retries the same event.
+    console.error("[webhook] handler failed", {
+      type: event.type,
+      id: event.id,
+      err: err instanceof Error ? err.message : "unknown",
+    });
+    return NextResponse.json({ error: "handler failed" }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  return NextResponse.json({ error: "method not allowed" }, { status: 405 });
+}

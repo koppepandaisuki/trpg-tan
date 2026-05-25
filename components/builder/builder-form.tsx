@@ -1,0 +1,567 @@
+"use client";
+
+import * as React from "react";
+import { Controller, useForm, type FieldPath } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  builderFormSchema,
+  type BuilderFormValues,
+} from "@/lib/validators/product";
+import {
+  saveDraftAction,
+  publishAction,
+  type SaveResult,
+} from "@/app/(app)/creator/products/actions";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ThreeColumn } from "@/components/layout/three-column";
+import { PRODUCT_TYPE_LABEL, FILE_FORMAT_LABEL } from "@/lib/format/category";
+import type { ProductStatus } from "@/lib/format/status";
+import { BuilderToolbar } from "./toolbar";
+import { SectionNav, type SectionNavItem } from "./section-nav";
+import { SidebarInfo } from "./sidebar-info";
+import { TagInput } from "./tag-input";
+import { UploadCover } from "./upload-cover";
+import { UploadProductFile } from "./upload-product-file";
+import { cn } from "@/lib/utils";
+
+interface BuilderFormProps {
+  mode: "create" | "edit";
+  productId?: string | null;
+  currentStatus?: ProductStatus;
+  publishedAt?: string | null;
+  initialValues: BuilderFormValues;
+  /** If true, show "保存しました" right after mount (post-redirect). */
+  savedJustNow?: boolean;
+}
+
+const SECTIONS: SectionNavItem[] = [
+  { id: "overview", label: "概要" },
+  { id: "basic-info", label: "基本情報", number: 1 },
+  { id: "tags", label: "タグ", number: 2 },
+  { id: "pricing", label: "価格・形式", number: 3 },
+  { id: "terms", label: "利用条件", number: 4 },
+  { id: "publish", label: "公開設定", number: 5 },
+  { id: "files", label: "ファイル添付", number: 6 },
+];
+
+/**
+ * Client-side builder shell.
+ *
+ * Owns react-hook-form state. Renders the three-column layout, toolbar,
+ * and form sections. Calls saveDraftAction / publishAction depending on
+ * which button the user clicks.
+ *
+ * Status is NOT a form field — the click intent decides the persisted
+ * status, matching the Phase 5 design (saveDraft vs publish actions).
+ */
+export function BuilderForm({
+  mode,
+  productId = null,
+  currentStatus = "draft",
+  publishedAt = null,
+  initialValues,
+  savedJustNow = false,
+}: BuilderFormProps) {
+  const form = useForm<BuilderFormValues>({
+    resolver: zodResolver(builderFormSchema),
+    defaultValues: initialValues,
+    mode: "onBlur",
+  });
+
+  const [savedAt, setSavedAt] = React.useState<Date | null>(
+    savedJustNow ? new Date() : null,
+  );
+  const [topMessage, setTopMessage] = React.useState<
+    | { tone: "success"; text: string }
+    | { tone: "error"; text: string }
+    | null
+  >(savedJustNow ? { tone: "success", text: "保存しました" } : null);
+
+  const watched = form.watch();
+  const errors = form.formState.errors;
+  const isSubmitting = form.formState.isSubmitting;
+
+  // Per Q9 / I-3: uploads run independently of the form save cycle, but
+  // we still want to prevent the save / publish buttons from firing while
+  // a PUT is in flight (which could otherwise race with the cover_path /
+  // file_path update written by F-1).
+  const [uploadingCover, setUploadingCover] = React.useState(false);
+  const [uploadingFile, setUploadingFile] = React.useState(false);
+  const saveLocked = isSubmitting || uploadingCover || uploadingFile;
+
+  // Lightweight "input check" counts for the right sidebar.
+  // Required: title (always), priceJpy (always)
+  // Recommended (only suggested, not enforced for draft):
+  //   description, at least one tag, systemLabel
+  const requiredMissingCount =
+    (watched.title?.trim() ? 0 : 1) +
+    (Number.isFinite(watched.priceJpy) ? 0 : 1);
+
+  const recommendedMissingCount =
+    (watched.description?.trim() ? 0 : 1) +
+    (watched.tags.length > 0 ? 0 : 1) +
+    (watched.systemLabel?.trim() ? 0 : 1);
+
+  function applyResult(result: SaveResult | undefined): boolean {
+    if (!result) return false;
+    if ("error" in result) {
+      setTopMessage({ tone: "error", text: result.error });
+      if (result.fieldErrors) {
+        for (const [field, msg] of Object.entries(result.fieldErrors)) {
+          form.setError(field as FieldPath<BuilderFormValues>, { message: msg });
+        }
+      }
+      return false;
+    }
+    setSavedAt(new Date());
+    setTopMessage({ tone: "success", text: "保存しました" });
+    return true;
+  }
+
+  async function handleSaveDraft() {
+    setTopMessage(null);
+    await form.handleSubmit(async (values) => {
+      try {
+        const result = await saveDraftAction(productId, values);
+        applyResult(result);
+      } catch {
+        // Server Action redirected (create path). Navigation in progress; ignore.
+      }
+    })();
+  }
+
+  async function handlePublish() {
+    setTopMessage(null);
+    await form.handleSubmit(async (values) => {
+      try {
+        const result = await publishAction(productId, values);
+        applyResult(result);
+      } catch {
+        // see above
+      }
+    })();
+  }
+
+  return (
+    <>
+      <BuilderToolbar
+        mode={mode}
+        isSubmitting={saveLocked}
+        onSaveDraft={handleSaveDraft}
+        onPublish={handlePublish}
+      />
+
+      <ThreeColumn
+        left={<SectionNav items={SECTIONS} />}
+        right={
+          <SidebarInfo
+            status={currentStatus}
+            publishedAt={publishedAt}
+            preview={watched}
+            savedAt={savedAt}
+            requiredMissingCount={requiredMissingCount}
+            recommendedMissingCount={recommendedMissingCount}
+          />
+        }
+      >
+        {topMessage && (
+          <div
+            role={topMessage.tone === "error" ? "alert" : "status"}
+            className={cn(
+              "mb-4 rounded-md border px-3 py-2 text-sm",
+              topMessage.tone === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-destructive/30 bg-destructive/5 text-destructive",
+            )}
+          >
+            {topMessage.text}
+          </div>
+        )}
+
+        <form className="space-y-6" noValidate>
+          {/* ----------------------------- Overview ----------------------------- */}
+          <Section id="overview" title="概要" description="作品の基本情報を入力してください。">
+            <Field label="作品タイトル" required error={errors.title?.message}>
+              <Input
+                placeholder="例: 黄昏のアーカイブ"
+                maxLength={100}
+                {...form.register("title")}
+              />
+            </Field>
+
+            <Field
+              label="作品の種類"
+              required
+              error={errors.productType?.message}
+            >
+              <Controller
+                control={form.control}
+                name="productType"
+                render={({ field }) => (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {Object.entries(PRODUCT_TYPE_LABEL).map(([value, label]) => {
+                      const selected = field.value === value;
+                      return (
+                        <label
+                          key={value}
+                          className={cn(
+                            "flex cursor-pointer items-center justify-center rounded-md border px-3 py-2 text-sm transition-colors",
+                            selected
+                              ? "border-foreground bg-foreground/5 font-medium text-foreground"
+                              : "border-border text-muted-foreground hover:bg-muted",
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            value={value}
+                            checked={selected}
+                            onChange={() => field.onChange(value)}
+                            className="sr-only"
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              />
+            </Field>
+
+            <Field
+              label="作品の説明"
+              error={errors.description?.message}
+              hint="作品の内容や特徴を入力してください。公開時には入力が必要です。"
+            >
+              <Textarea
+                rows={6}
+                placeholder="作品の内容や特徴を入力してください"
+                maxLength={10000}
+                {...form.register("description")}
+              />
+            </Field>
+          </Section>
+
+          {/* ----------------------------- Basic info ----------------------------- */}
+          <Section
+            id="basic-info"
+            title="基本情報"
+            description="対応システムやプレイ情報など、詳細メタを入力します(任意)。"
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="対応システム" error={errors.systemLabel?.message}>
+                <Input
+                  placeholder="例: クトゥルフ神話TRPG(第7版)"
+                  maxLength={100}
+                  {...form.register("systemLabel")}
+                />
+              </Field>
+              <Field label="プレイ人数" error={errors.players?.message}>
+                <Input
+                  placeholder="例: 1〜4人"
+                  maxLength={50}
+                  {...form.register("players")}
+                />
+              </Field>
+              <Field label="プレイ時間" error={errors.playtime?.message}>
+                <Input
+                  placeholder="例: 3〜5時間"
+                  maxLength={50}
+                  {...form.register("playtime")}
+                />
+              </Field>
+              <Field label="推奨技能" error={errors.recommendedSkills?.message}>
+                <Input
+                  placeholder="例: 目星、図書館、精神分析"
+                  maxLength={200}
+                  {...form.register("recommendedSkills")}
+                />
+              </Field>
+            </div>
+          </Section>
+
+          {/* ----------------------------- Tags ----------------------------- */}
+          <Section
+            id="tags"
+            title="タグ"
+            description="検索や絞り込みに使われます。公開には1つ以上のタグが必要です。"
+          >
+            <Controller
+              control={form.control}
+              name="tags"
+              render={({ field }) => (
+                <TagInput value={field.value} onChange={field.onChange} />
+              )}
+            />
+            {errors.tags?.message && (
+              <p className="text-xs text-destructive">{errors.tags.message}</p>
+            )}
+          </Section>
+
+          {/* ----------------------------- Pricing ----------------------------- */}
+          <Section
+            id="pricing"
+            title="価格・形式"
+            description="価格(JPY)とファイル形式を設定します。"
+          >
+            <Field label="価格" required error={errors.priceJpy?.message}>
+              <PriceControl form={form} />
+            </Field>
+
+            <Field
+              label="ファイル形式"
+              required
+              error={errors.fileFormat?.message}
+            >
+              <Controller
+                control={form.control}
+                name="fileFormat"
+                render={({ field }) => (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {Object.entries(FILE_FORMAT_LABEL).map(([value, label]) => {
+                      const selected = field.value === value;
+                      return (
+                        <label
+                          key={value}
+                          className={cn(
+                            "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm",
+                            selected
+                              ? "border-foreground bg-foreground/5 font-medium text-foreground"
+                              : "border-border text-muted-foreground hover:bg-muted",
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            value={value}
+                            checked={selected}
+                            onChange={() => field.onChange(value)}
+                            className="h-4 w-4"
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              />
+            </Field>
+          </Section>
+
+          {/* ----------------------------- Terms ----------------------------- */}
+          <Section
+            id="terms"
+            title="利用条件"
+            description="購入者に開示する利用条件のフラグです。"
+          >
+            <CheckboxRow
+              label="商用利用を許可する"
+              {...form.register("allowCommercial")}
+            />
+            <CheckboxRow
+              label="二次配布を許可する"
+              {...form.register("allowRedistribution")}
+            />
+          </Section>
+
+          {/* ----------------------------- Publish ----------------------------- */}
+          <Section
+            id="publish"
+            title="公開設定"
+            description="上部の「公開して保存」を押すと、入力が公開条件を満たしているかチェックされます。"
+          >
+            <Card className="border-border/70 bg-muted/40">
+              <CardContent className="space-y-1.5 p-4 text-sm">
+                <p className="font-medium">現在のステータス: {labelStatus(currentStatus)}</p>
+                <p className="text-xs text-muted-foreground">
+                  「下書き保存」では公開条件をチェックしません。
+                  「公開して保存」ではタイトル / 説明 / カテゴリ / 形式 / 価格 / タグ(1個以上)が必要です。
+                </p>
+                {currentStatus === "suspended" && (
+                  <p className="text-xs text-destructive">
+                    この作品は運営により停止中です。公開の再開は admin にお問い合わせください。
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </Section>
+
+          {/* ----------------------------- Files ----------------------------- */}
+          <Section
+            id="files"
+            title="ファイル添付"
+            description="表紙画像と作品本体ファイルをアップロードします。各アップロードは選択した瞬間に開始され、保存ボタンとは独立して反映されます。"
+          >
+            {productId ? (
+              <div className="space-y-5">
+                <Field label="表紙画像">
+                  <UploadCover
+                    productId={productId}
+                    onUploadingChange={setUploadingCover}
+                  />
+                </Field>
+                <Field label="作品ファイル">
+                  <UploadProductFile
+                    productId={productId}
+                    fileFormat={watched.fileFormat}
+                    onUploadingChange={setUploadingFile}
+                  />
+                </Field>
+              </div>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="p-10 text-center text-sm text-muted-foreground">
+                  ファイル添付は作品を「下書き保存」してから行えます。
+                  <br />
+                  先にタイトル等の基本情報を入力し、保存してください。
+                </CardContent>
+              </Card>
+            )}
+          </Section>
+        </form>
+      </ThreeColumn>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------
+// Small inner components
+// ---------------------------------------------------------------------
+
+function Section({
+  id,
+  title,
+  description,
+  children,
+}: {
+  id: string;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      id={id}
+      className="scroll-mt-24 rounded-lg border border-border bg-card p-6 shadow-sm"
+    >
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        {description && (
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        )}
+      </div>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  required,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <span>{label}</span>
+        {required && (
+          <span className="rounded-sm bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+            必須
+          </span>
+        )}
+      </div>
+      {children}
+      {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+const CheckboxRow = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { label: string }
+>(({ label, ...rest }, ref) => (
+  <label className="flex items-center gap-2 text-sm">
+    <input
+      ref={ref}
+      type="checkbox"
+      className="h-4 w-4 rounded border-border text-foreground focus:ring-ring"
+      {...rest}
+    />
+    <span>{label}</span>
+  </label>
+));
+CheckboxRow.displayName = "CheckboxRow";
+
+function PriceControl({
+  form,
+}: {
+  form: ReturnType<typeof useForm<BuilderFormValues>>;
+}) {
+  const price = form.watch("priceJpy") ?? 0;
+  const [isFree, setIsFree] = React.useState(price <= 0);
+
+  React.useEffect(() => {
+    if (isFree && price !== 0) form.setValue("priceJpy", 0);
+  }, [isFree, price, form]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-4 text-sm">
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            checked={isFree}
+            onChange={() => setIsFree(true)}
+            className="h-4 w-4"
+          />
+          無料
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            checked={!isFree}
+            onChange={() => setIsFree(false)}
+            className="h-4 w-4"
+          />
+          有料
+        </label>
+      </div>
+      {!isFree && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm">¥</span>
+          <Input
+            type="number"
+            min={100}
+            max={10000000}
+            step={100}
+            inputMode="numeric"
+            className="max-w-[160px]"
+            {...form.register("priceJpy", { valueAsNumber: true })}
+          />
+          <span className="text-xs text-muted-foreground">100〜10,000,000円</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function labelStatus(s: ProductStatus): string {
+  switch (s) {
+    case "draft":
+      return "下書き";
+    case "published":
+      return "公開中";
+    case "suspended":
+      return "停止中";
+  }
+}

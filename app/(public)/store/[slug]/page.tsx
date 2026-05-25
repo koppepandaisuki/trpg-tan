@@ -1,108 +1,266 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { TopHeader } from "@/components/layout/top-header";
 import { ThreeColumn } from "@/components/layout/three-column";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CoverImage } from "@/components/store/cover-image";
+import { BuyButton } from "@/components/store/buy-button";
+import { getPublishedProductBySlug } from "@/lib/queries/products";
+import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
+import { formatPrice, isFree } from "@/lib/format/price";
+import { publicAvatarUrl, publicCoverUrl } from "@/lib/format/storage";
+import { getCurrentUser } from "@/lib/session/get-user";
+import { isAlreadyPurchased } from "@/lib/access/purchase-access";
+import type { ProductDetail } from "@/lib/queries/types";
+import { cn } from "@/lib/utils";
 
 interface PageProps {
   params: { slug: string };
 }
 
-const META_ROWS: { label: string; value: string }[] = [
-  { label: "対応システム", value: "—" },
-  { label: "プレイ人数", value: "—" },
-  { label: "プレイ時間", value: "—" },
-  { label: "推奨技能", value: "—" },
-  { label: "形式", value: "PDF" },
-  { label: "更新日", value: "—" },
-];
+export async function generateMetadata({ params }: PageProps) {
+  const product = await getPublishedProductBySlug(params.slug);
+  if (!product) return { title: "作品が見つかりません" };
+  return {
+    title: `${product.title} | TRPG プラットフォーム`,
+    description: product.description.slice(0, 120),
+  };
+}
 
-export default function WorkDetailPage({ params }: PageProps) {
+export default async function ProductDetailPage({ params }: PageProps) {
+  const product = await getPublishedProductBySlug(params.slug);
+  if (!product) notFound();
+
+  const coverUrl = publicCoverUrl(product.coverPath);
+  const avatarUrl = publicAvatarUrl(product.creator.avatarPath);
+
+  // CTA state — decided on the server so we never render a "buy" button to
+  // someone who already owns the product.
+  const user = await getCurrentUser();
+  const isOwnProduct = !!user && product.creator.id === user.id;
+  const purchased =
+    !!user && !isOwnProduct && !isFree(product.priceJpy)
+      ? await isAlreadyPurchased(user.id, product.id)
+      : false;
+
+  const ctaState: CtaState = isFree(product.priceJpy)
+    ? "free"
+    : isOwnProduct
+      ? "own"
+      : purchased
+        ? "purchased"
+        : user
+          ? "buy"
+          : "login";
+
   return (
     <>
       <TopHeader />
       <ThreeColumn
         right={
-          <div className="flex flex-col gap-4">
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle>購入オプション</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-2xl font-semibold">¥—</div>
-                <Button className="w-full" disabled>
-                  今すぐ購入(P7)
-                </Button>
-                <Button variant="outline" className="w-full" disabled>
-                  サンプルを見る
-                </Button>
-                <ul className="space-y-1 pt-2 text-xs text-muted-foreground">
-                  <li>ダウンロード商品</li>
-                  <li>購入後すぐにダウンロード可能</li>
-                  <li>形式・利用条件は詳細を参照</li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle>作者について</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  作者プロフィール(Phase 5以降で表示)
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          <PurchasePanel
+            product={product}
+            avatarUrl={avatarUrl}
+            ctaState={ctaState}
+          />
         }
       >
-        <nav className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>ホーム</span>
-          <span>›</span>
-          <span>ストア</span>
-          <span>›</span>
-          <span className="text-foreground">{params.slug}</span>
-        </nav>
+        <Breadcrumb product={product} />
 
-        <div className="mt-4 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">作品タイトル(プレースホルダー)</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              slug: <code className="rounded bg-muted px-1 py-0.5">{params.slug}</code>
-            </p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              <Badge variant="category">シナリオ</Badge>
-              <Badge variant="muted">タグ1</Badge>
-              <Badge variant="muted">タグ2</Badge>
-            </div>
+        <header className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="category">{categoryLabel(product.productType)}</Badge>
+            {product.tags.map((tag) => (
+              <Badge key={tag} variant="muted">
+                #{tag}
+              </Badge>
+            ))}
           </div>
-          <Badge variant="muted">P4</Badge>
-        </div>
+          <h1 className="text-2xl font-semibold tracking-tight">{product.title}</h1>
+          {product.systemLabel && (
+            <p className="text-sm text-muted-foreground">{product.systemLabel}</p>
+          )}
+        </header>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-          <div className="aspect-[16/10] w-full rounded-lg bg-muted" aria-hidden />
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <dl className="divide-y divide-border">
-                {META_ROWS.map((r) => (
-                  <div key={r.label} className="flex justify-between py-2 text-sm">
-                    <dt className="text-muted-foreground">{r.label}</dt>
-                    <dd>{r.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </CardContent>
-          </Card>
+          <CoverImage src={coverUrl} alt={product.title} />
+          <MetaTable product={product} />
         </div>
 
-        <section className="mt-8 space-y-3">
+        <section className="mt-10 space-y-3">
           <h2 className="text-lg font-semibold">作品の説明</h2>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            ここに作品の本文・あらすじが入ります。Phase 4 でDBから取得します。
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
+            {product.description || "(説明はまだ登録されていません)"}
           </p>
         </section>
       </ThreeColumn>
     </>
   );
+}
+
+function Breadcrumb({ product }: { product: ProductDetail }) {
+  return (
+    <nav className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <Link href="/" className="hover:text-foreground">
+        ホーム
+      </Link>
+      <span>›</span>
+      <Link
+        href={`/store?category=${product.productType}`}
+        className="hover:text-foreground"
+      >
+        {categoryLabel(product.productType)}
+      </Link>
+      <span>›</span>
+      <span className="text-foreground">{product.title}</span>
+    </nav>
+  );
+}
+
+function MetaTable({ product }: { product: ProductDetail }) {
+  const rows: Array<{ label: string; value: React.ReactNode }> = [
+    { label: "対応システム", value: product.systemLabel ?? "—" },
+    { label: "プレイ人数", value: product.players ?? "—" },
+    { label: "プレイ時間", value: product.playtime ?? "—" },
+    { label: "推奨技能", value: product.recommendedSkills ?? "—" },
+    { label: "形式", value: fileFormatLabel(product.fileFormat) },
+    { label: "商用利用", value: product.allowCommercial ? "可" : "不可" },
+    { label: "二次配布", value: product.allowRedistribution ? "可" : "不可" },
+    { label: "更新日", value: formatDate(product.updatedAt) },
+  ];
+
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="p-4">
+        <dl className="divide-y divide-border">
+          {rows.map((r) => (
+            <div key={r.label} className="flex justify-between gap-4 py-2 text-sm">
+              <dt className="text-muted-foreground">{r.label}</dt>
+              <dd className="text-right">{r.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
+type CtaState = "free" | "login" | "buy" | "purchased" | "own";
+
+function PurchaseCta({ product, state }: { product: ProductDetail; state: CtaState }) {
+  switch (state) {
+    case "free":
+      return (
+        <Button className="w-full" disabled>
+          無料で入手(準備中)
+        </Button>
+      );
+    case "login":
+      return (
+        <Link
+          href={`/login?next=${encodeURIComponent(`/store/${product.slug}`)}`}
+          className={cn(buttonVariants({ variant: "primary" }), "w-full")}
+        >
+          ログインして購入
+        </Link>
+      );
+    case "purchased":
+      return (
+        <Link
+          href="/library"
+          className={cn(buttonVariants({ variant: "primary" }), "w-full")}
+        >
+          ライブラリで見る
+        </Link>
+      );
+    case "own":
+      return (
+        <Button className="w-full" disabled>
+          自分の作品です
+        </Button>
+      );
+    case "buy":
+    default:
+      return <BuyButton productId={product.id} />;
+  }
+}
+
+function PurchasePanel({
+  product,
+  avatarUrl,
+  ctaState,
+}: {
+  product: ProductDetail;
+  avatarUrl: string | null;
+  ctaState: CtaState;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle>購入オプション</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="text-2xl font-semibold">{formatPrice(product.priceJpy)}</div>
+          <PurchaseCta product={product} state={ctaState} />
+          {ctaState === "purchased" && (
+            <p className="text-xs text-muted-foreground">
+              この作品は既に購入済みです。ライブラリからダウンロードできます。
+            </p>
+          )}
+          <ul className="space-y-1 pt-1 text-xs text-muted-foreground">
+            <li>ダウンロード商品</li>
+            <li>形式: {fileFormatLabel(product.fileFormat)}</li>
+            <li>商用利用: {product.allowCommercial ? "可" : "不可"}</li>
+            <li>二次配布: {product.allowRedistribution ? "可" : "不可"}</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle>作者について</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
+              {avatarUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {product.creator.displayName || "(名称未設定)"}
+              </p>
+            </div>
+          </div>
+          {product.creator.bio && (
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+              {product.creator.bio}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
 }

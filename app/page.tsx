@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,9 +7,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-const ROUTES = [
+const ROUTES: Array<{ href: Route; label: string; description: string; phase: string }> = [
   { href: "/store", label: "ストア一覧", description: "公開作品をブラウズ", phase: "P4" },
-  { href: "/store/sample-slug", label: "作品詳細(サンプル)", description: "メタ情報・購入導線", phase: "P4" },
+  { href: "/store/sample-slug" as Route, label: "作品詳細(サンプル)", description: "メタ情報・購入導線", phase: "P4" },
   { href: "/library", label: "ライブラリ", description: "購入済み作品(認証必須)", phase: "P6" },
   { href: "/creator/products", label: "作品管理", description: "クリエイター用一覧", phase: "P5" },
   { href: "/creator/products/new", label: "新規作成ビルダー", description: "作品の登録フォーム", phase: "P5" },

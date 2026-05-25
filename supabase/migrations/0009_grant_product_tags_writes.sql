@@ -1,0 +1,27 @@
+-- =====================================================================
+-- 0009_grant_product_tags_writes.sql
+--
+-- Hotfix: grant INSERT / DELETE on public.product_tags to `authenticated`.
+--
+-- 経緯:
+--   0006_grant_purchases_tags.sql で SELECT は付与済みだったが、INSERT /
+--   DELETE が漏れていた。lib/mutations/creator-products.ts の
+--   replaceTags() が auth client で .delete() + .insert() を呼ぶため、
+--   GRANT 不足で両方が permission denied を返す。
+--
+--   replaceTags は失敗を console.error でログするだけで throw しないため、
+--   親の updateMyProduct / createMyProduct は success として返り、
+--   ビルダー UI は「保存しました」を表示してしまう。実際には product_tags
+--   テーブルに 1 行も書かれない silent failure。F-1 / F-2 セクションで
+--   ACCEPTANCE 通過後に「タグが消える」現象として遅延発覚するリスクが
+--   あったため、ここで補填する。
+--
+--   UPDATE は不要(replaceTags は delete+insert パターンで update を使わない)。
+--
+-- RLS ポリシー(0002_rls_policies.sql)は既に整っている:
+--   - product_tags_insert_own_or_admin: 自作の product に対する INSERT のみ
+--   - product_tags_delete_own_or_admin: 自作の product に対する DELETE のみ
+-- GRANT を与えても、自分以外の作品のタグは触れない。
+-- =====================================================================
+
+grant insert, delete on public.product_tags to authenticated;
