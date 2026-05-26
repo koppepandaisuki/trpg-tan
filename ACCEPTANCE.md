@@ -51,7 +51,8 @@ A-5 が失敗する場合のほとんどは、`use client` を持つファイル
 | C-2 | 別ターミナルで `stripe listen --forward-to localhost:3000/api/stripe/webhook` を起動 | `whsec_...` が出力 |
 | C-3 | C-2 で得た `whsec_...` を `.env.local` の `STRIPE_WEBHOOK_SECRET` に設定 | キー設定済み |
 | C-4 | Stripe Dashboard の API version を `2024-06-20` に合わせる | コード側と一致 |
-| C-5 | `pnpm dev` を起動して `http://localhost:3000` が開ける | トップページ表示 |
+| C-5 | (D-020 PR2 以降)Stripe Dashboard で **Connect endpoint**(`connect: true`)を同じ URL `/api/stripe/webhook` に登録し、`account.updated` を購読。発行された別の `whsec_...` を `.env.local` の `STRIPE_CONNECT_WEBHOOK_SECRET` に設定 | キー設定済み・platform / Connect の 2 endpoint が同じ URL を指している |
+| C-6 | `pnpm dev` を起動して `http://localhost:3000` が開ける | トップページ表示 |
 
 ---
 

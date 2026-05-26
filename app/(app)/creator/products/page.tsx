@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { TopHeader } from "@/components/layout/top-header";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,9 +12,15 @@ import { cn } from "@/lib/utils";
 
 export const metadata = { title: "作品管理 | TRPG プラットフォーム" };
 
-const CREATOR_NAV = [
+const CREATOR_NAV: Array<{
+  label: string;
+  href: Route;
+  current: boolean;
+  disabled?: boolean;
+}> = [
   { label: "ダッシュボード", href: "/creator/products", current: false, disabled: true },
   { label: "作品管理", href: "/creator/products", current: true },
+  { label: "Stripe 接続", href: "/creator/onboarding", current: false },
   { label: "売上・分析", href: "/creator/products", current: false, disabled: true },
   { label: "設定", href: "/creator/products", current: false, disabled: true },
 ];
@@ -35,20 +42,31 @@ export default async function CreatorProductsPage() {
             <p className="px-2 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               クリエイターメニュー
             </p>
-            {CREATOR_NAV.map((item) => (
-              <span
-                key={item.label}
-                className={cn(
-                  "block rounded-md px-3 py-2 text-sm",
-                  item.current
-                    ? "bg-foreground/5 font-medium text-foreground"
-                    : "text-muted-foreground",
-                  item.disabled && "opacity-60",
-                )}
-              >
-                {item.label}
-              </span>
-            ))}
+            {CREATOR_NAV.map((item) => {
+              const baseClass = cn(
+                "block rounded-md px-3 py-2 text-sm",
+                item.current
+                  ? "bg-foreground/5 font-medium text-foreground"
+                  : "text-muted-foreground",
+                item.disabled && "opacity-60",
+              );
+              if (item.disabled || item.current) {
+                return (
+                  <span key={item.label} className={baseClass}>
+                    {item.label}
+                  </span>
+                );
+              }
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={cn(baseClass, "hover:bg-muted hover:text-foreground")}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
         }
       >

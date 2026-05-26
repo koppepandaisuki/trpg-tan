@@ -6,6 +6,7 @@ import {
   markPurchaseRefunded,
   type UpsertPurchaseInput,
 } from "@/lib/mutations/purchases";
+import { syncCreatorChargesEnabled } from "@/lib/mutations/creator-connect";
 
 /**
  * Webhook event handlers.
@@ -14,6 +15,7 @@ import {
  *   - checkout.session.completed              → write purchases row (paid)
  *   - checkout.session.async_payment_succeeded → same path (deferred payment)
  *   - charge.refunded                          → flip purchases.status to 'refunded'
+ *   - account.updated                          → sync profiles.stripe_charges_enabled (D-020 PR2)
  *
  * Sibling refund events (`charge.refund.updated`, `refund.created`,
  * `refund.updated`) are intentionally NOT handled here — the canonical
@@ -179,5 +181,76 @@ export async function handleChargeRefunded(
     chargeId: charge.id,
     sessionId: session.id,
     updated,
+  });
+}
+
+// =====================================================================
+// account.updated (Stripe Connect — D-020 PR2)
+// =====================================================================
+
+export type AccountOutcome =
+  | { type: "sync"; accountId: string; chargesEnabled: boolean }
+  | { type: "skip"; reason: string };
+
+/**
+ * Pure decision function for `account.updated` events.
+ *
+ * D-020 / PR2 のスコープでは「charges_enabled を profiles に同期する」だけが
+ * 関心事。details_submitted / payouts_enabled / requirements は意図的に
+ * 見ない:
+ *   - PR3 で導入する publish ガードは charges_enabled だけを根拠にする
+ *   - 他のフィールドを参照すると、Stripe 側の小さなステータス変化で
+ *     毎回 DB が書き換わる(冪等性は保たれるが意味のないノイズが増える)
+ *
+ * 純関数として切り出しているのは、他のハンドラ(decideCheckoutOutcome /
+ * decideRefundOutcome)と同じく Supabase に触らずに boundary をテストする
+ * ため。
+ */
+export function decideAccountOutcome(
+  account: Stripe.Account,
+): AccountOutcome {
+  if (!account.id) {
+    return { type: "skip", reason: "missing_account_id" };
+  }
+  if (typeof account.charges_enabled !== "boolean") {
+    return { type: "skip", reason: "missing_charges_enabled" };
+  }
+  return {
+    type: "sync",
+    accountId: account.id,
+    chargesEnabled: account.charges_enabled,
+  };
+}
+
+export async function handleAccountUpdated(
+  account: Stripe.Account,
+): Promise<void> {
+  const outcome = decideAccountOutcome(account);
+  if (outcome.type === "skip") {
+    console.info("[webhook] account.updated skip", {
+      accountId: account.id,
+      reason: outcome.reason,
+    });
+    return;
+  }
+
+  // 該当 profile が見つからない (当プラットフォーム経由ではない account)
+  // 場合は updated:false が返る。warn ログだけ残し 200 で ack する
+  // (Stripe リトライしても結果は変わらない)。
+  const { updated } = await syncCreatorChargesEnabled(
+    outcome.accountId,
+    outcome.chargesEnabled,
+  );
+
+  if (!updated) {
+    console.warn("[webhook] account.updated: no matching profile", {
+      accountId: outcome.accountId,
+    });
+    return;
+  }
+
+  console.info("[webhook] account.updated synced", {
+    accountId: outcome.accountId,
+    chargesEnabled: outcome.chargesEnabled,
   });
 }
