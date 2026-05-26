@@ -1,9 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
-import { getStripe, getWebhookSecret } from "@/lib/stripe/client";
+import {
+  getStripe,
+  getWebhookSecret,
+  getConnectWebhookSecret,
+} from "@/lib/stripe/client";
 import {
   handleCheckoutCompleted,
   handleChargeRefunded,
+  handleAccountUpdated,
 } from "@/lib/stripe/webhook";
 
 /**
@@ -32,17 +37,32 @@ export async function POST(request: NextRequest) {
 
   const rawBody = await request.text();
 
+  // D-020 PR2: this URL is registered as TWO endpoints in Stripe Dashboard
+  // (one platform-events, one Connect). Each has its own signing secret.
+  // Try the platform secret first (most traffic), then fall back to the
+  // Connect secret if present. Reject only when neither verifies.
   let event: Stripe.Event;
-  try {
-    const stripe = getStripe();
-    const secret = getWebhookSecret();
-    event = stripe.webhooks.constructEvent(rawBody, sig, secret);
-  } catch (err) {
+  const stripe = getStripe();
+  const secrets: string[] = [getWebhookSecret()];
+  const connectSecret = getConnectWebhookSecret();
+  if (connectSecret) secrets.push(connectSecret);
+
+  let lastErrMessage = "unknown";
+  let verified = false;
+  // Cast to satisfy strict TS — we only use `event` after `verified` is true.
+  event = null as unknown as Stripe.Event;
+  for (const secret of secrets) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, sig, secret);
+      verified = true;
+      break;
+    } catch (err) {
+      lastErrMessage = err instanceof Error ? err.message : "unknown";
+    }
+  }
+  if (!verified) {
     // Do not log the body or signature — keep the footprint small.
-    console.warn(
-      "[webhook] signature verification failed:",
-      err instanceof Error ? err.message : "unknown",
-    );
+    console.warn("[webhook] signature verification failed:", lastErrMessage);
     return NextResponse.json({ error: "invalid signature" }, { status: 400 });
   }
 
@@ -60,6 +80,14 @@ export async function POST(request: NextRequest) {
         // (see decideRefundOutcome in lib/stripe/webhook.ts).
         const charge = event.data.object as Stripe.Charge;
         await handleChargeRefunded(charge);
+        break;
+      }
+
+      case "account.updated": {
+        // D-020 PR2: sync profiles.stripe_charges_enabled.
+        // No-op for accounts not in our DB (warn log + 200 ack).
+        const account = event.data.object as Stripe.Account;
+        await handleAccountUpdated(account);
         break;
       }
 

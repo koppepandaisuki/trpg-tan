@@ -237,6 +237,7 @@
 - **publish ガード**: `profiles.stripe_charges_enabled = true` を満たさない creator は商品を publish できない(draft は可)。実装は PR3
 - **冪等性**: `account.updated` の `charges_enabled` フラグを単に上書きするだけなので idempotent
 - **返金時の挙動**: Stripe が `application_fee` を自動で逆算返金する(reverse transfer)。アプリ側で別途処理は不要
+- **将来の移行余地**: Stripe は Express を今後も提供する前提で本 entry を採用したが、Express の制限(creator dashboard カスタマイズ不可、payout 制御の柔軟性が低い、税フォーム周りの将来仕様)が顕在化した場合は Custom / Standard への移行を再検討する。Custom 移行は KYC 自前管理が必要、Standard 移行は Checkout 構造の再設計が必要。本 PR シリーズ完了後の α運用フィードバックで判断する
 - **PR 分割**:
   - **PR1**: DB 列追加(`profiles.stripe_account_id` / `stripe_charges_enabled`、`purchases.application_fee_jpy` / `creator_id`)+ decisions.md 追記。コード変更ゼロ、既存挙動への影響なし。migration `0010_stripe_connect_columns.sql`
   - **PR2**: `/creator/onboarding` + `POST /api/stripe/connect/onboarding-link`(`accountLinks.create`)+ `account.updated` webhook で `stripe_charges_enabled` を同期。publish ガードは未投入(挙動変化なし)

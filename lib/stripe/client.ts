@@ -46,3 +46,21 @@ export function getWebhookSecret(): string {
   }
   return secret;
 }
+
+/**
+ * Connect webhook signing secret (D-020 PR2).
+ *
+ * Stripe Connect events for connected accounts (e.g. `account.updated`) are
+ * delivered from a SEPARATE webhook endpoint configured as `connect: true`
+ * in the Dashboard, which has its own signing secret. We point that endpoint
+ * to the same URL (`/api/stripe/webhook`) and let the route handler try both
+ * secrets during signature verification.
+ *
+ * Returns `null` (not throw) when unset so the route handler can fall back
+ * to the primary secret only. This keeps the platform-only deployment path
+ * working without forcing the Connect env var to be present.
+ */
+export function getConnectWebhookSecret(): string | null {
+  const secret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+  return secret && secret.length > 0 ? secret : null;
+}
