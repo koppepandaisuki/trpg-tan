@@ -220,6 +220,28 @@
 - `signed-upload-url.ts` は `createSignedUploadUrl(path, { upsert: true })` のみで `expiresIn` を渡さない(SDK 非対応、JSON レスポンスでのみクライアントに意図を伝達)
 - ビルダーで `fileFormat` を変更直後にアップロードすると、サーバーが DB の旧 `file_format` と比較して 400 invalid_mime を返す。UI 側で「先に下書き保存してから添付」のヒントテキストで案内
 
+### D-020 Stripe Connect (Express, destination charge, 30% fee)
+
+- **採用**: Stripe Connect (Express)、destination charge 方式、application_fee 30% 固定
+- **理由**:
+  - クリエイターへの送金を Stripe に委ね、資金移動業 / KYC / 反社チェックの自前運用を回避
+  - Express は KYC を Stripe ホスト画面に委譲しつつ、Stripe Dashboard を creator に渡さず済む(MVP に丁度よい中間)
+  - destination charge は Checkout を**プラットフォーム側に残せる**ため、現行 `/api/checkout` のフローを最小改修で拡張できる(separate charge & transfer 方式は creator account 側で Checkout する必要があり既存実装と非互換)
+- **却下**:
+  - Standard(creator が独自 Stripe Dashboard を持ち、UX が分散)
+  - Custom(KYC を自前で抱え込み MVP 範囲を超える)
+  - separate charge & transfer 方式(既存 Checkout を書き直す必要)
+- **収益配分**: `application_fee_amount = round(amount_jpy * 0.30)` 固定。将来レート変更でも過去購入の分配を保全するため、`purchases.application_fee_jpy` に購入時点のスナップショットを保存する
+- **国 / 通貨**: JP 限定(`country: 'JP'`)、currency は jpy のまま
+- **支払い手段拡張(PayPay / コンビニ等)は本 entry の対象外**。Connect の構造に影響しないため、後続 PR / P2 で `payment_method_types` を追加するだけで対応
+- **publish ガード**: `profiles.stripe_charges_enabled = true` を満たさない creator は商品を publish できない(draft は可)。実装は PR3
+- **冪等性**: `account.updated` の `charges_enabled` フラグを単に上書きするだけなので idempotent
+- **返金時の挙動**: Stripe が `application_fee` を自動で逆算返金する(reverse transfer)。アプリ側で別途処理は不要
+- **PR 分割**:
+  - **PR1**: DB 列追加(`profiles.stripe_account_id` / `stripe_charges_enabled`、`purchases.application_fee_jpy` / `creator_id`)+ decisions.md 追記。コード変更ゼロ、既存挙動への影響なし。migration `0010_stripe_connect_columns.sql`
+  - **PR2**: `/creator/onboarding` + `POST /api/stripe/connect/onboarding-link`(`accountLinks.create`)+ `account.updated` webhook で `stripe_charges_enabled` を同期。publish ガードは未投入(挙動変化なし)
+  - **PR3**: `/api/checkout` に `application_fee_amount` + `transfer_data.destination` を付与、`handleCheckoutCompleted` で `application_fee_jpy` / `creator_id` を保存、`publishSchema` に Connect 完了ガードを投入。**ここで初めて挙動が変わる**。本番 creator の onboarding 完了が 1 件以上ある状態で merge する
+
 ---
 
 ## 2. UI / UX 判断
