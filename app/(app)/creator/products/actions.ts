@@ -9,6 +9,7 @@ import {
   createMyProduct,
   updateMyProduct,
 } from "@/lib/mutations/creator-products";
+import { getMyConnectStatus } from "@/lib/queries/creator-connect";
 
 /**
  * Two Server Actions:
@@ -67,6 +68,19 @@ export async function publishAction(
   const user = await requireCreator();
   const parsed = publishSchema.safeParse(input);
   if (!parsed.success) return formatZodError(parsed.error);
+
+  // D-020 PR3: publish には Stripe Connect onboarding 完了が必須。
+  // Connect 未完了なら destination charge が組めない = 公開できても購入
+  // できないため、公開時点で弾く(draft は引き続き可)。
+  // チェックは Server Action 側で行う(publishSchema は DB アクセス不可で
+  // ここまで持ってこれないため)。
+  const connect = await getMyConnectStatus(user.id);
+  if (!connect.stripeChargesEnabled) {
+    return {
+      error:
+        "公開には Stripe 接続(受取口座設定)の完了が必要です。クリエイターメニュー → Stripe 接続 から手続きしてください",
+    };
+  }
 
   if (productId) {
     try {

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/session/get-user";
 import { canPurchase } from "@/lib/access/purchase-access";
 import { isSameOriginRequest } from "@/lib/api/origin";
 import { getStripe } from "@/lib/stripe/client";
+import { calculateApplicationFeeJpy } from "@/lib/stripe/fees";
 
 /**
  * POST /api/checkout
@@ -62,6 +63,18 @@ export async function POST(request: NextRequest) {
   const stripe = getStripe();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+  // D-020 PR3: destination charge with platform fee.
+  //   - application_fee_amount … プラットフォーム取り分(JPY 円整数)
+  //   - transfer_data.destination … クリエイターの Connect account ID
+  //   両方を payment_intent_data に渡すことで、Stripe 側で
+  //   「決済 → 70% を creator へ即時 transfer、30% は platform 残」が成立する。
+  //
+  //   返金時は Stripe が自動で application_fee も逆算返金する
+  //   (reverse transfer)。アプリ側で別途処理は不要。
+  const applicationFeeJpy = calculateApplicationFeeJpy(
+    decision.product.priceJpy,
+  );
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -87,8 +100,18 @@ export async function POST(request: NextRequest) {
         slug: decision.product.slug,
         priceJpy: String(decision.product.priceJpy),
         productType: decision.product.productType,
+        // PR3: webhook が `purchases.creator_id` /
+        // `purchases.application_fee_jpy` を取得する経路。session を
+        // 直接読むより metadata 経由のほうが Stripe API 呼び出しを
+        // 増やさずに済む。
+        creatorId: decision.product.creatorId,
+        applicationFeeJpy: String(applicationFeeJpy),
       },
       payment_intent_data: {
+        application_fee_amount: applicationFeeJpy,
+        transfer_data: {
+          destination: decision.product.creatorStripeAccountId,
+        },
         // Mirror productId/userId so refund-related events (Phase 8) can
         // resolve the purchase without joining through the checkout session.
         metadata: {
