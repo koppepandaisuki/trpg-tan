@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
  * Purchase access checks.
  *
  * Two functions:
- *   - canPurchase(userId, productId)         used by POST /api/checkout
+ *   - canPurchase(userId, productId)        used by POST /api/checkout
  *   - isAlreadyPurchased(userId, productId)  used by /store/[slug] to swap CTA
  *
  * Defense in depth:
@@ -14,6 +14,9 @@ import { createClient } from "@/lib/supabase/server";
  *   - "creator's own product" and "product not found / not published" collapse
  *     into the same `not_found` response so existence isn't leaked via 404s
  *     on draft / suspended products.
+ *   - (D-020 PR3) canPurchase also fetches creator's stripe_account_id so
+ *     the checkout route can wire transfer_data.destination without an extra
+ *     round-trip.
  */
 
 export type ProductForCheckout = {
@@ -23,52 +26,56 @@ export type ProductForCheckout = {
   priceJpy: number;
   productType: string;
   creatorId: string;
+  /** Stripe Connect account ID of the creator (null when not onboarded). */
+  creatorStripeAccountId: string | null;
 };
 
 export type PurchaseDecision =
   | { ok: true; product: ProductForCheckout }
   | {
       ok: false;
-      reason: "not_found" | "free" | "already_purchased";
-      status: 400 | 404 | 409;
+      reason: "not_found" | "free" | "already_purchased" | "creator_not_onboarded";
+      status: number;
       message: string;
     };
 
+/**
+ * canPurchase — gate for POST /api/checkout.
+ *
+ * Returns ok:true + product details (incl. creator stripe account) when the
+ * purchase is allowed; ok:false with a reason otherwise.
+ */
 export async function canPurchase(
   userId: string,
   productId: string,
 ): Promise<PurchaseDecision> {
-  if (!isUuid(productId)) {
-    return {
-      ok: false,
-      reason: "not_found",
-      status: 404,
-      message: "作品が見つかりません",
-    };
-  }
-
   const supabase = createClient();
 
-  // Fetch the product. RLS for an authenticated user permits read when the
-  // product is 'published' OR the user is the creator. Both cases are
-  // possible here; we filter explicitly below.
+  // Fetch product + creator stripe info in one query via join.
   const { data: product, error } = await supabase
     .from("products")
-    .select("id, slug, title, price_jpy, product_type, creator_id, status")
+    .select(
+      `id, slug, title, price_jpy, product_type, creator_id, status,
+       profiles!creator_id ( stripe_account_id, stripe_charges_enabled )`,
+    )
     .eq("id", productId)
     .maybeSingle();
 
-  if (error || !product) {
+  if (error) {
     return {
       ok: false,
       reason: "not_found",
-      status: 404,
-      message: "作品が見つかりません",
+      status: 500,
+      message: "データベースエラーが発生しました",
     };
   }
 
   // Hide draft / suspended / own products behind the same 404.
-  if (product.status !== "published" || product.creator_id === userId) {
+  if (
+    !product ||
+    product.status !== "published" ||
+    product.creator_id === userId
+  ) {
     return {
       ok: false,
       reason: "not_found",
@@ -77,24 +84,26 @@ export async function canPurchase(
     };
   }
 
-  if (product.price_jpy <= 0) {
+  // Free products are not purchasable via Stripe.
+  if (product.price_jpy === 0) {
     return {
       ok: false,
       reason: "free",
       status: 400,
-      message: "無料作品の入手は準備中です",
+      message: "この作品は無料です",
     };
   }
 
-  // Already-purchased check. Surface this explicitly — UX over secrecy here
-  // because the user already owns the product and benefits from being told.
-  const purchased = await isAlreadyPurchased(userId, productId);
-  if (purchased) {
+  // (D-020 PR3) Creator must have completed Stripe Connect onboarding.
+  const creatorProfile = Array.isArray(product.profiles)
+    ? product.profiles[0]
+    : product.profiles;
+  if (!creatorProfile?.stripe_charges_enabled) {
     return {
       ok: false,
-      reason: "already_purchased",
-      status: 409,
-      message: "すでに購入済みの作品です。ライブラリからご利用ください",
+      reason: "creator_not_onboarded",
+      status: 503,
+      message: "クリエイターの決済設定が完了していません",
     };
   }
 
@@ -107,29 +116,26 @@ export async function canPurchase(
       priceJpy: product.price_jpy,
       productType: product.product_type,
       creatorId: product.creator_id,
+      creatorStripeAccountId: creatorProfile.stripe_account_id ?? null,
     },
   };
 }
 
+/**
+ * isAlreadyPurchased — used by /store/[slug] to render the correct CTA.
+ */
 export async function isAlreadyPurchased(
   userId: string,
   productId: string,
 ): Promise<boolean> {
-  if (!isUuid(productId)) return false;
   const supabase = createClient();
+
   const { data } = await supabase
     .from("purchases")
     .select("id")
     .eq("user_id", userId)
     .eq("product_id", productId)
-    .eq("status", "paid")
-    .limit(1)
     .maybeSingle();
-  return !!data;
-}
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isUuid(value: string): boolean {
-  return UUID_RE.test(value);
+  return data !== null;
 }
