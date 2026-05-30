@@ -14,6 +14,11 @@ import { createClient } from "@/lib/supabase/server";
  *   - "creator's own product" and "product not found / not published" collapse
  *     into the same `not_found` response so existence isn't leaked via 404s
  *     on draft / suspended products.
+ *   - (D-020 PR3) canPurchase additionally fetches the creator's Stripe
+ *     Connect status via a join so the checkout route can wire
+ *     transfer_data.destination + application_fee_amount without an extra
+ *     round-trip, and so we can refuse purchases when the creator's
+ *     onboarding is incomplete (`creator_not_onboarded`).
  */
 
 export type ProductForCheckout = {
@@ -23,14 +28,23 @@ export type ProductForCheckout = {
   priceJpy: number;
   productType: string;
   creatorId: string;
+  /** Stripe Connect account ID of the creator. Non-null by the time we
+   *  reach the `ok: true` branch (the `creator_not_onboarded` gate above
+   *  rejects when charges_enabled is false, which implies no usable
+   *  account). */
+  creatorStripeAccountId: string;
 };
 
 export type PurchaseDecision =
   | { ok: true; product: ProductForCheckout }
   | {
       ok: false;
-      reason: "not_found" | "free" | "already_purchased";
-      status: 400 | 404 | 409;
+      reason:
+        | "not_found"
+        | "free"
+        | "already_purchased"
+        | "creator_not_onboarded";
+      status: 400 | 404 | 409 | 503;
       message: string;
     };
 
@@ -49,12 +63,19 @@ export async function canPurchase(
 
   const supabase = createClient();
 
-  // Fetch the product. RLS for an authenticated user permits read when the
-  // product is 'published' OR the user is the creator. Both cases are
-  // possible here; we filter explicitly below.
+  // Fetch the product joined with the creator's Connect status.
+  // RLS for an authenticated user permits read when the product is
+  // 'published' OR the user is the creator. Both cases reach here; we
+  // filter explicitly below. The profiles join uses `creator_id` FK and
+  // is permitted by `public_profiles` access (Connect columns belong to
+  // the profiles row owned by the creator; RLS allows reading own + via
+  // joined product read paths).
   const { data: product, error } = await supabase
     .from("products")
-    .select("id, slug, title, price_jpy, product_type, creator_id, status")
+    .select(
+      `id, slug, title, price_jpy, product_type, creator_id, status,
+       profiles!products_creator_id_fkey ( stripe_account_id, stripe_charges_enabled )`,
+    )
     .eq("id", productId)
     .maybeSingle();
 
@@ -98,6 +119,25 @@ export async function canPurchase(
     };
   }
 
+  // (D-020 PR3) Creator must have completed Stripe Connect onboarding.
+  // We treat missing profile row or null fields as "not onboarded" — the
+  // checkout cannot succeed at Stripe without a valid destination
+  // account, and revealing more detail would leak Connect state.
+  const creatorProfile = Array.isArray(product.profiles)
+    ? product.profiles[0]
+    : product.profiles;
+  const stripeAccountId = creatorProfile?.stripe_account_id ?? null;
+  const chargesEnabled = creatorProfile?.stripe_charges_enabled ?? false;
+  if (!stripeAccountId || !chargesEnabled) {
+    return {
+      ok: false,
+      reason: "creator_not_onboarded",
+      status: 503,
+      message:
+        "このクリエイターの決済設定が完了していません。しばらく時間をおいて再度お試しください",
+    };
+  }
+
   return {
     ok: true,
     product: {
@@ -107,6 +147,7 @@ export async function canPurchase(
       priceJpy: product.price_jpy,
       productType: product.product_type,
       creatorId: product.creator_id,
+      creatorStripeAccountId: stripeAccountId,
     },
   };
 }

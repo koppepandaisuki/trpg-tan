@@ -42,6 +42,9 @@ Thumbs.db
 # supabase
 supabase/.branches
 supabase/.temp
+# Locally extracted supabase CLI binaries (do not commit)
+/supabase.exe
+/supabase-go.exe
 
 # misc
 coverage

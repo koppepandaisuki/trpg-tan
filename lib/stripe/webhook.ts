@@ -64,6 +64,19 @@ export function decideCheckoutOutcome(
     return { type: "ignore", reason: "missing_amount_or_currency" };
   }
 
+  // D-020 PR3 metadata: creatorId / applicationFeeJpy のスナップショット。
+  // pre-PR3 の session 再配信を許容するため、missing の場合は ignore せず
+  // null を入れて persist する(列は nullable: PR1 設計)。
+  // applicationFeeJpy は文字列で metadata に入っているため number へパース。
+  // パース失敗時は null(payload 異常としてログだけ残し、本体は記録する)。
+  const creatorId = session.metadata?.creatorId ?? null;
+  const rawFee = session.metadata?.applicationFeeJpy;
+  let applicationFeeJpy: number | null = null;
+  if (rawFee != null && rawFee !== "") {
+    const parsed = Number(rawFee);
+    applicationFeeJpy = Number.isFinite(parsed) ? parsed : null;
+  }
+
   return {
     type: "persist",
     input: {
@@ -73,6 +86,8 @@ export function decideCheckoutOutcome(
       amountJpy: session.amount_total,
       currency: session.currency,
       paidAt: now(),
+      applicationFeeJpy,
+      creatorId,
     },
   };
 }

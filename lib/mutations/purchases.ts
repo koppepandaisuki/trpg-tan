@@ -24,6 +24,18 @@ export type UpsertPurchaseInput = {
   amountJpy: number;
   currency: string;
   paidAt: Date;
+  /**
+   * Snapshot of the platform application fee at purchase time (JPY).
+   * D-020 PR3. Nullable to remain compatible with pre-PR3 webhook payloads
+   * that never carried this in metadata.
+   */
+  applicationFeeJpy?: number | null;
+  /**
+   * Snapshot of products.creator_id at purchase time. D-020 PR3. Nullable
+   * for the same reason as applicationFeeJpy, and also because
+   * purchases.creator_id is `on delete set null` for creator removal cases.
+   */
+  creatorId?: string | null;
 };
 
 export async function upsertPurchaseFromSession(
@@ -41,6 +53,9 @@ export async function upsertPurchaseFromSession(
       currency: input.currency,
       status: "paid",
       paid_at: input.paidAt.toISOString(),
+      // D-020 PR3: snapshots for accounting / future settlement UI
+      application_fee_jpy: input.applicationFeeJpy ?? null,
+      creator_id: input.creatorId ?? null,
     })
     .select("id")
     .single();
