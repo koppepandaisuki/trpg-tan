@@ -243,6 +243,145 @@
   - **PR2**: `/creator/onboarding` + `POST /api/stripe/connect/onboarding-link`(`accountLinks.create`)+ `account.updated` webhook で `stripe_charges_enabled` を同期。publish ガードは未投入(挙動変化なし)
   - **PR3**: `/api/checkout` に `application_fee_amount` + `transfer_data.destination` を付与、`handleCheckoutCompleted` で `application_fee_jpy` / `creator_id` を保存、`publishSchema` に Connect 完了ガードを投入。**ここで初めて挙動が変わる**。本番 creator の onboarding 完了が 1 件以上ある状態で merge する
 
+### D-021 Desktop App + Web ハイブリッド配信(Phase 2 計画)
+
+- **採用**: TRPG 制作・遊技は **1 つの Desktop App**(Build / Play モード切替式)で提供、Web は補完
+- **Web の責務**: ストア閲覧、購入、アカウント管理、ライブラリ確認、PL ライト参加(チャット + シーン閲覧 + 自分のダイス)
+- **Desktop App の責務**: Build モード(パッケージ作成・アセット配置・販売エクスポート)、Play モード(GM フル / PL フル)
+- **理由**:
+  - Build の体験(プレビュー駆動の編集、ローカル素材ドラッグ&ドロップ、オフライン作業)は Web では成立しない
+  - Play の体験(BGM/SE 同時再生、立ち絵 + 背景のぬるぬる切替、長時間セッション)も Web の信頼性で詰まる
+  - Steam モデル(Web ストア + Desktop クライアント)が TRPG プラットフォームの自然解
+- **却下**:
+  - Web 単独継続 → 上記性能・権限制約で行き詰まる
+  - Build と Play を別アプリ配布 → インストール / 更新 / 学習コスト 2 倍、利点なし
+- **Web ライト版の上限**: PL として「観戦・チャット参加・自分のキャラのダイスロール」のみ。**BGM/SE 制御・シーン編集・販売エクスポートは Desktop App 専用**
+- **着手フェーズ**: α 運用フィードバック後の Phase 2(P2 Backlog B-20)
+
+### D-022 商品タイプ拡張(`package` 追加)と TRPG パッケージ .zip 構造
+
+- **採用**: `products.product_type` CHECK 制約に **`package` / `background` / `sfx_audio`** を追加
+- **既存維持**: `scenario` / `rulebook` / `character_art` / `map` / `bgm_audio`
+- **`map` と `background` の使い分け**: `map` = 戦闘マップ(グリッド付き、駒を置く / Phase 2)、`background` = シーン演出用の絵(立ち絵が乗る背景)
+- **パッケージ商品 (`package`) の内部構造(zip)**:
+  - `manifest.json`(schema_version、title、system、players、playtime、tags)
+  - `scenario/`(scenario.md / scenario.pdf、handouts/*)
+  - `assets/{backgrounds,bgms,sfxs,characters,maps}/`
+  - `scenes/01_intro.json …`(プリセット = シーン定義、ワンクリック切替対象)
+  - `chat_palettes/`(キャラ別ダイス / セリフテンプレ、Phase 2)
+  - `npc_sheets/`(KP 専用 NPC ステータス、Phase 2)
+- **単体アセット商品の zip 構造**:
+  - `manifest.json`(type、title、license)
+  - `asset/`(実体ファイル 1 つ)
+  - `preview/`(thumbnail、preview clip 任意)
+- **流通**: 既存の `products.file_path` 1 ファイル経路をそのまま流用。zip 内部解釈は Desktop Play App の責務
+- **アセット再利用の将来余地**: 重複アセット(同 BGM が複数 package に同梱)は Phase 2 以降で `asset://<sha256>` 共通化、または asset marketplace (B-4) で解決
+- **着手フェーズ**: 商品タイプ追加 migration は α 運用後(B-20 と同時)、内部 zip 構造は Desktop App 実装と同時(B-20)
+
+### D-023 Build / Play は 1 アプリ 2 モード + 16:9 論理キャンバス
+
+- **採用**: Desktop App は **Build モード**と **Play モード**を同一バイナリで提供、シームレス切替
+- **理由**:
+  - creator は Build → テスト Play → 修正 を高速ループする(Cocofolia にない強み)
+  - 同じレンダリングエンジンを共有 = 実装コスト 1 倍
+  - インストール / 更新管理が一本化、Steam クライアント体験
+- **却下**:
+  - 2 アプリ別配布 → インストール・更新・学習コスト 2 倍
+  - Play のみ Desktop、Build は Web に残す → 性能不足、プレビュー駆動編集ができない
+- **画角設計**: **中央プレビューエリアは 16:9 論理キャンバス**(絶対 px 数固定しない)
+  - PL 画面: 全画面化、ウィジェットは引き出し式
+  - GM 画面: 中央プレビューが同じ 16:9、サイドバーは別領域。GM ↔ PL で「映っているもの」が画角一致
+  - 物理画面差(1366×768 ノート等)は端末側で自動スケール
+- **Build モード = 全員向け、販売エクスポート = creator 限定**(Q3 = C ハイブリッド):
+  - 買い手も Build で「自分のセッション用シーン」を作成・自分の素材を混在可
+  - 「販売 zip エクスポート」ボタンだけ creator 申請通過後に有効化
+  - これで Cocofolia 文化(GM = creator が当然のように Build する)と整合
+- **MVP 機能スコープ(スリム)**: シーン + 立ち絵 + BGM + SE + チャット + ダイス + 共有/個人メモ + キャラシ
+- **Phase 2 機能**: マップ + 駒(タクティカル戦闘)、チャットパレット、ハンドアウト、NPC マネージャー
+- **GM / プレイヤーモード差分**: 同じレイアウト、機能制限のみ違う(GM = 全機能、PL = 自キャラ操作とチャット中心、他キャラ隠しメモ非表示)
+- **着手フェーズ**: α 運用後の Phase 2(B-20)
+
+### D-024 購入物の改変と再販ポリシー
+
+- **個人利用範囲**: 購入したパッケージ・単体アセットを buyer が **改変・自分のセッションで利用・無償の身内共有** することは無制限に許可
+- **販売エクスポートの制限(MVP)**: 本サイト経由で**商品として販売できるのは「自作 100% のパッケージ」のみ**
+  - 購入した他人のアセットを混ぜたパッケージは MVP では販売不可
+  - Build ツール側で警告 + サーバー側 zip スキャンの二重検証
+  - 違反検出時は `400 invalid_content` で publish を拒否
+- **権利フラグ**: 既存 `products.allow_commercial` / `allow_redistribution` を継続使用
+  - MVP では「内包」判定で `allow_redistribution = true` のアセットのみ販売 zip に同梱可、という挙動を Phase 2 で実装(B-XX)
+- **理由**:
+  - creator が「自分の作品を勝手に再販されない」安心感を担保(マーケットプレイス成立の前提)
+  - 「個人改変は青天井」は Cocofolia 文化との互換性、買い手の体験
+  - 他人アセット混在販売を許す機構(asset marketplace、ロイヤリティ分配)は B-4 で別途設計
+- **規約上の取扱**: 「購入物を改変したものを **本サイト以外で配布** することについては元 creator の同意が必要」を ToS に明記
+
+### D-025 Play セッションのリアルタイム同期は Supabase Realtime
+
+- **採用**: セッション中の状態同期は **Supabase Realtime チャネル**(broadcast + presence)
+- **却下**: P2P (WebRTC)
+  - GM 端末がホスト → 落ちたら全員落ちる脆さ
+  - NAT 越え必須(結局 STUN/TURN サーバーが要る)
+  - 企業 / 公衆ネットワークでブロックされやすい
+  - 同期ロジック(再接続・状態 reconciliation)を自前実装する重さ
+- **メッセージ最適化戦略**:
+  - シーン切替・チャット・ダイス結果 → broadcast 即時
+  - 立ち絵ドラッグ中の高頻度位置更新 → 端末側で 100ms デバウンス、最終位置のみ送信
+  - 大きいアセット(立ち絵画像、BGM)→ Storage 経由で別 DL(同期外)
+- **セーブデータ**(リアルタイム同期と別問題):
+  - チャットログ・ダイス履歴・シーン遷移ログ・キャラシ HP/SAN 変動などは Supabase DB に永続保存
+  - 1 セッション平均 5〜10MB、Pro プランで 1000 ユーザー × 100 セッションまで賄える
+  - 90 日 / 1 年の保存期間はサブスクプランで差別化(D-026)
+- **スケーリングの将来余地**: Supabase Realtime の制約に当たったら Phoenix Channels / 自前 WebSocket サーバーへの移行を再評価
+- **着手フェーズ**: Play 機能本実装と同時(B-20)
+
+### D-026 経済モデル — プレイヤー無料 + GM 2 段階サブスク + 商品 30%
+
+- **採用**: 課金は **GM のみ**、プレイヤーは完全無料(参加・購入・所有確認・キャラシ作成すべて無料)
+- **理由**:
+  - TRPG 文化の準備労力非対称(GM が準備、PL は参加)に対応
+  - PL 無料が GM の利益(参加障壁ゼロでセッションが立つ)
+  - 業界標準(Roll20、Foundry VTT、Cocofolia donation、Zoom 等)
+- **GM Standard プラン ¥500 / 月**:
+  - セッションホスト無制限(同時 1)、PL 上限 8
+  - セッションログ保存 90 日
+  - AI Q&A 月 50 回(Phase 2 実装後)
+  - Build モード販売エクスポート可(creator 申請通過後)
+  - Build 用ストレージ 500MB
+- **GM Premium プラン ¥1000 / 月**(Standard 全機能 +):
+  - 同時 3 セッション、PL 上限 16
+  - ログ保存 1 年、AI Q&A 月 200 回、ストレージ 5GB
+  - Verified Creator バッジ
+  - Featured Creator 枠(ストアトップローテーション参加)
+  - クリエイター分析ダッシュボード(売上推移、商品別パフォーマンス、購入者属性)
+  - 優先サポート + ベータ機能早期アクセス
+- **商品売買マージン**: 30% プラットフォーム / 70% creator(D-020 を継承、サブスクと無関係に flat)
+- **AI Q&A 超過分**: GM がプリペイドポイントで追加チャージ(B-5 / B-21)
+- **損益分岐**: 固定費 ~¥10,000 / 月、有料 GM 20 名で黒字化、100 名で快適運営、1,000 名で大規模化
+- **初期獲得施策(α 期間後に検討)**: 30 日無料トライアル、年間プラン割引、creator 売上連動の月額無料特典 — α 運用フィードバック後に判断
+- **着手フェーズ**: Stripe Subscription 導入(B-33)。MVP では「無料 + 商品 30% only」で運用開始、サブスク本実装は B-20(Play 機能本実装)と同時期
+
+### D-027 キャラクターシート機能(クトゥルフ 6e / 7e 内蔵 + JSON import)
+
+- **採用**: アプリ内でキャラクターシートを作成・編集できる機能を Desktop MVP に追加
+- **理由**:
+  - 本サイトの目的「ここさえあれば一括で TRPG が楽しめる」の核心機能
+  - Cocofolia + 別キャラシサイト(CCFOLIA キャラシ作成等)の往復を統合
+- **MVP 対応システム**:
+  - **クトゥルフ神話 TRPG 6e**(日本 TRPG 界で現役、BOOTH 既存シナリオの過半数が 6e ベース)
+  - **クトゥルフ神話 TRPG 7e**
+  - 既存キャラシ JSON(CCFOLIA キャラシ作成サイト互換)の **import** 機能
+- **データモデル**:
+  - `character_sheets (id uuid pk, owner_id uuid → profiles, system text('coc6' | 'coc7' | …), schema_version int, data jsonb, portrait_path text, created_at, updated_at)`
+  - 6e / 7e は独立スキーマで運用(統合スキーマだと両方歪む)
+  - 版変換は不可(creator が選んだ版で再作成)
+- **連携機能(Play モード)**:
+  - 「ポイントを振った技能のみ」をワンクリックロールボタン化
+  - 初期値技能はチャット欄のコマンド入力でロール
+  - キャラシは Realtime でセッション参加者(GM + 自分)が閲覧可、他 PL は閲覧制限可
+- **着手フェーズ**: Play 機能と同時(B-20)
+- **将来拡張**: D&D 5e、シノビガミ、エモクロア等の他システムは Phase 2(B-22)。キャラシテンプレ販売は Phase 3(B-32、新 product_type `character_sheet_template`)
+
 ---
 
 ## 2. UI / UX 判断
@@ -445,6 +584,26 @@ supabase/migrations/    # SQL マイグレーション
 | B-10 | `publishSchema` 強化(`file_path` 必須化) | D-019 Q10 で MVP は変更しないと確定 | publish 時に `products.file_path` 設定済を必須にする。クリエイター UX(「準備中のまま公開する」運用の可否)と合わせて判断 | クリエイター候補の運用ヒアリング | 小 |
 | B-11 | ビルダー編集画面の `hasFile` / `coverPath` 初期表示 | Ph-δ 完了報告で「初期描画時に既登録ファイルを表示できない」と確定 | `MyProductDetail` に `hasFile` boolean と `coverPath` を含め、`UploadCover` / `UploadProductFile` が初期状態から「登録済み」表示を出せるようにする | `lib/queries/creator-products.ts` の `MyProductDetail` 型拡張、edit page → BuilderForm へ props 渡し | 小 |
 | B-12 | レガシー MIME variant 受容 | D-019 Q8 / 各 Ph-β テストで意図的除外と確定 | `application/x-zip-compressed`(レガシー IE/Edge)、`audio/x-wav` 等を許可リストに追加。Supabase バケット設定の `allowed_mime_types` も同時に拡張 | ACCEPTANCE で実際に拒否事例が出てから判断 | 小 |
+| B-14 | Stripe API v2 イベント対応 | D-020 PR2 / Stripe Connect 運用検証で「Connect webhook endpoint が 2026-04-22.dahlia 固定で v2 イベント(`v2.core.account[...]`)を送ってくる、現コード(v1 `account.updated`)では受信できず DB 同期が手動 SQL になっている」と確定 | webhook handler に v2 イベントスキーマ対応を追加 or API バージョン pin を v2 に更新。本番 Live 切替前に必須 | `lib/stripe/webhook.ts` の構造変更、テスト fixture 更新 | 中 |
+| B-15 | Stripe Connect orphan account 整理 | D-020 PR2 運用検証で複数の test mode connect account が紐づき切らずに残った経緯 | 不要 connect account の Dashboard 上での削除 / アーカイブ、運用手順の文書化 | なし | 小 |
+| B-16 | Live mode 切替ランブック | D-020 PR シリーズ完了後「sk_test → sk_live」「Connect endpoint の live mode 登録」「STRIPE_*_WEBHOOK_SECRET 更新」を段階的に実施する手順が未整備と確定 | 切替手順書 + smoke test スクリプト整備、α 運用フィードバック後の正式 Live 切替で実施 | B-14 / 本番 creator の onboarding 完走 | 中 |
+| B-17 | service_role baseline GRANT を正式 migration 化 | D-020 PR3 動作検証で「Supabase service_role がデフォルトで public.profiles 等の DML 権限を持っておらず webhook 書き込みが permission denied になる」事象が発生、SQL Editor で即時補填済 | `supabase/migrations/0012_grant_service_role_baseline.sql` として正式追加(全 public テーブルに DML + default privileges 設定) | なし | 小 |
+| B-18 | RLS `profiles_select_published_creators` を正式 migration 化 | D-020 PR3 動作検証で「buyer が canPurchase で creator の `stripe_charges_enabled` を join 経由で読めない、RLS が own row のみ許可していた」事象、SQL Editor で即時補填済 | `supabase/migrations/0013_profiles_select_published_creators.sql` として正式追加(authenticated 経由で公開作品の creator profile を SELECT 可) | なし | 小 |
+| B-19 | Stripe API バージョン pin 更新検討 | D-020 PR2 で `2024-06-20` pin が Dashboard 選択肢から消えていることが判明、新規 webhook endpoint は `2026-04-22.dahlia` のみ作成可能 | コード側 `STRIPE_API_VERSION` の更新 + 既存 API 呼び出しの v2 構造対応影響評価 | B-14 と同時に検討 | 中 |
+| B-20 | Desktop App 本実装(Build / Play 1 アプリ 2 モード) | D-021 / D-023 / D-025 / D-027 で確定 | Electron or Tauri ベースで Build モード + Play モードを実装。Supabase Realtime 同期、Storage 経由のアセット DL、キャラシ作成 UI、16:9 論理キャンバス、スリム MVP 機能セット | D-021〜D-027 全部、ストア / 購入 / ライブラリ機能の安定稼働、技術スタック選定(Electron vs Tauri) | 特大 |
+| B-21 | AI Q&A 本実装(ルールブック RAG + プリペイドポイント) | D-026 で MVP 外として温存、グリル議論で「サーバー側 RAG + プリペイドポイント方式」を確定 | ルールブック PDF のベクトル化、LLM API 統合(Claude / GPT-4)、引用根拠表示、ポイント前払い決済、セッション後集計 + マージン消費 | 出版社 / 著者からのルールブック AI 学習許諾、B-5 の `balances` 設計 | 大 |
+| B-22 | キャラクターシート 追加 TRPG システム対応 | D-027 で MVP は CoC 6e / 7e のみ、他システムは将来と確定 | D&D 5e、ソード・ワールド 2.5、シノビガミ、インセイン、エモクロア、ダブルクロス等の主要システム内蔵 | 各システムの公式キャラシ仕様、ユーザー需要調査 | 中〜大(システムごと小、累積大) |
+| B-23 | セッション募集・スケジュール掲示板 | グリル議論「全部入りプラットフォーム」の文脈で言及 | 「日曜にクトゥルフ、PL 募集」のような告知板、システム別フィルタ、開催日時管理、参加申込みフロー | コミュニティモデレーション設計 | 中 |
+| B-24 | ハンドアウト配布(GM → 特定 PL 個別配信) | グリル議論で Cocofolia 機能として整理 | シナリオ内の手紙・地図・写真を PL ごとに別の情報として渡す GM 機能。Play モード内 UI、視認権限管理 | B-20 | 小〜中 |
+| B-25 | NPC マネージャー(KP 専用 NPC ステータス管理) | グリル議論で Cocofolia 機能として整理 | NPC のステータス・セリフ・能力値を KP のみが見える形で管理、Play 中にワンクリックでロール可能 | B-20、キャラシ schema 共用検討 | 中 |
+| B-26 | 戦闘トラッカー / イニシアチブ | グリル議論で「タクティカル系で必要」として整理 | ターン順管理、HP 増減、状態異常、グリッドマップ + 駒移動(D&D 系) | B-20、`map` product_type の本格活用 | 中〜大 |
+| B-27 | ボイスチャット統合 | グリル議論で「Discord 任せ」を選んだが、全部入り哲学の文脈で言及 | WebRTC ベースの音声通話、ノイズ抑制、入退室通知 | B-20、TURN サーバー運用、帯域コスト試算 | 大 |
+| B-28 | GM 補助タイマー | グリル議論で「演出 / 制限時間付き判定」として言及 | カウントダウン表示、終了通知音、GM のみ操作可 | B-20 | 小 |
+| B-29 | ユーザー評価・レビュー機能 | グリル議論で「全部入り」文脈で言及 | creator / GM / PL の評価、商品レビュー、不適切評価のモデレーション | B-23 と統合検討 | 中 |
+| B-30 | コミュニティフォーラム | グリル議論で「全部入り」文脈で言及 | システム別の雑談・QA 板、感想スレッド | B-23 と統合検討、モデレーション設計 | 大 |
+| B-31 | チュートリアル / 初心者ガイド | グリル議論で「全部入り」文脈で言及 | 「TRPG とは」から始まる動画 + テキストガイド、サンプルパッケージの無料配布 | コンテンツ制作リソース | 中 |
+| B-32 | キャラシテンプレ販売(`character_sheet_template` product_type) | D-027 / B-22 で Phase 3 と確定 | creator が自作 TRPG 用キャラシテンプレを販売できる、新 product_type 追加、import / preview / 課金フロー | B-22(複数システム対応の延長線)、products 既存スキーマ拡張 | 中 |
+| B-33 | Stripe Subscription 月額決済導入 | D-026 で GM 2 段階サブスクを確定 | Standard ¥500 / Premium ¥1000 の Stripe Subscription、Webhook `customer.subscription.*`、`subscriptions` テーブル、機能ゲート判定 | D-026、現 Stripe 決済との共存設計 | 中 |
 
 ### 7.4 完了済(参照のみ)
 
