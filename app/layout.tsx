@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
+import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import "./globals.css";
 
 const notoSansJp = Noto_Sans_JP({
@@ -17,7 +18,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja" className={notoSansJp.variable}>
-      <body className="min-h-screen bg-background">{children}</body>
+      <body className="min-h-screen bg-background">
+        {children}
+        {/* α 期間中のフィードバック収集インフラ。Server Component が
+            認証状態を確認、ログイン済の時だけ floating button を出す。 */}
+        <FeedbackLauncher />
+      </body>
     </html>
   );
 }
