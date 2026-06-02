@@ -1,16 +1,33 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Search, Bell, LogOut, AlertCircle } from "lucide-react";
+import {
+  Search,
+  Bell,
+  LogOut,
+  AlertCircle,
+  Home,
+  Store,
+  PlusCircle,
+  Library,
+  type LucideIcon,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS: Array<{ href: Route; label: string }> = [
-  { href: "/store", label: "探す" },
-  { href: "/creator/products/new", label: "作成する" },
-  { href: "/library", label: "ライブラリ" },
+type NavItem = {
+  href: Route;
+  label: string;
+  icon: LucideIcon;
+};
+
+const NAV_ITEMS: NavItem[] = [
+  { href: "/", label: "ホーム", icon: Home },
+  { href: "/store", label: "探す", icon: Store },
+  { href: "/creator/products/new", label: "作成する", icon: PlusCircle },
+  { href: "/library", label: "ライブラリ", icon: Library },
 ];
 
 /**
@@ -52,15 +69,19 @@ export async function TopHeader({ className }: { className?: string }) {
         </div>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <Icon className="h-4 w-4" aria-hidden />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
