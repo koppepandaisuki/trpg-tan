@@ -64,11 +64,16 @@ export async function TopHeader({ className }: { className?: string }) {
             />
             <Input
               type="search"
-              placeholder="シナリオ・ルールブック・素材を検索…"
-              className="pl-9"
+              placeholder="検索機能は準備中…(α 期間中は無効)"
+              className="pl-9 pr-20"
               disabled
-              aria-label="検索(Phase 4で実装)"
+              aria-label="検索(準備中、Phase 2 以降で実装予定)"
             />
+            {/* 「準備中」を視覚的に明示する右端バッジ。テスターが
+                クリックして反応しないことを不審に思わないようにする */}
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              準備中
+            </span>
           </div>
         </div>
 
