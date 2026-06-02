@@ -9,6 +9,7 @@ import {
   Store,
   PlusCircle,
   Library,
+  MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -141,9 +142,8 @@ function AuthedMenu({
         </Link>
       )}
 
-      <Button variant="ghost" size="sm" aria-label="通知(未実装)" disabled>
-        <Bell className="h-4 w-4" />
-      </Button>
+      <DiscordOrBellButton />
+
 
       <div className="hidden flex-col items-end leading-tight sm:flex">
         <span className="text-sm font-medium">{user.displayName || user.email}</span>
@@ -168,5 +168,39 @@ function AuthedMenu({
         </Button>
       </form>
     </>
+  );
+}
+
+/**
+ * α 期間中の Discord 招待ボタン。env `NEXT_PUBLIC_ALPHA_DISCORD_INVITE_URL`
+ * が設定されていれば MessageCircle アイコンの外部リンク、未設定なら
+ * 従来通り disabled な通知ベルにフォールバック。
+ *
+ * Phase 2 で通知機能を本実装するときに DiscordOrBellButton 自体を撤去し、
+ * 通常の通知 Bell + dropdown に置き換える想定。
+ */
+function DiscordOrBellButton() {
+  const discordUrl = process.env.NEXT_PUBLIC_ALPHA_DISCORD_INVITE_URL;
+  if (discordUrl) {
+    return (
+      <a
+        href={discordUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="α テスター Discord に参加(別タブで開く)"
+        className={cn(
+          buttonVariants({ variant: "ghost", size: "sm" }),
+          "text-indigo-700 hover:text-indigo-800",
+        )}
+      >
+        <MessageCircle className="h-4 w-4" />
+        <span className="hidden sm:inline">Discord</span>
+      </a>
+    );
+  }
+  return (
+    <Button variant="ghost" size="sm" aria-label="通知(未実装)" disabled>
+      <Bell className="h-4 w-4" />
+    </Button>
   );
 }
