@@ -285,6 +285,39 @@ export async function listTopSellingProducts(
   return toProductListItems(sortedRows);
 }
 
+/**
+ * Fetch related products (same product_type, excluding the given product).
+ * 商品詳細ページの「関連作品」strip 用。
+ *
+ * 並び順は publish 日新しい順、limit 件まで。表示する側で 0 件の場合は
+ * セクション自体を非表示にする想定。
+ */
+export async function listRelatedProducts(args: {
+  productType: ProductType;
+  excludeId: string;
+  limit?: number;
+}): Promise<ProductListItem[]> {
+  const supabase = createClient();
+  const limit = args.limit ?? 6;
+
+  const { data: rows, error } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .eq("product_type", args.productType)
+    .neq("id", args.excludeId)
+    .order("published_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[listRelatedProducts] failed", error);
+    return [];
+  }
+
+  return toProductListItems(rows ?? []);
+}
+
 // ---------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------
