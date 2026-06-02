@@ -1,13 +1,22 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogIn } from "lucide-react";
+import { LogIn, AlertCircle } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/login-form";
 import { getCurrentUser } from "@/lib/session/get-user";
+import { getLoginErrorMessage } from "@/lib/auth/login-errors";
 
 export const metadata = { title: "ログイン | TRPG プラットフォーム" };
+
+interface LoginPageProps {
+  searchParams: {
+    error?: string;
+    error_code?: string;
+    next?: string;
+  };
+}
 
 /**
  * ログインページ。
@@ -16,10 +25,19 @@ export const metadata = { title: "ログイン | TRPG プラットフォーム" 
  * 見た目はサイト全体の視覚言語(グラデ + 円形アイコン)に統一しつつ、
  * 「フォーム入力が主役」なのでアイコンは控えめサイズ。indigo トーン
  * (HomeHero と同系)で「戻ってきた人を歓迎」のニュアンス。
+ *
+ * `searchParams.error` / `error_code` が付いていればフォーム上にエラー
+ * バナーを表示。自前 `/auth/callback` 由来(missing_code / callback_failed)
+ * と Supabase Auth 由来(otp_expired / access_denied 等)の両方を扱う。
  */
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: LoginPageProps) {
   const user = await getCurrentUser();
   if (user) redirect("/");
+
+  const errorMessage = getLoginErrorMessage(
+    searchParams.error,
+    searchParams.error_code,
+  );
 
   return (
     <>
@@ -40,6 +58,19 @@ export default async function LoginPage() {
                 おかえりなさい。アカウント情報を入力してください。
               </p>
             </div>
+
+            {errorMessage && (
+              <div
+                role="alert"
+                className="relative z-10 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50/70 px-3 py-2 text-xs text-rose-900"
+              >
+                <AlertCircle
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-700"
+                  aria-hidden
+                />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
             <div className="relative z-10">
               <LoginForm />
