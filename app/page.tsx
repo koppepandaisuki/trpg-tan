@@ -1,56 +1,79 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { HomeHero } from "@/components/store/home-hero";
+import { ProductStrip } from "@/components/store/product-strip";
+import { CategoryGrid } from "@/components/store/category-grid";
+import {
+  listRecentProducts,
+  listTopSellingProducts,
+} from "@/lib/queries/products";
 
-const ROUTES: Array<{ href: Route; label: string; description: string; phase: string }> = [
-  { href: "/store", label: "ストア一覧", description: "公開作品をブラウズ", phase: "P4" },
-  { href: "/store/sample-slug" as Route, label: "作品詳細(サンプル)", description: "メタ情報・購入導線", phase: "P4" },
-  { href: "/library", label: "ライブラリ", description: "購入済み作品(認証必須)", phase: "P6" },
-  { href: "/creator/products", label: "作品管理", description: "クリエイター用一覧", phase: "P5" },
-  { href: "/creator/products/new", label: "新規作成ビルダー", description: "作品の登録フォーム", phase: "P5" },
-  { href: "/admin", label: "admin", description: "運営管理(admin専用)", phase: "P8" },
-];
+/**
+ * トップページ = ストアのランディング。Steam の Store front page を参考に、
+ * 上から:
+ *   1. Hero(サイトの概要 + 主導線)
+ *   2. 売上上位 strip(購入数の多い順、無ければ新着に fallback)
+ *   3. 新着 strip(published_at desc)
+ *   4. カテゴリ grid(クリックで /store?category=xxx)
+ *
+ * α 期間中は実商品が少ないため、strip は空のときは描画しない
+ * (ProductStrip 側で 0 件チェック)。Hero は常に出る。
+ */
 
-export default function HomePage() {
+export const metadata = { title: "TRPG プラットフォーム" };
+
+// 1 分で revalidate(ストアのフロントなので頻繁更新は不要)
+export const revalidate = 60;
+
+export default async function HomePage() {
+  // 売上上位と新着を並行 fetch
+  const [topSellers, recent] = await Promise.all([
+    listTopSellingProducts(12),
+    listRecentProducts(12),
+  ]);
+
+  // 「売上上位」が新着に fallback している場合、両者が重複する。
+  // 重複表示を避けるため、新着は売上上位に含まれない ID のみに絞る。
+  const topSellerIds = new Set(topSellers.map((p) => p.id));
+  const filteredRecent = recent.filter((p) => !topSellerIds.has(p.id));
+
+  const hasProducts = topSellers.length > 0 || recent.length > 0;
+
+  // listTopSellingProducts は購入ゼロのとき listRecentProducts に
+  // fallback する設計。両者の長さが同じで重複が完全 = まだ実購入が無い
+  // ことの目印になる。テスター向けに表示文言を分岐させる。
+  const noRealSalesYet =
+    topSellers.length > 0 &&
+    topSellers.length === recent.length &&
+    topSellers.every((p, i) => p.id === recent[i].id);
+
   return (
     <>
       <TopHeader />
-      <PageContainer className="py-10">
-        <div className="flex flex-col gap-3">
-          <Badge variant="muted" className="self-start">Phase 1 — 土台</Badge>
-          <h1 className="text-2xl font-semibold tracking-tight">TRPG プラットフォーム</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            このページは Phase 1(プロジェクト土台)のプレースホルダーです。
-            各画面の入り口だけが用意されており、業務ロジックは後続フェーズで実装します。
-          </p>
-        </div>
+      <PageContainer className="space-y-10 py-8">
+        <HomeHero hasProducts={hasProducts} />
 
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {ROUTES.map((r) => (
-            <Card key={r.href} className="shadow-sm">
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle>{r.label}</CardTitle>
-                  <Badge variant="category">{r.phase}</Badge>
-                </div>
-                <CardDescription>{r.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link
-                  href={r.href}
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                >
-                  {r.href}
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <ProductStrip
+          title="売上上位"
+          description={
+            noRealSalesYet
+              ? "実購入データが集まり次第、売上順に並び替わります(現状は新着順で表示)"
+              : "購入数が多い順"
+          }
+          products={topSellers}
+          seeAllHref="/store"
+        />
+
+        {filteredRecent.length > 0 && (
+          <ProductStrip
+            title="新着"
+            description="最近公開された作品"
+            products={filteredRecent}
+            seeAllHref="/store"
+          />
+        )}
+
+        <CategoryGrid />
       </PageContainer>
     </>
   );

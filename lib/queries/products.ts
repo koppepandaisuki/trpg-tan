@@ -191,9 +191,140 @@ export async function getPublishedProductBySlug(
   };
 }
 
+/**
+ * Fetch the most recently published products (for "新着" strip).
+ * Limited list, no pagination.
+ */
+export async function listRecentProducts(
+  limit = 12,
+): Promise<ProductListItem[]> {
+  const supabase = createClient();
+
+  const { data: rows, error } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .order("published_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[listRecentProducts] failed", error);
+    return [];
+  }
+
+  return toProductListItems(rows ?? []);
+}
+
+/**
+ * Fetch the top-selling products by paid purchase count (for "売上上位" strip).
+ *
+ * α 期間中のシンプル実装:
+ *   1. paid purchases を全件 SELECT(product_id のみ)
+ *   2. JS 側で product_id 単位に集計
+ *   3. count desc で上位 N 件の product_id を選別
+ *   4. その ID 群で products を fetch
+ *
+ * 実購入が無いうちは listRecentProducts に fallback する。
+ *
+ * 規模注意:purchases が数千件を超えるようになったら Postgres 関数 / 集計
+ * テーブルに置き換える(B-XX として将来課題)。α 期間中は問題なし。
+ */
+export async function listTopSellingProducts(
+  limit = 12,
+): Promise<ProductListItem[]> {
+  const supabase = createClient();
+
+  const { data: purchases, error: purchaseErr } = await supabase
+    .from("purchases")
+    .select("product_id")
+    .eq("status", "paid");
+
+  if (purchaseErr) {
+    console.error("[listTopSellingProducts] purchases failed", purchaseErr);
+    return listRecentProducts(limit);
+  }
+
+  if (!purchases || purchases.length === 0) {
+    // 実購入ゼロ → 新着で代替
+    return listRecentProducts(limit);
+  }
+
+  // JS 側で count
+  const counts = new Map<string, number>();
+  for (const p of purchases) {
+    counts.set(p.product_id, (counts.get(p.product_id) ?? 0) + 1);
+  }
+
+  const topIds = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
+
+  if (topIds.length === 0) {
+    return listRecentProducts(limit);
+  }
+
+  const { data: rows, error: prodErr } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .in("id", topIds);
+
+  if (prodErr) {
+    console.error("[listTopSellingProducts] products failed", prodErr);
+    return [];
+  }
+
+  // count 降順を維持するよう、id 順を topIds に合わせて並べ直し
+  const byId = new Map((rows ?? []).map((r) => [r.id, r] as const));
+  const sortedRows = topIds
+    .map((id) => byId.get(id))
+    .filter((r): r is NonNullable<typeof r> => Boolean(r));
+
+  return toProductListItems(sortedRows);
+}
+
 // ---------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------
+
+/**
+ * 行配列を ProductListItem 配列に変換。creator 名は public_profiles から
+ * 一括取得して付与する。listPublishedProducts と同じ整形ロジックを
+ * 切り出したもの。
+ */
+async function toProductListItems(
+  rows: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    product_type: string;
+    price_jpy: number;
+    cover_path: string | null;
+    system_label: string | null;
+    published_at: string;
+    creator_id: string;
+  }>,
+): Promise<ProductListItem[]> {
+  const creatorIds = Array.from(new Set(rows.map((r) => r.creator_id)));
+  const creators = await fetchPublicProfiles(creatorIds);
+
+  return rows.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    title: r.title,
+    productType: r.product_type as ProductType,
+    priceJpy: r.price_jpy,
+    coverPath: r.cover_path,
+    systemLabel: r.system_label,
+    publishedAt: r.published_at,
+    creator: {
+      id: r.creator_id,
+      displayName: creators.get(r.creator_id)?.displayName ?? "",
+    },
+  }));
+}
 
 type PublicProfileRow = {
   displayName: string;
