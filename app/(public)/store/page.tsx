@@ -76,7 +76,7 @@ export default async function StorePage({ searchParams }: StorePageProps) {
                 description="クリエイターが作品を公開すると、ここに表示されます。あなたが最初のクリエイターになりませんか?"
                 primaryAction={{
                   href: "/creator/products/new",
-                  label: "作品を出品する",
+                  label: "作品を投稿する",
                 }}
                 secondaryAction={{ href: "/", label: "ホームに戻る" }}
               />

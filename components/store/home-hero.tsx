@@ -47,7 +47,7 @@ export function HomeHero({ hasProducts }: { hasProducts: boolean }) {
             href={"/creator/products/new" as Route}
             className={cn(buttonVariants({ variant: "outline" }))}
           >
-            作品を出品する
+            作品を投稿する
           </Link>
         </div>
       </div>
