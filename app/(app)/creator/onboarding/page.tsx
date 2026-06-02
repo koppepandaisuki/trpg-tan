@@ -72,11 +72,9 @@ export default async function OnboardingPage({
           </p>
         </div>
 
-        <Card className="mt-6 shadow-sm">
-          <CardContent className="space-y-4 py-6">
-            <StateView status={status} returned={returned} />
-          </CardContent>
-        </Card>
+        <div className="mt-6">
+          <StateView status={status} returned={returned} />
+        </div>
 
         {/* 状態が「接続済」のとき以外は、なぜ必要か / 何ができるかの
             詳しい説明を出す。テスター UX 改善 */}
@@ -199,6 +197,15 @@ function Section({
   );
 }
 
+/**
+ * 接続状態カード。サイト全体の視覚言語(success / cancel / 403 /
+ * 404 / empty state)と統一されたグラデ + 円形アイコンのレイアウト。
+ *
+ * 状態別のトーン:
+ *   - 接続済 → emerald(/checkout/success と同じ positive)
+ *   - 中断中 / 受信処理待ち → amber(/checkout/cancel と同じ「やり直し可能」)
+ *   - 未開始 → indigo(HomeHero と同じ「入口」)
+ */
 function StateView({
   status,
   returned,
@@ -209,59 +216,81 @@ function StateView({
   // Connected: charges_enabled が true ならフル接続済み
   if (status.stripeChargesEnabled) {
     return (
-      <div className="flex items-start gap-3">
-        <CheckCircle2
-          className="mt-0.5 h-5 w-5 text-emerald-600"
-          aria-hidden
-        />
-        <div>
-          <p className="font-medium text-foreground">接続済</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Stripe との接続が完了しています。作品を公開して販売できます。
-          </p>
-          <Badge variant="muted" className="mt-2">
-            charges_enabled = true
-          </Badge>
-        </div>
-      </div>
+      <Card className="overflow-hidden border-border bg-gradient-to-br from-emerald-500/10 via-transparent to-emerald-500/5 shadow-sm">
+        <CardContent className="relative space-y-3 py-7">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-500/15 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />
+
+          <div className="relative z-10 flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-emerald-700">
+              <CheckCircle2 className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="flex-1 space-y-2">
+              <h2 className="text-base font-semibold tracking-tight">接続済</h2>
+              <p className="text-sm text-muted-foreground">
+                Stripe との接続が完了しています。作品を公開して販売できます。
+              </p>
+              <Badge variant="muted" className="text-[10px]">
+                charges_enabled = true
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   // In progress: account は作ったが onboarding が完了していない
   if (status.stripeAccountId) {
     return (
-      <div className="flex items-start gap-3">
-        <AlertCircle
-          className="mt-0.5 h-5 w-5 text-amber-600"
-          aria-hidden
-        />
-        <div>
-          <p className="font-medium text-foreground">
-            {returned ? "受信処理待ち" : "接続が中断されています"}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {returned
-              ? "Stripe から戻りました。完了状態がまだ反映されていない場合は数十秒お待ちいただき、ページを更新してください。"
-              : "Stripe の入力が途中で止まっています。下のボタンから再開できます。"}
-          </p>
-          <div className="mt-3">
-            <OnboardingStartButton label="Stripe で続行" />
+      <Card className="overflow-hidden border-border bg-gradient-to-br from-amber-500/10 via-transparent to-amber-500/5 shadow-sm">
+        <CardContent className="relative space-y-3 py-7">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-500/15 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-amber-500/10 blur-3xl" />
+
+          <div className="relative z-10 flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-amber-700">
+              <AlertCircle className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="flex-1 space-y-3">
+              <h2 className="text-base font-semibold tracking-tight">
+                {returned ? "受信処理待ち" : "接続が中断されています"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {returned
+                  ? "Stripe から戻りました。完了状態がまだ反映されていない場合は数十秒お待ちいただき、ページを更新してください。"
+                  : "Stripe の入力が途中で止まっています。下のボタンから再開できます。"}
+              </p>
+              <OnboardingStartButton label="Stripe で続行" />
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
   // Not started
   return (
-    <div className="space-y-3">
-      <p className="font-medium text-foreground">まだ接続されていません</p>
-      <p className="text-sm text-muted-foreground">
-        Stripe Express の画面に遷移します。本人確認・口座情報を入力すると、自動でこの画面に戻ります。
-      </p>
-      <div className="pt-1">
-        <OnboardingStartButton label="Stripe 接続を開始" />
-      </div>
-    </div>
+    <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/10 via-transparent to-violet-500/5 shadow-sm">
+      <CardContent className="relative space-y-3 py-7">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-3xl" />
+
+        <div className="relative z-10 flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-indigo-300 bg-indigo-50 text-indigo-700">
+            <Info className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="flex-1 space-y-3">
+            <h2 className="text-base font-semibold tracking-tight">
+              まだ接続されていません
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Stripe Express の画面に遷移します。本人確認・口座情報を入力すると、自動でこの画面に戻ります。
+            </p>
+            <OnboardingStartButton label="Stripe 接続を開始" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
