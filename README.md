@@ -75,17 +75,42 @@ pnpm dev
 
 `.env.local` に設定するキー。`.env.example` をコピーして編集してください。
 
+### 5.1 必須 / 恒久 env
+
 | キー | 用途 | 公開可? |
 |---|---|---|
-| `NEXT_PUBLIC_SITE_URL` | サイト URL(`http://localhost:3000` 等) | ✓ |
+| `NEXT_PUBLIC_SITE_URL` | サイト URL(`http://localhost:3000` / 本番ドメイン) | ✓ |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase プロジェクト URL | ✓ |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | ✓ |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role(**サーバー専用**)| ✗ |
 | `STRIPE_SECRET_KEY` | Stripe Secret Key(**サーバー専用**) | ✗ |
-| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook の署名検証用(**サーバー専用**)| ✗ |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook の署名検証用 — platform endpoint(`checkout.session.completed` / `charge.refunded`)用(**サーバー専用**)| ✗ |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Stripe Webhook の署名検証用 — Connect endpoint(`account.updated`)用、D-020 PR2 以降(**サーバー専用**)| ✗ |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | 将来用、現状未使用でも可 | ✓ |
 
 > **重要**: `*_SECRET_*` / `SERVICE_ROLE_*` は絶対に `NEXT_PUBLIC_` プレフィックスを付けないでください。また、Client Component から server-only モジュールを import するとビルド成果物に混入する経路ができてしまいます。詳細は §12 セキュリティを参照。
+
+### 5.2 α 期間限定 env(Phase 2 で全て撤去予定)
+
+α 検証を円滑にするための暫定 env。**すべて未設定なら機能オフ**で、削除して Redeploy すれば自動的に無効化されます。Live 切替時には `ALPHA_*` を全削除(§18 ランブック参照)。
+
+| キー | 用途 | 撤去予定 |
+|---|---|---|
+| `ALPHA_AUTO_CREATOR_EMAILS` | カンマ区切りメアド。該当ユーザーは初回ログイン時に自動で `is_creator = true` 付与(`decisions.md H-001` 代替) | creator 申請 UI 実装時(Phase 2) |
+| `ALPHA_ALLOW_FREE_WITHOUT_CONNECT` | `"true"` のとき、Stripe Connect 未完了でも価格 ¥0 商品の公開可。本人確認で詰まったテスター救済 | Connect onboarding UX 改善時(Phase 2) |
+| `DISCORD_FEEDBACK_WEBHOOK_URL` | アプリ内 💬 ボタン投稿の転送先(Discord webhook URL) | β 以降に分析ツール導入時 |
+
+#### 5.2.1 設定方法(Vercel Production)
+
+1. Vercel → Project → Settings → Environment Variables
+2. **Production スコープのみ**にチェック(Preview / Development には入れない)
+3. Sensitive チェックは任意(推奨)
+4. Save → Deployments → 最新 Production → **Redeploy**(Use existing Build Cache 可)
+
+#### 5.2.2 撤去手順
+
+1. Vercel から env を削除 → Redeploy(機能オフ、コードは未設定で no-op)
+2. Phase 2 で関連コード一式を撤去(該当 P2 Backlog 項目)
 
 ---
 
@@ -404,3 +429,117 @@ P2 以降の作業候補は [decisions.md §7 P2 Backlog](decisions.md) に **No
 - [x] **Phase 7** Stripe Checkout / Webhook
 - [x] **Phase 8** admin 最低機能(RPC + audit log)
 - [x] **Phase 9** テスト / セキュリティ / README 仕上げ
+
+---
+
+## 18. Live mode 切替ランブック(本番運用開始時の手順)
+
+α 検証が完了して **Live mode で実カード決済を受け付ける**段階に進むときのランブック。**順序が重要**なので上から順に実施すること。**順序を破ると購入が落ちる / creator に入金されない / Stripe アカウントがロックされる**等の事故が発生する。
+
+### 18.1 事前条件チェック
+
+- [ ] α 検証で `decisions.md` 設定の成功判定基準(a + c + d + f)を満たした
+- [ ] `decisions.md §7.3 B-14`(Stripe v2 イベント対応)が実装済 — `account.updated` の v2 形式に対応していないと Connect の自動同期が落ちる
+- [ ] α テスター全員に **Live 切替予定日**を Discord 等で事前通知済
+- [ ] Test mode 期間中に作成した既存購入レコードの扱い方針が決定済(基本は履歴として残し、Live 入金は対象外)
+
+### 18.2 Stripe 本番アカウント準備
+
+#### 1. Stripe アカウント Activate
+1. Stripe Dashboard 右上の **「Activate account」/「本番環境を有効化」** をクリック
+2. プラットフォームの事業情報・代表者本人確認・銀行口座情報を入力
+3. Stripe 審査(最大数日)を待つ
+
+#### 2. Stripe Connect Live mode 設定
+1. Dashboard 右上のトグルで **Live mode** に切替
+2. Settings → Connect → プラットフォームプロフィールが Live mode でも完了していること確認
+3. Settings → Connect → platform-profile に「**Responsibility for losses on connected accounts**」(D-020 PR2 でハマった項目)同意済確認
+
+#### 3. Live mode webhook endpoint 2 つ登録
+Test mode と同じ手順で **Live mode 側にも 2 つ**作る:
+
+| endpoint | 種別 | URL | Events |
+|---|---|---|---|
+| Platform | "Events on your account" | `https://<your-domain>/api/stripe/webhook` | `checkout.session.completed` / `charge.refunded` |
+| Connect | "Events on Connected accounts" | `https://<your-domain>/api/stripe/webhook`(同じ URL) | `account.updated`(v2 形式に注意、B-14 後) |
+
+API version は Dashboard ドロップダウンの最新値を選択(2026 年時点では `2026-04-22.dahlia` 系)。**両 endpoint の signing secret(whsec_...)を別々に控える。**
+
+### 18.3 Vercel env を Live 値に切替
+
+#### 1. 既存 env を Live 値で上書き
+
+Vercel → Settings → Environment Variables、各 env の Production 値を以下に更新:
+
+| env | Test 値 → Live 値 |
+|---|---|
+| `STRIPE_SECRET_KEY` | `sk_test_...` → `sk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | Test platform `whsec_...` → **Live platform `whsec_...`** |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Test connect `whsec_...` → **Live connect `whsec_...`** |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` → `pk_live_...` |
+
+> 💡 1 つでも Test 値が残ると署名検証が落ちて webhook が 400、購入完了が DB に反映されない事故になります。**4 つ全部同時に更新する。**
+
+#### 2. α 期間限定 env を**削除**
+
+| env | アクション |
+|---|---|
+| `ALPHA_ALLOW_FREE_WITHOUT_CONNECT` | **削除**(Live mode では Connect 必須に戻す。残すと creator が無料商品を Connect なしで公開できる状態が継続) |
+| `ALPHA_AUTO_CREATOR_EMAILS` | **削除**(creator は admin 手動付与に戻す。Phase 2 で申請 UI 実装するまでの暫定) |
+| `DISCORD_FEEDBACK_WEBHOOK_URL` | β に持ち越し可(残すとβ ユーザーからもフィードバックが流れ続ける、運用判断) |
+
+#### 3. Vercel Redeploy(必須)
+
+Deployments → 最新 Production → **Redeploy**(Use existing Build Cache 可)。env 変更は次デプロイから有効になるため必須。
+
+### 18.4 Supabase 確認(基本的に変更なし)
+
+- Authentication → URL Configuration が `https://<your-domain>` であること再確認(α 中に既に修正済のはず)
+- `supabase_migrations.schema_migrations` テーブルで 0001 〜 最新まで apply 済確認
+
+### 18.5 Live mode 本番疎通テスト
+
+#### 1. Webhook test
+- Stripe Dashboard → 各 endpoint → **「Send test webhook」**
+- Platform endpoint: `checkout.session.completed` → HTTP **200**
+- Connect endpoint: `account.updated`(v2)→ HTTP **200**(B-14 後)
+
+両方 200 なら、Vercel env と Stripe Dashboard endpoint の対応が正しい。
+
+#### 2. 実 Connect onboarding 1 件完走
+- 自分自身の creator アカウントで `/creator/onboarding` から Live mode の Connect onboarding を完走
+- **本物の身分証 + 本物の銀行口座**情報を入力
+- `profiles.stripe_charges_enabled = true` 確認
+
+#### 3. 実カード少額決済 1 件
+- 別アカウントから ¥100 程度の商品を**実カード**で購入
+- Stripe Dashboard → Payments → 該当決済:
+  - `application_fee_amount` = 30 円(=価格の 30%)
+  - `transfer` = 70 円(= creator account 宛)
+- Supabase で `purchases` 行が `status='paid'` で書かれている
+- 購入者の `/library` で表示・DL 動作
+- 数営業日後、creator の銀行口座に入金されること確認
+
+### 18.6 ローンチ判定
+
+上記すべて達成 = ローンチ可能状態。
+
+### 18.7 α テスター移行通知
+
+α テスターに以下を Discord で通知:
+- Live mode に切替完了
+- α 中に Test mode で作った購入履歴は表示として残るが、実金銭は移動していない旨
+- 新規 / 既存テスター ともにフィードバック収集は継続
+- creator は再度 Live mode で Connect onboarding を完走する必要がある(Test mode の Connect account は流用不可)
+
+### 18.8 ロールバック手順(緊急時)
+
+Live 切替後 24 時間以内に致命的問題発覚した場合の戻し方:
+
+1. Vercel env の `STRIPE_*` を全部 Test 値に戻す
+2. `ALPHA_*` を再度設定
+3. Vercel Redeploy
+4. Discord で α テスターに「一時的に Test mode に戻した」旨通知
+5. 原因調査 → 修正 PR → 再度 Live 切替
+
+Live で動いた実カード決済はそのまま残るので、Stripe Dashboard で必要に応じて手動 refund。
