@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/session/get-user";
+import { MobileMenu } from "@/components/layout/mobile-menu";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -85,7 +86,24 @@ export async function TopHeader({ className }: { className?: string }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          {user ? <AuthedMenu user={user} /> : <UnauthedMenu />}
+          {/* デスクトップ:既存の右側メニュー */}
+          <div className="hidden items-center gap-2 md:flex">
+            {user ? <AuthedMenu user={user} /> : <UnauthedMenu />}
+          </div>
+          {/* モバイル:ハンバーガー drawer に集約 */}
+          <MobileMenu
+            user={
+              user
+                ? {
+                    displayName: user.displayName,
+                    email: user.email,
+                    isCreator: user.isCreator,
+                    isAdmin: user.isAdmin,
+                    stripeChargesEnabled: user.stripeChargesEnabled,
+                  }
+                : null
+            }
+          />
         </div>
       </div>
     </header>
