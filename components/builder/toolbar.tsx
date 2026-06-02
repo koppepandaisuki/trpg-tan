@@ -2,7 +2,6 @@
 
 import { Save, Send, Eye, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 interface BuilderToolbarProps {
   mode: "create" | "edit";
@@ -33,9 +32,8 @@ export function BuilderToolbar({
       <div className="mx-auto flex h-14 w-full max-w-screen-2xl items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">
-            {mode === "create" ? "TRPG コンテンツを作成" : "TRPG コンテンツを編集"}
+            {mode === "create" ? "新規投稿" : "編集中"}
           </span>
-          <Badge variant="muted">P5</Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" disabled aria-label="プレビュー(準備中)">
