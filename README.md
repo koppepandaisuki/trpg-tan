@@ -141,10 +141,14 @@ Storage > Buckets で以下を作成し、**各バケットに MIME 許可リス
 ### 6.4 Auth 設定
 
 Authentication > URL Configuration:
-- **Site URL**: `http://localhost:3000`(本番は本番ドメイン)
-- **Redirect URLs** に `http://localhost:3000/auth/callback` を追加
+- **Site URL**: `http://localhost:3000`(**本番デプロイ後は本番ドメインに必ず書き換え** — §16 参照)
+- **Redirect URLs** に `http://localhost:3000/auth/callback` を追加(本番ドメインも §16 で追加)
 
 Email Provider を有効化(デフォルト ON)。メール確認は有効のまま。
+
+> 💡 Site URL が確認メール / パスワードリセットメール内リンクのベース URL になります。
+> 本番デプロイ時に更新を忘れると、サインアップしたユーザーのリンクが localhost を
+> 指して詰まる事故になります(§16 step 6 の注記を参照)。
 
 ---
 
@@ -375,7 +379,17 @@ P2 以降の作業候補は [decisions.md §7 P2 Backlog](decisions.md) に **No
 3. Output: 標準
 4. 環境変数を Vercel ダッシュボードに設定(§5 と同じキー)
 5. デプロイ後、Stripe の本番 Webhook エンドポイントを `https://<your-domain>/api/stripe/webhook` に変更し、`STRIPE_WEBHOOK_SECRET` を本番値に更新
-6. Supabase Auth の Redirect URLs に本番ドメインを追加
+6. **Supabase Authentication > URL Configuration を本番値に必ず更新**:
+   - **Site URL** を本番ドメインに**書き換える**(`http://localhost:3000` から変更)
+     - ⚠️ これを忘れると **新規サインアップしたユーザーの確認メール内リンクが
+       `http://localhost:3000/...` を指す**ため、テスターの手元で
+       `ERR_CONNECTION_REFUSED` になり、誰もログインできない事故になります
+   - **Redirect URLs(Additional Redirect URLs)** に
+     `https://<your-domain>/**`(または最低限 `https://<your-domain>/auth/callback`)を追加
+7. 6 の動作確認(予備メアドで実施):
+   - 本番 URL からサインアップ → 届いた確認メール内のリンク URL が
+     `https://<your-domain>/auth/callback?...` で始まっていること
+   - リンクをクリック → アプリにログイン状態で着地すること
 
 ---
 
