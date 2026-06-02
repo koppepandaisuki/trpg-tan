@@ -7,6 +7,7 @@ import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
 import { publicCoverUrl } from "@/lib/format/storage";
 import type { LibraryItem } from "@/lib/queries/library";
+import { cn } from "@/lib/utils";
 
 interface LibraryCardProps {
   item: LibraryItem;
@@ -15,18 +16,55 @@ interface LibraryCardProps {
 /**
  * Library row. Renders availability via a badge and a download button
  * gated on `item.availability`. The component never sees file_path.
+ *
+ * 視覚改善:
+ *  - 表紙画像をクリック可能(detail ページへ)
+ *  - hover で border + shadow + 表紙 scale で「触れる」感を強調
+ *  - タイトルを text-base font-semibold で読みやすく
+ *  - 利用不可状態のカードは opacity を落として disabled 感を出す
+ *  - タイトル自体も detail へのリンクに(冗長な「作品詳細を見る」削除)
  */
 export function LibraryCard({ item }: LibraryCardProps) {
   const coverUrl = publicCoverUrl(item.coverPath);
-  const detailHref: Route | null = item.slug ? (`/store/${item.slug}` as Route) : null;
+  const detailHref: Route | null = item.slug
+    ? (`/store/${item.slug}` as Route)
+    : null;
 
   const downloadDisabled = item.availability !== "available";
-  const label = item.fileFormat === "audio" ? "ダウンロード" : "ダウンロード";
+  const isUnavailable =
+    item.availability === "suspended" || item.availability === "blocked";
 
   return (
-    <li className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-stretch">
+    <li
+      className={cn(
+        "group relative flex flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm transition-all",
+        "hover:border-foreground/20 hover:shadow-card",
+        "sm:flex-row sm:items-stretch",
+        isUnavailable && "opacity-75",
+      )}
+    >
+      {/* 表紙(クリック可能、無ければただの画像) */}
       <div className="w-full max-w-[180px] shrink-0 sm:w-44">
-        <CoverImage src={coverUrl} alt={item.title} aspect="aspect-[16/10]" />
+        {detailHref ? (
+          <Link
+            href={detailHref}
+            className="block overflow-hidden rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label={`「${item.title}」の作品詳細を見る`}
+          >
+            <CoverImage
+              src={coverUrl}
+              alt={item.title}
+              aspect="aspect-[16/10]"
+              className="transition-transform duration-300 group-hover:scale-[1.03]"
+            />
+          </Link>
+        ) : (
+          <CoverImage
+            src={coverUrl}
+            alt={item.title}
+            aspect="aspect-[16/10]"
+          />
+        )}
       </div>
 
       <div className="min-w-0 flex-1 space-y-2">
@@ -36,25 +74,25 @@ export function LibraryCard({ item }: LibraryCardProps) {
           <Badge variant="muted">{fileFormatLabel(item.fileFormat)}</Badge>
         </div>
 
-        <p className="text-sm font-medium leading-snug">
-          {item.title}
-        </p>
+        {/* タイトル(detail へのリンク化) */}
+        {detailHref ? (
+          <Link
+            href={detailHref}
+            className="block rounded-sm text-base font-semibold leading-snug tracking-tight transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {item.title}
+          </Link>
+        ) : (
+          <p className="text-base font-semibold leading-snug tracking-tight">
+            {item.title}
+          </p>
+        )}
 
         <p className="text-xs text-muted-foreground">
           {item.creator.displayName && <>作者: {item.creator.displayName} · </>}
-          購入日: {formatDate(item.paidAt)} · 購入時価格 {formatPrice(item.amountJpy)}
+          購入日: {formatDate(item.paidAt)} · 購入時価格{" "}
+          {formatPrice(item.amountJpy)}
         </p>
-
-        {detailHref && (
-          <p className="text-xs">
-            <Link
-              href={detailHref}
-              className="text-accent underline-offset-4 hover:underline"
-            >
-              作品詳細を見る
-            </Link>
-          </p>
-        )}
 
         <AvailabilityHint availability={item.availability} />
       </div>
@@ -64,7 +102,7 @@ export function LibraryCard({ item }: LibraryCardProps) {
           productId={item.productId}
           productTitle={item.title}
           disabled={downloadDisabled}
-          label={label}
+          label="ダウンロード"
         />
       </div>
     </li>
