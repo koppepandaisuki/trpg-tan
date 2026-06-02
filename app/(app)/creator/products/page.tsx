@@ -2,10 +2,10 @@ import Link from "next/link";
 import type { Route } from "next";
 import { TopHeader } from "@/components/layout/top-header";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
-import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, PenSquare } from "lucide-react";
 import { ProductRow } from "@/components/creator/product-row";
+import { EmptyState } from "@/components/store/empty-state";
 import { requireCreator } from "@/lib/session/require";
 import { listMyProducts } from "@/lib/queries/creator-products";
 import { cn } from "@/lib/utils";
@@ -89,13 +89,26 @@ export default async function CreatorProductsPage() {
         </div>
 
         {products.length === 0 ? (
-          <Card className="mt-6 shadow-sm">
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              まだ作品がありません。
-              <br />
-              「新しい作品を登録」からビルダーを開いて作成できます。
-            </CardContent>
-          </Card>
+          <div className="mt-6">
+            <EmptyState
+              icon={PenSquare}
+              title="まだ作品がありません"
+              description={
+                user.stripeChargesEnabled
+                  ? "「新しい作品を登録」からビルダーを開いて、シナリオ / アセット / パッケージを公開できます。"
+                  : "「新しい作品を登録」からビルダーを開いて作成できます。価格 ¥0(無料)なら Stripe 接続未完了でも公開可、有料販売は Stripe 接続が必要です。"
+              }
+              primaryAction={{
+                href: "/creator/products/new",
+                label: "新しい作品を登録",
+              }}
+              secondaryAction={
+                user.stripeChargesEnabled
+                  ? undefined
+                  : { href: "/creator/onboarding", label: "Stripe 接続を設定" }
+              }
+            />
+          </div>
         ) : (
           <div className="mt-6 space-y-6">
             {published.length > 0 && (
