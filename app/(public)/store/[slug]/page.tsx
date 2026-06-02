@@ -7,7 +7,11 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
 import { BuyButton } from "@/components/store/buy-button";
-import { getPublishedProductBySlug } from "@/lib/queries/products";
+import { ProductStrip } from "@/components/store/product-strip";
+import {
+  getPublishedProductBySlug,
+  listRelatedProducts,
+} from "@/lib/queries/products";
 import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
 import { formatPrice, isFree } from "@/lib/format/price";
 import { publicAvatarUrl, publicCoverUrl } from "@/lib/format/storage";
@@ -55,6 +59,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
           ? "buy"
           : "login";
 
+  // 関連作品(同じカテゴリ)
+  const related = await listRelatedProducts({
+    productType: product.productType,
+    excludeId: product.id,
+    limit: 6,
+  });
+
   return (
     <>
       <TopHeader />
@@ -69,7 +80,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
       >
         <Breadcrumb product={product} />
 
-        <header className="mt-4 space-y-3">
+        {/* Steam ライクなグラデ hero ヘッダー */}
+        <header className="mt-4 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-violet-500/8 p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="category">{categoryLabel(product.productType)}</Badge>
             {product.tags.map((tag) => (
@@ -78,9 +90,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
               </Badge>
             ))}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">{product.title}</h1>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+            {product.title}
+          </h1>
           {product.systemLabel && (
-            <p className="text-sm text-muted-foreground">{product.systemLabel}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {product.systemLabel}
+            </p>
           )}
         </header>
 
@@ -95,6 +111,17 @@ export default async function ProductDetailPage({ params }: PageProps) {
             {product.description || "(説明はまだ登録されていません)"}
           </p>
         </section>
+
+        {related.length > 0 && (
+          <section className="mt-12 border-t border-border pt-8">
+            <ProductStrip
+              title={`同じカテゴリの作品(${categoryLabel(product.productType)})`}
+              description="他の作品もチェックしてみてください"
+              products={related}
+              seeAllHref={`/store?category=${product.productType}`}
+            />
+          </section>
+        )}
       </ThreeColumn>
     </>
   );
