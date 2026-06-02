@@ -1,6 +1,7 @@
+import { ShoppingBag } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/store/empty-state";
 import { LibraryCard } from "@/components/library/library-card";
 import { requireUser } from "@/lib/session/require";
 import { listMyLibrary, type LibraryItem } from "@/lib/queries/library";
@@ -31,13 +32,15 @@ export default async function LibraryPage() {
         </div>
 
         {items.length === 0 ? (
-          <Card className="mt-6 shadow-sm">
-            <CardContent className="py-16 text-center text-sm text-muted-foreground">
-              購入済みの作品はまだありません。
-              <br />
-              ストアからお気に入りの作品を見つけてみてください。
-            </CardContent>
-          </Card>
+          <div className="mt-6">
+            <EmptyState
+              icon={ShoppingBag}
+              title="購入済みの作品はまだありません"
+              description="ストアからお気に入りの作品を見つけて購入すると、ここに表示されます。テスト購入はテストカード 4242 4242 4242 4242 で行えます。"
+              primaryAction={{ href: "/store", label: "ストアを見る" }}
+              secondaryAction={{ href: "/", label: "ホームに戻る" }}
+            />
+          </div>
         ) : (
           <div className="mt-6 space-y-8">
             {available.length > 0 && (
