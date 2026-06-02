@@ -13,6 +13,13 @@ export type CurrentUser = {
   displayName: string;
   isCreator: boolean;
   isAdmin: boolean;
+  /**
+   * Stripe Connect charges enabled.
+   * - creator 視点の onboarding 完了フラグ
+   * - TopHeader 等で「Stripe 未接続」バッジ表示の判定に利用
+   * - D-020 PR2 で profiles に列追加(0010 migration)
+   */
+  stripeChargesEnabled: boolean;
 };
 
 /**
@@ -39,7 +46,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("display_name, is_creator, is_admin")
+    .select("display_name, is_creator, is_admin, stripe_charges_enabled")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -72,5 +79,6 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     displayName: profile?.display_name ?? "",
     isCreator,
     isAdmin: profile?.is_admin ?? false,
+    stripeChargesEnabled: profile?.stripe_charges_enabled ?? false,
   };
 });

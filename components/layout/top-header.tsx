@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Search, Bell, LogOut } from "lucide-react";
+import { Search, Bell, LogOut, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,10 +93,30 @@ function UnauthedMenu() {
 function AuthedMenu({
   user,
 }: {
-  user: { displayName: string; email: string; isCreator: boolean; isAdmin: boolean };
+  user: {
+    displayName: string;
+    email: string;
+    isCreator: boolean;
+    isAdmin: boolean;
+    stripeChargesEnabled: boolean;
+  };
 }) {
   return (
     <>
+      {/* creator かつ Stripe 未接続のときだけ警告バッジを出す。クリックで
+          onboarding ページへ。creator が「接続忘れ」のまま商品を作って詰む
+          のを防ぐリマインダー。 */}
+      {user.isCreator && !user.stripeChargesEnabled && (
+        <Link
+          href="/creator/onboarding"
+          className="hidden items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100 sm:inline-flex"
+          aria-label="Stripe 接続が未完了です。クリックして設定に進む"
+        >
+          <AlertCircle className="h-3 w-3" aria-hidden />
+          <span>Stripe 未接続</span>
+        </Link>
+      )}
+
       <Button variant="ghost" size="sm" aria-label="通知(未実装)" disabled>
         <Bell className="h-4 w-4" />
       </Button>
