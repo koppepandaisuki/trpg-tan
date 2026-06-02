@@ -26,7 +26,10 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "ホーム", icon: Home },
   { href: "/store", label: "探す", icon: Store },
-  { href: "/creator/products/new", label: "作成する", icon: PlusCircle },
+  // Web 側は creator が「作った作品をアップロードして公開する」だけ。
+  // 制作(ビルダー機能)は Phase 2 で Desktop App に集約予定のため、
+  // Web の入口は「投稿する」表記で統一する。
+  { href: "/creator/products/new", label: "投稿する", icon: PlusCircle },
   { href: "/library", label: "ライブラリ", icon: Library },
 ];
 
