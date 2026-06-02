@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
+import { TestModeBanner } from "@/components/banner/test-mode-banner";
 import "./globals.css";
 
 const notoSansJp = Noto_Sans_JP({
@@ -19,6 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja" className={notoSansJp.variable}>
       <body className="min-h-screen bg-background">
+        {/* α 期間 + Stripe Test mode のとき、画面最上部に告知バナーを表示。
+            Live mode 切替時に自動で消える(STRIPE_SECRET_KEY のプレフィクス判定)。 */}
+        <TestModeBanner />
         {children}
         {/* α 期間中のフィードバック収集インフラ。Server Component が
             認証状態を確認、ログイン済の時だけ floating button を出す。 */}

@@ -551,6 +551,24 @@ function PriceControl({
           <span className="text-xs text-muted-foreground">100〜10,000,000円</span>
         </div>
       )}
+      {/* 価格選択の意味を creator に明示。α 期間中の Connect 未完了でも
+          無料公開可の挙動と、有料には Stripe 接続が必要、を案内する。 */}
+      <div className="rounded-md border border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+        {isFree ? (
+          <p>
+            <strong className="text-foreground">無料(¥0)</strong>:
+            α 期間中は Stripe 接続が未完了でもそのまま公開できます。
+            動線テスト・コンテンツ公開だけしたい場合はこちら。
+          </p>
+        ) : (
+          <p>
+            <strong className="text-foreground">有料</strong>:
+            公開には <strong>Stripe 接続(受取口座設定)</strong>の完了が必要です。
+            未接続のまま「公開して保存」するとエラーになります。
+            クリエイターメニュー → Stripe 接続 から手続きしてください。
+          </p>
+        )}
+      </div>
     </div>
   );
 }
