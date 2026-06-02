@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import { Search, PackageOpen } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { CategoryTabs } from "@/components/store/category-tabs";
@@ -55,20 +56,31 @@ export default async function StorePage({ searchParams }: StorePageProps) {
 
         <div className="mt-6">
           {items.length === 0 ? (
-            <EmptyState
-              title={
-                category
-                  ? "該当する作品が見つかりませんでした"
-                  : "公開中の作品はまだありません"
-              }
-              description={
-                category
-                  ? "別のカテゴリも見てみてください。"
-                  : "クリエイターが作品を公開すると、ここに表示されます。"
-              }
-              resetHref={category ? "/store" : undefined}
-              resetLabel={category ? "すべての作品を見る" : undefined}
-            />
+            category ? (
+              // フィルタ適用中で 0 件 → フィルタ解除を促す
+              <EmptyState
+                icon={Search}
+                title="該当する作品が見つかりませんでした"
+                description={`「${categoryLabel(category)}」カテゴリの公開作品はまだありません。別のカテゴリも見てみてください。`}
+                primaryAction={{
+                  href: "/store",
+                  label: "すべての作品を見る",
+                }}
+                secondaryAction={{ href: "/", label: "ホームに戻る" }}
+              />
+            ) : (
+              // 全件 0 件 → creator になる導線 / ホームに戻る
+              <EmptyState
+                icon={PackageOpen}
+                title="公開中の作品はまだありません"
+                description="クリエイターが作品を公開すると、ここに表示されます。あなたが最初のクリエイターになりませんか?"
+                primaryAction={{
+                  href: "/creator/products/new",
+                  label: "作品を出品する",
+                }}
+                secondaryAction={{ href: "/", label: "ホームに戻る" }}
+              />
+            )
           ) : (
             <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {items.map((product) => (
