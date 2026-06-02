@@ -10,6 +10,10 @@ import {
   updateMyProduct,
 } from "@/lib/mutations/creator-products";
 import { getMyConnectStatus } from "@/lib/queries/creator-connect";
+import {
+  decidePublishGate,
+  isAlphaAllowFreeWithoutConnectEnabled,
+} from "@/lib/access/alpha-publish-policy";
 
 /**
  * Two Server Actions:
@@ -69,16 +73,23 @@ export async function publishAction(
   const parsed = publishSchema.safeParse(input);
   if (!parsed.success) return formatZodError(parsed.error);
 
-  // D-020 PR3: publish には Stripe Connect onboarding 完了が必須。
-  // Connect 未完了なら destination charge が組めない = 公開できても購入
-  // できないため、公開時点で弾く(draft は引き続き可)。
-  // チェックは Server Action 側で行う(publishSchema は DB アクセス不可で
-  // ここまで持ってこれないため)。
+  // D-020 PR3: publish には原則 Stripe Connect onboarding 完了が必須。
+  // ただし α 期間中は ALPHA_ALLOW_FREE_WITHOUT_CONNECT=true で
+  // 「価格 0 円(無料商品)に限り Connect 未完了でも公開可」とする
+  // 暫定回避策を許容する(Connect の本人確認で詰まったテスター向け)。
+  // 詳細は lib/access/alpha-publish-policy.ts を参照。
   const connect = await getMyConnectStatus(user.id);
-  if (!connect.stripeChargesEnabled) {
+  const gate = decidePublishGate({
+    stripeChargesEnabled: connect.stripeChargesEnabled,
+    priceJpy: parsed.data.priceJpy,
+    alphaAllowFreeWithoutConnect: isAlphaAllowFreeWithoutConnectEnabled(),
+  });
+  if (!gate.allowed) {
     return {
       error:
-        "公開には Stripe 接続(受取口座設定)の完了が必要です。クリエイターメニュー → Stripe 接続 から手続きしてください",
+        gate.reason === "connect_required_for_paid"
+          ? "有料商品の公開には Stripe 接続(受取口座設定)の完了が必要です。価格を 0 円(無料)に下げるか、クリエイターメニュー → Stripe 接続 から手続きしてください"
+          : "公開には Stripe 接続(受取口座設定)の完了が必要です。クリエイターメニュー → Stripe 接続 から手続きしてください",
     };
   }
 
