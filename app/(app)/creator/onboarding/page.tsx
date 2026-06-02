@@ -2,12 +2,20 @@ import { TopHeader } from "@/components/layout/top-header";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, AlertCircle, Info } from "lucide-react";
+import {
+  CheckCircle2,
+  AlertCircle,
+  Info,
+  HelpCircle,
+  Camera,
+  type LucideIcon,
+} from "lucide-react";
 import { requireCreator } from "@/lib/session/require";
 import {
   getMyConnectStatus,
   type ConnectStatus,
 } from "@/lib/queries/creator-connect";
+import { isAlphaAllowFreeWithoutConnectEnabled } from "@/lib/access/alpha-publish-policy";
 import { OnboardingStartButton } from "./start-button";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +37,7 @@ export default async function OnboardingPage({
   const user = await requireCreator();
   const status = await getMyConnectStatus(user.id);
   const returned = searchParams.status === "return";
+  const alphaFreeAllowed = isAlphaAllowFreeWithoutConnectEnabled();
 
   return (
     <>
@@ -59,7 +68,7 @@ export default async function OnboardingPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Stripe 接続</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            作品を販売するには、Stripe で受取口座を接続する必要があります。
+            作品を有償販売するには、Stripe で受取口座を接続する必要があります。
           </p>
         </div>
 
@@ -69,15 +78,124 @@ export default async function OnboardingPage({
           </CardContent>
         </Card>
 
-        <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>
-            接続には Stripe での本人確認・口座情報入力が必要です。Stripe Express を経由するため、
-            当プラットフォームに口座番号は保存されません。
-          </span>
-        </p>
+        {/* 状態が「接続済」のとき以外は、なぜ必要か / 何ができるかの
+            詳しい説明を出す。テスター UX 改善 */}
+        {!status.stripeChargesEnabled && (
+          <ExplainerCard alphaFreeAllowed={alphaFreeAllowed} />
+        )}
       </SidebarLayout>
     </>
+  );
+}
+
+function ExplainerCard({ alphaFreeAllowed }: { alphaFreeAllowed: boolean }) {
+  return (
+    <Card className="mt-4 shadow-sm">
+      <CardContent className="space-y-5 py-6 text-sm">
+        <Section title="Stripe 接続でできること" icon={CheckCircle2} tone="positive">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <strong>作品を有償販売できます</strong>
+              (¥100 以上の価格を設定可)
+            </li>
+            <li>
+              売上の <strong>70%</strong> が直接あなたの銀行口座に入金されます
+              (残り 30% はプラットフォーム手数料)
+            </li>
+            <li>返金処理は Stripe が自動で対応(手作業不要)</li>
+          </ul>
+        </Section>
+
+        {alphaFreeAllowed && (
+          <Section
+            title="接続せずにできること(α 期間中の特例)"
+            icon={Info}
+            tone="info"
+          >
+            <ul className="list-disc space-y-1 pl-5">
+              <li>
+                <strong>無料商品(¥0)の公開</strong>
+                は Stripe 接続なしでも可能
+              </li>
+              <li>
+                テスト用にコンテンツを公開・他のテスターに DL してもらう、までは
+                接続なしで進められます
+              </li>
+              <li>
+                有償販売したくなったタイミングで Stripe 接続を完了させて OK
+              </li>
+            </ul>
+          </Section>
+        )}
+
+        <Section title="接続に必要なもの" icon={Info} tone="neutral">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <strong>本人確認書類</strong>(運転免許証 / マイナンバーカード /
+              パスポートのいずれか 1 種類)
+            </li>
+            <li>銀行口座情報(振込先)</li>
+            <li>住所・電話番号</li>
+            <li>所要時間:約 5〜10 分</li>
+          </ul>
+        </Section>
+
+        <Section title="本人確認の写真が通らないとき" icon={Camera} tone="warning">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>明るい場所(自然光が理想)で影が映らないように撮影</li>
+            <li>iPhone なら「ファイル」アプリのスキャン機能を使うと精度が上がります</li>
+            <li>
+              1 種類目で失敗したら別の身分証を試す(免許 → マイナンバー → パスポートの順)
+            </li>
+            <li>カードの全体(角まで)が画面内に収まるように</li>
+            {alphaFreeAllowed && (
+              <li>
+                どうしても通らない場合は、α 期間中は接続なしで{" "}
+                <strong>無料商品(¥0)の公開のみで参加</strong>
+                していただいて構いません
+              </li>
+            )}
+          </ul>
+        </Section>
+
+        <p className="flex items-start gap-2 text-xs text-muted-foreground border-t border-border pt-4">
+          <HelpCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>
+            Stripe Express を経由するため、当プラットフォームに口座番号・本人確認情報は
+            保存されません。すべて Stripe(米国上場の決済プラットフォーム)で管理されます。
+          </span>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Section({
+  title,
+  icon: Icon,
+  tone,
+  children,
+}: {
+  title: string;
+  icon: LucideIcon;
+  tone: "positive" | "info" | "neutral" | "warning";
+  children: React.ReactNode;
+}) {
+  const toneClass = {
+    positive: "text-emerald-700",
+    info: "text-blue-700",
+    neutral: "text-foreground",
+    warning: "text-amber-700",
+  }[tone];
+
+  return (
+    <div>
+      <h3 className={cn("flex items-center gap-2 font-medium", toneClass)}>
+        <Icon className="h-4 w-4" aria-hidden />
+        {title}
+      </h3>
+      <div className="mt-2 text-muted-foreground">{children}</div>
+    </div>
   );
 }
 
