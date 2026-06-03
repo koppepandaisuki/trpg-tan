@@ -196,3 +196,50 @@ function emptySummary(): ReviewSummary {
     label: "評価なし",
   };
 }
+
+/**
+ * 複数 product の評価集計を一括取得。商品一覧で各 card に
+ * 軽量サマリ(total / positive / label)を載せるために使う。
+ *
+ * `product_reviews` を `product_id in (...)` で 1 クエリだけ。0 件 / 評価
+ * 未満の product は Map に含めない(呼び出し側は `Map.get(id) ?? null`
+ * で取り扱う)。
+ */
+export async function fetchReviewSummariesByProductIds(
+  productIds: string[],
+): Promise<Map<string, { total: number; positive: number; label: ReviewLabel }>> {
+  const result = new Map<
+    string,
+    { total: number; positive: number; label: ReviewLabel }
+  >();
+  if (productIds.length === 0) return result;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("product_reviews")
+    .select("product_id, rating")
+    .in("product_id", productIds);
+
+  if (error) {
+    console.error("[fetchReviewSummariesByProductIds] failed", error);
+    return result;
+  }
+
+  // product_id ごとに positive / total を集計
+  const counts = new Map<string, { positive: number; total: number }>();
+  for (const row of data ?? []) {
+    const c = counts.get(row.product_id) ?? { positive: 0, total: 0 };
+    c.total++;
+    if (row.rating === "positive") c.positive++;
+    counts.set(row.product_id, c);
+  }
+
+  for (const [id, c] of counts.entries()) {
+    result.set(id, {
+      total: c.total,
+      positive: c.positive,
+      label: computeReviewLabel(c.positive, c.total),
+    });
+  }
+  return result;
+}

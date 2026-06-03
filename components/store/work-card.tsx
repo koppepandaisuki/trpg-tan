@@ -3,6 +3,7 @@ import { User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { CoverImage } from "./cover-image";
+import { ReviewBadge } from "@/components/review/review-badge";
 import { categoryLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
 import { publicCoverUrl, publicAvatarUrl } from "@/lib/format/storage";
@@ -42,7 +43,10 @@ export function WorkCard({ product }: WorkCardProps) {
           />
         </div>
         <CardContent className="space-y-1.5 p-4">
-          <Badge variant="category">{categoryLabel(product.productType)}</Badge>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="category">{categoryLabel(product.productType)}</Badge>
+            <ReviewBadge summary={product.reviewSummary} size="sm" />
+          </div>
           <p className="line-clamp-2 text-base font-semibold leading-snug tracking-tight transition-colors group-hover:text-accent">
             {product.title}
           </p>
