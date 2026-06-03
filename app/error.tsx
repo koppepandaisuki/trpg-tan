@@ -6,6 +6,7 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { cn } from "@/lib/utils";
 
 /**
@@ -111,8 +112,7 @@ export default function GlobalRouteError({
  * エラー画面ではフル機能の header は不要なので、ロゴ + トップへ戻る
  * リンクだけの最小構成を本ファイル内に直書きする。
  *
- * ロゴ画像のサイズ制御は TopHeader と同じ理由で素の <img>(Next/Image
- * の width attr が CSS w-auto を打ち負ける問題回避)。
+ * BrandMark はサーバー依存がないので Client Component からも import 可。
  */
 function MiniHeader() {
   return (
@@ -123,12 +123,7 @@ function MiniHeader() {
           className="flex shrink-0 items-center"
           aria-label="パラDa-iCE TRPGサイト ホーム"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="パラDa-iCE TRPGサイト"
-            className="h-10 w-auto"
-          />
+          <BrandMark size="md" />
         </Link>
       </div>
     </header>
