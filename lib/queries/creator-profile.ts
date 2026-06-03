@@ -85,6 +85,7 @@ export async function getCreatorProfile(
     creator: {
       id: profileRow.id,
       displayName,
+      avatarPath: profileRow.avatar_path,
     },
   }));
 
