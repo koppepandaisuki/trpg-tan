@@ -10,8 +10,11 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   builderFormSchema,
+  TAGS_MAX_COUNT,
   type BuilderFormValues,
 } from "@/lib/validators/product";
+import type { PopularTag } from "@/lib/queries/tags";
+import { Plus, Sparkles } from "lucide-react";
 import {
   saveDraftAction,
   publishAction,
@@ -45,6 +48,11 @@ interface BuilderFormProps {
   initialValues: BuilderFormValues;
   /** If true, show "保存しました" right after mount (post-redirect). */
   savedJustNow?: boolean;
+  /**
+   * よく使われているタグ(おすすめ表示用)。空配列なら表示しない。
+   * 親ページ(create / edit)で getPopularTags() の結果を渡す。
+   */
+  popularTags?: PopularTag[];
 }
 
 const SECTIONS: SectionNavItem[] = [
@@ -74,6 +82,7 @@ export function BuilderForm({
   publishedAt = null,
   initialValues,
   savedJustNow = false,
+  popularTags,
 }: BuilderFormProps) {
   const form = useForm<BuilderFormValues>({
     resolver: zodResolver(builderFormSchema),
@@ -298,7 +307,23 @@ export function BuilderForm({
               control={form.control}
               name="tags"
               render={({ field }) => (
-                <TagInput value={field.value} onChange={field.onChange} />
+                <>
+                  <TagInput value={field.value} onChange={field.onChange} />
+                  <TagSuggestions
+                    popularTags={popularTags ?? []}
+                    selectedTags={field.value}
+                    onAdd={(tag) => {
+                      // 同タグ防止 + 上限チェック(TagInput と同じガード)
+                      if (
+                        !field.value.includes(tag) &&
+                        field.value.length < TAGS_MAX_COUNT
+                      ) {
+                        field.onChange([...field.value, tag]);
+                      }
+                    }}
+                    atMax={field.value.length >= TAGS_MAX_COUNT}
+                  />
+                </>
               )}
             />
             {errors.tags?.message && (
@@ -488,6 +513,64 @@ function Field({
       {children}
       {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * 既によく使われているタグを「おすすめ」として表示。クリックで現在の
+ * タグセットに追加する。表記揺れ(例: "クトゥルフ" vs "cthulhu" vs
+ * "coc" を別々に作ってしまう)を防ぐ目的。
+ *
+ * 表示方針:
+ *  - selectedTags に含まれているタグは表示しない(空っぽになって
+ *    判別不能になるのを避ける、最大 15 件表示)
+ *  - count を小さく付与(参考情報、検索順位ではないと分かる程度)
+ *  - atMax(タグ上限到達)時は disabled に
+ *  - popularTags が空のときは section ごと表示しない
+ */
+function TagSuggestions({
+  popularTags,
+  selectedTags,
+  onAdd,
+  atMax,
+}: {
+  popularTags: PopularTag[];
+  selectedTags: string[];
+  onAdd: (tag: string) => void;
+  atMax: boolean;
+}) {
+  const available = popularTags.filter((p) => !selectedTags.includes(p.tag));
+  if (available.length === 0) return null;
+
+  return (
+    <div className="mt-3 space-y-2 rounded-md border border-dashed border-border bg-muted/30 p-3">
+      <div className="flex items-center gap-1.5">
+        <Sparkles className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          よく使われるタグ
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {available.slice(0, 15).map(({ tag, count }) => (
+          <button
+            type="button"
+            key={tag}
+            onClick={() => onAdd(tag)}
+            disabled={atMax}
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-0.5 text-xs text-muted-foreground transition hover:border-foreground/30 hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <Plus className="h-3 w-3" aria-hidden />
+            <span>#{tag}</span>
+            <span className="text-[10px] text-muted-foreground/70">
+              ({count})
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground/70">
+        タグの表記揺れを防ぐため、すでに使われているタグから選ぶのがおすすめです。
+      </p>
     </div>
   );
 }
