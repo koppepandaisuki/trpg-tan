@@ -19,6 +19,17 @@ export type ProductType =
 
 export type FileFormat = "pdf" | "image_zip" | "audio";
 
+/**
+ * 商品カード / hero に Steam 風の総合評価 Badge を表示するための
+ * 軽量サマリ。`null` のときは「評価なし」相当で UI 側は非表示にする。
+ */
+export type ProductReviewSummary = {
+  total: number;
+  positive: number;
+  /** ReviewLabel と一致(型循環を避けるため string で持つ)*/
+  label: string;
+};
+
 export type ProductListItem = {
   id: string;
   slug: string;
@@ -38,6 +49,8 @@ export type ProductListItem = {
      */
     avatarPath: string | null;
   };
+  /** 集計済の評価サマリ。集計しないクエリでは null。*/
+  reviewSummary?: ProductReviewSummary | null;
 };
 
 export type ProductDetail = {

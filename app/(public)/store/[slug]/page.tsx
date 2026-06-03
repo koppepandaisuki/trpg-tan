@@ -27,6 +27,8 @@ import { ProductStrip } from "@/components/store/product-strip";
 import { ProductDetailRecorder } from "@/components/recent/product-detail-recorder";
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
 import { ReviewSection } from "@/components/review/review-section";
+import { ReviewBadge } from "@/components/review/review-badge";
+import { getReviewSummary } from "@/lib/queries/reviews";
 import {
   getPublishedProductBySlug,
   listRelatedProducts,
@@ -80,8 +82,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
           ? "buy"
           : "login";
 
-  // 関連作品(同じカテゴリ)+ 同じクリエイターの他作品 を並行 fetch
-  const [related, otherByCreator] = await Promise.all([
+  // 関連作品(同じカテゴリ)+ 同じクリエイターの他作品 + 評価サマリ
+  // を並行 fetch
+  const [related, otherByCreator, heroReviewSummary] = await Promise.all([
     listRelatedProducts({
       productType: product.productType,
       excludeId: product.id,
@@ -92,7 +95,18 @@ export default async function ProductDetailPage({ params }: PageProps) {
       excludeId: product.id,
       limit: 6,
     }),
+    getReviewSummary(product.id),
   ]);
+
+  // hero に渡す軽量サマリ(ProductReviewSummary 形)
+  const heroSummary =
+    heroReviewSummary.total > 0
+      ? {
+          total: heroReviewSummary.total,
+          positive: heroReviewSummary.positive,
+          label: heroReviewSummary.label,
+        }
+      : null;
 
   const creatorDisplayName = product.creator.displayName || "このクリエイター";
 
@@ -140,6 +154,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
         <header className="mt-4 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-violet-500/8 p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="category">{categoryLabel(product.productType)}</Badge>
+            {/* 総合評価 Badge(GGGG): 5 件以上のレビューがあれば色付き
+                ラベル + 件数を表示。未満は控えめ、ゼロなら非表示。 */}
+            <ReviewBadge summary={heroSummary} size="md" />
             {/* タグ chip は /store?tag=xxx へのリンク化(VVV: タグ検索)*/}
             {product.tags.map((tag) => (
               <Link

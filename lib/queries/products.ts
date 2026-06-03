@@ -6,6 +6,7 @@ import type {
   ProductType,
   FileFormat,
 } from "./types";
+import { fetchReviewSummariesByProductIds } from "./reviews";
 
 /**
  * Page size for the store grid. Confirmed in Phase 4 design.
@@ -138,7 +139,12 @@ export async function listPublishedProducts(opts?: {
   }
 
   const creatorIds = Array.from(new Set((rows ?? []).map((r) => r.creator_id)));
-  const creators = await fetchPublicProfiles(creatorIds);
+  const productIds = (rows ?? []).map((r) => r.id);
+  // creators / reviews を並行 fetch(両者は独立)
+  const [creators, reviewSummaries] = await Promise.all([
+    fetchPublicProfiles(creatorIds),
+    fetchReviewSummariesByProductIds(productIds),
+  ]);
 
   const items: ProductListItem[] = (rows ?? []).map((r) => ({
     id: r.id,
@@ -154,6 +160,7 @@ export async function listPublishedProducts(opts?: {
       displayName: creators.get(r.creator_id)?.displayName ?? "",
       avatarPath: creators.get(r.creator_id)?.avatarPath ?? null,
     },
+    reviewSummary: reviewSummaries.get(r.id) ?? null,
   }));
 
   const total = count ?? 0;
@@ -406,7 +413,12 @@ async function toProductListItems(
   }>,
 ): Promise<ProductListItem[]> {
   const creatorIds = Array.from(new Set(rows.map((r) => r.creator_id)));
-  const creators = await fetchPublicProfiles(creatorIds);
+  const productIds = rows.map((r) => r.id);
+  // creators / reviews 並行 fetch
+  const [creators, reviewSummaries] = await Promise.all([
+    fetchPublicProfiles(creatorIds),
+    fetchReviewSummariesByProductIds(productIds),
+  ]);
 
   return rows.map((r) => ({
     id: r.id,
@@ -422,6 +434,7 @@ async function toProductListItems(
       displayName: creators.get(r.creator_id)?.displayName ?? "",
       avatarPath: creators.get(r.creator_id)?.avatarPath ?? null,
     },
+    reviewSummary: reviewSummaries.get(r.id) ?? null,
   }));
 }
 
