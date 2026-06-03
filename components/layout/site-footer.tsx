@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Route } from "next";
 import { MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -36,17 +37,20 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* ブランド列 */}
           <div className="space-y-3">
+            {/* ブランドロゴ。TopHeader と同じ /logo.png を使い回す。
+                footer では高さ少し小さめ(h-8)に。 */}
             <Link
               href="/"
-              className="inline-flex items-center gap-2"
-              aria-label="TRPG プラットフォーム ホーム"
+              className="inline-flex items-center"
+              aria-label="パラDa-iCE TRPGサイト ホーム"
             >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-semibold">
-                T
-              </span>
-              <span className="text-sm font-semibold tracking-tight">
-                TRPG プラットフォーム
-              </span>
+              <Image
+                src="/logo.png"
+                alt="パラDa-iCE TRPGサイト"
+                width={340}
+                height={190}
+                className="h-8 w-auto"
+              />
             </Link>
             <p className="text-xs leading-relaxed text-muted-foreground">
               シナリオ・アセット・パッケージの

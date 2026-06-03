@@ -1,9 +1,11 @@
 import Link from "next/link";
 import type { Route } from "next";
+import { Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
 import { UserRow } from "@/components/admin/user-row";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { requireAdmin } from "@/lib/session/require";
 import { listUsersForAdmin } from "@/lib/queries/admin";
 import { cn } from "@/lib/utils";
@@ -26,14 +28,13 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold">ユーザー</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {total} 件。creator 付与/剥奪は監査ログに記録されます。
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="ユーザー"
+        description="creator 権限の付与・剥奪を管理。すべての操作は監査ログに記録されます。"
+        icon={Users}
+        tone="slate"
+        count={total}
+      />
 
       <form className="flex max-w-md items-center gap-2" action="/admin/users">
         <Input

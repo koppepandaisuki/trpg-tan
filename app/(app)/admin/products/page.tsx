@@ -1,9 +1,11 @@
 import Link from "next/link";
 import type { Route } from "next";
+import { Package } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
 import { AdminProductRowCard } from "@/components/admin/product-row";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { requireAdmin } from "@/lib/session/require";
 import { listProductsForAdmin } from "@/lib/queries/admin";
 import type { ProductStatus } from "@/lib/format/status";
@@ -36,12 +38,13 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">作品</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {total} 件。停止/復帰は監査ログに記録されます。
-        </p>
-      </div>
+      <AdminPageHeader
+        title="作品"
+        description="作品の停止・公開復帰・下書き化。停止/復帰の操作は監査ログに記録されます。"
+        icon={Package}
+        tone="indigo"
+        count={total}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         {STATUS_FILTERS.map((f) => {
