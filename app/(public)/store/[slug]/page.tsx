@@ -13,6 +13,9 @@ import {
   Check,
   X,
   Store as StoreIcon,
+  ShoppingBag,
+  ThumbsUp,
+  ThumbsDown,
   type LucideIcon,
 } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
@@ -28,7 +31,11 @@ import { ProductDetailRecorder } from "@/components/recent/product-detail-record
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
 import { ReviewSection } from "@/components/review/review-section";
 import { ReviewBadge } from "@/components/review/review-badge";
-import { getReviewSummary } from "@/lib/queries/reviews";
+import { getReviewSummary, type ReviewSummary } from "@/lib/queries/reviews";
+import { getProductSalesCount } from "@/lib/queries/sales";
+
+/** MetaTable に渡す reviewSummary の最小形(getReviewSummary の戻り型を再利用)*/
+type ReviewSummaryShape = ReviewSummary;
 import {
   getPublishedProductBySlug,
   listRelatedProducts,
@@ -82,21 +89,22 @@ export default async function ProductDetailPage({ params }: PageProps) {
           ? "buy"
           : "login";
 
-  // 関連作品(同じカテゴリ)+ 同じクリエイターの他作品 + 評価サマリ
-  // を並行 fetch
-  const [related, otherByCreator, heroReviewSummary] = await Promise.all([
-    listRelatedProducts({
-      productType: product.productType,
-      excludeId: product.id,
-      limit: 6,
-    }),
-    listProductsByCreator({
-      creatorId: product.creator.id,
-      excludeId: product.id,
-      limit: 6,
-    }),
-    getReviewSummary(product.id),
-  ]);
+  // 関連作品 / クリエイター他作品 / 評価サマリ / 販売数 を並行 fetch
+  const [related, otherByCreator, heroReviewSummary, salesCount] =
+    await Promise.all([
+      listRelatedProducts({
+        productType: product.productType,
+        excludeId: product.id,
+        limit: 6,
+      }),
+      listProductsByCreator({
+        creatorId: product.creator.id,
+        excludeId: product.id,
+        limit: 6,
+      }),
+      getReviewSummary(product.id),
+      getProductSalesCount(product.id),
+    ]);
 
   // hero に渡す軽量サマリ(ProductReviewSummary 形)
   const heroSummary =
@@ -181,7 +189,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
           <CoverImage src={coverUrl} alt={product.title} />
-          <MetaTable product={product} />
+          <MetaTable
+            product={product}
+            salesCount={salesCount}
+            reviewSummary={heroReviewSummary}
+          />
         </div>
 
         <section className="mt-10 space-y-3">
@@ -240,7 +252,16 @@ export default async function ProductDetailPage({ params }: PageProps) {
  * - 各行に Lucide アイコン(視覚的な手がかり)
  * - ライセンスは Check / X で可・不可を色付きで強調
  */
-function MetaTable({ product }: { product: ProductDetail }) {
+function MetaTable({
+  product,
+  salesCount,
+  reviewSummary,
+}: {
+  product: ProductDetail;
+  salesCount: number;
+  reviewSummary: ReviewSummaryShape;
+}) {
+  const showStats = salesCount > 0 || reviewSummary.total > 0;
   return (
     <Card className="shadow-sm">
       <CardContent className="space-y-5 p-5">
@@ -284,6 +305,34 @@ function MetaTable({ product }: { product: ProductDetail }) {
             value={<AllowValue allowed={product.allowRedistribution} />}
           />
         </MetaSection>
+
+        {/* 販売情報セクション(OOOO): 販売 or レビュー が 1 件以上のときだけ
+            セクションごと表示。α 初期の空欄を見せない設計。 */}
+        {showStats && (
+          <MetaSection title="販売情報">
+            {salesCount > 0 && (
+              <MetaRow
+                icon={ShoppingBag}
+                label="販売数"
+                value={`${salesCount} 件`}
+              />
+            )}
+            {reviewSummary.total > 0 && (
+              <>
+                <MetaRow
+                  icon={ThumbsUp}
+                  label="高評価"
+                  value={`${reviewSummary.positive} 件`}
+                />
+                <MetaRow
+                  icon={ThumbsDown}
+                  label="低評価"
+                  value={`${reviewSummary.negative} 件`}
+                />
+              </>
+            )}
+          </MetaSection>
+        )}
 
         <MetaSection title="更新">
           <MetaRow
