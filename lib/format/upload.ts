@@ -25,6 +25,12 @@ import type { FileFormat } from "@/lib/queries/types";
 export const COVER_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 /**
+ * Avatar image hard cap. Matches Supabase `avatars` bucket setting
+ * (0015 migration). 小さめに絞ることでストレージとロード時間を節約。
+ */
+export const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+
+/**
  * Product file hard cap.
  *
  * Provisional: 50 MB due to Supabase Free plan storage / egress limits.
@@ -54,6 +60,25 @@ const COVER_MIME_TO_EXT: Readonly<Record<string, string>> = {
 export function mimeToCoverExt(contentType: string): string | null {
   if (!contentType) return null;
   return COVER_MIME_TO_EXT[contentType.toLowerCase()] ?? null;
+}
+
+/**
+ * Canonical MIME types accepted for the avatars bucket。
+ * cover と同じ 3 種で十分(GIF はサポートしない、容量と表示一貫性の理由)。
+ */
+const AVATAR_MIME_TO_EXT: Readonly<Record<string, string>> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+/**
+ * Resolve a Content-Type string to the file extension used in the
+ * Storage path for an avatar image. Returns `null` for unknown MIME.
+ */
+export function mimeToAvatarExt(contentType: string): string | null {
+  if (!contentType) return null;
+  return AVATAR_MIME_TO_EXT[contentType.toLowerCase()] ?? null;
 }
 
 /**

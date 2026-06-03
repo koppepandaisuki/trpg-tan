@@ -10,6 +10,41 @@ import {
 } from "@/lib/validators/profile";
 
 /**
+ * アバター画像の Storage への upload 完了後に、profiles.avatar_path を
+ * 更新する。client は signed URL に PUT してから本アクションを呼ぶ流れ。
+ *
+ * path は `<user_id>/<timestamp>.<ext>` 形式を期待。先頭セグメントが
+ * 自分の ID と一致するかを server 側でも検証して、他人の path を
+ * 書き込み拒否(API route 側で既に決定するが、二重防御)。
+ */
+export async function updateAvatarPathAction(
+  path: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+
+  // セキュリティ: path が「自分の id/...」の形であることを確認
+  if (!path.startsWith(`${user.id}/`)) {
+    return { ok: false, error: "不正なパスです" };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ avatar_path: path })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("[updateAvatarPathAction] update failed", error);
+    return { ok: false, error: "保存に失敗しました" };
+  }
+
+  revalidatePath("/account/settings");
+  revalidatePath(`/creator/${user.id}`);
+
+  return { ok: true };
+}
+
+/**
  * 自分のプロフィール編集 server action。
  *
  * 認証: requireUser(未ログインは redirect)

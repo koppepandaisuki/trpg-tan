@@ -28,6 +28,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const COVERS_BUCKET = "covers";
 const PRODUCT_FILES_BUCKET = "product-files";
+const AVATARS_BUCKET = "avatars";
 
 export async function createCoverUploadUrl(path: string): Promise<string> {
   const admin = createAdminClient();
@@ -54,6 +55,27 @@ export async function createProductFileUploadUrl(
   if (error || !data?.signedUrl) {
     throw new Error(
       `[createProductFileUploadUrl] failed: ${error?.message ?? "no url"}`,
+    );
+  }
+  return data.signedUrl;
+}
+
+/**
+ * アバター画像用 signed upload URL。avatars バケットは public-read かつ
+ * 自分のフォルダ(<user_id>/...)にのみ書き込み可能。
+ *
+ * upsert: true で 同じ path への再アップロードを許可(プロフィール画像の
+ * 差し替えで使う、creator が何度も変えても新規 path が乱立しない設計)。
+ */
+export async function createAvatarUploadUrl(path: string): Promise<string> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage
+    .from(AVATARS_BUCKET)
+    .createSignedUploadUrl(path, { upsert: true });
+
+  if (error || !data?.signedUrl) {
+    throw new Error(
+      `[createAvatarUploadUrl] failed: ${error?.message ?? "no url"}`,
     );
   }
   return data.signedUrl;
