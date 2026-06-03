@@ -1,6 +1,7 @@
-import { Upload } from "lucide-react";
+import { Upload, PenSquare } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { BuilderForm } from "@/components/builder/builder-form";
 import { requireCreator } from "@/lib/session/require";
 import type { BuilderFormValues } from "@/lib/validators/product";
@@ -34,6 +35,17 @@ export default async function NewProductPage() {
           Web 側は「投稿(アップロード + メタデータ)」が役割であることを
           creator に伝える。 */}
       <PageContainer className="pt-8">
+        <Breadcrumb
+          items={[
+            {
+              href: "/creator/products",
+              label: "作品管理",
+              icon: PenSquare,
+            },
+            { label: "作品を投稿" },
+          ]}
+          className="mb-4"
+        />
         <section className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-violet-500/8 via-transparent to-indigo-500/8 p-6 sm:p-8">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-violet-300 bg-violet-50 text-violet-700">

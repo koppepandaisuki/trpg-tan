@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { notFound } from "next/navigation";
 import {
   Settings,
@@ -11,10 +12,12 @@ import {
   Calendar,
   Check,
   X,
+  Store as StoreIcon,
   type LucideIcon,
 } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { ThreeColumn } from "@/components/layout/three-column";
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -92,7 +95,16 @@ export default async function ProductDetailPage({ params }: PageProps) {
           />
         }
       >
-        <Breadcrumb product={product} />
+        <Breadcrumb
+          items={[
+            { href: "/store", label: "ストア", icon: StoreIcon },
+            {
+              href: `/store?category=${product.productType}` as Route,
+              label: categoryLabel(product.productType),
+            },
+            { label: product.title },
+          ]}
+        />
 
         {/* Steam ライクなグラデ hero ヘッダー */}
         <header className="mt-4 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-violet-500/8 p-6 sm:p-8">
@@ -138,25 +150,6 @@ export default async function ProductDetailPage({ params }: PageProps) {
         )}
       </ThreeColumn>
     </>
-  );
-}
-
-function Breadcrumb({ product }: { product: ProductDetail }) {
-  return (
-    <nav className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      <Link href="/" className="hover:text-foreground">
-        ホーム
-      </Link>
-      <span>›</span>
-      <Link
-        href={`/store?category=${product.productType}`}
-        className="hover:text-foreground"
-      >
-        {categoryLabel(product.productType)}
-      </Link>
-      <span>›</span>
-      <span className="text-foreground">{product.title}</span>
-    </nav>
   );
 }
 

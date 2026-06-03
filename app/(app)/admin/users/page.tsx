@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Users } from "lucide-react";
+import { Users, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
 import { UserRow } from "@/components/admin/user-row";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { requireAdmin } from "@/lib/session/require";
 import { listUsersForAdmin } from "@/lib/queries/admin";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,12 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb
+        items={[
+          { href: "/admin", label: "管理画面", icon: ShieldCheck },
+          { label: "ユーザー" },
+        ]}
+      />
       <AdminPageHeader
         title="ユーザー"
         description="creator 権限の付与・剥奪を管理。すべての操作は監査ログに記録されます。"

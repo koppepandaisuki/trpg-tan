@@ -1,5 +1,6 @@
 import { TopHeader } from "@/components/layout/top-header";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -65,6 +66,10 @@ export default async function OnboardingPage({
           </nav>
         }
       >
+        <Breadcrumb
+          items={[{ label: "Stripe 接続" }]}
+          className="mb-4"
+        />
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Stripe 接続</h1>
           <p className="mt-1 text-sm text-muted-foreground">
