@@ -1,46 +1,35 @@
 import Link from "next/link";
-import type { Route } from "next";
 import {
   Search,
   Bell,
   LogOut,
   AlertCircle,
-  Home,
-  Store,
-  PlusCircle,
-  Library,
   MessageCircle,
-  type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { MobileMenu } from "@/components/layout/mobile-menu";
+import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { cn } from "@/lib/utils";
-
-type NavItem = {
-  href: Route;
-  label: string;
-  icon: LucideIcon;
-};
-
-const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "ホーム", icon: Home },
-  { href: "/store", label: "探す", icon: Store },
-  // Web 側は creator が「作った作品をアップロードして公開する」だけ。
-  // 制作(ビルダー機能)は Phase 2 で Desktop App に集約予定のため、
-  // Web の入口は「投稿する」表記で統一する。
-  { href: "/creator/products/new", label: "投稿する", icon: PlusCircle },
-  { href: "/library", label: "ライブラリ", icon: Library },
-];
 
 /**
  * Top-level header. Server Component so it can render auth state.
  * Sign-out is a small POST form to /auth/sign-out (CSRF-friendlier than GET).
+ *
+ * Responsive 構造:
+ *  - < md: ロゴ + ハンバーガー(MobileMenu)のみ
+ *  - >= md: ロゴ + 検索バー + nav + ユーザーメニュー(現状維持)
+ *
+ * NAV_ITEMS は MobileMenu と共有するため components/layout/nav-items.ts に
+ * 切り出し済(Server → Client の props で Lucide Icon Component を渡せない
+ * 問題回避)。
  */
 export async function TopHeader({ className }: { className?: string }) {
   const user = await getCurrentUser();
+  const discordUrl = process.env.NEXT_PUBLIC_ALPHA_DISCORD_INVITE_URL;
 
   return (
     <header
@@ -49,10 +38,7 @@ export async function TopHeader({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center gap-6 px-4 sm:px-6">
-        {/* ブランドロゴ。画像ファイル(public/logo.png)を使わないコード
-            ベースの BrandMark に切替。Vercel デプロイ時に画像が拾えない
-            問題を恒久的に解消し、ロード失敗が原理的に起きないようにする。 */}
+      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
         <Link
           href="/"
           className="flex shrink-0 items-center"
@@ -61,6 +47,9 @@ export async function TopHeader({ className }: { className?: string }) {
           <BrandMark size="md" />
         </Link>
 
+        {/* 検索バー(デスクトップのみ。モバイルは MobileMenu 内にも置かない
+            — α 期間中は「準備中」なので、モバイルで省くことで scarce な
+            画面領域をハンバーガーとユーザーメニューに譲る)*/}
         <div className="hidden flex-1 max-w-xl md:block">
           <div className="relative">
             <Search
@@ -74,14 +63,13 @@ export async function TopHeader({ className }: { className?: string }) {
               disabled
               aria-label="検索(準備中、Phase 2 以降で実装予定)"
             />
-            {/* 「準備中」を視覚的に明示する右端バッジ。テスターが
-                クリックして反応しないことを不審に思わないようにする */}
             <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               準備中
             </span>
           </div>
         </div>
 
+        {/* デスクトップ用 nav */}
         <nav className="hidden items-center gap-1 md:flex">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
@@ -99,7 +87,26 @@ export async function TopHeader({ className }: { className?: string }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          {user ? <AuthedMenu user={user} /> : <UnauthedMenu />}
+          {/* デスクトップ用ユーザーメニュー */}
+          <div className="hidden items-center gap-2 md:flex">
+            {user ? <AuthedMenu user={user} /> : <UnauthedMenu />}
+          </div>
+
+          {/* モバイル用ハンバーガー(MobileMenu の中で md:hidden 制御) */}
+          <MobileMenu
+            user={
+              user
+                ? {
+                    displayName: user.displayName,
+                    email: user.email,
+                    isCreator: user.isCreator,
+                    isAdmin: user.isAdmin,
+                    stripeChargesEnabled: user.stripeChargesEnabled,
+                  }
+                : null
+            }
+            discordUrl={discordUrl}
+          />
         </div>
       </div>
     </header>
@@ -154,9 +161,10 @@ function AuthedMenu({
 
       <DiscordOrBellButton />
 
-
       <div className="hidden flex-col items-end leading-tight sm:flex">
-        <span className="text-sm font-medium">{user.displayName || user.email}</span>
+        <span className="text-sm font-medium">
+          {user.displayName || user.email}
+        </span>
         <span className="flex gap-1">
           {user.isAdmin && (
             <Badge variant="category" className="text-[10px]">
