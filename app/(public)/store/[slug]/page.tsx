@@ -24,6 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
 import { BuyButton } from "@/components/store/buy-button";
 import { ProductStrip } from "@/components/store/product-strip";
+import { ProductDetailRecorder } from "@/components/recent/product-detail-recorder";
+import { RecentlyViewed } from "@/components/recent/recently-viewed";
 import {
   getPublishedProductBySlug,
   listRelatedProducts,
@@ -86,6 +88,23 @@ export default async function ProductDetailPage({ params }: PageProps) {
   return (
     <>
       <TopHeader />
+      {/* 「最近見た作品」localStorage に本商品を記録(レンダリングなし)。
+          coverUrl は Server 側で publicCoverUrl 解決済を渡して、Client に
+          server-only 依存が漏れないようにする。 */}
+      <ProductDetailRecorder
+        item={{
+          slug: product.slug,
+          title: product.title,
+          coverUrl: publicCoverUrl(product.coverPath),
+          productType: product.productType,
+          priceJpy: product.priceJpy,
+          systemLabel: product.systemLabel,
+          creator: {
+            id: product.creator.id,
+            displayName: product.creator.displayName,
+          },
+        }}
+      />
       <ThreeColumn
         right={
           <PurchasePanel
@@ -154,6 +173,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
             />
           </section>
         )}
+
+        {/* 「最近見た作品」(自分は除外、回遊性向上)。履歴がなければ
+            何も描画されない。 */}
+        <section className="mt-12 border-t border-border pt-8">
+          <RecentlyViewed excludeSlug={product.slug} />
+        </section>
       </ThreeColumn>
     </>
   );
