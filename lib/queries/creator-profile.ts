@@ -1,6 +1,25 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { ProductListItem, ProductType } from "./types";
+import type { ReviewLabel } from "./reviews";
+
+/**
+ * Steam 風の総合評価ラベル算出。reviews.ts と同じロジックを内部で
+ * 重複定義(types とのサーキュラー依存回避のため、reviews 内 export を
+ * 使わずローカル実装)。基準が変わったら両方を更新する必要あり。
+ */
+function computeReviewLabel(positive: number, total: number): ReviewLabel {
+  if (total === 0) return "評価なし";
+  if (total < 5) return "評価不足";
+  const ratio = positive / total;
+  if (ratio >= 0.95) return "圧倒的に好評";
+  if (ratio >= 0.8) return "非常に好評";
+  if (ratio >= 0.7) return "ほぼ好評";
+  if (ratio >= 0.4) return "賛否両論";
+  if (ratio >= 0.2) return "やや不評";
+  if (ratio >= 0.05) return "不評";
+  return "圧倒的に不評";
+}
 
 /**
  * 他人の creator プロフィール表示用クエリ。
@@ -17,6 +36,21 @@ import type { ProductListItem, ProductType } from "./types";
  *  - id が存在しない / 非公開ユーザー → null を返す
  */
 
+/**
+ * クリエイターの公開作品全体に対する集計(プロフィール hero 表示用)。
+ * 作品ごとではなく「creator の累計」値。
+ */
+export interface CreatorAggregateStats {
+  /** paid purchase の累計件数(全作品合計)*/
+  totalSales: number;
+  reviews: {
+    total: number;
+    positive: number;
+    negative: number;
+    label: ReviewLabel;
+  };
+}
+
 export interface CreatorProfileView {
   id: string;
   displayName: string;
@@ -25,6 +59,8 @@ export interface CreatorProfileView {
   twitterHandle: string;
   websiteUrl: string;
   products: ProductListItem[];
+  /** 全作品の集計。products が 0 件のときも安全側で 0 / 評価なし */
+  stats: CreatorAggregateStats;
 }
 
 export async function getCreatorProfile(
@@ -68,6 +104,7 @@ export async function getCreatorProfile(
       twitterHandle: profileRow.twitter_handle ?? "",
       websiteUrl: profileRow.website_url ?? "",
       products: [],
+      stats: emptyStats(),
     };
   }
 
@@ -89,6 +126,12 @@ export async function getCreatorProfile(
     },
   }));
 
+  // 集計: 該当 creator の全作品 ID を対象に、paid purchases と
+  // product_reviews を並行 fetch して JS で reduce。productRows は
+  // 上で fetch 済なので、ID 集合は手元にある。
+  const productIds = (productRows ?? []).map((r) => r.id);
+  const stats = await computeCreatorStats(productIds);
+
   return {
     id: profileRow.id,
     displayName,
@@ -97,5 +140,78 @@ export async function getCreatorProfile(
     twitterHandle: profileRow.twitter_handle ?? "",
     websiteUrl: profileRow.website_url ?? "",
     products,
+    stats,
+  };
+}
+
+/**
+ * クリエイターの全作品に対する売上 + レビューを集計。
+ *
+ * 集計手順:
+ *  - productIds が空なら early return(空 stats)
+ *  - paid purchases と product_reviews を並行 fetch
+ *  - JS で count して整形
+ *
+ * 失敗時は部分的に 0 を返し、表示は崩れない方針。
+ */
+async function computeCreatorStats(
+  productIds: string[],
+): Promise<CreatorAggregateStats> {
+  if (productIds.length === 0) return emptyStats();
+
+  const supabase = createClient();
+
+  const [purchasesRes, reviewsRes] = await Promise.all([
+    supabase
+      .from("purchases")
+      .select("product_id")
+      .eq("status", "paid")
+      .in("product_id", productIds),
+    supabase
+      .from("product_reviews")
+      .select("rating")
+      .in("product_id", productIds),
+  ]);
+
+  if (purchasesRes.error) {
+    console.error(
+      "[computeCreatorStats] purchases failed",
+      purchasesRes.error,
+    );
+  }
+  if (reviewsRes.error) {
+    console.error("[computeCreatorStats] reviews failed", reviewsRes.error);
+  }
+
+  const totalSales = purchasesRes.data?.length ?? 0;
+
+  let positive = 0;
+  let negative = 0;
+  for (const r of reviewsRes.data ?? []) {
+    if (r.rating === "positive") positive++;
+    else if (r.rating === "negative") negative++;
+  }
+  const total = positive + negative;
+
+  return {
+    totalSales,
+    reviews: {
+      total,
+      positive,
+      negative,
+      label: computeReviewLabel(positive, total),
+    },
+  };
+}
+
+function emptyStats(): CreatorAggregateStats {
+  return {
+    totalSales: 0,
+    reviews: {
+      total: 0,
+      positive: 0,
+      negative: 0,
+      label: "評価なし",
+    },
   };
 }
