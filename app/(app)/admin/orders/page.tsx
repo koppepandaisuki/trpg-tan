@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { Route } from "next";
+import { Receipt } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { OrderRow } from "@/components/admin/order-row";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { requireAdmin } from "@/lib/session/require";
 import { listOrdersForAdmin } from "@/lib/queries/admin";
 import { cn } from "@/lib/utils";
@@ -20,12 +22,13 @@ export default async function AdminOrdersPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">取引</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {total} 件。返金は各行の「Stripe で開く」から Stripe Dashboard で実行してください(Phase 8 ではアプリ側で返金実行 UI を提供していません)。
-        </p>
-      </div>
+      <AdminPageHeader
+        title="取引"
+        description="購入履歴の確認 / 返金。返金は各行の「Stripe で開く」から Stripe Dashboard で実行します(Phase 8 ではアプリ側で返金実行 UI を提供していません)。"
+        icon={Receipt}
+        tone="emerald"
+        count={total}
+      />
 
       {items.length === 0 ? (
         <Card className="shadow-sm">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Route } from "next";
 import {
   Search,
@@ -49,11 +50,19 @@ export async function TopHeader({ className }: { className?: string }) {
       )}
     >
       <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center gap-6 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-semibold">
-            T
-          </span>
-          <span className="text-sm font-semibold tracking-tight">TRPG プラットフォーム</span>
+        {/* ブランドロゴ。logo.png(public/)は「パラDa-iCE TRPGサイト」の
+            横長ロゴで、すでにテキストを含むため別の text span は出さない。
+            画像が未配置でも build は通る(Next/Image は build 時に存在検証
+            しないため)。 */}
+        <Link href="/" className="flex items-center" aria-label="パラDa-iCE TRPGサイト ホーム">
+          <Image
+            src="/logo.png"
+            alt="パラDa-iCE TRPGサイト"
+            width={340}
+            height={190}
+            priority
+            className="h-9 w-auto"
+          />
         </Link>
 
         <div className="hidden flex-1 max-w-xl md:block">
