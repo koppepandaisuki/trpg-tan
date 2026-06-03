@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import type { Route } from "next";
 import { MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -38,18 +37,19 @@ export function SiteFooter() {
           {/* ブランド列 */}
           <div className="space-y-3">
             {/* ブランドロゴ。TopHeader と同じ /logo.png を使い回す。
-                footer では高さ少し小さめ(h-8)に。 */}
+                footer では h-10 で TopHeader と高さを揃え(視覚的な一貫性)。
+                Next/Image を避けて <img> を使う理由は TopHeader と同じ
+                (Next/Image の width attr が CSS w-auto を打ち負ける問題)。 */}
             <Link
               href="/"
               className="inline-flex items-center"
               aria-label="パラDa-iCE TRPGサイト ホーム"
             >
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/logo.png"
                 alt="パラDa-iCE TRPGサイト"
-                width={340}
-                height={190}
-                className="h-8 w-auto"
+                className="h-10 w-auto"
               />
             </Link>
             <p className="text-xs leading-relaxed text-muted-foreground">
