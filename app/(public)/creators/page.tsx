@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
 import { EmptyState } from "@/components/store/empty-state";
 import { buttonVariants } from "@/components/ui/button";
-import { listPublicCreators } from "@/lib/queries/creators";
+import { listPublicCreators, type CreatorSort } from "@/lib/queries/creators";
 import { publicAvatarUrl } from "@/lib/format/storage";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +20,12 @@ export const metadata = {
 };
 
 interface CreatorsPageProps {
-  searchParams: { page?: string };
+  searchParams: { page?: string; sort?: string };
+}
+
+function parseSort(value: string | undefined): CreatorSort {
+  if (value === "sales") return "sales";
+  return "products";
 }
 
 /**
@@ -37,11 +42,22 @@ interface CreatorsPageProps {
  */
 export default async function CreatorsPage({ searchParams }: CreatorsPageProps) {
   const page = Number.parseInt(searchParams.page ?? "1", 10) || 1;
-  const { items, total, totalPages } = await listPublicCreators({ page });
+  const sort = parseSort(searchParams.sort);
+  const { items, total, totalPages } = await listPublicCreators({ page, sort });
 
+  // ページネーション URL は sort を維持しつつ page だけ差し替える
   const buildHref = (p: number): Route => {
-    if (p <= 1) return "/creators" as Route;
-    return `/creators?page=${p}` as Route;
+    const params = new URLSearchParams();
+    if (sort === "sales") params.set("sort", "sales");
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return (qs ? `/creators?${qs}` : "/creators") as Route;
+  };
+
+  // ソート切替 URL は page をリセットして 1 ページ目に戻す
+  const buildSortHref = (s: CreatorSort): Route => {
+    if (s === "products") return "/creators" as Route;
+    return `/creators?sort=${s}` as Route;
   };
 
   return (
@@ -77,6 +93,31 @@ export default async function CreatorsPage({ searchParams }: CreatorsPageProps) 
           </CardContent>
         </Card>
 
+        {/* ソート切替 tabs(FFFF)*/}
+        <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="並べ替え">
+          {[
+            { value: "products" as const, label: "作品数順" },
+            { value: "sales" as const, label: "売上順" },
+          ].map((opt) => {
+            const isActive = sort === opt.value;
+            return (
+              <Link
+                key={opt.value}
+                href={buildSortHref(opt.value)}
+                className={cn(
+                  "rounded-t-md px-3 py-2 text-sm transition-colors",
+                  isActive
+                    ? "border-b-2 border-foreground font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                {opt.label}
+              </Link>
+            );
+          })}
+        </nav>
+
         {/* グリッド or 空状態 */}
         {items.length === 0 ? (
           <EmptyState
@@ -99,6 +140,7 @@ export default async function CreatorsPage({ searchParams }: CreatorsPageProps) 
                   avatarUrl={publicAvatarUrl(c.avatarPath)}
                   bio={c.bio}
                   productCount={c.productCount}
+                  totalSales={sort === "sales" ? c.totalSales : null}
                 />
               </li>
             ))}
@@ -153,12 +195,15 @@ function CreatorCard({
   avatarUrl,
   bio,
   productCount,
+  totalSales,
 }: {
   id: string;
   displayName: string;
   avatarUrl: string | null;
   bio: string;
   productCount: number;
+  /** sort=sales のときのみ表示。null なら隠す。*/
+  totalSales: number | null;
 }) {
   const name = displayName || "(名称未設定)";
 
@@ -182,9 +227,16 @@ function CreatorCard({
               <p className="truncate text-base font-semibold tracking-tight transition-colors group-hover:text-accent">
                 {name}
               </p>
-              <Badge variant="muted" className="text-[10px]">
-                公開作品 {productCount} 件
-              </Badge>
+              <div className="flex flex-wrap items-center gap-1">
+                <Badge variant="muted" className="text-[10px]">
+                  公開作品 {productCount} 件
+                </Badge>
+                {typeof totalSales === "number" && (
+                  <Badge variant="category" className="text-[10px]">
+                    累計購入 {totalSales} 件
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           {bio ? (
