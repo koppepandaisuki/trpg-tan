@@ -1,5 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  Settings,
+  Users,
+  Clock,
+  Sparkles,
+  FileType,
+  Briefcase,
+  Repeat,
+  Calendar,
+  Check,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { ThreeColumn } from "@/components/layout/three-column";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -146,31 +159,122 @@ function Breadcrumb({ product }: { product: ProductDetail }) {
   );
 }
 
+/**
+ * 商品詳細のメタテーブル。Steam の「Game details」サイドパネルを
+ * 参考にしたグループ化 + アイコン付き表示。
+ *
+ * - 作品情報 / 形式 / ライセンス / 更新 の 4 セクションに分割
+ * - 各行に Lucide アイコン(視覚的な手がかり)
+ * - ライセンスは Check / X で可・不可を色付きで強調
+ */
 function MetaTable({ product }: { product: ProductDetail }) {
-  const rows: Array<{ label: string; value: React.ReactNode }> = [
-    { label: "対応システム", value: product.systemLabel ?? "—" },
-    { label: "プレイ人数", value: product.players ?? "—" },
-    { label: "プレイ時間", value: product.playtime ?? "—" },
-    { label: "推奨技能", value: product.recommendedSkills ?? "—" },
-    { label: "形式", value: fileFormatLabel(product.fileFormat) },
-    { label: "商用利用", value: product.allowCommercial ? "可" : "不可" },
-    { label: "二次配布", value: product.allowRedistribution ? "可" : "不可" },
-    { label: "更新日", value: formatDate(product.updatedAt) },
-  ];
-
   return (
     <Card className="shadow-sm">
-      <CardContent className="p-4">
-        <dl className="divide-y divide-border">
-          {rows.map((r) => (
-            <div key={r.label} className="flex justify-between gap-4 py-2 text-sm">
-              <dt className="text-muted-foreground">{r.label}</dt>
-              <dd className="text-right">{r.value}</dd>
-            </div>
-          ))}
-        </dl>
+      <CardContent className="space-y-5 p-5">
+        <MetaSection title="作品情報">
+          <MetaRow
+            icon={Settings}
+            label="対応システム"
+            value={product.systemLabel ?? "—"}
+          />
+          <MetaRow
+            icon={Users}
+            label="プレイ人数"
+            value={product.players ?? "—"}
+          />
+          <MetaRow
+            icon={Clock}
+            label="プレイ時間"
+            value={product.playtime ?? "—"}
+          />
+          <MetaRow
+            icon={Sparkles}
+            label="推奨技能"
+            value={product.recommendedSkills ?? "—"}
+          />
+        </MetaSection>
+
+        <MetaSection title="形式・ライセンス">
+          <MetaRow
+            icon={FileType}
+            label="形式"
+            value={fileFormatLabel(product.fileFormat)}
+          />
+          <MetaRow
+            icon={Briefcase}
+            label="商用利用"
+            value={<AllowValue allowed={product.allowCommercial} />}
+          />
+          <MetaRow
+            icon={Repeat}
+            label="二次配布"
+            value={<AllowValue allowed={product.allowRedistribution} />}
+          />
+        </MetaSection>
+
+        <MetaSection title="更新">
+          <MetaRow
+            icon={Calendar}
+            label="更新日"
+            value={formatDate(product.updatedAt)}
+          />
+        </MetaSection>
       </CardContent>
     </Card>
+  );
+}
+
+function MetaSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </h3>
+      <dl className="space-y-1.5">{children}</dl>
+    </div>
+  );
+}
+
+function MetaRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-sm">
+      <dt className="flex items-center gap-1.5 text-muted-foreground">
+        <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        <span>{label}</span>
+      </dt>
+      <dd className="text-right">{value}</dd>
+    </div>
+  );
+}
+
+function AllowValue({ allowed }: { allowed: boolean }) {
+  if (allowed) {
+    return (
+      <span className="inline-flex items-center gap-1 text-emerald-700">
+        <Check className="h-3.5 w-3.5" aria-hidden />
+        可
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-muted-foreground">
+      <X className="h-3.5 w-3.5" aria-hidden />
+      不可
+    </span>
   );
 }
 
