@@ -26,6 +26,7 @@ import { BuyButton } from "@/components/store/buy-button";
 import { ProductStrip } from "@/components/store/product-strip";
 import { ProductDetailRecorder } from "@/components/recent/product-detail-recorder";
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
+import { ReviewSection } from "@/components/review/review-section";
 import {
   getPublishedProductBySlug,
   listRelatedProducts,
@@ -171,6 +172,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
             {product.description || "(説明はまだ登録されていません)"}
           </p>
+        </section>
+
+        {/* レビュー(Steam ライク): 集計 + 投稿フォーム + 一覧。
+            購入済みでなければ閲覧のみ可能。 */}
+        <section className="mt-12 border-t border-border pt-8">
+          <ReviewSection productId={product.id} productSlug={product.slug} />
         </section>
 
         {/* 同じクリエイターの他作品(関連作品より上、クリエイター回遊を
