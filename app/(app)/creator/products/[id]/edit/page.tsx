@@ -9,7 +9,7 @@ import { getMyProductById } from "@/lib/queries/creator-products";
 import type { BuilderFormValues } from "@/lib/validators/product";
 import { statusLabel, statusBadgeVariant } from "@/lib/format/status";
 
-export const metadata = { title: "作品を編集 | TRPG プラットフォーム" };
+export const metadata = { title: "作品を編集" };
 
 interface EditPageProps {
   params: { id: string };

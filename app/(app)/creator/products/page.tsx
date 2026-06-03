@@ -10,7 +10,7 @@ import { requireCreator } from "@/lib/session/require";
 import { listMyProducts } from "@/lib/queries/creator-products";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "作品管理 | TRPG プラットフォーム" };
+export const metadata = { title: "作品管理" };
 
 const CREATOR_NAV: Array<{
   label: string;

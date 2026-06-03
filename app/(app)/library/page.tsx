@@ -16,7 +16,7 @@ import { requireUser } from "@/lib/session/require";
 import { listMyLibrary, type LibraryItem } from "@/lib/queries/library";
 import { formatPrice } from "@/lib/format/price";
 
-export const metadata = { title: "ライブラリ | TRPG プラットフォーム" };
+export const metadata = { title: "ライブラリ" };
 
 export default async function LibraryPage() {
   const user = await requireUser();

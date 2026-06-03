@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SignupForm } from "@/components/auth/signup-form";
 import { getCurrentUser } from "@/lib/session/get-user";
 
-export const metadata = { title: "新規登録 | TRPG プラットフォーム" };
+export const metadata = { title: "新規登録" };
 
 /**
  * 新規登録ページ。

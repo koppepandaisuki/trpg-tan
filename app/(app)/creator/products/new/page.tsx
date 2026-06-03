@@ -5,7 +5,7 @@ import { BuilderForm } from "@/components/builder/builder-form";
 import { requireCreator } from "@/lib/session/require";
 import type { BuilderFormValues } from "@/lib/validators/product";
 
-export const metadata = { title: "作品を投稿 | TRPG プラットフォーム" };
+export const metadata = { title: "作品を投稿" };
 
 const DEFAULTS: BuilderFormValues = {
   title: "",

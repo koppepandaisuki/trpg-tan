@@ -11,7 +11,7 @@ import { StorePagination } from "@/components/store/pagination";
 import { listPublishedProducts } from "@/lib/queries/products";
 import { parseCategoryParam, categoryLabel } from "@/lib/format/category";
 
-export const metadata = { title: "ストア | TRPG プラットフォーム" };
+export const metadata = { title: "ストア" };
 
 interface StorePageProps {
   searchParams: {

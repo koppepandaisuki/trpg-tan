@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
-  title: "アクセス権限がありません | TRPG プラットフォーム",
+  title: "アクセス権限がありません",
 };
 
 /**

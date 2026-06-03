@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { AdminTabs } from "@/components/admin/admin-tabs";
 import { requireAdmin } from "@/lib/session/require";
 
-export const metadata = { title: "admin | TRPG プラットフォーム" };
+export const metadata = { title: "admin" };
 
 export default async function AdminLayout({
   children,

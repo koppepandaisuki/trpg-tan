@@ -9,7 +9,7 @@ import { sanitizeSlug } from "@/lib/api/redirect";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
-  title: "購入を完了していません | TRPG プラットフォーム",
+  title: "購入を完了していません",
 };
 
 interface PageProps {
