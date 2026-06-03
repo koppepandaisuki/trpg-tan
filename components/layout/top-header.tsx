@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import type { Route } from "next";
 import {
   Search,
@@ -52,16 +51,20 @@ export async function TopHeader({ className }: { className?: string }) {
       <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center gap-6 px-4 sm:px-6">
         {/* ブランドロゴ。logo.png(public/)は「パラDa-iCE TRPGサイト」の
             横長ロゴで、すでにテキストを含むため別の text span は出さない。
-            画像が未配置でも build は通る(Next/Image は build 時に存在検証
-            しないため)。 */}
-        <Link href="/" className="flex items-center" aria-label="パラDa-iCE TRPGサイト ホーム">
-          <Image
+            next/image を使うと width attribute が CSS の w-auto を打ち負け、
+            画像が intrinsic 幅でレンダリングされて切れる問題があるため、
+            素の <img> を使う(ヘッダーのロゴ 1 枚なので最適化メリットも
+            限定的)。h-10 + w-auto で高さ基準にアスペクト比を保つ。 */}
+        <Link
+          href="/"
+          className="flex shrink-0 items-center"
+          aria-label="パラDa-iCE TRPGサイト ホーム"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/logo.png"
             alt="パラDa-iCE TRPGサイト"
-            width={340}
-            height={190}
-            priority
-            className="h-9 w-auto"
+            className="h-10 w-auto"
           />
         </Link>
 
