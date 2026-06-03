@@ -350,14 +350,50 @@ function PurchasePanel({
         </CardContent>
       </Card>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>作者について</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
-              {avatarUrl && (
+      <CreatorCard
+        displayName={product.creator.displayName}
+        bio={product.creator.bio}
+        avatarUrl={avatarUrl}
+      />
+    </div>
+  );
+}
+
+/**
+ * 作者カード。サイト全体の視覚言語に統一(グラデ + 円形アバター)。
+ *
+ * 視覚改善:
+ *  - グラデ背景(creator らしさを際立たせる indigo/rose)
+ *  - アバター h-12 で拡大、画像が無い場合は表示名の頭文字を表示
+ *  - 表示名を text-base font-semibold で明示、クリエイター bage 付き
+ *  - bio は whitespace-pre-wrap で改行を保ちつつ leading-relaxed で読みやすく
+ */
+function CreatorCard({
+  displayName,
+  bio,
+  avatarUrl,
+}: {
+  displayName: string;
+  bio: string;
+  avatarUrl: string | null;
+}) {
+  const name = displayName || "(名称未設定)";
+  const initial = name.charAt(0).toUpperCase();
+
+  return (
+    <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-rose-500/8 shadow-sm">
+      <CardContent className="relative space-y-4 py-5">
+        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-rose-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-indigo-500/10 blur-3xl" />
+
+        <div className="relative z-10">
+          <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            作者について
+          </h3>
+
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-base font-semibold text-muted-foreground">
+              {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={avatarUrl}
@@ -365,22 +401,28 @@ function PurchasePanel({
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
+              ) : (
+                <span>{initial}</span>
               )}
             </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {product.creator.displayName || "(名称未設定)"}
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="truncate text-base font-semibold tracking-tight">
+                {name}
               </p>
+              <Badge variant="muted" className="text-[10px]">
+                クリエイター
+              </Badge>
             </div>
           </div>
-          {product.creator.bio && (
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
-              {product.creator.bio}
+
+          {bio && (
+            <p className="relative z-10 mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+              {bio}
             </p>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
