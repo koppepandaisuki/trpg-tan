@@ -7,6 +7,7 @@ import { loginSchema, type LoginInput } from "@/lib/validators/auth";
 import { loginAction } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GoogleButton } from "@/components/auth/google-button";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -36,7 +37,23 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+    <div className="space-y-4">
+      {/* Google ログインを先に出す。signup ページと同じ理由(クリック 1 回 UX)*/}
+      <GoogleButton label="Google で続行" />
+
+      <div
+        className="relative my-2 flex items-center"
+        role="separator"
+        aria-label="または"
+      >
+        <div className="flex-1 border-t border-border" aria-hidden />
+        <span className="px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          または
+        </span>
+        <div className="flex-1 border-t border-border" aria-hidden />
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div className="space-y-1.5">
         <label htmlFor="email" className="text-sm font-medium">
           メールアドレス
@@ -79,8 +96,9 @@ export function LoginForm() {
       )}
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "ログイン中…" : "ログイン"}
+        {isSubmitting ? "ログイン中…" : "メールでログイン"}
       </Button>
-    </form>
+      </form>
+    </div>
   );
 }
