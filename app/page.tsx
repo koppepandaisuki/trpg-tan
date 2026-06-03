@@ -8,6 +8,7 @@ import { TopCreatorsSection } from "@/components/creator/top-creators-section";
 import {
   listRecentProducts,
   listTopSellingProducts,
+  listTopRatedProducts,
 } from "@/lib/queries/products";
 import { getTopCreators } from "@/lib/queries/top-creators";
 
@@ -30,10 +31,11 @@ import { getTopCreators } from "@/lib/queries/top-creators";
 export const revalidate = 60;
 
 export default async function HomePage() {
-  // 売上上位 / 新着 / 人気クリエイター TOP 3 を並行 fetch
-  const [topSellers, recent, topCreators] = await Promise.all([
+  // 売上上位 / 新着 / 好評な作品 / 人気クリエイター TOP 3 を並行 fetch
+  const [topSellers, recent, topRated, topCreators] = await Promise.all([
     listTopSellingProducts(12),
     listRecentProducts(12),
+    listTopRatedProducts(12),
     getTopCreators(3),
   ]);
 
@@ -73,6 +75,18 @@ export default async function HomePage() {
           products={topSellers}
           seeAllHref="/store"
         />
+
+        {/* 好評な作品 strip(MMMM): listTopRatedProducts が「評価ありが
+            1 件以上」のときだけ items を返すので、0 件のときは strip ごと
+            消える。「すべて見る」は /store?sort=rating に飛ばす。 */}
+        {topRated.length > 0 && (
+          <ProductStrip
+            title="好評な作品"
+            description="購入者の評価が高い順"
+            products={topRated}
+            seeAllHref="/store?sort=rating"
+          />
+        )}
 
         {filteredRecent.length > 0 && (
           <ProductStrip
