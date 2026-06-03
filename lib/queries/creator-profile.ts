@@ -22,6 +22,8 @@ export interface CreatorProfileView {
   displayName: string;
   avatarPath: string | null;
   bio: string;
+  twitterHandle: string;
+  websiteUrl: string;
   products: ProductListItem[];
 }
 
@@ -33,7 +35,9 @@ export async function getCreatorProfile(
   // Profile 取得
   const { data: profileRow, error: profileErr } = await supabase
     .from("public_profiles")
-    .select("id, display_name, avatar_path, bio")
+    .select(
+      "id, display_name, avatar_path, bio, twitter_handle, website_url",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -61,6 +65,8 @@ export async function getCreatorProfile(
       displayName: profileRow.display_name ?? "",
       avatarPath: profileRow.avatar_path,
       bio: profileRow.bio ?? "",
+      twitterHandle: profileRow.twitter_handle ?? "",
+      websiteUrl: profileRow.website_url ?? "",
       products: [],
     };
   }
@@ -87,6 +93,8 @@ export async function getCreatorProfile(
     displayName,
     avatarPath: profileRow.avatar_path,
     bio: profileRow.bio ?? "",
+    twitterHandle: profileRow.twitter_handle ?? "",
+    websiteUrl: profileRow.website_url ?? "",
     products,
   };
 }
