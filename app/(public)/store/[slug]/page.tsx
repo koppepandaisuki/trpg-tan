@@ -29,6 +29,7 @@ import { RecentlyViewed } from "@/components/recent/recently-viewed";
 import {
   getPublishedProductBySlug,
   listRelatedProducts,
+  listProductsByCreator,
 } from "@/lib/queries/products";
 import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
 import { formatPrice, isFree } from "@/lib/format/price";
@@ -78,12 +79,21 @@ export default async function ProductDetailPage({ params }: PageProps) {
           ? "buy"
           : "login";
 
-  // 関連作品(同じカテゴリ)
-  const related = await listRelatedProducts({
-    productType: product.productType,
-    excludeId: product.id,
-    limit: 6,
-  });
+  // 関連作品(同じカテゴリ)+ 同じクリエイターの他作品 を並行 fetch
+  const [related, otherByCreator] = await Promise.all([
+    listRelatedProducts({
+      productType: product.productType,
+      excludeId: product.id,
+      limit: 6,
+    }),
+    listProductsByCreator({
+      creatorId: product.creator.id,
+      excludeId: product.id,
+      limit: 6,
+    }),
+  ]);
+
+  const creatorDisplayName = product.creator.displayName || "このクリエイター";
 
   return (
     <>
@@ -162,6 +172,20 @@ export default async function ProductDetailPage({ params }: PageProps) {
             {product.description || "(説明はまだ登録されていません)"}
           </p>
         </section>
+
+        {/* 同じクリエイターの他作品(関連作品より上、クリエイター回遊を
+            優先 — 商品詳細のキャプチャ手段としては最も強い)。0 件なら
+            セクション非表示。 */}
+        {otherByCreator.length > 0 && (
+          <section className="mt-12 border-t border-border pt-8">
+            <ProductStrip
+              title={`${creatorDisplayName} の他の作品`}
+              description="同じクリエイターが手がけた作品"
+              products={otherByCreator}
+              seeAllHref={`/creator/${product.creator.id}` as Route}
+            />
+          </section>
+        )}
 
         {related.length > 0 && (
           <section className="mt-12 border-t border-border pt-8">
