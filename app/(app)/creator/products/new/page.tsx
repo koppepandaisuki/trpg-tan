@@ -4,6 +4,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { BuilderForm } from "@/components/builder/builder-form";
 import { requireCreator } from "@/lib/session/require";
+import { getPopularTags } from "@/lib/queries/tags";
 import type { BuilderFormValues } from "@/lib/validators/product";
 
 export const metadata = { title: "作品を投稿" };
@@ -25,6 +26,8 @@ const DEFAULTS: BuilderFormValues = {
 
 export default async function NewProductPage() {
   await requireCreator();
+  // よく使われるタグを取得(表記揺れ防止 = タグサジェスト)
+  const popularTags = await getPopularTags(20);
 
   return (
     <>
@@ -72,6 +75,7 @@ export default async function NewProductPage() {
         currentStatus="draft"
         publishedAt={null}
         initialValues={DEFAULTS}
+        popularTags={popularTags}
       />
     </>
   );

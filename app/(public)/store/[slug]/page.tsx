@@ -110,10 +110,16 @@ export default async function ProductDetailPage({ params }: PageProps) {
         <header className="mt-4 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-violet-500/8 p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="category">{categoryLabel(product.productType)}</Badge>
+            {/* タグ chip は /store?tag=xxx へのリンク化(VVV: タグ検索)*/}
             {product.tags.map((tag) => (
-              <Badge key={tag} variant="muted">
+              <Link
+                key={tag}
+                href={`/store?tag=${encodeURIComponent(tag)}` as Route}
+                className="inline-flex items-center rounded-md border border-border bg-card px-2 py-0.5 text-xs font-medium text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
+                aria-label={`タグ「${tag}」で絞り込む`}
+              >
                 #{tag}
-              </Badge>
+              </Link>
             ))}
           </div>
           <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">

@@ -85,6 +85,7 @@ type ListResult = {
  */
 export async function listPublishedProducts(opts?: {
   category?: ProductType | null;
+  tag?: string | null;
   page?: number;
 }): Promise<ListResult> {
   const supabase = createClient();
@@ -92,6 +93,28 @@ export async function listPublishedProducts(opts?: {
   const pageSize = STORE_PAGE_SIZE;
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
+
+  // タグフィルタが指定されている場合: 先に product_tags から該当 tag の
+  // product_id を全部取り、products を .in() で絞り込む。
+  // tag を含む products が 0 件なら早期 return(空ページ)。
+  let tagFilteredIds: string[] | null = null;
+  if (opts?.tag) {
+    const { data: tagRows, error: tagErr } = await supabase
+      .from("product_tags")
+      .select("product_id")
+      .eq("tag", opts.tag);
+
+    if (tagErr) {
+      console.error("[listPublishedProducts] tag filter failed", tagErr);
+      return { items: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+    tagFilteredIds = Array.from(
+      new Set((tagRows ?? []).map((r) => r.product_id)),
+    );
+    if (tagFilteredIds.length === 0) {
+      return { items: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+  }
 
   let query = supabase
     .from("products")
@@ -103,6 +126,9 @@ export async function listPublishedProducts(opts?: {
 
   if (opts?.category) {
     query = query.eq("product_type", opts.category);
+  }
+  if (tagFilteredIds) {
+    query = query.in("id", tagFilteredIds);
   }
 
   const { data: rows, count, error } = await query;
