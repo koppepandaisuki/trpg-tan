@@ -75,6 +75,7 @@ export function SiteFooter() {
           <FooterColumn title="ナビゲーション">
             <FooterLink href="/" label="ホーム" />
             <FooterLink href="/store" label="ストアを見る" />
+            <FooterLink href="/creators" label="クリエイター一覧" />
             <FooterLink href="/creator/products/new" label="作品を投稿する" />
             <FooterLink href="/library" label="ライブラリ" />
           </FooterColumn>
