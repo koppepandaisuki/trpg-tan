@@ -8,7 +8,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { getLoginErrorMessage } from "@/lib/auth/login-errors";
 
-export const metadata = { title: "ログイン | TRPG プラットフォーム" };
+export const metadata = { title: "ログイン" };
 
 interface LoginPageProps {
   searchParams: {

@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
-  title: "ご購入手続きを受け付けました | TRPG プラットフォーム",
+  title: "ご購入手続きを受け付けました",
 };
 
 interface PageProps {

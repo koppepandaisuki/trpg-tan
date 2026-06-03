@@ -19,7 +19,7 @@ import { isAlphaAllowFreeWithoutConnectEnabled } from "@/lib/access/alpha-publis
 import { OnboardingStartButton } from "./start-button";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Stripe 接続 | TRPG プラットフォーム" };
+export const metadata = { title: "Stripe 接続" };
 
 const CREATOR_NAV = [
   { label: "ダッシュボード", href: "/creator/products", current: false, disabled: true },

@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
-  title: "確認メールを送信しました | TRPG プラットフォーム",
+  title: "確認メールを送信しました",
 };
 
 /**

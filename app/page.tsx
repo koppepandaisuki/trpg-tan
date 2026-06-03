@@ -20,7 +20,8 @@ import {
  * (ProductStrip 側で 0 件チェック)。Hero は常に出る。
  */
 
-export const metadata = { title: "TRPG プラットフォーム" };
+// root layout の title.default に任せて、ホームでは独自 title を出さない
+// (「パラDa-iCE TRPGサイト」がブラウザタブに出る)。
 
 // 1 分で revalidate(ストアのフロントなので頻繁更新は不要)
 export const revalidate = 60;
