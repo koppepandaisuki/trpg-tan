@@ -326,6 +326,7 @@ function PurchasePanel({
       <PurchaseOptionsCard product={product} ctaState={ctaState} />
 
       <CreatorCard
+        creatorId={product.creator.id}
         displayName={product.creator.displayName}
         bio={product.creator.bio}
         avatarUrl={avatarUrl}
@@ -447,16 +448,19 @@ function PurchaseMetaRow({
  *  - bio は whitespace-pre-wrap で改行を保ちつつ leading-relaxed で読みやすく
  */
 function CreatorCard({
+  creatorId,
   displayName,
   bio,
   avatarUrl,
 }: {
+  creatorId: string;
   displayName: string;
   bio: string;
   avatarUrl: string | null;
 }) {
   const name = displayName || "(名称未設定)";
   const initial = name.charAt(0).toUpperCase();
+  const profileHref = `/creator/${creatorId}` as Route;
 
   return (
     <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-rose-500/8 shadow-sm">
@@ -470,7 +474,12 @@ function CreatorCard({
           </h3>
 
           <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-base font-semibold text-muted-foreground">
+            {/* アバターをクリッカブルに(クリエイターページへ) */}
+            <Link
+              href={profileHref}
+              className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-base font-semibold text-muted-foreground transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label={`${name} のプロフィールを見る`}
+            >
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -482,11 +491,15 @@ function CreatorCard({
               ) : (
                 <span>{initial}</span>
               )}
-            </div>
+            </Link>
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="truncate text-base font-semibold tracking-tight">
+              {/* 名前もクリッカブル */}
+              <Link
+                href={profileHref}
+                className="block truncate text-base font-semibold tracking-tight transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+              >
                 {name}
-              </p>
+              </Link>
               <Badge variant="muted" className="text-[10px]">
                 クリエイター
               </Badge>
