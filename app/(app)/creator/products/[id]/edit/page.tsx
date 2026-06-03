@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Pencil, PenSquare } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { BuilderForm } from "@/components/builder/builder-form";
 import { requireCreator } from "@/lib/session/require";
@@ -48,6 +49,17 @@ export default async function EditProductPage({
       {/* ページ最上部の hero ヘッダー。サイト全体の視覚言語に統一。
           編集モードなので「投稿する」とは別の文言・状態バッジ付き。 */}
       <PageContainer className="pt-8">
+        <Breadcrumb
+          items={[
+            {
+              href: "/creator/products",
+              label: "作品管理",
+              icon: PenSquare,
+            },
+            { label: product.title },
+          ]}
+          className="mb-4"
+        />
         <section className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-violet-500/8 p-6 sm:p-8">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-indigo-300 bg-indigo-50 text-indigo-700">

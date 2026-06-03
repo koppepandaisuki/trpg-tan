@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Package } from "lucide-react";
+import { Package, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
 import { AdminProductRowCard } from "@/components/admin/product-row";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { requireAdmin } from "@/lib/session/require";
 import { listProductsForAdmin } from "@/lib/queries/admin";
 import type { ProductStatus } from "@/lib/format/status";
@@ -38,6 +39,12 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb
+        items={[
+          { href: "/admin", label: "管理画面", icon: ShieldCheck },
+          { label: "作品" },
+        ]}
+      />
       <AdminPageHeader
         title="作品"
         description="作品の停止・公開復帰・下書き化。停止/復帰の操作は監査ログに記録されます。"
