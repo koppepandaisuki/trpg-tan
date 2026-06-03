@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { cn } from "@/lib/utils";
 
@@ -49,23 +50,15 @@ export async function TopHeader({ className }: { className?: string }) {
       )}
     >
       <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center gap-6 px-4 sm:px-6">
-        {/* ブランドロゴ。logo.png(public/)は「パラDa-iCE TRPGサイト」の
-            横長ロゴで、すでにテキストを含むため別の text span は出さない。
-            next/image を使うと width attribute が CSS の w-auto を打ち負け、
-            画像が intrinsic 幅でレンダリングされて切れる問題があるため、
-            素の <img> を使う(ヘッダーのロゴ 1 枚なので最適化メリットも
-            限定的)。h-10 + w-auto で高さ基準にアスペクト比を保つ。 */}
+        {/* ブランドロゴ。画像ファイル(public/logo.png)を使わないコード
+            ベースの BrandMark に切替。Vercel デプロイ時に画像が拾えない
+            問題を恒久的に解消し、ロード失敗が原理的に起きないようにする。 */}
         <Link
           href="/"
           className="flex shrink-0 items-center"
           aria-label="パラDa-iCE TRPGサイト ホーム"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="パラDa-iCE TRPGサイト"
-            className="h-10 w-auto"
-          />
+          <BrandMark size="md" />
         </Link>
 
         <div className="hidden flex-1 max-w-xl md:block">

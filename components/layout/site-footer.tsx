@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,21 +37,13 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* ブランド列 */}
           <div className="space-y-3">
-            {/* ブランドロゴ。TopHeader と同じ /logo.png を使い回す。
-                footer では h-10 で TopHeader と高さを揃え(視覚的な一貫性)。
-                Next/Image を避けて <img> を使う理由は TopHeader と同じ
-                (Next/Image の width attr が CSS w-auto を打ち負ける問題)。 */}
+            {/* ブランドロゴ。TopHeader と同じ BrandMark を使い回す。 */}
             <Link
               href="/"
               className="inline-flex items-center"
               aria-label="パラDa-iCE TRPGサイト ホーム"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo.png"
-                alt="パラDa-iCE TRPGサイト"
-                className="h-10 w-auto"
-              />
+              <BrandMark size="md" />
             </Link>
             <p className="text-xs leading-relaxed text-muted-foreground">
               シナリオ・アセット・パッケージの
