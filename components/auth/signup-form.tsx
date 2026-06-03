@@ -7,6 +7,7 @@ import { signupAction } from "@/app/signup/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GoogleButton } from "@/components/auth/google-button";
+import { GOOGLE_OAUTH_ENABLED } from "@/lib/auth/google-config";
 
 export function SignupForm() {
   const {
@@ -28,21 +29,26 @@ export function SignupForm() {
 
   return (
     <div className="space-y-4">
-      {/* Google でのサインアップを先に出す(クリック 1 回で完了するため、
-          パスワード式より UX が良い)。下にメール式のフォームを配置 */}
-      <GoogleButton label="Google で新規登録" />
+      {/* Google でのサインアップは、Supabase Dashboard で Provider が
+          有効化されているときだけ表示。env NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED
+          を「true」にしたタイミングで一括ロールアウト。 */}
+      {GOOGLE_OAUTH_ENABLED && (
+        <>
+          <GoogleButton label="Google で新規登録" />
 
-      <div
-        className="relative my-2 flex items-center"
-        role="separator"
-        aria-label="または"
-      >
-        <div className="flex-1 border-t border-border" aria-hidden />
-        <span className="px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          または
-        </span>
-        <div className="flex-1 border-t border-border" aria-hidden />
-      </div>
+          <div
+            className="relative my-2 flex items-center"
+            role="separator"
+            aria-label="または"
+          >
+            <div className="flex-1 border-t border-border" aria-hidden />
+            <span className="px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              または
+            </span>
+            <div className="flex-1 border-t border-border" aria-hidden />
+          </div>
+        </>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div className="space-y-1.5">
@@ -104,7 +110,11 @@ export function SignupForm() {
       )}
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "登録中…" : "メールで新規登録"}
+        {isSubmitting
+          ? "登録中…"
+          : GOOGLE_OAUTH_ENABLED
+            ? "メールで新規登録"
+            : "新規登録"}
       </Button>
       </form>
     </div>

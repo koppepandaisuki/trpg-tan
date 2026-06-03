@@ -8,6 +8,7 @@ import { loginAction } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GoogleButton } from "@/components/auth/google-button";
+import { GOOGLE_OAUTH_ENABLED } from "@/lib/auth/google-config";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -38,20 +39,24 @@ export function LoginForm() {
 
   return (
     <div className="space-y-4">
-      {/* Google ログインを先に出す。signup ページと同じ理由(クリック 1 回 UX)*/}
-      <GoogleButton label="Google で続行" />
+      {/* Google ログインは env で出し分け(signup と同じ理由)*/}
+      {GOOGLE_OAUTH_ENABLED && (
+        <>
+          <GoogleButton label="Google で続行" />
 
-      <div
-        className="relative my-2 flex items-center"
-        role="separator"
-        aria-label="または"
-      >
-        <div className="flex-1 border-t border-border" aria-hidden />
-        <span className="px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          または
-        </span>
-        <div className="flex-1 border-t border-border" aria-hidden />
-      </div>
+          <div
+            className="relative my-2 flex items-center"
+            role="separator"
+            aria-label="または"
+          >
+            <div className="flex-1 border-t border-border" aria-hidden />
+            <span className="px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              または
+            </span>
+            <div className="flex-1 border-t border-border" aria-hidden />
+          </div>
+        </>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div className="space-y-1.5">
@@ -96,7 +101,11 @@ export function LoginForm() {
       )}
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "ログイン中…" : "メールでログイン"}
+        {isSubmitting
+          ? "ログイン中…"
+          : GOOGLE_OAUTH_ENABLED
+            ? "メールでログイン"
+            : "ログイン"}
       </Button>
       </form>
     </div>
