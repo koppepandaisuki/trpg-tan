@@ -19,12 +19,67 @@ const notoSansJp = Noto_Sans_JP({
 //
 // 子ページで suffix を付けたくない場合は `title: { absolute: "..." }` で
 // バイパス可能(Next.js metadata の標準仕様)。
+//
+// SEO + OG / Twitter Card 関連:
+//  - metadataBase は OG image など相対パスの絶対 URL 解決に必須
+//    (NEXT_PUBLIC_SITE_URL が未設定なら本番ドメイン fallback)
+//  - openGraph + twitter で SNS シェアカードのタイトル / 説明 / 画像を
+//    明示。画像自体は app/opengraph-image.png / app/twitter-image.png
+//    を Next.js が自動で参照する(再指定不要)
+//  - description は 130 字以内を意識(検索結果のスニペット切れ防止)
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://trpg-tan.vercel.app";
+
+const DESCRIPTION =
+  "シナリオ・ルールブック・マップ・BGM など、TRPG向け作品を販売・購入できるマーケットプレイス。クリエイターは α 期間中、自動で出品権限が付与されます。";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "パラDa-iCE TRPGサイト",
     template: "%s | パラDa-iCE",
   },
-  description: "TRPG向け作品の販売・購入・管理ができるマーケットプレイス",
+  description: DESCRIPTION,
+  applicationName: "パラDa-iCE",
+  keywords: [
+    "TRPG",
+    "テーブルトークRPG",
+    "シナリオ",
+    "ルールブック",
+    "マップ",
+    "BGM",
+    "マーケットプレイス",
+    "パラDa-iCE",
+    "クトゥルフ",
+    "創作",
+  ],
+  authors: [{ name: "パラDa-iCE" }],
+  creator: "パラDa-iCE",
+  publisher: "パラDa-iCE",
+  // 検索エンジンには通常表示(α 期間中は noindex でもよいが、現状は流入
+  // 歓迎の方針なので index: true)。本番の Robots.txt と整合させる。
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    type: "website",
+    locale: "ja_JP",
+    url: SITE_URL,
+    siteName: "パラDa-iCE TRPGサイト",
+    title: "パラDa-iCE TRPGサイト",
+    description: DESCRIPTION,
+    // 画像は app/opengraph-image.png を Next.js が自動付加するため、
+    // ここでは明示しない(二重指定で URL 衝突を避ける)
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "パラDa-iCE TRPGサイト",
+    description: DESCRIPTION,
+    // 画像は app/twitter-image.png 経由(同上)
+  },
+  // テスター環境であることを示すカテゴリヒント(検索エンジン向け)
+  category: "Marketplace",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
