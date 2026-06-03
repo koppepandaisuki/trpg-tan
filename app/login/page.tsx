@@ -76,15 +76,25 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <LoginForm />
             </div>
 
-            <p className="relative z-10 text-center text-xs text-muted-foreground">
-              アカウントをお持ちでない方は{" "}
-              <Link
-                href="/signup"
-                className="text-accent underline-offset-4 hover:underline"
-              >
-                新規登録
-              </Link>
-            </p>
+            <div className="relative z-10 space-y-1 text-center text-xs text-muted-foreground">
+              <p>
+                <Link
+                  href="/forgot-password"
+                  className="text-accent underline-offset-4 hover:underline"
+                >
+                  パスワードをお忘れですか?
+                </Link>
+              </p>
+              <p>
+                アカウントをお持ちでない方は{" "}
+                <Link
+                  href="/signup"
+                  className="text-accent underline-offset-4 hover:underline"
+                >
+                  新規登録
+                </Link>
+              </p>
+            </div>
           </CardContent>
         </Card>
       </PageContainer>
