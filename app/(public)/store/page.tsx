@@ -9,8 +9,12 @@ import { CategoryTabs } from "@/components/store/category-tabs";
 import { WorkCard } from "@/components/store/work-card";
 import { EmptyState } from "@/components/store/empty-state";
 import { StorePagination } from "@/components/store/pagination";
-import { listPublishedProducts } from "@/lib/queries/products";
+import {
+  listPublishedProducts,
+  type StoreSort,
+} from "@/lib/queries/products";
 import { parseCategoryParam, categoryLabel } from "@/lib/format/category";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "ストア" };
 
@@ -18,8 +22,14 @@ interface StorePageProps {
   searchParams: {
     category?: string;
     tag?: string;
+    sort?: string;
     page?: string;
   };
+}
+
+function parseSort(value: string | undefined): StoreSort {
+  if (value === "rating") return "rating";
+  return "published";
 }
 
 export default async function StorePage({ searchParams }: StorePageProps) {
@@ -31,32 +41,46 @@ export default async function StorePage({ searchParams }: StorePageProps) {
     searchParams.tag.length <= 100
       ? searchParams.tag.trim().toLowerCase()
       : null;
+  const sort = parseSort(searchParams.sort);
   const page = Number.parseInt(searchParams.page ?? "1", 10) || 1;
 
   const { items, totalPages, total } = await listPublishedProducts({
     category,
     tag,
+    sort,
     page,
   });
 
-  // ページネーション URL は category / tag を全て維持しつつ page だけ
-  // 差し替える。フィルタが組み合わさっていても破綻しない設計。
+  // ページネーション URL は category / tag / sort を全て維持しつつ page だけ
+  // 差し替える。フィルタ + ソートが組み合わさっていても破綻しない設計。
   const buildHref = (p: number): Route => {
     const params = new URLSearchParams();
     if (category) params.set("category", category);
     if (tag) params.set("tag", tag);
+    if (sort === "rating") params.set("sort", "rating");
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return (qs ? `/store?${qs}` : "/store") as Route;
   };
 
-  // 「タグフィルタを外す」URL は他の filter は維持
+  // 「タグフィルタを外す」URL は他の filter / sort を維持
   const removeTagHref: Route = (() => {
     const params = new URLSearchParams();
     if (category) params.set("category", category);
+    if (sort === "rating") params.set("sort", "rating");
     const qs = params.toString();
     return (qs ? `/store?${qs}` : "/store") as Route;
   })();
+
+  // ソート切替 URL は page をリセットして 1 ページ目に戻す
+  const buildSortHref = (s: StoreSort): Route => {
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    if (tag) params.set("tag", tag);
+    if (s === "rating") params.set("sort", "rating");
+    const qs = params.toString();
+    return (qs ? `/store?${qs}` : "/store") as Route;
+  };
 
   return (
     <>
@@ -109,6 +133,38 @@ export default async function StorePage({ searchParams }: StorePageProps) {
         <div>
           <CategoryTabs current={category} />
         </div>
+
+        {/* ソート切替(新着順 / 好評順)。フィルタ + ソートは独立に
+            選べる。category-tabs と並ぶが、別行で「2 つの軸」感を明示。 */}
+        <nav
+          aria-label="並べ替え"
+          className="flex flex-wrap items-center gap-2 text-xs"
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            並べ替え
+          </span>
+          {[
+            { value: "published" as const, label: "新着順" },
+            { value: "rating" as const, label: "好評順" },
+          ].map((opt) => {
+            const isActive = sort === opt.value;
+            return (
+              <Link
+                key={opt.value}
+                href={buildSortHref(opt.value)}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition",
+                  isActive
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                {opt.label}
+              </Link>
+            );
+          })}
+        </nav>
 
         <div>
           {items.length === 0 ? (
