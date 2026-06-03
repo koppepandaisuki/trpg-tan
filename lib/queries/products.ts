@@ -84,16 +84,20 @@ type ListResult = {
  *     pages (no flicker if two rows share a published_at).
  *   - file_path is never SELECT-ed.
  */
+export type StoreSort = "published" | "rating";
+
 export async function listPublishedProducts(opts?: {
   category?: ProductType | null;
   tag?: string | null;
   page?: number;
+  sort?: StoreSort;
 }): Promise<ListResult> {
   const supabase = createClient();
   const page = Math.max(1, opts?.page ?? 1);
   const pageSize = STORE_PAGE_SIZE;
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
+  const sort: StoreSort = opts?.sort ?? "published";
 
   // タグフィルタが指定されている場合: 先に product_tags から該当 tag の
   // product_id を全部取り、products を .in() で絞り込む。
@@ -115,6 +119,18 @@ export async function listPublishedProducts(opts?: {
     if (tagFilteredIds.length === 0) {
       return { items: [], total: 0, page, pageSize, totalPages: 0 };
     }
+  }
+
+  // ----- rating sort: JS 側で集計してから page 範囲を切る -----
+  // 全 published products(category / tag フィルタ適用済)を slim 列で
+  // 取得 → review 集計 → 並び替え → page slice → その ids で fullfetch。
+  if (sort === "rating") {
+    return listByRating({
+      page,
+      pageSize,
+      category: opts?.category ?? null,
+      tagFilteredIds,
+    });
   }
 
   let query = supabase
@@ -165,6 +181,128 @@ export async function listPublishedProducts(opts?: {
 
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return { items, total, page, pageSize, totalPages };
+}
+
+/**
+ * 「好評順」ソート用の内部ヘルパ。
+ *
+ * 集計手順:
+ *   1. tag / category 適用済の全 published products の id + published_at を取得
+ *   2. 該当 ids の product_reviews を一括 fetch、product 別の (positive, total) を集計
+ *   3. JS で並び替え:
+ *      - positive ratio desc
+ *      - tie: positive count desc(同率なら件数が多い方を上に)
+ *      - tie: published_at desc(さらに同じなら新着)
+ *      - 評価 0 件作品はすべて末尾に published_at desc で並ぶ
+ *   4. page 範囲を slice
+ *   5. その ids で LIST_COLUMNS を select → 順序を保ちつつ整形
+ *   6. items に reviewSummary を inject(別の集計が走らないよう手元で構築)
+ *
+ * 規模注意: α 期間は問題ないが、数千件を超えたら RPC + materialized view へ。
+ */
+async function listByRating(args: {
+  page: number;
+  pageSize: number;
+  category: ProductType | null;
+  tagFilteredIds: string[] | null;
+}): Promise<ListResult> {
+  const { page, pageSize, category, tagFilteredIds } = args;
+  const supabase = createClient();
+
+  // Step 1: 全 published products(filter 適用済)を slim select
+  let idQuery = supabase
+    .from("products")
+    .select("id, published_at")
+    .eq("status", "published")
+    .limit(5000);
+  if (category) idQuery = idQuery.eq("product_type", category);
+  if (tagFilteredIds) idQuery = idQuery.in("id", tagFilteredIds);
+
+  const { data: idRows, error: idErr } = await idQuery;
+  if (idErr) {
+    console.error("[listByRating] id query failed", idErr);
+    return { items: [], total: 0, page, pageSize, totalPages: 0 };
+  }
+
+  if (!idRows || idRows.length === 0) {
+    return { items: [], total: 0, page, pageSize, totalPages: 0 };
+  }
+
+  const allIds = idRows.map((r) => r.id);
+  const publishedMap = new Map(
+    idRows.map((r) => [r.id, r.published_at] as const),
+  );
+
+  // Step 2: review summary を一括取得
+  const reviewMap = await fetchReviewSummariesByProductIds(allIds);
+
+  // Step 3: 並び替え
+  const sortedIds = [...allIds].sort((a, b) => {
+    const ra = reviewMap.get(a);
+    const rb = reviewMap.get(b);
+    const ratioA = ra && ra.total > 0 ? ra.positive / ra.total : -1;
+    const ratioB = rb && rb.total > 0 ? rb.positive / rb.total : -1;
+    if (ratioA !== ratioB) return ratioB - ratioA;
+    const countA = ra?.positive ?? 0;
+    const countB = rb?.positive ?? 0;
+    if (countA !== countB) return countB - countA;
+    // published_at desc(新しい順を最後の tiebreak に)
+    return (publishedMap.get(b) ?? "").localeCompare(
+      publishedMap.get(a) ?? "",
+    );
+  });
+
+  const total = sortedIds.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize;
+  const pageIds = sortedIds.slice(from, to);
+
+  if (pageIds.length === 0) {
+    return { items: [], total, page, pageSize, totalPages };
+  }
+
+  // Step 4: 必要な page 分だけ full select
+  const { data: fullRows, error: fullErr } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .in("id", pageIds);
+
+  if (fullErr) {
+    console.error("[listByRating] full select failed", fullErr);
+    return { items: [], total, page, pageSize, totalPages };
+  }
+
+  const byId = new Map((fullRows ?? []).map((r) => [r.id, r] as const));
+  const orderedRows = pageIds
+    .map((id) => byId.get(id))
+    .filter((r): r is NonNullable<typeof r> => Boolean(r));
+
+  // Step 5: creator 一括取得(reviews は手元の reviewMap を再利用)
+  const creatorIds = Array.from(
+    new Set(orderedRows.map((r) => r.creator_id)),
+  );
+  const creators = await fetchPublicProfiles(creatorIds);
+
+  const items: ProductListItem[] = orderedRows.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    title: r.title,
+    productType: r.product_type as ProductType,
+    priceJpy: r.price_jpy,
+    coverPath: r.cover_path,
+    systemLabel: r.system_label,
+    publishedAt: r.published_at,
+    creator: {
+      id: r.creator_id,
+      displayName: creators.get(r.creator_id)?.displayName ?? "",
+      avatarPath: creators.get(r.creator_id)?.avatarPath ?? null,
+    },
+    reviewSummary: reviewMap.get(r.id) ?? null,
+  }));
 
   return { items, total, page, pageSize, totalPages };
 }
