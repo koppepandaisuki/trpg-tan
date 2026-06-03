@@ -1,7 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { ProductType, FileFormat } from "./types";
+import type { ProductType, FileFormat, ProductReviewSummary } from "./types";
 import type { ProductStatus } from "@/lib/format/status";
+import { fetchReviewSummariesByProductIds } from "./reviews";
 
 /**
  * Creator-scoped queries.
@@ -23,6 +24,10 @@ export type MyProductListItem = {
   coverPath: string | null;
   updatedAt: string;
   publishedAt: string | null;
+  /** paid purchase の累計件数。集計失敗時は 0。 */
+  salesCount: number;
+  /** レビュー集計。0 件 / 集計失敗時は null で UI 側は非表示。 */
+  reviewSummary: ProductReviewSummary | null;
 };
 
 export type MyProductDetail = {
@@ -114,7 +119,37 @@ export async function listMyProducts(
     return [];
   }
 
-  return (data ?? []).map((r) => ({
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+
+  // 集計: 自作品の paid purchases + 全レビュー summary を並行 fetch
+  const productIds = rows.map((r) => r.id);
+  const [purchasesRes, reviewMap] = await Promise.all([
+    supabase
+      .from("purchases")
+      .select("product_id")
+      .eq("status", "paid")
+      .in("product_id", productIds),
+    fetchReviewSummariesByProductIds(productIds),
+  ]);
+
+  if (purchasesRes.error) {
+    console.error(
+      "[listMyProducts] purchases fetch failed",
+      purchasesRes.error,
+    );
+  }
+
+  // product 別の sales count を集計
+  const salesByProduct = new Map<string, number>();
+  for (const p of purchasesRes.data ?? []) {
+    salesByProduct.set(
+      p.product_id,
+      (salesByProduct.get(p.product_id) ?? 0) + 1,
+    );
+  }
+
+  return rows.map((r) => ({
     id: r.id,
     slug: r.slug,
     title: r.title,
@@ -124,6 +159,8 @@ export async function listMyProducts(
     coverPath: r.cover_path,
     updatedAt: r.updated_at,
     publishedAt: r.published_at,
+    salesCount: salesByProduct.get(r.id) ?? 0,
+    reviewSummary: reviewMap.get(r.id) ?? null,
   }));
 }
 

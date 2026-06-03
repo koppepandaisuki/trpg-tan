@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Pencil } from "lucide-react";
+import { Pencil, Receipt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { CoverImage } from "@/components/store/cover-image";
+import { ReviewBadge } from "@/components/review/review-badge";
 import { categoryLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
 import { statusBadgeVariant, statusLabel } from "@/lib/format/status";
@@ -64,6 +65,20 @@ export function ProductRow({ product }: ProductRowProps) {
         <p className="text-xs text-muted-foreground">
           {formatPrice(product.priceJpy)} · 更新 {formatDate(product.updatedAt)}
         </p>
+
+        {/* sales + reviews 集計(KKKK)。両方 0 のときは行ごと出さない */}
+        {(product.salesCount > 0 ||
+          (product.reviewSummary && product.reviewSummary.total > 0)) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+            {product.salesCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800">
+                <Receipt className="h-3 w-3" aria-hidden />
+                累計購入 {product.salesCount} 件
+              </span>
+            )}
+            <ReviewBadge summary={product.reviewSummary} size="sm" />
+          </div>
+        )}
       </div>
 
       <Link
