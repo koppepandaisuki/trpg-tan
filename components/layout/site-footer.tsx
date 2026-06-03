@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { Route } from "next";
+import { MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 /**
  * サイト全体のフッター。
  *
  * 構成:
- *   1. ブランド + tagline + α バッジ
+ *   1. ブランド + tagline + α バッジ + Discord 招待ボタン
  *   2. ナビゲーション / 情報 / サポート の 3 列リンク集
  *   3. コピーライト + α 注意書き
  *
@@ -14,15 +16,26 @@ import { Badge } from "@/components/ui/badge";
  * 利用規約 / プライバシーポリシー / 特商法ページが揃ったら
  * リンクに置き換える。
  *
+ * Discord 招待 URL は env `NEXT_PUBLIC_ALPHA_DISCORD_INVITE_URL` を優先、
+ * 未設定なら固定の招待コードに fallback(α 期間中は常に有効)。
+ *
  * Server Component(状態を持たない)。root layout から mount。
  */
+
+const FALLBACK_DISCORD_URL = "https://discord.gg/HMXx3pbAEz";
+
+function getDiscordUrl(): string {
+  return process.env.NEXT_PUBLIC_ALPHA_DISCORD_INVITE_URL || FALLBACK_DISCORD_URL;
+}
+
 export function SiteFooter() {
+  const discordUrl = getDiscordUrl();
   return (
     <footer className="border-t border-border bg-card/50">
       <div className="mx-auto max-w-screen-2xl px-4 py-10 sm:px-6">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* ブランド列 */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Link
               href="/"
               className="inline-flex items-center gap-2"
@@ -40,9 +53,24 @@ export function SiteFooter() {
               <br />
               マーケットプレイス
             </p>
-            <Badge variant="muted" className="mt-1">
-              α
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="muted">α</Badge>
+            </div>
+            {/* Discord コミュニティリンク(SNS 風)。α 期間中は連絡 / 質問 /
+                バグ報告の主チャネルなので、目立つ位置で常設。 */}
+            <a
+              href={discordUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="α テスター Discord サーバーに参加(別タブで開く)"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition",
+                "hover:border-indigo-300 hover:bg-indigo-100 hover:text-indigo-800",
+              )}
+            >
+              <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+              Discord で参加する
+            </a>
           </div>
 
           {/* ナビゲーション */}
@@ -62,7 +90,13 @@ export function SiteFooter() {
 
           {/* サポート */}
           <FooterColumn title="サポート">
-            <FooterPlaceholder label="お問い合わせ — Discord でご連絡ください" />
+            {/* α 期間中は Discord が問い合わせの主チャネル。ブランド列の
+                ボタンと重複してでも、ナビ脈絡からも辿れるようリンクを置く。 */}
+            <FooterExternal
+              href={discordUrl}
+              label="お問い合わせ — Discord"
+              icon={MessageCircle}
+            />
             <FooterPlaceholder label="ヘルプ(準備中)" />
             <FooterPlaceholder label="開発者ブログ(準備中)" />
           </FooterColumn>
@@ -108,6 +142,30 @@ function FooterLink({ href, label }: { href: Route; label: string }) {
       >
         {label}
       </Link>
+    </li>
+  );
+}
+
+function FooterExternal({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <li>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
+      >
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+        {label}
+      </a>
     </li>
   );
 }
