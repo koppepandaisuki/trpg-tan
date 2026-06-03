@@ -109,7 +109,18 @@ export default async function StorePage({ searchParams }: StorePageProps) {
               />
             )
           ) : (
-            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <ul
+              className={
+                // Responsive grid:
+                //  - 2 cols on mobile(< 640)
+                //  - 3 cols on sm+(≥ 640)
+                //  - 4 cols on lg+(≥ 1024)
+                //  - 5 cols on xl+(≥ 1280)
+                // 行間(gap-y)を列間(gap-x)より広めに取り、視覚的な
+                // 「カード間の呼吸」を作る(Steam ライクの密度感)
+                "grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4 lg:gap-y-8 xl:grid-cols-5"
+              }
+            >
               {items.map((product) => (
                 <li key={product.id}>
                   <WorkCard product={product} />
