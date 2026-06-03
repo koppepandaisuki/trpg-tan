@@ -312,6 +312,44 @@ export async function listTopSellingProducts(
 }
 
 /**
+ * 同じクリエイターの他作品を取得。商品詳細ページの「○○ の他の作品」
+ * strip 用。
+ *
+ * 並び順は publish 日新しい順、limit 件まで。`excludeId` を指定すると
+ * その作品自身を除外する(本商品を一覧から外す用途)。0 件のときは
+ * 呼び出し側でセクション非表示にする想定。
+ */
+export async function listProductsByCreator(args: {
+  creatorId: string;
+  excludeId?: string;
+  limit?: number;
+}): Promise<ProductListItem[]> {
+  const supabase = createClient();
+  const limit = args.limit ?? 6;
+
+  let query = supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .eq("creator_id", args.creatorId)
+    .order("published_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (args.excludeId) {
+    query = query.neq("id", args.excludeId);
+  }
+
+  const { data: rows, error } = await query;
+  if (error) {
+    console.error("[listProductsByCreator] failed", error);
+    return [];
+  }
+
+  return toProductListItems(rows ?? []);
+}
+
+/**
  * Fetch related products (same product_type, excluding the given product).
  * 商品詳細ページの「関連作品」strip 用。
  *
