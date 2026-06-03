@@ -1,7 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Controller, useForm, type FieldPath } from "react-hook-form";
+import {
+  Controller,
+  useForm,
+  type FieldPath,
+  type UseFormReturn,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   builderFormSchema,
@@ -18,6 +23,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThreeColumn } from "@/components/layout/three-column";
 import { PRODUCT_TYPE_LABEL, FILE_FORMAT_LABEL } from "@/lib/format/category";
+import {
+  TRPG_SYSTEMS,
+  OTHER_SYSTEM_SENTINEL,
+  isKnownSystem,
+} from "@/lib/format/system";
 import type { ProductStatus } from "@/lib/format/status";
 import { BuilderToolbar } from "./toolbar";
 import { SectionNav, type SectionNavItem } from "./section-nav";
@@ -252,11 +262,7 @@ export function BuilderForm({
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="対応システム" error={errors.systemLabel?.message}>
-                <Input
-                  placeholder="例: クトゥルフ神話TRPG(第7版)"
-                  maxLength={100}
-                  {...form.register("systemLabel")}
-                />
+                <SystemSelect form={form} />
               </Field>
               <Field label="プレイ人数" error={errors.players?.message}>
                 <Input
@@ -482,6 +488,80 @@ function Field({
       {children}
       {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * 対応システム入力。<select> で主要 TRPG システムから選択 + 「その他」を
+ * 選んだときだけ自由入力欄を出す。
+ *
+ * Edit モードで既存の systemLabel が選択肢に含まれていなければ、自動的に
+ * 「その他」モード + その値が入力欄に入る(下位互換の維持)。
+ *
+ * 内部状態 otherMode は select の表示と入力欄の表示を制御するだけで、
+ * 永続化される値は systemLabel フィールド一つ(従来通り text 列)。
+ */
+function SystemSelect({ form }: { form: UseFormReturn<BuilderFormValues> }) {
+  const value = form.watch("systemLabel") ?? "";
+  const [otherMode, setOtherMode] = React.useState<boolean>(
+    () => value !== "" && !isKnownSystem(value),
+  );
+
+  // select に表示する値:
+  //  - otherMode 中 → sentinel(その他)
+  //  - 既知のシステム → そのまま
+  //  - それ以外 → "" (未選択)
+  const selectValue = otherMode
+    ? OTHER_SYSTEM_SENTINEL
+    : isKnownSystem(value)
+      ? value
+      : "";
+
+  return (
+    <div className="space-y-2">
+      <select
+        className={cn(
+          "h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+        )}
+        value={selectValue}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === OTHER_SYSTEM_SENTINEL) {
+            // 「その他」選択: カスタム入力モードへ。値は一旦クリアして、
+            // ユーザーが入力欄に書き込むのを待つ
+            form.setValue("systemLabel", "", { shouldValidate: true });
+            setOtherMode(true);
+          } else {
+            // 既知選択 or 未選択(""): otherMode を解除して直接反映
+            form.setValue("systemLabel", v, { shouldValidate: true });
+            setOtherMode(false);
+          }
+        }}
+        aria-label="対応システム"
+      >
+        <option value="">未選択</option>
+        {TRPG_SYSTEMS.map((sys) => (
+          <option key={sys} value={sys}>
+            {sys}
+          </option>
+        ))}
+        <option value={OTHER_SYSTEM_SENTINEL}>
+          その他(自由入力)
+        </option>
+      </select>
+
+      {otherMode && (
+        <Input
+          placeholder="例: 自作TRPG、海外マイナーシステムなど"
+          maxLength={100}
+          {...form.register("systemLabel")}
+          // ユーザーが「その他」を選んだ直後に入力欄にフォーカスを当てる
+          autoFocus
+        />
+      )}
     </div>
   );
 }
