@@ -186,6 +186,31 @@ export async function listPublishedProducts(opts?: {
 }
 
 /**
+ * ホームの「好評な作品」strip 用。listPublishedProducts({sort:"rating"}) を
+ * 1 ページ分(STORE_PAGE_SIZE=12 件)取り、評価のある作品が含まれている
+ * 場合のみ items を返す。
+ *
+ * 評価ゼロのときは strip 自体を出したくないため、ホーム側で「0 件なら
+ * 非表示」を判定できるように空配列を返す(売上上位 strip と同じ規約)。
+ */
+export async function listTopRatedProducts(
+  limit: number = 12,
+): Promise<ProductListItem[]> {
+  const result = await listPublishedProducts({
+    sort: "rating",
+    page: 1,
+  });
+  const items = result.items.slice(0, limit);
+
+  // 評価のある作品が 1 件もないなら、好評順 = 新着順と同等になるので
+  // strip を出す意味がない。空配列を返してホーム側で非表示にする。
+  const hasAnyRating = items.some(
+    (it) => it.reviewSummary && it.reviewSummary.total > 0,
+  );
+  return hasAnyRating ? items : [];
+}
+
+/**
  * 「好評順」ソート用の内部ヘルパ。
  *
  * 集計手順:
