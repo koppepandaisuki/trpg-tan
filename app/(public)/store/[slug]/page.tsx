@@ -329,26 +329,7 @@ function PurchasePanel({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>購入オプション</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="text-2xl font-semibold">{formatPrice(product.priceJpy)}</div>
-          <PurchaseCta product={product} state={ctaState} />
-          {ctaState === "purchased" && (
-            <p className="text-xs text-muted-foreground">
-              この作品は既に購入済みです。ライブラリからダウンロードできます。
-            </p>
-          )}
-          <ul className="space-y-1 pt-1 text-xs text-muted-foreground">
-            <li>ダウンロード商品</li>
-            <li>形式: {fileFormatLabel(product.fileFormat)}</li>
-            <li>商用利用: {product.allowCommercial ? "可" : "不可"}</li>
-            <li>二次配布: {product.allowRedistribution ? "可" : "不可"}</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <PurchaseOptionsCard product={product} ctaState={ctaState} />
 
       <CreatorCard
         displayName={product.creator.displayName}
@@ -356,6 +337,109 @@ function PurchasePanel({
         avatarUrl={avatarUrl}
       />
     </div>
+  );
+}
+
+/**
+ * 購入オプションカード。サイト全体の視覚言語に統一しつつ、価格を
+ * 主役にして CTA に視線を誘導する。
+ *
+ * 視覚改善:
+ *  - emerald/indigo グラデ(購入=value のニュアンス、success と同系)
+ *  - 価格は text-3xl + tracking-tight で hero 級の存在感
+ *  - メタ情報は dot ul → アイコン付き行で読みやすく
+ *  - 「即時ダウンロード」を信頼信号として明示
+ */
+function PurchaseOptionsCard({
+  product,
+  ctaState,
+}: {
+  product: ProductDetail;
+  ctaState: CtaState;
+}) {
+  return (
+    <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-emerald-500/8 shadow-sm">
+      <CardContent className="relative space-y-4 py-5">
+        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-indigo-500/10 blur-3xl" />
+
+        <div className="relative z-10">
+          <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            購入オプション
+          </h3>
+
+          {/* 価格(主役) */}
+          <div className="mb-4 text-3xl font-bold tracking-tight">
+            {formatPrice(product.priceJpy)}
+          </div>
+
+          <PurchaseCta product={product} state={ctaState} />
+
+          {ctaState === "purchased" && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              この作品は既に購入済みです。ライブラリからダウンロードできます。
+            </p>
+          )}
+
+          {/* メタ情報(MetaTable と重複するが、CTA 近くで意思決定に必要)*/}
+          <ul className="mt-4 space-y-1.5 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+            <PurchaseMetaRow
+              icon={FileType}
+              label="形式"
+              value={fileFormatLabel(product.fileFormat)}
+            />
+            <PurchaseMetaRow
+              icon={Briefcase}
+              label="商用利用"
+              value={product.allowCommercial ? "可" : "不可"}
+              positive={product.allowCommercial}
+            />
+            <PurchaseMetaRow
+              icon={Repeat}
+              label="二次配布"
+              value={product.allowRedistribution ? "可" : "不可"}
+              positive={product.allowRedistribution}
+            />
+            <PurchaseMetaRow
+              icon={Check}
+              label="即時ダウンロード"
+              value="購入後すぐ利用可"
+              positive
+            />
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PurchaseMetaRow({
+  icon: Icon,
+  label,
+  value,
+  positive,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  positive?: boolean;
+}) {
+  return (
+    <li className="flex items-center justify-between gap-2">
+      <span className="flex items-center gap-1.5">
+        <Icon
+          className={cn(
+            "h-3.5 w-3.5 shrink-0",
+            positive ? "text-emerald-600" : "text-muted-foreground/70",
+          )}
+          aria-hidden
+        />
+        <span>{label}</span>
+      </span>
+      <span className={positive ? "text-foreground" : "text-muted-foreground"}>
+        {value}
+      </span>
+    </li>
   );
 }
 
