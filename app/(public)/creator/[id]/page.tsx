@@ -1,5 +1,12 @@
 import { notFound } from "next/navigation";
-import { User, PackageOpen, Twitter, Globe } from "lucide-react";
+import {
+  User,
+  PackageOpen,
+  Twitter,
+  Globe,
+  Receipt,
+  ThumbsUp,
+} from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
@@ -7,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WorkCard } from "@/components/store/work-card";
 import { CoverImage } from "@/components/store/cover-image";
+import { ReviewBadge } from "@/components/review/review-badge";
 import { getCreatorProfile } from "@/lib/queries/creator-profile";
 import { publicAvatarUrl } from "@/lib/format/storage";
 import { cn } from "@/lib/utils";
@@ -85,7 +93,7 @@ export default async function CreatorProfilePage({
                 />
               </div>
 
-              {/* 名前 + 作品数 + bio */}
+              {/* 名前 + 統計バッジ + bio */}
               <div className="flex-1 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -94,6 +102,25 @@ export default async function CreatorProfilePage({
                   <Badge variant="muted" className="text-[10px]">
                     公開作品 {productCount} 件
                   </Badge>
+                  {profile.stats.totalSales > 0 && (
+                    <Badge
+                      variant="category"
+                      className="inline-flex items-center gap-1 text-[10px]"
+                    >
+                      <Receipt className="h-3 w-3" aria-hidden />
+                      累計購入 {profile.stats.totalSales} 件
+                    </Badge>
+                  )}
+                  {profile.stats.reviews.total > 0 && (
+                    <ReviewBadge
+                      summary={{
+                        total: profile.stats.reviews.total,
+                        positive: profile.stats.reviews.positive,
+                        label: profile.stats.reviews.label,
+                      }}
+                      size="sm"
+                    />
+                  )}
                 </div>
                 {profile.bio ? (
                   <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
