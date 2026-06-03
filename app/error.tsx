@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -12,6 +11,12 @@ import { cn } from "@/lib/utils";
 /**
  * App Router の Error Boundary。レンダリング / Server Action 中に
  * unhandled な例外が起きたときに表示される。
+ *
+ * 重要な制約:
+ *   本ファイルは "use client" Component なので、Server Component や
+ *   "server-only" モジュールに依存するもの(例: TopHeader → getCurrentUser →
+ *   lib/session/get-user.ts)を import できない。
+ *   そのため、簡素なブランドだけの mini header を本ファイル内に直書き。
  *
  * 見た目は他の状態画面(404 / 403 / success / cancel)と統一した
  * グラデ + 円形アイコンのカード型レイアウト。
@@ -44,7 +49,7 @@ export default function GlobalRouteError({
 
   return (
     <>
-      <TopHeader />
+      <MiniHeader />
       <PageContainer className="py-16">
         <Card className="mx-auto max-w-md overflow-hidden border-border bg-gradient-to-br from-amber-500/10 via-transparent to-amber-500/5 shadow-sm">
           <CardContent className="relative flex flex-col items-center gap-5 py-12 text-center">
@@ -95,5 +100,37 @@ export default function GlobalRouteError({
         </Card>
       </PageContainer>
     </>
+  );
+}
+
+/**
+ * Client-safe な簡素なヘッダー。
+ *
+ * TopHeader は Server Component で getCurrentUser → server-only に
+ * 依存するため、Client Component の error.tsx からは import できない。
+ * エラー画面ではフル機能の header は不要なので、ロゴ + トップへ戻る
+ * リンクだけの最小構成を本ファイル内に直書きする。
+ *
+ * ロゴ画像のサイズ制御は TopHeader と同じ理由で素の <img>(Next/Image
+ * の width attr が CSS w-auto を打ち負ける問題回避)。
+ */
+function MiniHeader() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
+      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center px-4 sm:px-6">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center"
+          aria-label="パラDa-iCE TRPGサイト ホーム"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="パラDa-iCE TRPGサイト"
+            className="h-10 w-auto"
+          />
+        </Link>
+      </div>
+    </header>
   );
 }
