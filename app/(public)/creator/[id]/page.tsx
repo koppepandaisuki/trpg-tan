@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { User, PackageOpen } from "lucide-react";
+import { User, PackageOpen, Twitter, Globe } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
@@ -9,6 +9,7 @@ import { WorkCard } from "@/components/store/work-card";
 import { CoverImage } from "@/components/store/cover-image";
 import { getCreatorProfile } from "@/lib/queries/creator-profile";
 import { publicAvatarUrl } from "@/lib/format/storage";
+import { cn } from "@/lib/utils";
 
 /**
  * 公開クリエイタープロフィールページ。
@@ -103,6 +104,29 @@ export default async function CreatorProfilePage({
                     自己紹介は未設定です
                   </p>
                 )}
+
+                {/* SNS リンク(設定されているものだけ表示)。
+                    両方とも未設定なら行ごと出さない。 */}
+                {(profile.twitterHandle || profile.websiteUrl) && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {profile.twitterHandle && (
+                      <SnsLink
+                        href={`https://twitter.com/${profile.twitterHandle}`}
+                        icon={Twitter}
+                        label={`@${profile.twitterHandle}`}
+                        tone="sky"
+                      />
+                    )}
+                    {profile.websiteUrl && (
+                      <SnsLink
+                        href={profile.websiteUrl}
+                        icon={Globe}
+                        label="Web サイト"
+                        tone="emerald"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
@@ -144,5 +168,46 @@ export default async function CreatorProfilePage({
         )}
       </PageContainer>
     </>
+  );
+}
+
+/**
+ * SNS リンク(Twitter / Web サイト)用の小さな chip。tone で色違いの
+ * 視覚記号にする(Twitter = sky、Web = emerald)。
+ *
+ * target="_blank" + rel="noopener noreferrer me" で:
+ *  - 新タブで開く
+ *  - opener を渡さない(タブナビ攻撃防止)
+ *  - rel=me で「これは私のサイト」と明示(IndieAuth 等の hint)
+ */
+function SnsLink({
+  href,
+  icon: Icon,
+  label,
+  tone,
+}: {
+  href: string;
+  icon: typeof Twitter;
+  label: string;
+  tone: "sky" | "emerald";
+}) {
+  const toneClass =
+    tone === "sky"
+      ? "border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100";
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer me"
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition",
+        toneClass,
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      <span className="line-clamp-1 max-w-[200px]">{label}</span>
+    </a>
   );
 }

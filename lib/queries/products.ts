@@ -363,6 +363,8 @@ type PublicProfileRow = {
   displayName: string;
   avatarPath: string | null;
   bio: string;
+  twitterHandle: string;
+  websiteUrl: string;
 };
 
 async function fetchPublicProfiles(
@@ -374,7 +376,7 @@ async function fetchPublicProfiles(
   const supabase = createClient();
   const { data, error } = await supabase
     .from("public_profiles")
-    .select("id, display_name, avatar_path, bio")
+    .select("id, display_name, avatar_path, bio, twitter_handle, website_url")
     .in("id", ids);
 
   if (error) {
@@ -387,6 +389,8 @@ async function fetchPublicProfiles(
       displayName: row.display_name ?? "",
       avatarPath: row.avatar_path,
       bio: row.bio ?? "",
+      twitterHandle: row.twitter_handle ?? "",
+      websiteUrl: row.website_url ?? "",
     });
   }
   return result;

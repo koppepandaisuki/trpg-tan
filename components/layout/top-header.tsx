@@ -161,7 +161,13 @@ function AuthedMenu({
 
       <DiscordOrBellButton />
 
-      <div className="hidden flex-col items-end leading-tight sm:flex">
+      {/* 表示名 + ロールバッジ全体をプロフィール設定リンクに。
+          自分の名前をクリック → 自分の設定 という直感的な動線。 */}
+      <Link
+        href="/account/settings"
+        className="hidden flex-col items-end leading-tight transition hover:opacity-80 sm:flex"
+        aria-label="プロフィール設定を開く"
+      >
         <span className="text-sm font-medium">
           {user.displayName || user.email}
         </span>
@@ -177,7 +183,7 @@ function AuthedMenu({
             </Badge>
           )}
         </span>
-      </div>
+      </Link>
 
       <form action="/auth/sign-out" method="post">
         <Button type="submit" variant="outline" size="sm">

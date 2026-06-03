@@ -10,6 +10,7 @@ import {
   LogOut,
   MessageCircle,
   AlertCircle,
+  Settings,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -183,11 +184,15 @@ export function MobileMenu({ user, discordUrl }: MobileMenuProps) {
             <div className="border-t border-border p-4">
               {user ? (
                 <div className="space-y-3">
-                  <div className="min-w-0">
+                  <Link
+                    href="/account/settings"
+                    onClick={close}
+                    className="block min-w-0 rounded-md p-2 transition hover:bg-muted"
+                  >
                     <p className="truncate text-sm font-medium">
                       {user.displayName || user.email}
                     </p>
-                    <div className="mt-0.5 flex flex-wrap gap-1">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
                       {user.isAdmin && (
                         <Badge variant="category" className="text-[10px]">
                           admin
@@ -198,8 +203,12 @@ export function MobileMenu({ user, discordUrl }: MobileMenuProps) {
                           creator
                         </Badge>
                       )}
+                      <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Settings className="h-3 w-3" aria-hidden />
+                        設定
+                      </span>
                     </div>
-                  </div>
+                  </Link>
                   {/* form submit は close をスキップ(ナビゲーション完了で
                       自然に画面が切り替わる)*/}
                   <form action="/auth/sign-out" method="post">
