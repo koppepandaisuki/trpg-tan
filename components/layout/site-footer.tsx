@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { OpenWelcomeTourButton } from "@/components/onboarding/welcome-tour";
 import { cn } from "@/lib/utils";
 
 /**
@@ -94,8 +95,15 @@ export function SiteFooter() {
               label="お問い合わせ — Discord"
               icon={MessageCircle}
             />
+            {/* 初回ガイドを再表示するトリガー。テスターが「あれ何だっけ」
+                となったときに、いつでも再確認できるようにする。 */}
+            <li>
+              <OpenWelcomeTourButton className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                使い方ガイドを開く
+              </OpenWelcomeTourButton>
+            </li>
             <FooterPlaceholder label="ヘルプ(準備中)" />
-            <FooterPlaceholder label="開発者ブログ(準備中)" />
           </FooterColumn>
         </div>
 

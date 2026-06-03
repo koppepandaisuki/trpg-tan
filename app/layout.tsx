@@ -3,6 +3,7 @@ import { Noto_Sans_JP } from "next/font/google";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { TestModeBanner } from "@/components/banner/test-mode-banner";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { WelcomeTour } from "@/components/onboarding/welcome-tour";
 import "./globals.css";
 
 const notoSansJp = Noto_Sans_JP({
@@ -101,6 +102,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* α 期間中のフィードバック収集インフラ。Server Component が
             認証状態を確認、ログイン済の時だけ floating button を出す。 */}
         <FeedbackLauncher />
+
+        {/* 初回訪問時に表示されるオンボーディング tour。
+            localStorage で初回判定、別所(フッター)から再表示も可能。 */}
+        <WelcomeTour />
       </body>
     </html>
   );
