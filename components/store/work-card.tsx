@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { CoverImage } from "./cover-image";
 import { categoryLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
-import { publicCoverUrl } from "@/lib/format/storage";
+import { publicCoverUrl, publicAvatarUrl } from "@/lib/format/storage";
 import type { ProductListItem } from "@/lib/queries/types";
 
 interface WorkCardProps {
@@ -18,9 +19,13 @@ interface WorkCardProps {
  *  - hover で border + shadow が変化、表紙が slight zoom
  *  - タイトルを text-base font-semibold で読みやすく
  *  - 価格を tracking-tight + slightly larger で視認性向上
+ *  - CCCC: クリエイターアバター(小)を display name の左に表示。
+ *    アバター未設定者は User icon プレースホルダ。視覚的に「人」を
+ *    強調することで購入判断材料を増やす。
  */
 export function WorkCard({ product }: WorkCardProps) {
   const coverUrl = publicCoverUrl(product.coverPath);
+  const avatarUrl = publicAvatarUrl(product.creator.avatarPath);
 
   return (
     <Link
@@ -46,10 +51,28 @@ export function WorkCard({ product }: WorkCardProps) {
               {product.systemLabel}
             </p>
           )}
+          {/* クリエイター行(アバター + 名前)。WorkCard 全体が <Link> で
+              囲われているため、ここを別 link にはできない(nested anchor
+              回避)。アバター単体は装飾扱い。 */}
           {product.creator.displayName && (
-            <p className="line-clamp-1 text-xs text-muted-foreground">
-              {product.creator.displayName}
-            </p>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="h-4 w-4 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <User className="h-2.5 w-2.5" aria-hidden />
+                  </div>
+                )}
+              </div>
+              <span className="line-clamp-1">{product.creator.displayName}</span>
+            </div>
           )}
           <p className="pt-1 text-base font-semibold tracking-tight">
             {formatPrice(product.priceJpy)}

@@ -4,10 +4,12 @@ import { HomeHero } from "@/components/store/home-hero";
 import { ProductStrip } from "@/components/store/product-strip";
 import { CategoryGrid } from "@/components/store/category-grid";
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
+import { TopCreatorsSection } from "@/components/creator/top-creators-section";
 import {
   listRecentProducts,
   listTopSellingProducts,
 } from "@/lib/queries/products";
+import { getTopCreators } from "@/lib/queries/top-creators";
 
 /**
  * トップページ = ストアのランディング。Steam の Store front page を参考に、
@@ -28,10 +30,11 @@ import {
 export const revalidate = 60;
 
 export default async function HomePage() {
-  // 売上上位と新着を並行 fetch
-  const [topSellers, recent] = await Promise.all([
+  // 売上上位 / 新着 / 人気クリエイター TOP 3 を並行 fetch
+  const [topSellers, recent, topCreators] = await Promise.all([
     listTopSellingProducts(12),
     listRecentProducts(12),
+    getTopCreators(3),
   ]);
 
   // 「売上上位」が新着に fallback している場合、両者が重複する。
@@ -79,6 +82,10 @@ export default async function HomePage() {
             seeAllHref="/store"
           />
         )}
+
+        {/* 人気クリエイター TOP 3。実購入がないうちはセクションごと
+            非表示(α 初期はゼロ)。4 位以下は /creators から。 */}
+        <TopCreatorsSection entries={topCreators} />
 
         <CategoryGrid />
       </PageContainer>

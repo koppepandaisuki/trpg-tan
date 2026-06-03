@@ -31,6 +31,12 @@ export type ProductListItem = {
   creator: {
     id: string;
     displayName: string;
+    /**
+     * 商品カード等でクリエイターアバターを表示するために path を露出。
+     * 既存呼び出しが `avatarPath: null` で取得していない場合は null で
+     * 安全側に倒す。
+     */
+    avatarPath: string | null;
   };
 };
 

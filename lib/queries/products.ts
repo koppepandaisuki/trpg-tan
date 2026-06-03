@@ -152,6 +152,7 @@ export async function listPublishedProducts(opts?: {
     creator: {
       id: r.creator_id,
       displayName: creators.get(r.creator_id)?.displayName ?? "",
+      avatarPath: creators.get(r.creator_id)?.avatarPath ?? null,
     },
   }));
 
@@ -419,6 +420,7 @@ async function toProductListItems(
     creator: {
       id: r.creator_id,
       displayName: creators.get(r.creator_id)?.displayName ?? "",
+      avatarPath: creators.get(r.creator_id)?.avatarPath ?? null,
     },
   }));
 }
