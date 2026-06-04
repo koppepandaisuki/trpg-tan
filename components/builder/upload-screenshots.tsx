@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Check, Loader2, RefreshCw, Upload as UploadIcon, X } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  Upload as UploadIcon,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   SCREENSHOT_MAX_BYTES,
@@ -22,7 +29,12 @@ import {
  */
 const ACCEPT = "image/png,image/jpeg,image/webp";
 
-type SlotStatus = "idle" | "uploading" | "uploaded" | "error";
+type SlotStatus =
+  | "idle"
+  | "uploading"
+  | "uploaded"
+  | "error"
+  | "deleting";
 
 interface SlotState {
   status: SlotStatus;
@@ -144,6 +156,59 @@ export function UploadScreenshots({
     void uploadSlot(index, file);
   }
 
+  async function deleteSlot(index: number) {
+    if (inFlight.current.has(index)) return;
+    if (
+      !window.confirm(
+        `スロット ${index + 1} のスクリーンショットを削除します。よろしいですか?`,
+      )
+    ) {
+      return;
+    }
+
+    inFlight.current.add(index);
+    onUploadingChange(true);
+    updateSlot(index, { status: "deleting", error: undefined });
+
+    try {
+      const res = await fetch(
+        `/api/products/${productId}/screenshots/${index}`,
+        {
+          method: "DELETE",
+        },
+      );
+      const ct = res.headers.get("content-type") ?? "";
+      if (!ct.includes("application/json")) {
+        throw new Error(
+          res.status === 401
+            ? "ログインが必要です。再度ログインしてください"
+            : "削除に失敗しました",
+        );
+      }
+      const data = (await res.json().catch(() => null)) as
+        | { ok: true }
+        | { ok: false; message: string }
+        | null;
+      if (!res.ok || !data || !("ok" in data) || !data.ok) {
+        throw new Error(
+          (data && "message" in data && data.message) || "削除に失敗しました",
+        );
+      }
+      updateSlot(index, { status: "idle", file: undefined });
+    } catch (err) {
+      updateSlot(index, {
+        status: "error",
+        error:
+          err instanceof Error
+            ? err.message
+            : "削除に失敗しました。再度お試しください",
+      });
+    } finally {
+      inFlight.current.delete(index);
+      if (inFlight.current.size === 0) onUploadingChange(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
@@ -157,6 +222,7 @@ export function UploadScreenshots({
               index={i}
               slot={slot}
               onClick={() => openPicker(i)}
+              onDelete={() => deleteSlot(i)}
               inputRef={(el) => {
                 inputRefs.current[i] = el;
               }}
@@ -173,15 +239,18 @@ function SlotCard({
   index,
   slot,
   onClick,
+  onDelete,
   inputRef,
   onFileChange,
 }: {
   index: number;
   slot: SlotState;
   onClick: () => void;
+  onDelete: () => void;
   inputRef: (el: HTMLInputElement | null) => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const isBusy = slot.status === "uploading" || slot.status === "deleting";
   return (
     <div className="space-y-1.5">
       <input
@@ -195,10 +264,10 @@ function SlotCard({
       <button
         type="button"
         onClick={onClick}
-        disabled={slot.status === "uploading"}
+        disabled={isBusy}
         className="group relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/40 transition hover:border-foreground/30"
       >
-        {slot.status === "uploading" && (
+        {(slot.status === "uploading" || slot.status === "deleting") && (
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         )}
         {slot.status === "idle" && (
@@ -225,6 +294,19 @@ function SlotCard({
         <p className="line-clamp-1 text-[10px] text-muted-foreground">
           {slot.file.name} ({formatBytes(slot.file.size)})
         </p>
+      )}
+      {slot.status === "uploaded" && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onDelete}
+          disabled={isBusy}
+          className="w-full text-xs text-destructive hover:text-destructive"
+        >
+          <Trash2 className="h-3 w-3" />
+          削除
+        </Button>
       )}
       {slot.status === "error" && (
         <Button
