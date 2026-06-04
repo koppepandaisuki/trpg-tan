@@ -226,6 +226,26 @@ export async function listFeaturedProducts(
 }
 
 /**
+ * ホームの「ジャンル別おすすめ」strip 用(AAAAA)。指定カテゴリの上位作品を
+ * 取得する。並び順は「好評順」を採用して、評価のある作品を優先表示。
+ * 評価がない場合は内部 fallback で新着順に近い並びになる
+ * (listPublishedProducts({sort:"rating"}) と同じ挙動)。
+ *
+ * 0 件の場合は呼び出し側で section ごと非表示にする想定。
+ */
+export async function listProductsByCategory(
+  category: ProductType,
+  limit: number = 6,
+): Promise<ProductListItem[]> {
+  const result = await listPublishedProducts({
+    category,
+    sort: "rating",
+    page: 1,
+  });
+  return result.items.slice(0, limit);
+}
+
+/**
  * ホームの「好評な作品」strip 用。listPublishedProducts({sort:"rating"}) を
  * 1 ページ分(STORE_PAGE_SIZE=12 件)取り、評価のある作品が含まれている
  * 場合のみ items を返す。

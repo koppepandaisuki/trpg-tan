@@ -13,9 +13,12 @@ import {
   listTopSellingProducts,
   listTopRatedProducts,
   listFeaturedProducts,
+  listProductsByCategory,
 } from "@/lib/queries/products";
 import { getTopCreators } from "@/lib/queries/top-creators";
 import { publicCoverUrl, publicAvatarUrl } from "@/lib/format/storage";
+import { STORE_CATEGORIES, categoryLabel } from "@/lib/format/category";
+import type { ProductType } from "@/lib/queries/types";
 
 /**
  * トップページ = ストアのランディング。Steam の Store front page を参考に、
@@ -35,17 +38,31 @@ import { publicCoverUrl, publicAvatarUrl } from "@/lib/format/storage";
 // 1 分で revalidate(ストアのフロントなので頻繁更新は不要)
 export const revalidate = 60;
 
+// ジャンル別おすすめ用のカテゴリ一覧(STORE_CATEGORIES から「すべて」を除外)。
+// 表示順は STORE_CATEGORIES の並びを尊重(シナリオ → ルールブック → マップ
+// → アートワーク → BGM)。
+const RECOMMENDATION_CATEGORIES: ProductType[] = STORE_CATEGORIES.filter(
+  (c): c is { value: ProductType; label: string } => c.value !== null,
+).map((c) => c.value);
+
 export default async function HomePage() {
-  // 売上上位 / 新着 / 好評な作品 / 人気クリエイター TOP 3 / フィーチャー
-  // を並行 fetch
-  const [topSellers, recent, topRated, topCreators, featured] =
-    await Promise.all([
-      listTopSellingProducts(12),
-      listRecentProducts(12),
-      listTopRatedProducts(12),
-      getTopCreators(3),
-      listFeaturedProducts(8),
-    ]);
+  // 売上上位 / 新着 / 好評 / 人気クリエイター / フィーチャー /
+  // 各カテゴリの上位作品 をすべて並行 fetch
+  const [
+    topSellers,
+    recent,
+    topRated,
+    topCreators,
+    featured,
+    ...categoryRecommendations
+  ] = await Promise.all([
+    listTopSellingProducts(12),
+    listRecentProducts(12),
+    listTopRatedProducts(12),
+    getTopCreators(3),
+    listFeaturedProducts(8),
+    ...RECOMMENDATION_CATEGORIES.map((cat) => listProductsByCategory(cat, 6)),
+  ]);
 
   // Carousel に渡す軽量 item に変換(server で URL 解決 → client 安全)
   const carouselItems = featured.map((p) => ({
@@ -132,6 +149,22 @@ export default async function HomePage() {
         {/* 人気クリエイター TOP 3。実購入がないうちはセクションごと
             非表示(α 初期はゼロ)。4 位以下は /creators から。 */}
         <TopCreatorsSection entries={topCreators} />
+
+        {/* ジャンル別おすすめ(AAAAA): 各カテゴリ 6 件ずつ。0 件カテゴリは
+            セクションごと非表示。表示順は STORE_CATEGORIES の並びを尊重。 */}
+        {RECOMMENDATION_CATEGORIES.map((cat, i) => {
+          const items = categoryRecommendations[i];
+          if (items.length === 0) return null;
+          return (
+            <ProductStrip
+              key={cat}
+              title={`${categoryLabel(cat)} のおすすめ`}
+              description="このジャンルで注目の作品(好評順)"
+              products={items}
+              seeAllHref={`/store?category=${cat}`}
+            />
+          );
+        })}
 
         <CategoryGrid />
 
