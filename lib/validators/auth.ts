@@ -41,7 +41,24 @@ export const resetPasswordSchema = z.object({
   password: passwordSchema,
 });
 
+/**
+ * 設定ページからのパスワード変更。
+ * newPassword と confirmPassword が一致することを検証(typo 防止)。
+ * 「現在のパスワード」は Supabase 標準の updateUser では不要だが、UX 上
+ * 念のため入力させたい場合は後日 schema に追加して再認証フローを組む。
+ */
+export const changePasswordSchema = z
+  .object({
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "確認用パスワードが一致しません",
+    path: ["confirmPassword"],
+  });
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
