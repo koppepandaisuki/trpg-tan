@@ -5,6 +5,7 @@ import { ProductStrip } from "@/components/store/product-strip";
 import { CategoryGrid } from "@/components/store/category-grid";
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
 import { TopCreatorsSection } from "@/components/creator/top-creators-section";
+import { CreatorEntryCard } from "@/components/creator/creator-entry-card";
 import {
   listRecentProducts,
   listTopSellingProducts,
@@ -102,6 +103,10 @@ export default async function HomePage() {
         <TopCreatorsSection entries={topCreators} />
 
         <CategoryGrid />
+
+        {/* 「クリエイターを探す」入口カード(EEEE)。CategoryGrid と並ぶ
+            「人軸」の発見入口。 */}
+        <CreatorEntryCard />
       </PageContainer>
     </>
   );
