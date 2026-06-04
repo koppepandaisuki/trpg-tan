@@ -4,6 +4,7 @@ import { HomeHero } from "@/components/store/home-hero";
 import { ProductStrip } from "@/components/store/product-strip";
 import { CategoryGrid } from "@/components/store/category-grid";
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
+import { FavoritesSection } from "@/components/favorites/favorites-section";
 import { TopCreatorsSection } from "@/components/creator/top-creators-section";
 import { CreatorEntryCard } from "@/components/creator/creator-entry-card";
 import {
@@ -60,6 +61,10 @@ export default async function HomePage() {
       <TopHeader />
       <PageContainer className="space-y-10 py-8">
         <HomeHero hasProducts={hasProducts} />
+
+        {/* お気に入りは localStorage 由来。0 件のときは描画ゼロ。
+            最近見たの上に置いて、常連の「自分の棚」感を強化。 */}
+        <FavoritesSection />
 
         {/* 「最近見た作品」は localStorage 由来の client section。
             履歴がない訪問者には何も描画されない設計なので、上位に置いても

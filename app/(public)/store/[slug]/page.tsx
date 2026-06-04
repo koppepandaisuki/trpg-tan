@@ -31,6 +31,7 @@ import { ProductDetailRecorder } from "@/components/recent/product-detail-record
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
 import { ReviewSection } from "@/components/review/review-section";
 import { ReviewBadge } from "@/components/review/review-badge";
+import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { getReviewSummary, type ReviewSummary } from "@/lib/queries/reviews";
 import { getProductSalesCount } from "@/lib/queries/sales";
 
@@ -177,14 +178,35 @@ export default async function ProductDetailPage({ params }: PageProps) {
               </Link>
             ))}
           </div>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-            {product.title}
-          </h1>
-          {product.systemLabel && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {product.systemLabel}
-            </p>
-          )}
+          <div className="mt-3 flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                {product.title}
+              </h1>
+              {product.systemLabel && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {product.systemLabel}
+                </p>
+              )}
+            </div>
+            {/* お気に入りトグル(QQQQ): hero 右上に compact 配置。
+                clicker = client component なので Server から最小の item を渡す。 */}
+            <FavoriteButton
+              variant="compact"
+              item={{
+                slug: product.slug,
+                title: product.title,
+                coverUrl,
+                productType: product.productType,
+                priceJpy: product.priceJpy,
+                systemLabel: product.systemLabel,
+                creator: {
+                  id: product.creator.id,
+                  displayName: product.creator.displayName,
+                },
+              }}
+            />
+          </div>
         </header>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
