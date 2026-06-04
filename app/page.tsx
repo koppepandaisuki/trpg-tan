@@ -3,6 +3,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { HomeHero } from "@/components/store/home-hero";
 import { ProductStrip } from "@/components/store/product-strip";
 import { CategoryGrid } from "@/components/store/category-grid";
+import { HomeCarousel } from "@/components/store/home-carousel";
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
 import { FavoritesSection } from "@/components/favorites/favorites-section";
 import { TopCreatorsSection } from "@/components/creator/top-creators-section";
@@ -11,8 +12,10 @@ import {
   listRecentProducts,
   listTopSellingProducts,
   listTopRatedProducts,
+  listFeaturedProducts,
 } from "@/lib/queries/products";
 import { getTopCreators } from "@/lib/queries/top-creators";
+import { publicCoverUrl } from "@/lib/format/storage";
 
 /**
  * トップページ = ストアのランディング。Steam の Store front page を参考に、
@@ -33,13 +36,26 @@ import { getTopCreators } from "@/lib/queries/top-creators";
 export const revalidate = 60;
 
 export default async function HomePage() {
-  // 売上上位 / 新着 / 好評な作品 / 人気クリエイター TOP 3 を並行 fetch
-  const [topSellers, recent, topRated, topCreators] = await Promise.all([
-    listTopSellingProducts(12),
-    listRecentProducts(12),
-    listTopRatedProducts(12),
-    getTopCreators(3),
-  ]);
+  // 売上上位 / 新着 / 好評な作品 / 人気クリエイター TOP 3 / フィーチャー
+  // を並行 fetch
+  const [topSellers, recent, topRated, topCreators, featured] =
+    await Promise.all([
+      listTopSellingProducts(12),
+      listRecentProducts(12),
+      listTopRatedProducts(12),
+      getTopCreators(3),
+      listFeaturedProducts(8),
+    ]);
+
+  // Carousel に渡す軽量 item に変換(server で coverUrl 解決 → client 安全)
+  const carouselItems = featured.map((p) => ({
+    slug: p.slug,
+    title: p.title,
+    coverUrl: publicCoverUrl(p.coverPath),
+    productType: p.productType,
+    priceJpy: p.priceJpy,
+    reviewSummary: p.reviewSummary ?? null,
+  }));
 
   // 「売上上位」が新着に fallback している場合、両者が重複する。
   // 重複表示を避けるため、新着は売上上位に含まれない ID のみに絞る。
@@ -61,6 +77,11 @@ export default async function HomePage() {
       <TopHeader />
       <PageContainer className="space-y-10 py-8">
         <HomeHero hasProducts={hasProducts} />
+
+        {/* Steam ライク大型カルーセル(TTTT): 売上上位 + 好評 + 新着 を
+            組合せた注目作品を auto-rotate。実商品が 1 件もないときは
+            描画ゼロ(α 初期は HomeHero だけが見える)。 */}
+        <HomeCarousel items={carouselItems} />
 
         {/* お気に入りは localStorage 由来。0 件のときは描画ゼロ。
             最近見たの上に置いて、常連の「自分の棚」感を強化。 */}

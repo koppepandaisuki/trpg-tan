@@ -186,6 +186,46 @@ export async function listPublishedProducts(opts?: {
 }
 
 /**
+ * ホーム最上部の Steam ライク大型カルーセル用。売上上位 + 好評 を
+ * 組合せて重複排除し、最上位 N 件を返す。両方とも 0 件のときは
+ * 新着 fallback。
+ *
+ * 「フィーチャー」= 売上 / 評価で「目を引く」候補。実購入ゼロ環境
+ * でも新着で carousel は描画される(空 hero になるのを防ぐ)。
+ */
+export async function listFeaturedProducts(
+  limit: number = 8,
+): Promise<ProductListItem[]> {
+  const [topSellers, topRated] = await Promise.all([
+    listTopSellingProducts(limit),
+    listTopRatedProducts(limit),
+  ]);
+
+  // 売上 → 評価の順で merge、重複排除
+  const seen = new Set<string>();
+  const merged: ProductListItem[] = [];
+  for (const p of [...topSellers, ...topRated]) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    merged.push(p);
+    if (merged.length >= limit) break;
+  }
+
+  // 上 2 つで limit に満たないときだけ新着で補完(α 初期向け)
+  if (merged.length < limit) {
+    const recent = await listRecentProducts(limit);
+    for (const p of recent) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      merged.push(p);
+      if (merged.length >= limit) break;
+    }
+  }
+
+  return merged;
+}
+
+/**
  * ホームの「好評な作品」strip 用。listPublishedProducts({sort:"rating"}) を
  * 1 ページ分(STORE_PAGE_SIZE=12 件)取り、評価のある作品が含まれている
  * 場合のみ items を返す。
