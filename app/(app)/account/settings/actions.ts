@@ -8,6 +8,10 @@ import {
   normalizeTwitterHandle,
   type ProfileEditInput,
 } from "@/lib/validators/profile";
+import {
+  changePasswordSchema,
+  type ChangePasswordInput,
+} from "@/lib/validators/auth";
 
 /**
  * アバター画像の Storage への upload 完了後に、profiles.avatar_path を
@@ -95,6 +99,56 @@ export async function updateProfileAction(
   // 時に最新化されるので実用上問題ない)。
   revalidatePath("/account/settings");
   revalidatePath(`/creator/${user.id}`);
+
+  return { ok: true };
+}
+
+/**
+ * 設定ページからのパスワード変更。
+ *
+ * - requireUser() でログイン中前提
+ * - 新パスワードと確認用が一致しているか zod で検証
+ * - supabase.auth.updateUser({ password }) で更新
+ *
+ * 「現在のパスワード」の入力は省略(Supabase 標準の updateUser は
+ *  既存セッションだけで更新できる)。後日 UX で再認証フローを入れたい
+ *  場合はここに password reauth を追加する。
+ *
+ * 失敗時:
+ *  - セッション切れ → 「再ログインしてください」
+ *  - その他は汎用メッセージ
+ */
+export async function changePasswordAction(
+  raw: ChangePasswordInput,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireUser();
+
+  const parsed = changePasswordSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "入力に誤りがあります",
+    };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.newPassword,
+  });
+
+  if (error) {
+    console.error("[changePasswordAction] failed", error);
+    if (error.message.toLowerCase().includes("session")) {
+      return {
+        ok: false,
+        error: "セッションが切れています。再度ログインしてください。",
+      };
+    }
+    return {
+      ok: false,
+      error: "パスワードの更新に失敗しました。少し時間をおいて再度お試しください。",
+    };
+  }
 
   return { ok: true };
 }

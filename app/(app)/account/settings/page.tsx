@@ -5,6 +5,7 @@ import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProfileEditForm } from "@/components/account/profile-edit-form";
 import { AvatarUpload } from "@/components/account/avatar-upload";
+import { PasswordChangeForm } from "@/components/account/password-change-form";
 import { requireUser } from "@/lib/session/require";
 import { createClient } from "@/lib/supabase/server";
 import { publicAvatarUrl } from "@/lib/format/storage";
@@ -96,6 +97,21 @@ export default async function AccountSettingsPage() {
         <Card className="shadow-sm">
           <CardContent className="py-6">
             <ProfileEditForm initialValues={initialValues} />
+          </CardContent>
+        </Card>
+
+        {/* パスワード変更(AAAA)*/}
+        <Card className="shadow-sm">
+          <CardContent className="space-y-3 py-6">
+            <div>
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                セキュリティ
+              </h2>
+              <p className="mt-0.5 text-base font-semibold tracking-tight">
+                パスワードの変更
+              </p>
+            </div>
+            <PasswordChangeForm />
           </CardContent>
         </Card>
       </PageContainer>
