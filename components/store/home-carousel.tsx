@@ -12,21 +12,24 @@ import type { ProductListItem } from "@/lib/queries/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Steam のストアフロント上部にあるような大型フィーチャーカルーセル。
+ * Steam ストアフロント上部の大型フィーチャーカルーセル。
  *
- * 仕様:
- *  - 商品表紙を大きく表示(aspect 21/9)
- *  - 暗オーバーレイの上にタイトル / カテゴリ / 価格 / 評価
+ * レイアウト(WWWW で Steam に近づけた完全形):
+ *  - デスクトップ(lg+): 中央 大スライド + 右側 4 枚の縦サムネ列(2 カラム
+ *    grid `1fr 200px`)。サムネクリックで該当スライドへ切替、active は
+ *    リング + 半透明オーバーレイ解除で強調。
+ *  - モバイル / タブレット: 大スライドのみ + 下に dot indicator
+ *    (サムネ列を隠す、画面領域に余裕がない)
+ *
+ * 動作:
  *  - 5 秒で auto-rotate(hover / focus で停止)
  *  - 左右 chevron で手動切替
- *  - 下に dot indicator(クリックで直接 jump)
- *  - 商品全体クリックで /store/[slug] へ
+ *  - 大スライドクリックで /store/[slug] へ
+ *  - サムネは小さいので、クリック判定は「該当スライドに切替」のみ
+ *    (詳細遷移したいなら active 化 → 大スライドをクリック)
  *
- * Server から渡される products は表示順を持つ ProductListItem[]。
- * coverPath はサーバが解決済 URL を別途渡す必要はなく、
- * <CoverImage src={publicCoverUrl(coverPath)} /> パターンを踏襲したいが、
- * このコンポーネントは Client なので、Server 側で coverUrl 解決済の
- * 配列に変換して渡す前提にする(use-recent-views と同じ方針)。
+ * coverUrl は Server 側で publicCoverUrl 解決済を渡す前提(Client は
+ * server-only に依存しない)。
  */
 
 export interface CarouselItem {
@@ -39,6 +42,7 @@ export interface CarouselItem {
 }
 
 const AUTO_ROTATE_MS = 5000;
+const THUMBNAIL_COUNT = 4; // 右側に出す枚数(2x2 でも縦 4 でも対応)
 
 interface HomeCarouselProps {
   items: CarouselItem[];
@@ -57,7 +61,6 @@ export function HomeCarousel({ items }: HomeCarouselProps) {
     setIndex((i) => (i - 1 + total) % total);
   }, [total]);
 
-  // Auto-rotate
   useEffect(() => {
     if (total <= 1 || paused) return;
     timerRef.current = window.setTimeout(next, AUTO_ROTATE_MS);
@@ -67,6 +70,10 @@ export function HomeCarousel({ items }: HomeCarouselProps) {
   }, [index, paused, total, next]);
 
   if (total === 0) return null;
+
+  // 右側に出すサムネ。常に index を中心にした連続 4 枚(wrap して循環)
+  // にして「次に来る候補が見える」UX にする。
+  const thumbnailItems = computeThumbnailItems(items, index);
 
   return (
     <section
@@ -78,52 +85,90 @@ export function HomeCarousel({ items }: HomeCarouselProps) {
       aria-roledescription="カルーセル"
       aria-label="注目の作品"
     >
-      {/* スライド本体 */}
-      <div className="relative aspect-[21/9] w-full bg-muted">
-        {items.map((it, i) => (
-          <CarouselSlide
-            key={it.slug}
-            item={it}
-            active={i === index}
-            index={i}
-            total={total}
-          />
-        ))}
-      </div>
-
-      {/* 左右 chevron(slides > 1 のときだけ表示) */}
-      {total > 1 && (
-        <>
-          <CarouselArrow side="left" onClick={prev} />
-          <CarouselArrow side="right" onClick={next} />
-        </>
-      )}
-
-      {/* Dot indicator */}
-      {total > 1 && (
-        <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px]">
+        {/* メインスライド領域 */}
+        <div className="relative aspect-[21/9] w-full bg-muted lg:aspect-auto">
           {items.map((it, i) => (
-            <button
+            <CarouselSlide
               key={it.slug}
-              type="button"
-              onClick={() => setIndex(i)}
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                i === index ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80",
-              )}
-              aria-label={`スライド ${i + 1} / ${total} に切替`}
-              aria-current={i === index ? "true" : undefined}
+              item={it}
+              active={i === index}
+              index={i}
+              total={total}
             />
           ))}
+
+          {/* chevron(slides > 1 のとき) */}
+          {total > 1 && (
+            <>
+              <CarouselArrow side="left" onClick={prev} />
+              <CarouselArrow side="right" onClick={next} />
+            </>
+          )}
+
+          {/* モバイル / タブレット用 dot indicator
+              (デスクトップではサムネ列が代替なので非表示) */}
+          {total > 1 && (
+            <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 lg:hidden">
+              {items.map((it, i) => (
+                <button
+                  key={it.slug}
+                  type="button"
+                  onClick={() => setIndex(i)}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all",
+                    i === index ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80",
+                  )}
+                  aria-label={`スライド ${i + 1} / ${total} に切替`}
+                  aria-current={i === index ? "true" : undefined}
+                />
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* 右側サムネ列(デスクトップのみ表示)*/}
+        {total > 1 && (
+          <ul
+            className="hidden flex-col gap-2 border-l border-border bg-muted/40 p-3 lg:flex"
+            aria-label="他の作品サムネイル"
+          >
+            {thumbnailItems.map(({ item, originalIndex }) => (
+              <li key={item.slug}>
+                <ThumbnailButton
+                  item={item}
+                  active={originalIndex === index}
+                  onClick={() => setIndex(originalIndex)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
 
 /**
- * 1 枚のスライド。active のときだけ opacity 1、それ以外は 0 + pointer-events
- * none で重ねて配置(layout shift 防止)。
+ * 現在の active index を中心にした連続 4 枚を返す。配列の末尾を超えたら
+ * 先頭から循環する(Steam の挙動を踏襲、次に来る候補が「並び順」で見える)。
+ */
+function computeThumbnailItems(
+  items: CarouselItem[],
+  activeIndex: number,
+): Array<{ item: CarouselItem; originalIndex: number }> {
+  const total = items.length;
+  const count = Math.min(THUMBNAIL_COUNT, total);
+  const result: Array<{ item: CarouselItem; originalIndex: number }> = [];
+  for (let i = 0; i < count; i++) {
+    const idx = (activeIndex + i) % total;
+    result.push({ item: items[idx], originalIndex: idx });
+  }
+  return result;
+}
+
+/**
+ * 1 枚のスライド(大画面)。active のときだけ opacity 1。
  */
 function CarouselSlide({
   item,
@@ -146,7 +191,6 @@ function CarouselSlide({
       aria-hidden={!active}
       aria-label={`「${item.title}」の作品詳細を見る(${index + 1} / ${total})`}
     >
-      {/* 背景画像 */}
       <div className="absolute inset-0">
         {item.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -164,10 +208,8 @@ function CarouselSlide({
         )}
       </div>
 
-      {/* 下から上への暗オーバーレイ(文字を読みやすく) */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
-      {/* メタ表示(左下) */}
       <div className="absolute inset-x-0 bottom-0 z-10 p-5 text-white sm:p-7">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <Badge variant="category">{categoryLabel(item.productType)}</Badge>
@@ -203,6 +245,58 @@ function CarouselArrow({
       )}
     >
       <Icon className="h-5 w-5" aria-hidden />
+    </button>
+  );
+}
+
+/**
+ * 右側サムネボタン(デスクトップ)。クリックで該当スライドへ切替。
+ *
+ * デザイン:
+ *  - 横長の cover thumbnail + 右にタイトル(line-clamp-2)
+ *  - active のときは accent ring + 全体明るく
+ *  - non-active は opacity-70 で控えめ、hover で 100
+ */
+function ThumbnailButton({
+  item,
+  active,
+  onClick,
+}: {
+  item: CarouselItem;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`「${item.title}」のサムネに切替`}
+      className={cn(
+        "group flex w-full items-center gap-2 rounded-md border p-1.5 text-left transition-all",
+        active
+          ? "border-foreground/40 bg-background opacity-100 shadow-sm"
+          : "border-transparent bg-background/50 opacity-70 hover:opacity-100",
+      )}
+    >
+      <div className="h-10 w-16 shrink-0 overflow-hidden rounded-sm bg-muted">
+        {item.coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.coverUrl}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            <ImageIcon className="h-4 w-4" aria-hidden />
+          </div>
+        )}
+      </div>
+      <span className="line-clamp-2 flex-1 text-[11px] font-medium leading-tight text-foreground/90">
+        {item.title}
+      </span>
     </button>
   );
 }
