@@ -38,6 +38,7 @@ import { SidebarInfo } from "./sidebar-info";
 import { TagInput } from "./tag-input";
 import { UploadCover } from "./upload-cover";
 import { UploadProductFile } from "./upload-product-file";
+import { UploadScreenshots } from "./upload-screenshots";
 import { cn } from "@/lib/utils";
 
 interface BuilderFormProps {
@@ -53,6 +54,11 @@ interface BuilderFormProps {
    * 親ページ(create / edit)で getPopularTags() の結果を渡す。
    */
   popularTags?: PopularTag[];
+  /**
+   * 編集モードで既存スクショ数を渡すと、UploadScreenshots の slot に
+   * 「設定済み」マークが付く(視覚的ヒント)。
+   */
+  initialScreenshotsCount?: number;
 }
 
 const SECTIONS: SectionNavItem[] = [
@@ -83,6 +89,7 @@ export function BuilderForm({
   initialValues,
   savedJustNow = false,
   popularTags,
+  initialScreenshotsCount,
 }: BuilderFormProps) {
   const form = useForm<BuilderFormValues>({
     resolver: zodResolver(builderFormSchema),
@@ -109,7 +116,9 @@ export function BuilderForm({
   // file_path update written by F-1).
   const [uploadingCover, setUploadingCover] = React.useState(false);
   const [uploadingFile, setUploadingFile] = React.useState(false);
-  const saveLocked = isSubmitting || uploadingCover || uploadingFile;
+  const [uploadingScreenshots, setUploadingScreenshots] = React.useState(false);
+  const saveLocked =
+    isSubmitting || uploadingCover || uploadingFile || uploadingScreenshots;
 
   // Lightweight "input check" counts for the right sidebar.
   // Required: title (always), priceJpy (always)
@@ -437,6 +446,13 @@ export function BuilderForm({
                     productId={productId}
                     fileFormat={watched.fileFormat}
                     onUploadingChange={setUploadingFile}
+                  />
+                </Field>
+                <Field label="スクリーンショット(任意)">
+                  <UploadScreenshots
+                    productId={productId}
+                    initialFilledSlots={initialScreenshotsCount ?? 0}
+                    onUploadingChange={setUploadingScreenshots}
                   />
                 </Field>
               </div>

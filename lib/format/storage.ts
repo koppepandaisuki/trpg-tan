@@ -24,3 +24,15 @@ export function publicAvatarUrl(path: string | null | undefined): string | null 
   const { data } = supabase.storage.from("avatars").getPublicUrl(path);
   return data.publicUrl;
 }
+
+/**
+ * screenshots バケットの公開 URL を返す。商品詳細ページのギャラリーで使う。
+ */
+export function publicScreenshotUrl(
+  path: string | null | undefined,
+): string | null {
+  if (!path) return null;
+  const supabase = createClient();
+  const { data } = supabase.storage.from("screenshots").getPublicUrl(path);
+  return data.publicUrl;
+}
