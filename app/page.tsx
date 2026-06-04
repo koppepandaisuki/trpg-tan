@@ -15,7 +15,7 @@ import {
   listFeaturedProducts,
 } from "@/lib/queries/products";
 import { getTopCreators } from "@/lib/queries/top-creators";
-import { publicCoverUrl } from "@/lib/format/storage";
+import { publicCoverUrl, publicAvatarUrl } from "@/lib/format/storage";
 
 /**
  * トップページ = ストアのランディング。Steam の Store front page を参考に、
@@ -47,7 +47,7 @@ export default async function HomePage() {
       listFeaturedProducts(8),
     ]);
 
-  // Carousel に渡す軽量 item に変換(server で coverUrl 解決 → client 安全)
+  // Carousel に渡す軽量 item に変換(server で URL 解決 → client 安全)
   const carouselItems = featured.map((p) => ({
     slug: p.slug,
     title: p.title,
@@ -55,6 +55,11 @@ export default async function HomePage() {
     productType: p.productType,
     priceJpy: p.priceJpy,
     reviewSummary: p.reviewSummary ?? null,
+    creator: {
+      id: p.creator.id,
+      displayName: p.creator.displayName,
+      avatarUrl: publicAvatarUrl(p.creator.avatarPath),
+    },
   }));
 
   // 「売上上位」が新着に fallback している場合、両者が重複する。

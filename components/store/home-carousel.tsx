@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ImageIcon,
+  User as UserIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ReviewBadge } from "@/components/review/review-badge";
 import { categoryLabel } from "@/lib/format/category";
@@ -39,6 +44,11 @@ export interface CarouselItem {
   productType: ProductListItem["productType"];
   priceJpy: number;
   reviewSummary: ProductListItem["reviewSummary"];
+  creator: {
+    id: string;
+    displayName: string;
+    avatarUrl: string | null;
+  };
 }
 
 const AUTO_ROTATE_MS = 5000;
@@ -127,25 +137,101 @@ export function HomeCarousel({ items }: HomeCarouselProps) {
           )}
         </div>
 
-        {/* 右側サムネ列(デスクトップのみ表示)*/}
-        {total > 1 && (
-          <ul
-            className="hidden flex-col gap-2 border-l border-border bg-muted/40 p-3 lg:flex"
-            aria-label="他の作品サムネイル"
-          >
-            {thumbnailItems.map(({ item, originalIndex }) => (
-              <li key={item.slug}>
-                <ThumbnailButton
-                  item={item}
-                  active={originalIndex === index}
-                  onClick={() => setIndex(originalIndex)}
-                />
-              </li>
-            ))}
-          </ul>
+        {/* 右側パネル(デスクトップのみ表示)。
+            上: サムネ列、下: active 商品の info pane(価格 + 評価 + 発行元)。
+            grid-rows で「サムネ群が伸縮 + info pane は固定高さ」にする。 */}
+        {total > 1 ? (
+          <div className="hidden flex-col border-l border-border bg-muted/40 lg:flex">
+            <ul
+              className="flex flex-1 flex-col gap-2 overflow-y-auto p-3"
+              aria-label="他の作品サムネイル"
+            >
+              {thumbnailItems.map(({ item, originalIndex }) => (
+                <li key={item.slug}>
+                  <ThumbnailButton
+                    item={item}
+                    active={originalIndex === index}
+                    onClick={() => setIndex(originalIndex)}
+                  />
+                </li>
+              ))}
+            </ul>
+            <InfoPane item={items[index]} />
+          </div>
+        ) : (
+          // total === 1 のときはサムネ列が無意味なので info pane だけ表示
+          <div className="hidden border-l border-border bg-muted/40 lg:block">
+            <InfoPane item={items[0]} />
+          </div>
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Steam の右下に出る商品 info pane の相当物。active な商品の
+ *   - レビュー集計 Badge(GGGG の共通 chip)
+ *   - 発行元(creator avatar + displayName、クリックで /creator/[id])
+ *   - 価格(大きめ強調)
+ * を縦に並べる。詳細遷移は大スライドクリックでも届くが、ここの
+ * 「詳細を見る」ボタンでも到達できるよう Link を持たせる。
+ */
+function InfoPane({ item }: { item: CarouselItem }) {
+  return (
+    <div className="space-y-2.5 border-t border-border bg-card p-3 text-xs">
+      {/* レビュー */}
+      <div className="space-y-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          評価
+        </p>
+        {item.reviewSummary && item.reviewSummary.total > 0 ? (
+          <ReviewBadge summary={item.reviewSummary} size="sm" />
+        ) : (
+          <span className="text-[11px] text-muted-foreground">評価なし</span>
+        )}
+      </div>
+
+      {/* 発行元(creator)*/}
+      <div className="space-y-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          発行元
+        </p>
+        <Link
+          href={`/creator/${item.creator.id}` as Route}
+          className="group inline-flex max-w-full items-center gap-2 rounded-sm transition hover:opacity-80"
+        >
+          <div className="h-6 w-6 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+            {item.creator.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.creator.avatarUrl}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                <UserIcon className="h-3 w-3" aria-hidden />
+              </div>
+            )}
+          </div>
+          <span className="line-clamp-1 text-[11px] font-medium text-foreground/90 group-hover:text-accent">
+            {item.creator.displayName || "(名称未設定)"}
+          </span>
+        </Link>
+      </div>
+
+      {/* 価格 */}
+      <div className="space-y-1 pt-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          価格
+        </p>
+        <p className="text-base font-bold tracking-tight">
+          {formatPrice(item.priceJpy)}
+        </p>
+      </div>
+    </div>
   );
 }
 
