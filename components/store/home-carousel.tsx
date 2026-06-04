@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ReviewBadge } from "@/components/review/review-badge";
+import { useSwipe } from "@/hooks/use-swipe";
 import { categoryLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
 import type { ProductListItem } from "@/lib/queries/types";
@@ -79,6 +80,14 @@ export function HomeCarousel({ items }: HomeCarouselProps) {
     };
   }, [index, paused, total, next]);
 
+  // モバイルスワイプ(HHHHH)。MediaGallery と同じ useSwipe hook を再利用。
+  // 左にスワイプ = 次のスライド、右 = 前。CarouselSlide (Link) の onClick
+  // で consumeWasSwiping() を呼んで、swipe 中の tap で詳細遷移しないように。
+  const swipe = useSwipe({
+    onSwipeLeft: next,
+    onSwipeRight: prev,
+  });
+
   if (total === 0) return null;
 
   // 右側に出すサムネ。常に index を中心にした連続 4 枚(wrap して循環)
@@ -96,8 +105,13 @@ export function HomeCarousel({ items }: HomeCarouselProps) {
       aria-label="注目の作品"
     >
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px]">
-        {/* メインスライド領域 */}
-        <div className="relative aspect-[21/9] w-full bg-muted lg:aspect-auto">
+        {/* メインスライド領域(モバイルスワイプ対応)*/}
+        <div
+          className="relative aspect-[21/9] w-full bg-muted lg:aspect-auto touch-pan-y"
+          onTouchStart={swipe.onTouchStart}
+          onTouchMove={swipe.onTouchMove}
+          onTouchEnd={swipe.onTouchEnd}
+        >
           {items.map((it, i) => (
             <CarouselSlide
               key={it.slug}
@@ -105,6 +119,7 @@ export function HomeCarousel({ items }: HomeCarouselProps) {
               active={i === index}
               index={i}
               total={total}
+              consumeWasSwiping={swipe.consumeWasSwiping}
             />
           ))}
 
@@ -255,21 +270,31 @@ function computeThumbnailItems(
 
 /**
  * 1 枚のスライド(大画面)。active のときだけ opacity 1。
+ *
+ * onClick で consumeWasSwiping() を呼んで、swipe ジェスチャ中の tap では
+ * 詳細遷移しないようにする(モバイル UX、HHHHH)。
  */
 function CarouselSlide({
   item,
   active,
   index,
   total,
+  consumeWasSwiping,
 }: {
   item: CarouselItem;
   active: boolean;
   index: number;
   total: number;
+  consumeWasSwiping: () => boolean;
 }) {
   return (
     <Link
       href={`/store/${item.slug}` as Route}
+      onClick={(e) => {
+        if (consumeWasSwiping()) {
+          e.preventDefault();
+        }
+      }}
       className={cn(
         "absolute inset-0 block transition-opacity duration-700 ease-out",
         active ? "opacity-100" : "pointer-events-none opacity-0",
