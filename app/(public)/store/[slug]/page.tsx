@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
-import { ZoomableCover } from "@/components/store/zoomable-cover";
+import { MediaGallery, type MediaItem } from "@/components/store/media-gallery";
 import { listProductScreenshots } from "@/lib/queries/screenshots";
 import { publicScreenshotUrl } from "@/lib/format/storage";
 import { BuyButton } from "@/components/store/buy-button";
@@ -116,9 +116,21 @@ export default async function ProductDetailPage({ params }: PageProps) {
     listProductScreenshots(product.id),
   ]);
 
-  const screenshotUrls = screenshots
-    .map((s) => publicScreenshotUrl(s.path))
-    .filter((u): u is string => Boolean(u));
+  // MediaGallery 用に「カバー → スクショ」の配列を組み立てる(EEEEE)。
+  // カバーが無い商品はスクショだけ、両方無いと空配列(placeholder 表示)。
+  const galleryItems: MediaItem[] = [];
+  if (coverUrl) {
+    galleryItems.push({ src: coverUrl, alt: product.title });
+  }
+  for (let i = 0; i < screenshots.length; i++) {
+    const url = publicScreenshotUrl(screenshots[i].path);
+    if (url) {
+      galleryItems.push({
+        src: url,
+        alt: `${product.title} スクリーンショット ${i + 1}`,
+      });
+    }
+  }
 
   // hero に渡す軽量サマリ(ProductReviewSummary 形)
   const heroSummary =
@@ -223,23 +235,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
         </header>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-          {/* メインカバーは ZoomableCover でクリック拡大プレビュー対応 */}
-          <ZoomableCover src={coverUrl} alt={product.title} />
-
-          {/* スクリーンショットギャラリー(XXXX): 1 枚以上設定されていれば
-              カバー下にサムネ列を表示。各サムネクリックで拡大プレビュー。 */}
-          {screenshotUrls.length > 0 && (
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {screenshotUrls.map((url, i) => (
-                <ZoomableCover
-                  key={`${url}-${i}`}
-                  src={url}
-                  alt={`${product.title} スクリーンショット ${i + 1}`}
-                  aspect="aspect-[16/10]"
-                />
-              ))}
-            </div>
-          )}
+          {/* メイン画像 + スクリーンショットを 1 つの gallery に統合(EEEEE)。
+              - サムネクリックで active 切替
+              - 中央画像クリックで lightbox 拡大
+              - lightbox 内で ← → キー or chevron で前後 */}
+          <MediaGallery items={galleryItems} />
           <MetaTable
             product={product}
             salesCount={salesCount}
