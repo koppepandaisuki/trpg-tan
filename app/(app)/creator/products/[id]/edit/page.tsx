@@ -8,6 +8,7 @@ import { BuilderForm } from "@/components/builder/builder-form";
 import { requireCreator } from "@/lib/session/require";
 import { getMyProductById } from "@/lib/queries/creator-products";
 import { getPopularTags } from "@/lib/queries/tags";
+import { listProductScreenshots } from "@/lib/queries/screenshots";
 import type { BuilderFormValues } from "@/lib/validators/product";
 import { statusLabel, statusBadgeVariant } from "@/lib/format/status";
 
@@ -28,8 +29,11 @@ export default async function EditProductPage({
   // 404 also covers "exists but belongs to someone else" (Phase 5 design).
   if (!product) notFound();
 
-  // タグサジェスト(VVV: ダブり防止)
-  const popularTags = await getPopularTags(20);
+  // タグサジェスト(VVV: ダブり防止)+ 既存スクショ数(XXXX UI 用)
+  const [popularTags, existingScreenshots] = await Promise.all([
+    getPopularTags(20),
+    listProductScreenshots(product.id),
+  ]);
 
   const initialValues: BuilderFormValues = {
     title: product.title,
@@ -94,6 +98,7 @@ export default async function EditProductPage({
         initialValues={initialValues}
         savedJustNow={searchParams.saved === "1"}
         popularTags={popularTags}
+        initialScreenshotsCount={existingScreenshots.length}
       />
     </>
   );

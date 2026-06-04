@@ -29,6 +29,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const COVERS_BUCKET = "covers";
 const PRODUCT_FILES_BUCKET = "product-files";
 const AVATARS_BUCKET = "avatars";
+const SCREENSHOTS_BUCKET = "screenshots";
 
 export async function createCoverUploadUrl(path: string): Promise<string> {
   const admin = createAdminClient();
@@ -76,6 +77,29 @@ export async function createAvatarUploadUrl(path: string): Promise<string> {
   if (error || !data?.signedUrl) {
     throw new Error(
       `[createAvatarUploadUrl] failed: ${error?.message ?? "no url"}`,
+    );
+  }
+  return data.signedUrl;
+}
+
+/**
+ * 商品スクリーンショット用 signed upload URL。screenshots バケットは
+ * public-read かつ <creator_id>/... 配下のみ書き込み可。
+ *
+ * 1 商品が複数枚持てるので path には order_index を含める想定
+ * (<creator_id>/<product_id>/<index>.{ext})。
+ */
+export async function createScreenshotUploadUrl(
+  path: string,
+): Promise<string> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage
+    .from(SCREENSHOTS_BUCKET)
+    .createSignedUploadUrl(path, { upsert: true });
+
+  if (error || !data?.signedUrl) {
+    throw new Error(
+      `[createScreenshotUploadUrl] failed: ${error?.message ?? "no url"}`,
     );
   }
   return data.signedUrl;

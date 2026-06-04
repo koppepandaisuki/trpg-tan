@@ -26,6 +26,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
 import { ZoomableCover } from "@/components/store/zoomable-cover";
+import { listProductScreenshots } from "@/lib/queries/screenshots";
+import { publicScreenshotUrl } from "@/lib/format/storage";
 import { BuyButton } from "@/components/store/buy-button";
 import { ProductStrip } from "@/components/store/product-strip";
 import { ProductDetailRecorder } from "@/components/recent/product-detail-recorder";
@@ -91,22 +93,32 @@ export default async function ProductDetailPage({ params }: PageProps) {
           ? "buy"
           : "login";
 
-  // 関連作品 / クリエイター他作品 / 評価サマリ / 販売数 を並行 fetch
-  const [related, otherByCreator, heroReviewSummary, salesCount] =
-    await Promise.all([
-      listRelatedProducts({
-        productType: product.productType,
-        excludeId: product.id,
-        limit: 6,
-      }),
-      listProductsByCreator({
-        creatorId: product.creator.id,
-        excludeId: product.id,
-        limit: 6,
-      }),
-      getReviewSummary(product.id),
-      getProductSalesCount(product.id),
-    ]);
+  // 関連作品 / クリエイター他作品 / 評価サマリ / 販売数 / スクショ を並行 fetch
+  const [
+    related,
+    otherByCreator,
+    heroReviewSummary,
+    salesCount,
+    screenshots,
+  ] = await Promise.all([
+    listRelatedProducts({
+      productType: product.productType,
+      excludeId: product.id,
+      limit: 6,
+    }),
+    listProductsByCreator({
+      creatorId: product.creator.id,
+      excludeId: product.id,
+      limit: 6,
+    }),
+    getReviewSummary(product.id),
+    getProductSalesCount(product.id),
+    listProductScreenshots(product.id),
+  ]);
+
+  const screenshotUrls = screenshots
+    .map((s) => publicScreenshotUrl(s.path))
+    .filter((u): u is string => Boolean(u));
 
   // hero に渡す軽量サマリ(ProductReviewSummary 形)
   const heroSummary =
@@ -213,6 +225,21 @@ export default async function ProductDetailPage({ params }: PageProps) {
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
           {/* メインカバーは ZoomableCover でクリック拡大プレビュー対応 */}
           <ZoomableCover src={coverUrl} alt={product.title} />
+
+          {/* スクリーンショットギャラリー(XXXX): 1 枚以上設定されていれば
+              カバー下にサムネ列を表示。各サムネクリックで拡大プレビュー。 */}
+          {screenshotUrls.length > 0 && (
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {screenshotUrls.map((url, i) => (
+                <ZoomableCover
+                  key={`${url}-${i}`}
+                  src={url}
+                  alt={`${product.title} スクリーンショット ${i + 1}`}
+                  aspect="aspect-[16/10]"
+                />
+              ))}
+            </div>
+          )}
           <MetaTable
             product={product}
             salesCount={salesCount}

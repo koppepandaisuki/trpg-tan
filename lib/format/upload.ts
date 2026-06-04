@@ -31,6 +31,15 @@ export const COVER_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 
 /**
+ * Screenshot image hard cap. Matches Supabase `screenshots` bucket setting
+ * (0017 migration). cover より少し大きめ(高解像度プレビュー想定)。
+ */
+export const SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+
+/** 1 商品が持てるスクリーンショットの最大枚数(DB CHECK と一致)。*/
+export const SCREENSHOTS_MAX_COUNT = 4;
+
+/**
  * Product file hard cap.
  *
  * Provisional: 50 MB due to Supabase Free plan storage / egress limits.
@@ -79,6 +88,20 @@ const AVATAR_MIME_TO_EXT: Readonly<Record<string, string>> = {
 export function mimeToAvatarExt(contentType: string): string | null {
   if (!contentType) return null;
   return AVATAR_MIME_TO_EXT[contentType.toLowerCase()] ?? null;
+}
+
+/**
+ * screenshots バケット用 MIME → ext。cover / avatar と同じ 3 種。
+ */
+const SCREENSHOT_MIME_TO_EXT: Readonly<Record<string, string>> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+export function mimeToScreenshotExt(contentType: string): string | null {
+  if (!contentType) return null;
+  return SCREENSHOT_MIME_TO_EXT[contentType.toLowerCase()] ?? null;
 }
 
 /**
