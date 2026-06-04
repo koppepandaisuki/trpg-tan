@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
+import { ZoomableCover } from "@/components/store/zoomable-cover";
 import { BuyButton } from "@/components/store/buy-button";
 import { ProductStrip } from "@/components/store/product-strip";
 import { ProductDetailRecorder } from "@/components/recent/product-detail-recorder";
@@ -210,7 +211,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
         </header>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-          <CoverImage src={coverUrl} alt={product.title} />
+          {/* メインカバーは ZoomableCover でクリック拡大プレビュー対応 */}
+          <ZoomableCover src={coverUrl} alt={product.title} />
           <MetaTable
             product={product}
             salesCount={salesCount}
