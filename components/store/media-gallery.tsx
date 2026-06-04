@@ -8,6 +8,7 @@ import {
   X,
   ZoomIn,
 } from "lucide-react";
+import { useSwipe } from "@/hooks/use-swipe";
 import { cn } from "@/lib/utils";
 
 /**
@@ -60,6 +61,15 @@ export function MediaGallery({
     setActiveIndex((i) => (i - 1 + total) % total);
   }, [total]);
 
+  // モバイルスワイプ。メイン画像と lightbox で 1 つの hook を共有する
+  // (どちらでも左/右で切替動作は同じ)。
+  // 「左にスワイプ」→ 次の画像、「右にスワイプ」→ 前の画像、という
+  // 直感的な対応にする(本のページ送りと同じ)。
+  const swipe = useSwipe({
+    onSwipeLeft: next,
+    onSwipeRight: prev,
+  });
+
   // Lightbox open 中のキーボード操作(Esc / 左右 矢印)
   useEffect(() => {
     if (!lightboxOpen) return;
@@ -107,10 +117,17 @@ export function MediaGallery({
       {/* メイン active 画像 */}
       <button
         type="button"
-        onClick={() => setLightboxOpen(true)}
+        onClick={() => {
+          // swipe 中の tap は無視(lightbox を開かない)
+          if (swipe.consumeWasSwiping()) return;
+          setLightboxOpen(true);
+        }}
+        onTouchStart={swipe.onTouchStart}
+        onTouchMove={swipe.onTouchMove}
+        onTouchEnd={swipe.onTouchEnd}
         aria-label={`「${active.alt}」を拡大表示(${activeIndex + 1} / ${total})`}
         className={cn(
-          "group relative block w-full overflow-hidden rounded-md bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          "group relative block w-full overflow-hidden rounded-md bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 touch-pan-y",
           aspect,
         )}
       >
@@ -220,13 +237,19 @@ export function MediaGallery({
             </>
           )}
 
-          {/* 拡大画像 */}
-          <div className="relative z-10 flex max-h-[90vh] max-w-5xl flex-col items-center gap-3">
+          {/* 拡大画像(モバイルスワイプ対応)*/}
+          <div
+            className="relative z-10 flex max-h-[90vh] max-w-5xl flex-col items-center gap-3 touch-pan-y"
+            onTouchStart={swipe.onTouchStart}
+            onTouchMove={swipe.onTouchMove}
+            onTouchEnd={swipe.onTouchEnd}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={active.src}
               alt={active.alt}
               className="max-h-[85vh] max-w-full rounded-md object-contain shadow-2xl"
+              draggable={false}
             />
             {total > 1 && (
               <span className="rounded bg-black/60 px-3 py-1 text-xs font-medium text-white">
