@@ -4,6 +4,7 @@ import {
   LogOut,
   AlertCircle,
   MessageCircle,
+  LayoutDashboard,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -139,6 +140,19 @@ function AuthedMenu({
         >
           <AlertCircle className="h-3 w-3" aria-hidden />
           <span>Stripe 未接続</span>
+        </Link>
+      )}
+
+      {/* creator はヘッダーから 1 クリックでダッシュボードへ(DDDDDD)。
+          作品管理 / 売上集計の起点。creator でないユーザーには出さない。 */}
+      {user.isCreator && (
+        <Link
+          href="/creator/dashboard"
+          className="hidden items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground lg:inline-flex"
+          aria-label="クリエイターダッシュボードを開く"
+        >
+          <LayoutDashboard className="h-4 w-4" aria-hidden />
+          <span>ダッシュボード</span>
         </Link>
       )}
 
