@@ -1,6 +1,13 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Users, UserPlus, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Users,
+  UserPlus,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  X,
+} from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
@@ -8,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
 import { EmptyState } from "@/components/store/empty-state";
+import { CreatorSearchBar } from "@/components/creator/creator-search-bar";
 import { buttonVariants } from "@/components/ui/button";
 import { listPublicCreators, type CreatorSort } from "@/lib/queries/creators";
 import { publicAvatarUrl } from "@/lib/format/storage";
@@ -20,7 +28,7 @@ export const metadata = {
 };
 
 interface CreatorsPageProps {
-  searchParams: { page?: string; sort?: string };
+  searchParams: { page?: string; sort?: string; q?: string };
 }
 
 function parseSort(value: string | undefined): CreatorSort {
@@ -43,21 +51,35 @@ function parseSort(value: string | undefined): CreatorSort {
 export default async function CreatorsPage({ searchParams }: CreatorsPageProps) {
   const page = Number.parseInt(searchParams.page ?? "1", 10) || 1;
   const sort = parseSort(searchParams.sort);
-  const { items, total, totalPages } = await listPublicCreators({ page, sort });
+  const q =
+    typeof searchParams.q === "string" &&
+    searchParams.q.trim() !== "" &&
+    searchParams.q.length <= 50
+      ? searchParams.q.trim()
+      : null;
+  const { items, total, totalPages } = await listPublicCreators({
+    page,
+    sort,
+    q,
+  });
 
-  // ページネーション URL は sort を維持しつつ page だけ差し替える
+  // ページネーション URL は sort / q を維持しつつ page だけ差し替える
   const buildHref = (p: number): Route => {
     const params = new URLSearchParams();
     if (sort === "sales") params.set("sort", "sales");
+    if (q) params.set("q", q);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return (qs ? `/creators?${qs}` : "/creators") as Route;
   };
 
-  // ソート切替 URL は page をリセットして 1 ページ目に戻す
+  // ソート切替 URL は page をリセットして 1 ページ目に戻す(q は維持)
   const buildSortHref = (s: CreatorSort): Route => {
-    if (s === "products") return "/creators" as Route;
-    return `/creators?sort=${s}` as Route;
+    const params = new URLSearchParams();
+    if (s === "sales") params.set("sort", "sales");
+    if (q) params.set("q", q);
+    const qs = params.toString();
+    return (qs ? `/creators?${qs}` : "/creators") as Route;
   };
 
   return (
@@ -76,18 +98,38 @@ export default async function CreatorsPage({ searchParams }: CreatorsPageProps) 
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-rose-300 bg-rose-50 text-rose-700">
                 <Users className="h-5 w-5" aria-hidden />
               </div>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                     クリエイター
                   </h1>
+                  {/* 検索キーワード chip(OOOOO)。クリックで解除 */}
+                  {q && (
+                    <Link
+                      href={
+                        (sort === "sales"
+                          ? "/creators?sort=sales"
+                          : "/creators") as Route
+                      }
+                      className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-800 transition hover:border-rose-300 hover:bg-rose-100"
+                      aria-label={`検索「${q}」を解除`}
+                    >
+                      <Search className="h-3 w-3" aria-hidden />
+                      <span>「{q}」</span>
+                      <X className="h-3 w-3" aria-hidden />
+                    </Link>
+                  )}
                   <Badge variant="muted" className="text-[10px]">
                     {total} 名
                   </Badge>
                 </div>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  公開作品を 1 つ以上お持ちのクリエイターを、作品数の多い順に表示しています。
+                  {q
+                    ? `「${q}」を名前に含むクリエイターの検索結果です。`
+                    : "公開作品を 1 つ以上お持ちのクリエイターを表示しています。"}
                 </p>
+                {/* クリエイター名検索バー(OOOOO)*/}
+                <CreatorSearchBar />
               </div>
             </div>
           </CardContent>
@@ -120,16 +162,30 @@ export default async function CreatorsPage({ searchParams }: CreatorsPageProps) 
 
         {/* グリッド or 空状態 */}
         {items.length === 0 ? (
-          <EmptyState
-            icon={UserPlus}
-            title="まだクリエイターが登録されていません"
-            description="作品を公開すると、ここに表示されます。あなたが最初のクリエイターになりませんか?"
-            primaryAction={{
-              href: "/creator/products/new",
-              label: "作品を投稿する",
-            }}
-            secondaryAction={{ href: "/", label: "ホームに戻る" }}
-          />
+          q ? (
+            // 検索で 0 件 → 検索解除導線
+            <EmptyState
+              icon={UserPlus}
+              title={`「${q}」に一致するクリエイターが見つかりませんでした`}
+              description="名前を変えるか、検索を解除してすべてのクリエイターから探してみてください。"
+              primaryAction={{
+                href: "/creators",
+                label: "すべてのクリエイターを見る",
+              }}
+              secondaryAction={{ href: "/", label: "ホームに戻る" }}
+            />
+          ) : (
+            <EmptyState
+              icon={UserPlus}
+              title="まだクリエイターが登録されていません"
+              description="作品を公開すると、ここに表示されます。あなたが最初のクリエイターになりませんか?"
+              primaryAction={{
+                href: "/creator/products/new",
+                label: "作品を投稿する",
+              }}
+              secondaryAction={{ href: "/", label: "ホームに戻る" }}
+            />
+          )
         ) : (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((c) => (

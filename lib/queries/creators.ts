@@ -43,11 +43,14 @@ export type CreatorSort = "products" | "sales";
 export async function listPublicCreators(opts?: {
   page?: number;
   sort?: CreatorSort;
+  /** display_name 部分一致検索(OOOOO)。空は無視。*/
+  q?: string | null;
 }): Promise<CreatorListResult> {
   const supabase = createClient();
   const page = Math.max(1, opts?.page ?? 1);
   const pageSize = CREATORS_PAGE_SIZE;
   const sort: CreatorSort = opts?.sort ?? "products";
+  const q = opts?.q?.trim() || null;
 
   // Step 1: published な作品の creator_id と product_id を取得
   // (作品数の集計 + sales 集計時の product → creator 紐付けに使う)
@@ -70,6 +73,25 @@ export async function listPublicCreators(opts?: {
       (countByCreator.get(row.creator_id) ?? 0) + 1,
     );
     productToCreator.set(row.id, row.creator_id);
+  }
+
+  // Step 1.5: 検索(OOOOO)。display_name 部分一致の creator id 集合で
+  // countByCreator を絞り込む。total / sort / page もこの絞り込み後の
+  // 母集合で計算される。
+  if (q) {
+    const { data: matchRows, error: matchErr } = await supabase
+      .from("public_profiles")
+      .select("id")
+      .ilike("display_name", `%${q}%`)
+      .limit(5000);
+    if (matchErr) {
+      console.error("[listPublicCreators] search failed", matchErr);
+      return { items: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+    const matchSet = new Set((matchRows ?? []).map((r) => r.id));
+    for (const id of Array.from(countByCreator.keys())) {
+      if (!matchSet.has(id)) countByCreator.delete(id);
+    }
   }
 
   const total = countByCreator.size;
