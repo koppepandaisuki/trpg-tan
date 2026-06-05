@@ -73,7 +73,7 @@ export async function ReviewSection({
         <div className="space-y-0.5">
           <h2 className="text-lg font-semibold tracking-tight">レビュー</h2>
           <p className="text-xs text-muted-foreground">
-            購入済みユーザーが高評価 / 低評価とコメントを投稿できます
+            購入してプレイしたユーザーが、プレイ後の感想を投稿できます
           </p>
         </div>
       </div>

@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Download,
+  Gamepad2,
+  Star,
+  type LucideIcon,
+} from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +60,28 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
               </p>
             </div>
 
+            {/* プレイ後レビューの導線(VVVVV)。購入直後にレビューを促すのではなく、
+                ダウンロード → 実際にプレイ → プレイ後に感想、という TRPG 本来の
+                流れを 3 ステップで示す。レビューはあくまで「遊んだ後」のもの。 */}
+            <div className="relative z-10 w-full rounded-lg border border-border bg-background/70 p-4 text-left sm:max-w-xs">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                次のステップ
+              </p>
+              <ol className="space-y-3">
+                <NextStep
+                  n={1}
+                  icon={Download}
+                  text="ライブラリから作品をダウンロード"
+                />
+                <NextStep n={2} icon={Gamepad2} text="セッションで実際にプレイ" />
+                <NextStep
+                  n={3}
+                  icon={Star}
+                  text="プレイ後、作品ページで感想をレビュー"
+                />
+              </ol>
+            </div>
+
             <div className="relative z-10 flex w-full flex-col gap-2 pt-2 sm:max-w-xs">
               <Link
                 href="/library"
@@ -72,5 +100,29 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
         </Card>
       </PageContainer>
     </>
+  );
+}
+
+/**
+ * 「次のステップ」リストの 1 項目。番号バッジ + アイコン + テキスト。
+ * 購入完了 → DL → プレイ → レビュー という流れを視覚化する。
+ */
+function NextStep({
+  n,
+  icon: Icon,
+  text,
+}: {
+  n: number;
+  icon: LucideIcon;
+  text: string;
+}) {
+  return (
+    <li className="flex items-center gap-3">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-[11px] font-bold text-emerald-700">
+        {n}
+      </span>
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <span className="text-xs text-foreground/90">{text}</span>
+    </li>
   );
 }
