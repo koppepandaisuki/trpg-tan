@@ -22,6 +22,7 @@ interface StorePageProps {
   searchParams: {
     category?: string;
     tag?: string;
+    q?: string;
     sort?: string;
     page?: string;
   };
@@ -41,32 +42,52 @@ export default async function StorePage({ searchParams }: StorePageProps) {
     searchParams.tag.length <= 100
       ? searchParams.tag.trim().toLowerCase()
       : null;
+  // q(検索キーワード)。空 / 100 字超は無視。
+  const q =
+    typeof searchParams.q === "string" &&
+    searchParams.q.trim() !== "" &&
+    searchParams.q.length <= 100
+      ? searchParams.q.trim()
+      : null;
   const sort = parseSort(searchParams.sort);
   const page = Number.parseInt(searchParams.page ?? "1", 10) || 1;
 
   const { items, totalPages, total } = await listPublishedProducts({
     category,
     tag,
+    q,
     sort,
     page,
   });
 
-  // ページネーション URL は category / tag / sort を全て維持しつつ page だけ
-  // 差し替える。フィルタ + ソートが組み合わさっていても破綻しない設計。
+  // ページネーション URL は category / tag / q / sort を全て維持しつつ
+  // page だけ差し替える。フィルタ + 検索 + ソートが組み合わさっても破綻しない。
   const buildHref = (p: number): Route => {
     const params = new URLSearchParams();
     if (category) params.set("category", category);
     if (tag) params.set("tag", tag);
+    if (q) params.set("q", q);
     if (sort === "rating") params.set("sort", "rating");
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return (qs ? `/store?${qs}` : "/store") as Route;
   };
 
-  // 「タグフィルタを外す」URL は他の filter / sort を維持
+  // 「タグフィルタを外す」URL は他の filter / q / sort を維持
   const removeTagHref: Route = (() => {
     const params = new URLSearchParams();
     if (category) params.set("category", category);
+    if (q) params.set("q", q);
+    if (sort === "rating") params.set("sort", "rating");
+    const qs = params.toString();
+    return (qs ? `/store?${qs}` : "/store") as Route;
+  })();
+
+  // 「検索を解除」URL は他の filter / sort を維持
+  const removeQueryHref: Route = (() => {
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    if (tag) params.set("tag", tag);
     if (sort === "rating") params.set("sort", "rating");
     const qs = params.toString();
     return (qs ? `/store?${qs}` : "/store") as Route;
@@ -77,6 +98,7 @@ export default async function StorePage({ searchParams }: StorePageProps) {
     const params = new URLSearchParams();
     if (category) params.set("category", category);
     if (tag) params.set("tag", tag);
+    if (q) params.set("q", q);
     if (s === "rating") params.set("sort", "rating");
     const qs = params.toString();
     return (qs ? `/store?${qs}` : "/store") as Route;
@@ -106,6 +128,18 @@ export default async function StorePage({ searchParams }: StorePageProps) {
                   {category && (
                     <Badge variant="category">{categoryLabel(category)}</Badge>
                   )}
+                  {/* 検索キーワード chip。クリックで外せる */}
+                  {q && (
+                    <Link
+                      href={removeQueryHref}
+                      className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-100"
+                      aria-label={`検索「${q}」を解除`}
+                    >
+                      <Search className="h-3 w-3" aria-hidden />
+                      <span>「{q}」</span>
+                      <X className="h-3 w-3" aria-hidden />
+                    </Link>
+                  )}
                   {/* タグフィルタ chip。クリックで外せる(削除アイコン付き)*/}
                   {tag && (
                     <Link
@@ -123,7 +157,7 @@ export default async function StorePage({ searchParams }: StorePageProps) {
                   </Badge>
                 </div>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  {buildDescription(category, tag)}
+                  {buildDescription(category, tag, q)}
                 </p>
               </div>
             </div>
@@ -168,7 +202,19 @@ export default async function StorePage({ searchParams }: StorePageProps) {
 
         <div>
           {items.length === 0 ? (
-            tag ? (
+            q ? (
+              // 検索で 0 件 → 検索を外す導線
+              <EmptyState
+                icon={Search}
+                title={`「${q}」に一致する作品が見つかりませんでした`}
+                description="キーワードを変えるか、検索を解除してすべての作品から探してみてください。"
+                primaryAction={{
+                  href: removeQueryHref,
+                  label: "検索を解除する",
+                }}
+                secondaryAction={{ href: "/", label: "ホームに戻る" }}
+              />
+            ) : tag ? (
               // タグ検索で 0 件 → タグを外す導線
               <EmptyState
                 icon={Search}
@@ -238,7 +284,15 @@ export default async function StorePage({ searchParams }: StorePageProps) {
 function buildDescription(
   category: string | null,
   tag: string | null,
+  q: string | null,
 ): string {
+  // 検索がある場合は最優先で文面に含める(ユーザーの最近のアクション)
+  if (q) {
+    const scope = category
+      ? `「${categoryLabel(category as never)}」カテゴリ内で`
+      : "";
+    return `${scope}「${q}」を含む作品を検索した結果です。`;
+  }
   if (tag && category) {
     return `「${categoryLabel(category as never)}」かつタグ「#${tag}」が付いた公開作品一覧。`;
   }

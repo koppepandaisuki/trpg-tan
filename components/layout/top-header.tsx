@@ -1,16 +1,15 @@
 import Link from "next/link";
 import {
-  Search,
   Bell,
   LogOut,
   AlertCircle,
   MessageCircle,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { MobileMenu } from "@/components/layout/mobile-menu";
+import { SearchBar } from "@/components/layout/search-bar";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { cn } from "@/lib/utils";
@@ -47,26 +46,10 @@ export async function TopHeader({ className }: { className?: string }) {
           <BrandMark size="md" />
         </Link>
 
-        {/* 検索バー(デスクトップのみ。モバイルは MobileMenu 内にも置かない
-            — α 期間中は「準備中」なので、モバイルで省くことで scarce な
-            画面領域をハンバーガーとユーザーメニューに譲る)*/}
+        {/* 検索バー(デスクトップのみ。モバイルは MobileMenu 内に配置)。
+            IIIII で実機能化:Enter で /store?q= に遷移。 */}
         <div className="hidden flex-1 max-w-xl md:block">
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <Input
-              type="search"
-              placeholder="検索機能は準備中…(α 期間中は無効)"
-              className="pl-9 pr-20"
-              disabled
-              aria-label="検索(準備中、Phase 2 以降で実装予定)"
-            />
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              準備中
-            </span>
-          </div>
+          <SearchBar />
         </div>
 
         {/* デスクトップ用 nav */}

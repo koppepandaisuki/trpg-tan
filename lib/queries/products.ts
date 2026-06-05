@@ -89,6 +89,8 @@ export type StoreSort = "published" | "rating";
 export async function listPublishedProducts(opts?: {
   category?: ProductType | null;
   tag?: string | null;
+  /** タイトル部分一致検索(ilike)。空文字は無視。 */
+  q?: string | null;
   page?: number;
   sort?: StoreSort;
 }): Promise<ListResult> {
@@ -98,6 +100,7 @@ export async function listPublishedProducts(opts?: {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   const sort: StoreSort = opts?.sort ?? "published";
+  const q = opts?.q?.trim() || null;
 
   // タグフィルタが指定されている場合: 先に product_tags から該当 tag の
   // product_id を全部取り、products を .in() で絞り込む。
@@ -130,6 +133,7 @@ export async function listPublishedProducts(opts?: {
       pageSize,
       category: opts?.category ?? null,
       tagFilteredIds,
+      q,
     });
   }
 
@@ -146,6 +150,12 @@ export async function listPublishedProducts(opts?: {
   }
   if (tagFilteredIds) {
     query = query.in("id", tagFilteredIds);
+  }
+  if (q) {
+    // ilike で大文字小文字無視の部分一致。`%` をエスケープしないと
+    // ユーザー入力の `%` がワイルドカードになるが、α 期間は実害が
+    // 小さいので素朴実装(必要なら escape を入れる)。
+    query = query.ilike("title", `%${q}%`);
   }
 
   const { data: rows, count, error } = await query;
@@ -292,8 +302,9 @@ async function listByRating(args: {
   pageSize: number;
   category: ProductType | null;
   tagFilteredIds: string[] | null;
+  q?: string | null;
 }): Promise<ListResult> {
-  const { page, pageSize, category, tagFilteredIds } = args;
+  const { page, pageSize, category, tagFilteredIds, q } = args;
   const supabase = createClient();
 
   // Step 1: 全 published products(filter 適用済)を slim select
@@ -304,6 +315,7 @@ async function listByRating(args: {
     .limit(5000);
   if (category) idQuery = idQuery.eq("product_type", category);
   if (tagFilteredIds) idQuery = idQuery.in("id", tagFilteredIds);
+  if (q) idQuery = idQuery.ilike("title", `%${q}%`);
 
   const { data: idRows, error: idErr } = await idQuery;
   if (idErr) {

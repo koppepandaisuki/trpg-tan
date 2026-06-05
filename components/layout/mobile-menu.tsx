@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { SearchBar } from "@/components/layout/search-bar";
 import { NAV_ITEMS } from "./nav-items";
 import { cn } from "@/lib/utils";
 
@@ -130,6 +131,11 @@ export function MobileMenu({ user, discordUrl }: MobileMenuProps) {
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-4">
+              {/* 検索バー(IIIII): submit でメニューを閉じて /store?q= へ */}
+              <div className="mb-4">
+                <SearchBar onSubmitted={close} />
+              </div>
+
               {/* Stripe 未接続アラート(creator かつ未接続のみ)*/}
               {user?.isCreator && !user.stripeChargesEnabled && (
                 <Link
