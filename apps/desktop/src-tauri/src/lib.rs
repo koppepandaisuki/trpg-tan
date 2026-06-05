@@ -4,6 +4,11 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // .ccsheet(JSON)のローカル保存/読込に使う:
+        //   - dialog: 保存先/読込元をユーザーに選ばせる
+        //   - fs: 選ばれたパスへテキスト書き込み/読み込み
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

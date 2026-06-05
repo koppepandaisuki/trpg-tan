@@ -20,10 +20,19 @@ export interface CharacterSheet {
   image?: string | null;
   /** 能力値: キー(STR 等)→ 値 */
   characteristics: Record<string, number>;
-  /** 技能: キー → 割り振り後の最終値(%)。未設定技能は base 扱い */
+  /** 技能: キー → 割り振り後の最終値(%)。未設定技能は base 扱い。
+   *  PLAY 等の消費側はこの最終値を見ればよい。 */
   skills: Record<string, number>;
   /** 選択した職業 id(未選択可)*/
   occupationId?: string | null;
+  /**
+   * 編集状態の復元用(任意): 職業/興味ポイントの割り振り内訳。
+   * skills(最終値)とは別に保持し、再編集時にプール内訳を復元できる。
+   */
+  allocation?: {
+    occupation: Record<string, number>;
+    interest: Record<string, number>;
+  };
   /** 任意メモ */
   notes?: string;
   meta: {
