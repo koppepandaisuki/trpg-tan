@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { WorkCard } from "@/components/store/work-card";
 import { CoverImage } from "@/components/store/cover-image";
 import { ReviewBadge } from "@/components/review/review-badge";
+import { FavoriteCreatorButton } from "@/components/favorites/favorite-creator-button";
 import { getCreatorProfile } from "@/lib/queries/creator-profile";
 import { publicAvatarUrl } from "@/lib/format/storage";
 import { cn } from "@/lib/utils";
@@ -154,6 +155,18 @@ export default async function CreatorProfilePage({
                     )}
                   </div>
                 )}
+
+                {/* お気に入り登録ボタン(VVVV)。localStorage 管理なので
+                    認証不要、誰でも保存できる。 */}
+                <div className="pt-1">
+                  <FavoriteCreatorButton
+                    creator={{
+                      id: profile.id,
+                      displayName,
+                      avatarUrl,
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </CardContent>
