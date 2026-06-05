@@ -9,6 +9,18 @@ import type { ReviewRating } from "@/lib/validators/review";
  * 公開 read 前提なので RLS は全許可(0016 migration)。
  */
 
+export interface ReviewReply {
+  id: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  creator: {
+    id: string;
+    displayName: string;
+    avatarPath: string | null;
+  };
+}
+
 export interface ReviewItem {
   id: string;
   rating: ReviewRating;
@@ -20,6 +32,8 @@ export interface ReviewItem {
     displayName: string;
     avatarPath: string | null;
   };
+  /** creator からの公式返信(あれば)。1 レビュー 1 返信。*/
+  reply: ReviewReply | null;
 }
 
 export interface ReviewSummary {
@@ -72,6 +86,11 @@ export async function getProductReviews(productId: string): Promise<ReviewItem[]
     (profileRows ?? []).map((p) => [p.id, p] as const),
   );
 
+  // 各レビューに紐づく creator reply を一括取得(NNNN)。
+  // reply の creator profile も一括取得して名前 / アバターを埋め込む。
+  const reviewIds = reviewRows.map((r) => r.id);
+  const replyMap = await fetchRepliesByReviewIds(reviewIds);
+
   return reviewRows.map((r) => {
     const profile = profileMap.get(r.user_id);
     return {
@@ -85,8 +104,57 @@ export async function getProductReviews(productId: string): Promise<ReviewItem[]
         displayName: profile?.display_name ?? "",
         avatarPath: profile?.avatar_path ?? null,
       },
+      reply: replyMap.get(r.id) ?? null,
     };
   });
+}
+
+/**
+ * 複数 review に対する creator 返信を一括取得(N+1 防止)。
+ * creator profile も同時に拾って ReviewReply 形にして返す。
+ */
+async function fetchRepliesByReviewIds(
+  reviewIds: string[],
+): Promise<Map<string, ReviewReply>> {
+  const result = new Map<string, ReviewReply>();
+  if (reviewIds.length === 0) return result;
+
+  const supabase = createClient();
+  const { data: replyRows, error } = await supabase
+    .from("review_replies")
+    .select("id, review_id, creator_id, body, created_at, updated_at")
+    .in("review_id", reviewIds);
+
+  if (error) {
+    console.error("[fetchRepliesByReviewIds] failed", error);
+    return result;
+  }
+  if (!replyRows || replyRows.length === 0) return result;
+
+  const creatorIds = Array.from(new Set(replyRows.map((r) => r.creator_id)));
+  const { data: profileRows } = await supabase
+    .from("public_profiles")
+    .select("id, display_name, avatar_path")
+    .in("id", creatorIds);
+  const profileMap = new Map(
+    (profileRows ?? []).map((p) => [p.id, p] as const),
+  );
+
+  for (const r of replyRows) {
+    const profile = profileMap.get(r.creator_id);
+    result.set(r.review_id, {
+      id: r.id,
+      body: r.body ?? "",
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      creator: {
+        id: r.creator_id,
+        displayName: profile?.display_name ?? "",
+        avatarPath: profile?.avatar_path ?? null,
+      },
+    });
+  }
+  return result;
 }
 
 /**
@@ -149,7 +217,7 @@ export async function getMyReview(
   }
   if (!data) return null;
 
-  // displayName / avatar は本人なので別途取得しない(編集 UI で使わない)
+  // displayName / avatar / reply は本人のフォームには不要なので簡略
   return {
     id: data.id,
     rating: data.rating as ReviewRating,
@@ -157,6 +225,7 @@ export async function getMyReview(
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     user: { id: data.user_id, displayName: "", avatarPath: null },
+    reply: null,
   };
 }
 

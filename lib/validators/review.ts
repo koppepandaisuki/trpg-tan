@@ -23,3 +23,17 @@ export const reviewSubmitSchema = z.object({
 
 export type ReviewRating = z.infer<typeof reviewRatingSchema>;
 export type ReviewSubmitInput = z.infer<typeof reviewSubmitSchema>;
+
+/**
+ * creator がレビューに対する返信を投稿するときのバリデータ。
+ * body は最小 1 / 最大 2000 字。
+ */
+export const reviewReplySchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, "返信内容を入力してください")
+    .max(2000, "返信は 2000 文字以下で入力してください"),
+});
+
+export type ReviewReplyInput = z.infer<typeof reviewReplySchema>;

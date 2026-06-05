@@ -15,11 +15,13 @@ import {
   getReviewSummary,
   getMyReview,
   type ReviewLabel,
+  type ReviewReply,
 } from "@/lib/queries/reviews";
 import { isAlreadyPurchased } from "@/lib/access/purchase-access";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { publicAvatarUrl } from "@/lib/format/storage";
 import { ReviewForm } from "@/components/review/review-form";
+import { ReplyForm } from "@/components/review/reply-form";
 import { cn } from "@/lib/utils";
 
 /**
@@ -34,14 +36,22 @@ import { cn } from "@/lib/utils";
  *
  * ReviewForm は Client Component(投稿アクション呼び出し用)。
  */
+/**
+ * 「creator 自身」(その商品の作者)であるかを示すフラグ。NNNN で
+ * レビューに対する返信フォームを出すかの判定に使う。
+ */
 export async function ReviewSection({
   productId,
   productSlug,
+  creatorId,
 }: {
   productId: string;
   productSlug: string;
+  /** 商品の creator_id(本 user がこれと一致したら返信ボタンを出す)*/
+  creatorId: string;
 }) {
   const user = await getCurrentUser();
+  const isCreatorOfThisProduct = Boolean(user && user.id === creatorId);
 
   // 並行 fetch
   const [summary, reviews, purchased, myReview] = await Promise.all([
@@ -126,7 +136,7 @@ export async function ReviewSection({
       {reviews.length > 0 ? (
         <ul className="space-y-3">
           {reviews.map((r) => (
-            <li key={r.id}>
+            <li key={r.id} className="space-y-2">
               <ReviewItemCard
                 rating={r.rating}
                 comment={r.comment}
@@ -135,6 +145,20 @@ export async function ReviewSection({
                 createdAt={r.createdAt}
                 updatedAt={r.updatedAt}
               />
+              {/* 公式 reply(あれば誰でも見える)*/}
+              {r.reply && (
+                <CreatorReplyCard reply={r.reply} />
+              )}
+              {/* creator 自身が見ているとき、返信フォームを出す
+                  (既存返信があれば編集モード、なければ新規モード) */}
+              {isCreatorOfThisProduct && (
+                <ReplyForm
+                  reviewId={r.id}
+                  productSlug={productSlug}
+                  initialBody={r.reply?.body ?? ""}
+                  hasExistingReply={Boolean(r.reply)}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -248,6 +272,58 @@ function ReviewItemCard({
             {comment}
           </p>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * creator からの公式返信を装飾的に表示するカード(Steam の Developer's
+ * Response 相当)。アイコン付き + indigo 系で「公式回答」を強調。
+ */
+function CreatorReplyCard({ reply }: { reply: ReviewReply }) {
+  const name = reply.creator.displayName || "(名称未設定)";
+  const avatarUrl = publicAvatarUrl(reply.creator.avatarPath);
+  const isEdited = reply.createdAt !== reply.updatedAt;
+
+  return (
+    <Card className="ml-4 border-indigo-200 bg-indigo-50/40 shadow-none sm:ml-8">
+      <CardContent className="space-y-1.5 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="h-6 w-6 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                  <UserIcon className="h-3 w-3" aria-hidden />
+                </div>
+              )}
+            </div>
+            <p className="truncate text-xs font-medium text-indigo-900">
+              {name}
+              <Badge
+                variant="muted"
+                className="ml-1.5 border-indigo-200 bg-indigo-100 text-[9px] text-indigo-800"
+              >
+                作者
+              </Badge>
+            </p>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            {formatDate(reply.createdAt)}
+            {isEdited && " · 編集済"}
+          </p>
+        </div>
+        <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground/90">
+          {reply.body}
+        </p>
       </CardContent>
     </Card>
   );
