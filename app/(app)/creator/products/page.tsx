@@ -1,30 +1,17 @@
 import Link from "next/link";
-import type { Route } from "next";
 import { TopHeader } from "@/components/layout/top-header";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Plus, PenSquare } from "lucide-react";
 import { ProductRow } from "@/components/creator/product-row";
 import { BulkUnpublishButton } from "@/components/creator/bulk-unpublish-button";
+import { CreatorNav } from "@/components/creator/creator-nav";
 import { EmptyState } from "@/components/store/empty-state";
 import { requireCreator } from "@/lib/session/require";
 import { listMyProducts } from "@/lib/queries/creator-products";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "作品管理" };
-
-const CREATOR_NAV: Array<{
-  label: string;
-  href: Route;
-  current: boolean;
-  disabled?: boolean;
-}> = [
-  { label: "ダッシュボード", href: "/creator/products", current: false, disabled: true },
-  { label: "作品管理", href: "/creator/products", current: true },
-  { label: "Stripe 接続", href: "/creator/onboarding", current: false },
-  { label: "売上・分析", href: "/creator/products", current: false, disabled: true },
-  { label: "設定", href: "/creator/products", current: false, disabled: true },
-];
 
 export default async function CreatorProductsPage() {
   const user = await requireCreator();
@@ -37,40 +24,7 @@ export default async function CreatorProductsPage() {
   return (
     <>
       <TopHeader />
-      <SidebarLayout
-        sidebar={
-          <nav className="space-y-1 rounded-lg border border-border bg-card p-2">
-            <p className="px-2 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              クリエイターメニュー
-            </p>
-            {CREATOR_NAV.map((item) => {
-              const baseClass = cn(
-                "block rounded-md px-3 py-2 text-sm",
-                item.current
-                  ? "bg-foreground/5 font-medium text-foreground"
-                  : "text-muted-foreground",
-                item.disabled && "opacity-60",
-              );
-              if (item.disabled || item.current) {
-                return (
-                  <span key={item.label} className={baseClass}>
-                    {item.label}
-                  </span>
-                );
-              }
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={cn(baseClass, "hover:bg-muted hover:text-foreground")}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        }
-      >
+      <SidebarLayout sidebar={<CreatorNav current="products" />}>
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">作品管理</h1>
