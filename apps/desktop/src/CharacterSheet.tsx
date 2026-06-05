@@ -5,6 +5,7 @@ import {
   rollCharacteristicValue,
   computeCoCDerived,
   validateSkillAllocation,
+  skillBaseValue,
   rollCoCCheck,
   CCSHEET_SCHEMA_VERSION,
   type CoCEdition,
@@ -88,7 +89,8 @@ export function CharacterSheet() {
 
   function buildSheet(): Sheet {
     const skills: Record<string, number> = {};
-    for (const s of system.skills) skills[s.key] = finalValue(s.key, s.base);
+    for (const s of system.skills)
+      skills[s.key] = finalValue(s.key, skillBaseValue(s, chars));
     return {
       schemaVersion: CCSHEET_SCHEMA_VERSION,
       id,
@@ -325,14 +327,15 @@ export function CharacterSheet() {
           <tbody>
             {system.skills.map((s) => {
               const isOcc = occupation?.occupationSkills.includes(s.key);
-              const total = finalValue(s.key, s.base);
+              const base = skillBaseValue(s, chars);
+              const total = finalValue(s.key, base);
               return (
                 <tr key={s.key}>
                   <td>
                     {s.label}
                     {isOcc && <span className="dot" title="職業技能" />}
                   </td>
-                  <td className="muted">{s.base}</td>
+                  <td className="muted">{base}</td>
                   <td>
                     <input
                       className="input num sm"

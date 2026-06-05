@@ -1,4 +1,4 @@
-import type { SystemDefinition, OccupationDef } from "../types.js";
+import type { SystemDefinition, OccupationDef, SkillDef } from "../types.js";
 
 /**
  * 技能ポイントの割り振り検証(CoC)。職業技能ポイントと興味技能ポイントの
@@ -9,7 +9,19 @@ import type { SystemDefinition, OccupationDef } from "../types.js";
  * 著作権保護外。式評価器 evalPointFormula で算出する。
  */
 
-/** "EDU*4" / "EDU*2+DEX*2" / "INT*10" を評価。未知の能力値は 0 扱い(寛容)。*/
+function factorValue(token: string, chars: Record<string, number>): number {
+  if (/^\d+$/.test(token)) return Number(token);
+  if (/^[A-Za-z]+$/.test(token)) {
+    const v = chars[token];
+    return Number.isFinite(v) ? v : 0;
+  }
+  throw new Error(`evalPointFormula: 不正なトークン: "${token}"`);
+}
+
+/**
+ * "EDU*4" / "EDU*2+DEX*2" / "INT*10" / "DEX/2" を評価。未知の能力値は 0 扱い
+ * (寛容)。項は + 区切り、各項内は * と / を左から評価する。
+ */
 export function evalPointFormula(
   formula: string,
   chars: Record<string, number>,
@@ -23,20 +35,31 @@ export function evalPointFormula(
     if (term.length === 0) {
       throw new Error(`evalPointFormula: 不正な式です: "${formula}"`);
     }
-    let product = 1;
-    for (const factor of term.split("*")) {
-      if (/^\d+$/.test(factor)) {
-        product *= Number(factor);
-      } else if (/^[A-Za-z]+$/.test(factor)) {
-        const v = chars[factor];
-        product *= Number.isFinite(v) ? v : 0;
-      } else {
-        throw new Error(`evalPointFormula: 不正なトークン: "${factor}"`);
-      }
+    // "DEX/2" → ["DEX", "/", "2"]
+    const tokens = term.split(/([*/])/);
+    let acc = factorValue(tokens[0], chars);
+    for (let i = 1; i < tokens.length; i += 2) {
+      const op = tokens[i];
+      const val = factorValue(tokens[i + 1] ?? "", chars);
+      acc = op === "/" ? acc / val : acc * val;
     }
-    total += product;
+    total += acc;
   }
   return total;
+}
+
+/**
+ * 技能の実効初期値。baseFormula があれば能力値から算出して切り捨て、
+ * 無ければ固定 base を返す(例 7版 回避 "DEX/2"、母国語 "EDU")。
+ */
+export function skillBaseValue(
+  skill: SkillDef,
+  chars: Record<string, number>,
+): number {
+  if (skill.baseFormula) {
+    return Math.floor(evalPointFormula(skill.baseFormula, chars));
+  }
+  return skill.base;
 }
 
 export type AllocationErrorCode =
@@ -97,7 +120,7 @@ export function validateSkillAllocation(
   const spentInterest = sumValues(allocation.interest);
 
   const maxSkill = opts.maxSkill ?? (system.edition === "7" ? 99 : undefined);
-  const baseByKey = new Map(system.skills.map((s) => [s.key, s.base] as const));
+  const skillByKey = new Map(system.skills.map((s) => [s.key, s] as const));
   const occSkillSet = new Set(occupation.occupationSkills);
 
   const errors: AllocationError[] = [];
@@ -143,7 +166,8 @@ export function validateSkillAllocation(
       });
     }
 
-    const base = baseByKey.get(key) ?? 0;
+    const skillDef = skillByKey.get(key);
+    const base = skillDef ? skillBaseValue(skillDef, chars) : 0;
     const value = base + occ + intr;
     finalValues[key] = value;
 

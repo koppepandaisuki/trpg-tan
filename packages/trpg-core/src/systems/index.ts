@@ -29,6 +29,7 @@ export {
   type SkillAllocation,
   type AllocationResult,
   evalPointFormula,
+  skillBaseValue,
   validateSkillAllocation,
 } from "./coc/allocate.js";
 

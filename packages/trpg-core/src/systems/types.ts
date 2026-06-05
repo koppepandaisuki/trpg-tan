@@ -31,7 +31,12 @@ export interface DerivedDef {
 export interface SkillDef {
   key: string; // "spot_hidden"
   label: string; // "目星"
-  base: number; // 初期値(%)
+  base: number; // 初期値(%)。固定値の技能はこれを使う
+  /**
+   * 能力値依存の初期値(任意)。例 7版 回避 "DEX/2"、母国語 "EDU"。
+   * 指定時は base より優先し、能力値から算出する(skillBaseValue)。
+   */
+  baseFormula?: string;
   category?: string; // "探索" 等のグルーピング
 }
 
