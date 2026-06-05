@@ -5,10 +5,13 @@ import { PageContainer } from "@/components/layout/page-container";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { BuilderForm } from "@/components/builder/builder-form";
+import { StripeConnectNotice } from "@/components/creator/stripe-connect-notice";
 import { requireCreator } from "@/lib/session/require";
 import { getMyProductById } from "@/lib/queries/creator-products";
 import { getPopularTags } from "@/lib/queries/tags";
 import { listProductScreenshots } from "@/lib/queries/screenshots";
+import { getMyConnectStatus } from "@/lib/queries/creator-connect";
+import { isAlphaAllowFreeWithoutConnectEnabled } from "@/lib/access/alpha-publish-policy";
 import type { BuilderFormValues } from "@/lib/validators/product";
 import { statusLabel, statusBadgeVariant } from "@/lib/format/status";
 
@@ -29,11 +32,13 @@ export default async function EditProductPage({
   // 404 also covers "exists but belongs to someone else" (Phase 5 design).
   if (!product) notFound();
 
-  // タグサジェスト(VVV: ダブり防止)+ 既存スクショ数(XXXX UI 用)
-  const [popularTags, existingScreenshots] = await Promise.all([
+  // タグサジェスト + 既存スクショ数 + Stripe 接続状態 を並行取得
+  const [popularTags, existingScreenshots, connect] = await Promise.all([
     getPopularTags(20),
     listProductScreenshots(product.id),
+    getMyConnectStatus(user.id),
   ]);
+  const alphaFreeAllowed = isAlphaAllowFreeWithoutConnectEnabled();
 
   const initialValues: BuilderFormValues = {
     title: product.title,
@@ -88,6 +93,14 @@ export default async function EditProductPage({
             </div>
           </div>
         </section>
+
+        {/* Stripe 未接続のとき案内 + 接続ボタン(AAAAAA、投稿ページと統一)*/}
+        {!connect.stripeChargesEnabled && (
+          <StripeConnectNotice
+            alphaFreeAllowed={alphaFreeAllowed}
+            className="mt-4"
+          />
+        )}
       </PageContainer>
 
       <BuilderForm
