@@ -107,7 +107,7 @@ export function SiteFooter() {
                 使い方ガイドを開く
               </OpenWelcomeTourButton>
             </li>
-            <FooterPlaceholder label="ヘルプ(準備中)" />
+            <FooterLink href="/help" label="ヘルプ・よくある質問" />
           </FooterColumn>
         </div>
 
@@ -179,12 +179,3 @@ function FooterExternal({
   );
 }
 
-function FooterPlaceholder({ label }: { label: string }) {
-  return (
-    <li>
-      <span className="cursor-default text-sm text-muted-foreground/70">
-        {label}
-      </span>
-    </li>
-  );
-}
