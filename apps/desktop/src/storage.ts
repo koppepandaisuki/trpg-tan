@@ -14,27 +14,35 @@ export function isTauri(): boolean {
 
 const FILTERS = [{ name: "TRPG Character", extensions: ["ccsheet"] }];
 
-/** 保存ダイアログを出して .ccsheet を書き出す。キャンセル時は false。*/
-export async function saveSheet(sheet: CharacterSheet): Promise<boolean> {
+/** 保存ダイアログを出して .ccsheet を書き出す。返り値は保存先パス(キャンセルは null)。*/
+export async function saveSheet(sheet: CharacterSheet): Promise<string | null> {
   const path = await save({
     defaultPath: `${sanitize(sheet.name) || "character"}.ccsheet`,
     filters: FILTERS,
   });
-  if (!path) return false;
+  if (!path) return null;
   await writeTextFile(path, JSON.stringify(sheet, null, 2));
-  return true;
+  return path;
 }
 
-/** 読込ダイアログを出して .ccsheet を読み込む。キャンセル時は null。*/
-export async function loadSheet(): Promise<CharacterSheet | null> {
+/** 読込ダイアログを出して .ccsheet を読む。返り値は {sheet, path}(キャンセルは null)。*/
+export async function loadSheetViaDialog(): Promise<{
+  sheet: CharacterSheet;
+  path: string;
+} | null> {
   const selected = await open({ multiple: false, filters: FILTERS });
   if (!selected || typeof selected !== "string") return null;
-  const text = await readTextFile(selected);
+  return { sheet: await readSheetFromPath(selected), path: selected };
+}
+
+/** 既知のパスから .ccsheet を読む(ライブラリのカードから開くとき)。*/
+export async function readSheetFromPath(
+  path: string,
+): Promise<CharacterSheet> {
+  const text = await readTextFile(path);
   const parsed = JSON.parse(text) as CharacterSheet;
   if (parsed.schemaVersion !== CCSHEET_SCHEMA_VERSION) {
-    throw new Error(
-      `未対応の .ccsheet バージョンです(${parsed.schemaVersion})`,
-    );
+    throw new Error(`未対応の .ccsheet バージョンです(${parsed.schemaVersion})`);
   }
   return parsed;
 }

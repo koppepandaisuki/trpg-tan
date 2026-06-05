@@ -13,7 +13,7 @@ import {
   type CharacterSheet as Sheet,
   type SystemDefinition,
 } from "@trpg/core";
-import { saveSheet, loadSheet, isTauri } from "./storage";
+import { saveSheet, loadSheetViaDialog, isTauri } from "./storage";
 
 type SystemId = "coc7" | "coc6";
 const editionOf = (id: SystemId): CoCEdition => (id === "coc7" ? "7" : "6");
@@ -32,20 +32,43 @@ function freshId(): string {
   }
 }
 
-export function CharacterSheet() {
-  const [systemId, setSystemId] = useState<SystemId>("coc7");
-  const [id, setId] = useState<string>(() => freshId());
-  const [createdAt, setCreatedAt] = useState<string>(() =>
-    new Date().toISOString(),
+const sysIdOf = (s?: Sheet | null): SystemId =>
+  s?.systemId === "coc6" ? "coc6" : "coc7";
+
+interface CharacterSheetProps {
+  /** 既存キャラを開くときの初期シート(新規なら null/未指定)*/
+  initialSheet?: Sheet | null;
+  /** 保存に成功したとき(ライブラリ索引の更新用)*/
+  onSaved?: (sheet: Sheet, path: string) => void;
+}
+
+export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
+  const [systemId, setSystemId] = useState<SystemId>(() =>
+    sysIdOf(initialSheet),
   );
-  const [name, setName] = useState("");
-  const [notes, setNotes] = useState("");
-  const [chars, setChars] = useState<Record<string, number>>(() =>
-    generateAllCharacteristics(getSystem("coc7")!),
+  const [id, setId] = useState<string>(() => initialSheet?.id ?? freshId());
+  const [createdAt, setCreatedAt] = useState<string>(
+    () => initialSheet?.meta?.createdAt ?? new Date().toISOString(),
   );
-  const [occupationId, setOccupationId] = useState("");
-  const [occAlloc, setOccAlloc] = useState<Record<string, number>>({});
-  const [intAlloc, setIntAlloc] = useState<Record<string, number>>({});
+  const [name, setName] = useState(initialSheet?.name ?? "");
+  const [notes, setNotes] = useState(initialSheet?.notes ?? "");
+  const [image, setImage] = useState<string | null>(
+    initialSheet?.image ?? null,
+  );
+  const [chars, setChars] = useState<Record<string, number>>(
+    () =>
+      initialSheet?.characteristics ??
+      generateAllCharacteristics(getSystem(sysIdOf(initialSheet))!),
+  );
+  const [occupationId, setOccupationId] = useState(
+    initialSheet?.occupationId ?? "",
+  );
+  const [occAlloc, setOccAlloc] = useState<Record<string, number>>(
+    initialSheet?.allocation?.occupation ?? {},
+  );
+  const [intAlloc, setIntAlloc] = useState<Record<string, number>>(
+    initialSheet?.allocation?.interest ?? {},
+  );
   const [lastRoll, setLastRoll] = useState<RollInfo | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -75,8 +98,18 @@ export function CharacterSheet() {
     setOccAlloc({});
     setIntAlloc({});
     setLastRoll(null);
+    setImage(null);
     setId(freshId());
     setCreatedAt(new Date().toISOString());
+  }
+
+  function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setImage(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(file);
+    e.target.value = ""; // 同じファイルを再選択できるように
   }
 
   function finalValue(skillKey: string, base: number): number {
@@ -96,7 +129,7 @@ export function CharacterSheet() {
       id,
       systemId,
       name,
-      image: null,
+      image,
       characteristics: chars,
       skills,
       occupationId: occupationId || null,
@@ -113,6 +146,7 @@ export function CharacterSheet() {
     setCreatedAt(sheet.meta?.createdAt ?? new Date().toISOString());
     setName(sheet.name ?? "");
     setNotes(sheet.notes ?? "");
+    setImage(sheet.image ?? null);
     setChars(sheet.characteristics ?? {});
     setOccupationId(sheet.occupationId ?? "");
     setOccAlloc(sheet.allocation?.occupation ?? {});
@@ -126,22 +160,29 @@ export function CharacterSheet() {
       return;
     }
     try {
-      const ok = await saveSheet(buildSheet());
-      setMessage(ok ? "保存しました" : "保存をキャンセルしました");
+      const sheet = buildSheet();
+      const path = await saveSheet(sheet);
+      if (path) {
+        onSaved?.(sheet, path);
+        setMessage("保存しました(ライブラリに追加)");
+      } else {
+        setMessage("保存をキャンセルしました");
+      }
     } catch (e) {
       setMessage(`保存に失敗: ${String(e)}`);
     }
   }
 
-  async function onLoad() {
+  async function onImport() {
     if (!isTauri()) {
       setMessage("読込はデスクトップアプリ(tauri dev/build)でのみ利用できます");
       return;
     }
     try {
-      const sheet = await loadSheet();
-      if (sheet) {
-        applySheet(sheet);
+      const result = await loadSheetViaDialog();
+      if (result) {
+        applySheet(result.sheet);
+        onSaved?.(result.sheet, result.path); // ライブラリにも索引を残す
         setMessage("読み込みました");
       }
     } catch (e) {
@@ -169,8 +210,8 @@ export function CharacterSheet() {
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <button className="btn" onClick={onLoad}>
-          読込
+        <button className="btn" onClick={onImport}>
+          インポート
         </button>
         <button className="btn btn-primary" onClick={onSave}>
           保存(.ccsheet)
@@ -178,17 +219,42 @@ export function CharacterSheet() {
       </div>
       {message && <p className="muted">{message}</p>}
 
-      {/* 基本情報 */}
+      {/* 基本情報 + ポートレート */}
       <div className="card">
-        <label className="field">
-          <span className="k">探索者名</span>
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="名前を入力"
-          />
-        </label>
+        <div className="basic">
+          <div className="portrait">
+            {image ? (
+              <img src={image} alt="ポートレート" />
+            ) : (
+              <span className="portrait-empty">画像なし</span>
+            )}
+            <div className="portrait-actions">
+              <label className="btn mini">
+                画像を選択
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={onPickImage}
+                  style={{ display: "none" }}
+                />
+              </label>
+              {image && (
+                <button className="btn mini" onClick={() => setImage(null)}>
+                  削除
+                </button>
+              )}
+            </div>
+          </div>
+          <label className="field" style={{ flex: 1 }}>
+            <span className="k">探索者名</span>
+            <input
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="名前を入力"
+            />
+          </label>
+        </div>
       </div>
 
       {/* 能力値 */}

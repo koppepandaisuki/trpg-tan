@@ -12,10 +12,160 @@ body {
   margin: 0;
 }
 
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #e6e8ef;
+  padding: 16px 12px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
 .app {
   max-width: 880px;
   margin: 0 auto;
   padding: 32px 24px 64px;
+}
+
+.lib-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lib-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border: 1px solid #eceef4;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.lib-card:hover {
+  border-color: #b9c0d4;
+  background: #fafbff;
+}
+
+.lib-thumb {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #eef0f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9aa1b2;
+  font-size: 12px;
+}
+
+.lib-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lib-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.lib-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lib-sys {
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.lib-del {
+  border: 0;
+  background: transparent;
+  color: #9aa1b2;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.lib-del:hover {
+  color: #b91c1c;
+}
+
+.basic {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.portrait {
+  width: 96px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.portrait img {
+  width: 96px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e6e8ef;
+  display: block;
+}
+
+.portrait-empty {
+  width: 96px;
+  height: 120px;
+  border-radius: 8px;
+  border: 1px dashed #d6d9e3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9aa1b2;
+  font-size: 12px;
+}
+
+.portrait-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
 }
 
 .hero {
