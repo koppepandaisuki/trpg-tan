@@ -1,11 +1,17 @@
-import { Upload, PenSquare } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import { Upload, PenSquare, AlertCircle, ArrowRight } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { buttonVariants } from "@/components/ui/button";
 import { BuilderForm } from "@/components/builder/builder-form";
 import { requireCreator } from "@/lib/session/require";
 import { getPopularTags } from "@/lib/queries/tags";
+import { getMyConnectStatus } from "@/lib/queries/creator-connect";
+import { isAlphaAllowFreeWithoutConnectEnabled } from "@/lib/access/alpha-publish-policy";
 import type { BuilderFormValues } from "@/lib/validators/product";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "作品を投稿" };
 
@@ -25,9 +31,13 @@ const DEFAULTS: BuilderFormValues = {
 };
 
 export default async function NewProductPage() {
-  await requireCreator();
-  // よく使われるタグを取得(表記揺れ防止 = タグサジェスト)
-  const popularTags = await getPopularTags(20);
+  const user = await requireCreator();
+  // よく使われるタグ + Stripe 接続状態を並行取得
+  const [popularTags, connect] = await Promise.all([
+    getPopularTags(20),
+    getMyConnectStatus(user.id),
+  ]);
+  const alphaFreeAllowed = isAlphaAllowFreeWithoutConnectEnabled();
 
   return (
     <>
@@ -67,6 +77,40 @@ export default async function NewProductPage() {
             </div>
           </div>
         </section>
+
+        {/* Stripe 未接続のとき案内 + 接続ボタン(誘導を簡単に)。
+            α で無料公開が許可されている場合は文言を和らげる。 */}
+        {!connect.stripeChargesEnabled && (
+          <section className="mt-4 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/60 p-5">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-amber-100 text-amber-800">
+                  <AlertCircle className="h-5 w-5" aria-hidden />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold tracking-tight text-amber-900">
+                    Stripe 接続が未完了です
+                  </p>
+                  <p className="text-xs leading-relaxed text-amber-900/80">
+                    {alphaFreeAllowed
+                      ? "価格 ¥0(無料)の作品は今すぐ公開できますが、有料販売には Stripe 接続(受取口座の設定)が必要です。"
+                      : "作品を公開するには Stripe 接続(受取口座の設定)を完了する必要があります。"}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={"/creator/onboarding" as Route}
+                className={cn(
+                  buttonVariants({ variant: "primary", size: "sm" }),
+                  "shrink-0",
+                )}
+              >
+                Stripe 接続を設定
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </div>
+          </section>
+        )}
       </PageContainer>
 
       <BuilderForm
