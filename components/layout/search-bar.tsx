@@ -28,7 +28,7 @@ interface SearchBarProps {
 
 export function SearchBar({
   onSubmitted,
-  placeholder = "作品をタイトルで検索…",
+  placeholder = "作品名・作者・タグで検索…",
   autoFocus,
 }: SearchBarProps) {
   const router = useRouter();
@@ -70,7 +70,7 @@ export function SearchBar({
         defaultValue={currentQ}
         placeholder={placeholder}
         className="pl-9"
-        aria-label="作品をタイトルで検索"
+        aria-label="作品名・作者・タグで検索"
         autoFocus={autoFocus}
         maxLength={100}
       />

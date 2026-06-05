@@ -102,38 +102,53 @@ export async function listPublishedProducts(opts?: {
   const sort: StoreSort = opts?.sort ?? "published";
   const q = opts?.q?.trim() || null;
 
-  // タグフィルタが指定されている場合: 先に product_tags から該当 tag の
-  // product_id を全部取り、products を .in() で絞り込む。
-  // tag を含む products が 0 件なら早期 return(空ページ)。
-  let tagFilteredIds: string[] | null = null;
+  // tag フィルタ + 検索(q)はどちらも「該当する product_id 集合」を
+  // 計算して、最終的に AND(intersection)で絞り込む。
+  // どちらかが 0 件なら早期 return(空ページ)。
+  const idSets: string[][] = [];
+
+  // タグフィルタ: product_tags から該当 tag の product_id を取得
   if (opts?.tag) {
     const { data: tagRows, error: tagErr } = await supabase
       .from("product_tags")
       .select("product_id")
       .eq("tag", opts.tag);
-
     if (tagErr) {
       console.error("[listPublishedProducts] tag filter failed", tagErr);
       return { items: [], total: 0, page, pageSize, totalPages: 0 };
     }
-    tagFilteredIds = Array.from(
+    const tagIds = Array.from(
       new Set((tagRows ?? []).map((r) => r.product_id)),
     );
-    if (tagFilteredIds.length === 0) {
+    if (tagIds.length === 0) {
       return { items: [], total: 0, page, pageSize, totalPages: 0 };
     }
+    idSets.push(tagIds);
+  }
+
+  // 検索(MMMMM): title / creator 名 / tag のいずれかにマッチする
+  // product_id を統合した集合
+  if (q) {
+    const searchIds = await resolveSearchProductIds(q);
+    if (searchIds.length === 0) {
+      return { items: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+    idSets.push(searchIds);
+  }
+
+  // idSets の intersection を取る(複数フィルタの AND)
+  const filteredIds = intersectIdSets(idSets);
+  if (filteredIds !== null && filteredIds.length === 0) {
+    return { items: [], total: 0, page, pageSize, totalPages: 0 };
   }
 
   // ----- rating sort: JS 側で集計してから page 範囲を切る -----
-  // 全 published products(category / tag フィルタ適用済)を slim 列で
-  // 取得 → review 集計 → 並び替え → page slice → その ids で fullfetch。
   if (sort === "rating") {
     return listByRating({
       page,
       pageSize,
       category: opts?.category ?? null,
-      tagFilteredIds,
-      q,
+      filteredIds,
     });
   }
 
@@ -148,14 +163,8 @@ export async function listPublishedProducts(opts?: {
   if (opts?.category) {
     query = query.eq("product_type", opts.category);
   }
-  if (tagFilteredIds) {
-    query = query.in("id", tagFilteredIds);
-  }
-  if (q) {
-    // ilike で大文字小文字無視の部分一致。`%` をエスケープしないと
-    // ユーザー入力の `%` がワイルドカードになるが、α 期間は実害が
-    // 小さいので素朴実装(必要なら escape を入れる)。
-    query = query.ilike("title", `%${q}%`);
+  if (filteredIds !== null) {
+    query = query.in("id", filteredIds);
   }
 
   const { data: rows, count, error } = await query;
@@ -301,10 +310,10 @@ async function listByRating(args: {
   page: number;
   pageSize: number;
   category: ProductType | null;
-  tagFilteredIds: string[] | null;
-  q?: string | null;
+  /** tag / 検索の AND を適用した product_id 集合。null なら絞り込みなし。*/
+  filteredIds: string[] | null;
 }): Promise<ListResult> {
-  const { page, pageSize, category, tagFilteredIds, q } = args;
+  const { page, pageSize, category, filteredIds } = args;
   const supabase = createClient();
 
   // Step 1: 全 published products(filter 適用済)を slim select
@@ -314,8 +323,7 @@ async function listByRating(args: {
     .eq("status", "published")
     .limit(5000);
   if (category) idQuery = idQuery.eq("product_type", category);
-  if (tagFilteredIds) idQuery = idQuery.in("id", tagFilteredIds);
-  if (q) idQuery = idQuery.ilike("title", `%${q}%`);
+  if (filteredIds !== null) idQuery = idQuery.in("id", filteredIds);
 
   const { data: idRows, error: idErr } = await idQuery;
   if (idErr) {
@@ -628,6 +636,84 @@ export async function listRelatedProducts(args: {
 // ---------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------
+
+/**
+ * 検索キーワード q にマッチする published product の id 集合を返す(MMMMM)。
+ *
+ * マッチ対象(OR):
+ *   1. タイトル部分一致(title ilike `%q%`)
+ *   2. クリエイター表示名部分一致(public_profiles.display_name ilike)
+ *      → その creator の published product
+ *   3. タグ部分一致(product_tags.tag ilike)→ その product
+ *
+ * 3 つの集合を union して重複排除。各クエリは 5000 件 cap(α 期間は十分)。
+ * いずれかのサブクエリが失敗しても、取れた分だけで union を続ける
+ * (部分的でも検索結果を返す方が UX が良い)。
+ *
+ * 注意: `%` はエスケープしない(α 期間は実害が小さい)。
+ */
+async function resolveSearchProductIds(q: string): Promise<string[]> {
+  const supabase = createClient();
+  const pattern = `%${q}%`;
+  const ids = new Set<string>();
+
+  // 1. title 一致
+  const { data: titleRows, error: titleErr } = await supabase
+    .from("products")
+    .select("id")
+    .eq("status", "published")
+    .ilike("title", pattern)
+    .limit(5000);
+  if (titleErr) console.error("[resolveSearchProductIds] title", titleErr);
+  for (const r of titleRows ?? []) ids.add(r.id);
+
+  // 2. creator displayName 一致 → その creator の published products
+  const { data: profileRows, error: profileErr } = await supabase
+    .from("public_profiles")
+    .select("id")
+    .ilike("display_name", pattern)
+    .limit(1000);
+  if (profileErr) console.error("[resolveSearchProductIds] profile", profileErr);
+  const creatorIds = (profileRows ?? []).map((r) => r.id);
+  if (creatorIds.length > 0) {
+    const { data: byCreator, error: byCreatorErr } = await supabase
+      .from("products")
+      .select("id")
+      .eq("status", "published")
+      .in("creator_id", creatorIds)
+      .limit(5000);
+    if (byCreatorErr)
+      console.error("[resolveSearchProductIds] byCreator", byCreatorErr);
+    for (const r of byCreator ?? []) ids.add(r.id);
+  }
+
+  // 3. tag 一致 → その product(published 確認は最終 in() で products 側が担保)
+  const { data: tagRows, error: tagErr } = await supabase
+    .from("product_tags")
+    .select("product_id")
+    .ilike("tag", pattern)
+    .limit(5000);
+  if (tagErr) console.error("[resolveSearchProductIds] tag", tagErr);
+  for (const r of tagRows ?? []) ids.add(r.product_id);
+
+  return Array.from(ids);
+}
+
+/**
+ * 複数の id 集合の intersection(AND)を計算する。
+ *  - sets が空 → null(絞り込みなし = 全件)
+ *  - sets が 1 つ → そのまま
+ *  - 複数 → 全集合に含まれる id だけを残す
+ */
+function intersectIdSets(sets: string[][]): string[] | null {
+  if (sets.length === 0) return null;
+  if (sets.length === 1) return sets[0];
+  // 最小の集合を基準に、他の全集合に含まれるかを確認
+  const sorted = [...sets].sort((a, b) => a.length - b.length);
+  const [base, ...rest] = sorted;
+  const restSets = rest.map((s) => new Set(s));
+  return base.filter((id) => restSets.every((s) => s.has(id)));
+}
 
 /**
  * 行配列を ProductListItem 配列に変換。creator 名は public_profiles から

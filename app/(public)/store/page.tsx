@@ -291,7 +291,7 @@ function buildDescription(
     const scope = category
       ? `「${categoryLabel(category as never)}」カテゴリ内で`
       : "";
-    return `${scope}「${q}」を含む作品を検索した結果です。`;
+    return `${scope}「${q}」を作品名・作者・タグから検索した結果です。`;
   }
   if (tag && category) {
     return `「${categoryLabel(category as never)}」かつタグ「#${tag}」が付いた公開作品一覧。`;
