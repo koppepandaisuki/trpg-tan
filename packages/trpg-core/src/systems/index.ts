@@ -11,6 +11,18 @@ export type {
 } from "./types.js";
 export { coc7 } from "./coc/coc7.js";
 export { coc6 } from "./coc/coc6.js";
+export {
+  type CoCDerived,
+  computeCoCDerived,
+  coc7DamageBonus,
+  coc6DamageBonus,
+  coc7BaseMov,
+  movAgePenalty,
+} from "./coc/derive.js";
+export {
+  rollCharacteristicValue,
+  generateAllCharacteristics,
+} from "./coc/generate.js";
 
 /** 収録済みシステム定義の一覧(id 引き当て用)*/
 export const SYSTEMS: Record<string, SystemDefinition> = {

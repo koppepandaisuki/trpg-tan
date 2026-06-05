@@ -28,11 +28,19 @@ src/
   ゲームの仕組み=保護外のため転記。職業の**説明文は自作**し、ルールブックの
   文章は転記しない。
 
+## 実装済み(計算ロジック)
+
+- 派生値: `computeCoCDerived(edition, chars, { age? })` で HP/MP/SAN/DB/BUILD/
+  MOV(7版)・HP/MP/SAN/IDEA/LUCK/KNOW/DB(6版)を算出。DB / 移動率は境界
+  テーブルを個別関数(`coc7DamageBonus` 等)に分離。
+- 能力値生成: `rollCharacteristicValue("3D6*5")` / `generateAllCharacteristics(system)`
+  で rollHint(×倍率・括弧つき)を解釈して生成。
+
 ## 未完(後続タスク)
 
-- `systems/coc/*` の技能・職業は**代表例のみ**。完全版データは別途作成。
-- 派生値(HP/MP/SAN/DB 等)の `compute` 関数は未実装(`formula` は意図の記述)。
-- 能力値生成(ダイス→能力値)のヘルパー。
+- `systems/coc/*` の技能・職業は**代表例のみ**。完全版データは別途作成
+  (機能データ転記+説明自作)。
+- 技能ポイント割り振りの残数検証ヘルパー(職業/興味ポイント)。
 
 ## 使い方
 
