@@ -195,3 +195,58 @@ export async function deleteReplyAction(
   revalidatePath(`/store/${productSlug}`);
   return { ok: true };
 }
+
+/**
+ * レビューへの「役に立った」投票を toggle する(LLLLL)。
+ *
+ * - 認証必須(requireUser)
+ * - 既に投票済 → 削除(取り消し)、未投票 → 追加
+ * - UNIQUE(review_id, user_id) で 1 ユーザー 1 票を担保
+ * - 成功時に商品詳細を revalidate
+ *
+ * 戻り値: { ok, voted } voted は toggle 後の投票状態。
+ */
+export async function toggleHelpfulVoteAction(
+  reviewId: string,
+  productSlug: string,
+): Promise<{ ok: true; voted: boolean } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const supabase = createClient();
+
+  // 既存投票を確認
+  const { data: existing, error: selErr } = await supabase
+    .from("review_votes")
+    .select("id")
+    .eq("review_id", reviewId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (selErr) {
+    console.error("[toggleHelpfulVoteAction] select failed", selErr);
+    return { ok: false, error: "投票に失敗しました" };
+  }
+
+  if (existing) {
+    // 取り消し
+    const { error } = await supabase
+      .from("review_votes")
+      .delete()
+      .eq("id", existing.id);
+    if (error) {
+      console.error("[toggleHelpfulVoteAction] delete failed", error);
+      return { ok: false, error: "投票の取り消しに失敗しました" };
+    }
+    revalidatePath(`/store/${productSlug}`);
+    return { ok: true, voted: false };
+  }
+
+  // 追加
+  const { error } = await supabase
+    .from("review_votes")
+    .insert({ review_id: reviewId, user_id: user.id });
+  if (error) {
+    console.error("[toggleHelpfulVoteAction] insert failed", error);
+    return { ok: false, error: "投票に失敗しました" };
+  }
+  revalidatePath(`/store/${productSlug}`);
+  return { ok: true, voted: true };
+}

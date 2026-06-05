@@ -22,6 +22,7 @@ import { getCurrentUser } from "@/lib/session/get-user";
 import { publicAvatarUrl } from "@/lib/format/storage";
 import { ReviewForm } from "@/components/review/review-form";
 import { ReplyForm } from "@/components/review/reply-form";
+import { HelpfulButton } from "@/components/review/helpful-button";
 import { cn } from "@/lib/utils";
 
 /**
@@ -53,10 +54,11 @@ export async function ReviewSection({
   const user = await getCurrentUser();
   const isCreatorOfThisProduct = Boolean(user && user.id === creatorId);
 
-  // 並行 fetch
+  // 並行 fetch(getProductReviews には viewer の id を渡して
+  // 「役に立った」投票の自分の状態を集計する)
   const [summary, reviews, purchased, myReview] = await Promise.all([
     getReviewSummary(productId),
-    getProductReviews(productId),
+    getProductReviews(productId, user?.id ?? null),
     user ? isAlreadyPurchased(user.id, productId) : Promise.resolve(false),
     user ? getMyReview(productId, user.id) : Promise.resolve(null),
   ]);
@@ -138,12 +140,17 @@ export async function ReviewSection({
           {reviews.map((r) => (
             <li key={r.id} className="space-y-2">
               <ReviewItemCard
+                reviewId={r.id}
+                productSlug={productSlug}
                 rating={r.rating}
                 comment={r.comment}
                 userName={r.user.displayName}
                 avatarUrl={publicAvatarUrl(r.user.avatarPath)}
                 createdAt={r.createdAt}
                 updatedAt={r.updatedAt}
+                helpfulCount={r.helpfulCount}
+                viewerVoted={r.viewerVoted}
+                canVote={Boolean(user)}
               />
               {/* 公式 reply(あれば誰でも見える)*/}
               {r.reply && (
@@ -202,19 +209,29 @@ function ReviewLabelBadge({ label }: { label: ReviewLabel }) {
 }
 
 function ReviewItemCard({
+  reviewId,
+  productSlug,
   rating,
   comment,
   userName,
   avatarUrl,
   createdAt,
   updatedAt,
+  helpfulCount,
+  viewerVoted,
+  canVote,
 }: {
+  reviewId: string;
+  productSlug: string;
   rating: "positive" | "negative";
   comment: string;
   userName: string;
   avatarUrl: string | null;
   createdAt: string;
   updatedAt: string;
+  helpfulCount: number;
+  viewerVoted: boolean;
+  canVote: boolean;
 }) {
   const name = userName || "(名称未設定)";
   const isEdited = createdAt !== updatedAt;
@@ -272,6 +289,16 @@ function ReviewItemCard({
             {comment}
           </p>
         )}
+        {/* 「役に立った」投票(LLLLL)*/}
+        <div className="pt-1">
+          <HelpfulButton
+            reviewId={reviewId}
+            productSlug={productSlug}
+            initialCount={helpfulCount}
+            initialVoted={viewerVoted}
+            canVote={canVote}
+          />
+        </div>
       </CardContent>
     </Card>
   );
