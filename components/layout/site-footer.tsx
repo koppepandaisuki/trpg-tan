@@ -80,11 +80,14 @@ export function SiteFooter() {
             <FooterLink href="/library" label="ライブラリ" />
           </FooterColumn>
 
-          {/* 情報(α 中は placeholder)*/}
+          {/* 情報(SSSSS で実ページに差替)*/}
           <FooterColumn title="情報">
-            <FooterPlaceholder label="利用規約(準備中)" />
-            <FooterPlaceholder label="プライバシーポリシー(準備中)" />
-            <FooterPlaceholder label="特定商取引法に基づく表記(準備中)" />
+            <FooterLink href="/terms" label="利用規約" />
+            <FooterLink href="/privacy" label="プライバシーポリシー" />
+            <FooterLink
+              href="/legal/tokushoho"
+              label="特定商取引法に基づく表記"
+            />
           </FooterColumn>
 
           {/* サポート */}
