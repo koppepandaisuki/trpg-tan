@@ -57,8 +57,18 @@ export const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
+/**
+ * 設定ページからのメールアドレス変更。
+ * 新しいメールアドレスの形式のみ検証(現在のメールとの一致禁止などは
+ * Supabase 側 + server action で扱う)。
+ */
+export const changeEmailSchema = z.object({
+  newEmail: emailSchema,
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type ChangeEmailInput = z.infer<typeof changeEmailSchema>;

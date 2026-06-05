@@ -10,7 +10,9 @@ import {
 } from "@/lib/validators/profile";
 import {
   changePasswordSchema,
+  changeEmailSchema,
   type ChangePasswordInput,
+  type ChangeEmailInput,
 } from "@/lib/validators/auth";
 
 /**
@@ -151,4 +153,61 @@ export async function changePasswordAction(
   }
 
   return { ok: true };
+}
+
+/**
+ * 設定ページからのメールアドレス変更(ZZZ)。
+ *
+ * - requireUser() でログイン必須
+ * - 新メールアドレスの形式を zod で検証
+ * - 現在のメールと同じならエラー(無意味な変更を弾く)
+ * - supabase.auth.updateUser({ email }) を呼ぶ
+ *   → Supabase が新旧両方のアドレスに確認メールを送る設定の場合、
+ *     両方のリンクをクリックするまで変更は確定しない(Secure email change)。
+ *     UI 側では「確認メールを送信しました」と案内するだけにする。
+ *
+ * 失敗時:
+ *  - 既に使われているメール等は Supabase のエラーを汎用化(列挙攻撃防止)
+ *  - セッション切れは専用文言
+ */
+export async function changeEmailAction(
+  raw: ChangeEmailInput,
+): Promise<{ ok: true; sentTo: string } | { ok: false; error: string }> {
+  const user = await requireUser();
+
+  const parsed = changeEmailSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "入力に誤りがあります",
+    };
+  }
+
+  const newEmail = parsed.data.newEmail.toLowerCase();
+  if (newEmail === user.email.toLowerCase()) {
+    return {
+      ok: false,
+      error: "現在と同じメールアドレスです。別のアドレスを入力してください。",
+    };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.updateUser({ email: newEmail });
+
+  if (error) {
+    console.error("[changeEmailAction] failed", error);
+    if (error.message.toLowerCase().includes("session")) {
+      return {
+        ok: false,
+        error: "セッションが切れています。再度ログインしてください。",
+      };
+    }
+    return {
+      ok: false,
+      error:
+        "メールアドレスの変更を開始できませんでした。別のアドレスをお試しください。",
+    };
+  }
+
+  return { ok: true, sentTo: newEmail };
 }
