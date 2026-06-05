@@ -23,6 +23,24 @@ export interface DashboardTopProduct {
   salesCount: number;
 }
 
+/**
+ * ダッシュボードの「最近のレビュー」一覧 1 件分(CCCCCC)。どの作品に
+ * 対するレビューかと、creator が返信済みかどうかを併せて返す。
+ */
+export interface DashboardRecentReview {
+  id: string;
+  productId: string;
+  productSlug: string;
+  productTitle: string;
+  rating: "positive" | "negative";
+  comment: string;
+  createdAt: string;
+  reviewerName: string;
+  reviewerAvatarPath: string | null;
+  /** creator が既に返信済みか(未返信なら対応を促せる)*/
+  hasReply: boolean;
+}
+
 export interface CreatorDashboardStats {
   productCount: number;
   publishedCount: number;
@@ -38,6 +56,8 @@ export interface CreatorDashboardStats {
   };
   /** 売上トップの作品(売上 0 のときは null)*/
   topProduct: DashboardTopProduct | null;
+  /** 最近のレビュー(新しい順、最大 5 件)*/
+  recentReviews: DashboardRecentReview[];
 }
 
 export async function getCreatorDashboardStats(
@@ -76,9 +96,13 @@ export async function getCreatorDashboardStats(
   }
 
   const productIds = products.map((p) => p.id);
+  // 作品 id → {slug, title} の引き当て表(最近のレビュー表示で使う)
+  const productMeta = new Map(
+    products.map((p) => [p.id, { slug: p.slug, title: p.title }] as const),
+  );
 
-  // Step 2-3: purchases + reviews を並行 fetch
-  const [purchasesRes, reviewsRes] = await Promise.all([
+  // Step 2-4: purchases + reviews(集計用)+ 最近のレビュー(表示用)を並行 fetch
+  const [purchasesRes, reviewsRes, recentRes] = await Promise.all([
     supabase
       .from("purchases")
       .select("product_id")
@@ -88,6 +112,12 @@ export async function getCreatorDashboardStats(
       .from("product_reviews")
       .select("rating")
       .in("product_id", productIds),
+    supabase
+      .from("product_reviews")
+      .select("id, product_id, user_id, rating, comment, created_at")
+      .in("product_id", productIds)
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
 
   if (purchasesRes.error) {
@@ -100,6 +130,12 @@ export async function getCreatorDashboardStats(
     console.error(
       "[getCreatorDashboardStats] reviews failed",
       reviewsRes.error,
+    );
+  }
+  if (recentRes.error) {
+    console.error(
+      "[getCreatorDashboardStats] recent reviews failed",
+      recentRes.error,
     );
   }
 
@@ -140,6 +176,12 @@ export async function getCreatorDashboardStats(
     }
   }
 
+  // 最近のレビュー(CCCCCC): 投稿者プロフィール + 返信有無を埋めて整形
+  const recentReviews = await buildRecentReviews(
+    recentRes.data ?? [],
+    productMeta,
+  );
+
   return {
     productCount,
     publishedCount,
@@ -153,7 +195,63 @@ export async function getCreatorDashboardStats(
       positiveRatio: reviewTotal === 0 ? null : positive / reviewTotal,
     },
     topProduct,
+    recentReviews,
   };
+}
+
+/**
+ * 最近のレビュー行(product_reviews)を表示用 DashboardRecentReview に整形。
+ * 投稿者の display_name / avatar(public_profiles)と、creator 返信の有無
+ * (review_replies)を一括引き当てして N+1 を避ける。
+ */
+async function buildRecentReviews(
+  rows: Array<{
+    id: string;
+    product_id: string;
+    user_id: string;
+    rating: string;
+    comment: string | null;
+    created_at: string;
+  }>,
+  productMeta: Map<string, { slug: string; title: string }>,
+): Promise<DashboardRecentReview[]> {
+  if (rows.length === 0) return [];
+
+  const supabase = createClient();
+  const userIds = Array.from(new Set(rows.map((r) => r.user_id)));
+  const reviewIds = rows.map((r) => r.id);
+
+  const [profilesRes, repliesRes] = await Promise.all([
+    supabase
+      .from("public_profiles")
+      .select("id, display_name, avatar_path")
+      .in("id", userIds),
+    supabase.from("review_replies").select("review_id").in("review_id", reviewIds),
+  ]);
+
+  const profileMap = new Map(
+    (profilesRes.data ?? []).map((p) => [p.id, p] as const),
+  );
+  const repliedSet = new Set(
+    (repliesRes.data ?? []).map((r) => r.review_id),
+  );
+
+  return rows.map((r) => {
+    const profile = profileMap.get(r.user_id);
+    const meta = productMeta.get(r.product_id);
+    return {
+      id: r.id,
+      productId: r.product_id,
+      productSlug: meta?.slug ?? "",
+      productTitle: meta?.title ?? "(不明な作品)",
+      rating: r.rating === "negative" ? "negative" : "positive",
+      comment: r.comment ?? "",
+      createdAt: r.created_at,
+      reviewerName: profile?.display_name ?? "",
+      reviewerAvatarPath: profile?.avatar_path ?? null,
+      hasReply: repliedSet.has(r.id),
+    };
+  });
 }
 
 function emptyStats(): CreatorDashboardStats {
@@ -165,5 +263,6 @@ function emptyStats(): CreatorDashboardStats {
     totalSales: 0,
     reviews: { total: 0, positive: 0, negative: 0, positiveRatio: null },
     topProduct: null,
+    recentReviews: [],
   };
 }
