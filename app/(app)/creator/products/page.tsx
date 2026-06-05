@@ -5,6 +5,7 @@ import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Plus, PenSquare } from "lucide-react";
 import { ProductRow } from "@/components/creator/product-row";
+import { BulkUnpublishButton } from "@/components/creator/bulk-unpublish-button";
 import { EmptyState } from "@/components/store/empty-state";
 import { requireCreator } from "@/lib/session/require";
 import { listMyProducts } from "@/lib/queries/creator-products";
@@ -112,7 +113,20 @@ export default async function CreatorProductsPage() {
         ) : (
           <div className="mt-6 space-y-6">
             {published.length > 0 && (
-              <Section title="公開中" items={published} />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-medium text-muted-foreground">
+                    公開中
+                  </h2>
+                  {/* 一括非公開(RRRRR): 活動休止したい creator 向け */}
+                  <BulkUnpublishButton publishedCount={published.length} />
+                </div>
+                <ul className="space-y-2">
+                  {published.map((p) => (
+                    <ProductRow key={p.id} product={p} />
+                  ))}
+                </ul>
+              </div>
             )}
             {drafts.length > 0 && <Section title="下書き" items={drafts} />}
             {suspended.length > 0 && (

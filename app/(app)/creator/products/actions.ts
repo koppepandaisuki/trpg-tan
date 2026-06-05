@@ -138,6 +138,45 @@ function handleMutationError(e: unknown): SaveErr {
   return { error: "保存に失敗しました。時間をおいて再度お試しください" };
 }
 
+/**
+ * 自分の公開中(published)作品をすべて下書き(draft)に戻す一括操作
+ * (RRRRR)。creator が「サイトから一旦引っ込めたい」「活動を休止したい」
+ * ときのソフトな引退手段。
+ *
+ * RLS の products_update_own は creator に draft <-> published の遷移だけを
+ * 許す(suspended は admin 専用)ので、ここでは draft 化を一括で行う。
+ * 退会の FK 障害(products.creator_id restrict)自体は解消しないが、
+ * 「ストアから全作品を非表示にする」目的は達成できる。
+ *
+ * 返り値: 変更件数 or エラー。
+ */
+export async function unpublishAllMyProductsAction(): Promise<
+  { ok: true; count: number } | { ok: false; error: string }
+> {
+  const user = await requireCreator();
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("products")
+    .update({ status: "draft" })
+    .eq("creator_id", user.id)
+    .eq("status", "published")
+    .select("id");
+
+  if (error) {
+    console.error("[unpublishAllMyProductsAction] failed", error);
+    return {
+      ok: false,
+      error: "一括非公開に失敗しました。時間をおいて再度お試しください。",
+    };
+  }
+
+  revalidatePath("/creator/products");
+  revalidatePath("/store");
+  return { ok: true, count: data?.length ?? 0 };
+}
+
 function formatZodError(error: ZodError): SaveErr {
   const fieldErrors: Record<string, string> = {};
   for (const issue of error.errors) {
