@@ -34,6 +34,10 @@ export interface ReviewItem {
   };
   /** creator からの公式返信(あれば)。1 レビュー 1 返信。*/
   reply: ReviewReply | null;
+  /** 「役に立った」票数(LLLLL)。*/
+  helpfulCount: number;
+  /** 閲覧者が「役に立った」を押しているか(未ログインは常に false)。*/
+  viewerVoted: boolean;
 }
 
 export interface ReviewSummary {
@@ -60,8 +64,14 @@ export type ReviewLabel =
 /**
  * 商品の全レビューを取得(新しい順)。コメント付き / 無しの両方を含む。
  * user 情報は public_profiles から一括取得。
+ *
+ * viewerId を渡すと、各レビューの「役に立った」票数 + 閲覧者自身の投票
+ * 状態(viewerVoted)を集計する(LLLLL)。未ログインなら null を渡す。
  */
-export async function getProductReviews(productId: string): Promise<ReviewItem[]> {
+export async function getProductReviews(
+  productId: string,
+  viewerId?: string | null,
+): Promise<ReviewItem[]> {
   const supabase = createClient();
 
   const { data: reviewRows, error } = await supabase
@@ -89,7 +99,10 @@ export async function getProductReviews(productId: string): Promise<ReviewItem[]
   // 各レビューに紐づく creator reply を一括取得(NNNN)。
   // reply の creator profile も一括取得して名前 / アバターを埋め込む。
   const reviewIds = reviewRows.map((r) => r.id);
-  const replyMap = await fetchRepliesByReviewIds(reviewIds);
+  const [replyMap, voteInfo] = await Promise.all([
+    fetchRepliesByReviewIds(reviewIds),
+    fetchHelpfulVotes(reviewIds, viewerId ?? null),
+  ]);
 
   return reviewRows.map((r) => {
     const profile = profileMap.get(r.user_id);
@@ -105,8 +118,43 @@ export async function getProductReviews(productId: string): Promise<ReviewItem[]
         avatarPath: profile?.avatar_path ?? null,
       },
       reply: replyMap.get(r.id) ?? null,
+      helpfulCount: voteInfo.counts.get(r.id) ?? 0,
+      viewerVoted: voteInfo.viewerVoted.has(r.id),
     };
   });
+}
+
+/**
+ * 複数 review の「役に立った」票を一括集計(N+1 防止、LLLLL)。
+ *  - counts: review_id → 票数
+ *  - viewerVoted: viewerId が投票済の review_id 集合
+ */
+async function fetchHelpfulVotes(
+  reviewIds: string[],
+  viewerId: string | null,
+): Promise<{ counts: Map<string, number>; viewerVoted: Set<string> }> {
+  const counts = new Map<string, number>();
+  const viewerVoted = new Set<string>();
+  if (reviewIds.length === 0) return { counts, viewerVoted };
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("review_votes")
+    .select("review_id, user_id")
+    .in("review_id", reviewIds);
+
+  if (error) {
+    console.error("[fetchHelpfulVotes] failed", error);
+    return { counts, viewerVoted };
+  }
+
+  for (const row of data ?? []) {
+    counts.set(row.review_id, (counts.get(row.review_id) ?? 0) + 1);
+    if (viewerId && row.user_id === viewerId) {
+      viewerVoted.add(row.review_id);
+    }
+  }
+  return { counts, viewerVoted };
 }
 
 /**
@@ -217,7 +265,7 @@ export async function getMyReview(
   }
   if (!data) return null;
 
-  // displayName / avatar / reply は本人のフォームには不要なので簡略
+  // displayName / avatar / reply / helpful は本人フォームには不要なので簡略
   return {
     id: data.id,
     rating: data.rating as ReviewRating,
@@ -226,6 +274,8 @@ export async function getMyReview(
     updatedAt: data.updated_at,
     user: { id: data.user_id, displayName: "", avatarPath: null },
     reply: null,
+    helpfulCount: 0,
+    viewerVoted: false,
   };
 }
 
