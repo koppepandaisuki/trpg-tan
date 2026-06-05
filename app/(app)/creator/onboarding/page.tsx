@@ -1,5 +1,6 @@
 import { TopHeader } from "@/components/layout/top-header";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
+import { CreatorNav } from "@/components/creator/creator-nav";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,14 +23,6 @@ import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Stripe 接続" };
 
-const CREATOR_NAV = [
-  { label: "ダッシュボード", href: "/creator/products", current: false, disabled: true },
-  { label: "作品管理", href: "/creator/products", current: false },
-  { label: "Stripe 接続", href: "/creator/onboarding", current: true },
-  { label: "売上・分析", href: "/creator/products", current: false, disabled: true },
-  { label: "設定", href: "/creator/products", current: false, disabled: true },
-];
-
 export default async function OnboardingPage({
   searchParams,
 }: {
@@ -43,29 +36,7 @@ export default async function OnboardingPage({
   return (
     <>
       <TopHeader />
-      <SidebarLayout
-        sidebar={
-          <nav className="space-y-1 rounded-lg border border-border bg-card p-2">
-            <p className="px-2 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              クリエイターメニュー
-            </p>
-            {CREATOR_NAV.map((item) => (
-              <span
-                key={item.label}
-                className={cn(
-                  "block rounded-md px-3 py-2 text-sm",
-                  item.current
-                    ? "bg-foreground/5 font-medium text-foreground"
-                    : "text-muted-foreground",
-                  item.disabled && "opacity-60",
-                )}
-              >
-                {item.label}
-              </span>
-            ))}
-          </nav>
-        }
-      >
+      <SidebarLayout sidebar={<CreatorNav current="onboarding" />}>
         <Breadcrumb
           items={[{ label: "Stripe 接続" }]}
           className="mb-4"
