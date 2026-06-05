@@ -11,6 +11,7 @@ import {
   MessageCircle,
   AlertCircle,
   Settings,
+  LayoutDashboard,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -168,6 +169,24 @@ export function MobileMenu({ user, discordUrl }: MobileMenuProps) {
                   );
                 })}
               </nav>
+
+              {/* creator ダッシュボード(DDDDDD): creator のみ表示。
+                  通常 nav とは別に区切って「管理画面」感を出す。 */}
+              {user?.isCreator && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <Link
+                    href="/creator/dashboard"
+                    onClick={close}
+                    className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
+                  >
+                    <LayoutDashboard
+                      className="h-5 w-5 text-muted-foreground"
+                      aria-hidden
+                    />
+                    <span>クリエイターダッシュボード</span>
+                  </Link>
+                </div>
+              )}
 
               {/* Discord 招待(env 設定時のみ)*/}
               {discordUrl && (
