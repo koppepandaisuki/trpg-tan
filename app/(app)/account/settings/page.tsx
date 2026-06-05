@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ProfileEditForm } from "@/components/account/profile-edit-form";
 import { AvatarUpload } from "@/components/account/avatar-upload";
 import { PasswordChangeForm } from "@/components/account/password-change-form";
+import { EmailChangeForm } from "@/components/account/email-change-form";
 import { requireUser } from "@/lib/session/require";
 import { createClient } from "@/lib/supabase/server";
 import { publicAvatarUrl } from "@/lib/format/storage";
@@ -97,6 +98,21 @@ export default async function AccountSettingsPage() {
         <Card className="shadow-sm">
           <CardContent className="py-6">
             <ProfileEditForm initialValues={initialValues} />
+          </CardContent>
+        </Card>
+
+        {/* メールアドレス変更(ZZZ)*/}
+        <Card className="shadow-sm">
+          <CardContent className="space-y-3 py-6">
+            <div>
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                アカウント
+              </h2>
+              <p className="mt-0.5 text-base font-semibold tracking-tight">
+                メールアドレスの変更
+              </p>
+            </div>
+            <EmailChangeForm currentEmail={user.email} />
           </CardContent>
         </Card>
 
