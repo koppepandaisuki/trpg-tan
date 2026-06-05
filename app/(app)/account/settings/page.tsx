@@ -7,6 +7,7 @@ import { ProfileEditForm } from "@/components/account/profile-edit-form";
 import { AvatarUpload } from "@/components/account/avatar-upload";
 import { PasswordChangeForm } from "@/components/account/password-change-form";
 import { EmailChangeForm } from "@/components/account/email-change-form";
+import { DeleteAccountForm } from "@/components/account/delete-account-form";
 import { requireUser } from "@/lib/session/require";
 import { createClient } from "@/lib/supabase/server";
 import { publicAvatarUrl } from "@/lib/format/storage";
@@ -128,6 +129,21 @@ export default async function AccountSettingsPage() {
               </p>
             </div>
             <PasswordChangeForm />
+          </CardContent>
+        </Card>
+
+        {/* 退会(QQQQQ): danger zone。rose 系の枠で危険操作を視覚化。 */}
+        <Card className="border-rose-200 shadow-sm">
+          <CardContent className="space-y-3 py-6">
+            <div>
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-rose-600">
+                Danger Zone
+              </h2>
+              <p className="mt-0.5 text-base font-semibold tracking-tight">
+                退会する
+              </p>
+            </div>
+            <DeleteAccountForm />
           </CardContent>
         </Card>
       </PageContainer>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireUser } from "@/lib/session/require";
 import {
   profileEditSchema,
@@ -210,4 +211,81 @@ export async function changeEmailAction(
   }
 
   return { ok: true, sentTo: newEmail };
+}
+
+/**
+ * アカウント削除(退会、QQQQQ)。
+ *
+ * 仕組み:
+ *   admin client(service_role)で auth.admin.deleteUser を呼ぶ。
+ *   profiles は auth.users への on delete cascade で自動削除される。
+ *   purchases.user_id は on delete set null(購入記録は保全)。
+ *
+ * 制約(初期スキーマの FK 設計):
+ *   products.creator_id は profiles への on delete restrict。
+ *   → 公開作品 / 下書きを 1 つでも持つ creator は、profiles を削除できず
+ *     auth.users 削除も cascade で失敗する。
+ *   → その場合は「作品があるため退会できない」旨を案内し、Discord 経由で
+ *     個別対応を促す(α 期間の現実解。商品ごと匿名化する完全自動退会は
+ *     Phase 2 で creator_id を nullable 化する設計変更が必要)。
+ *
+ * confirm: クライアントから「退会する」固定文字列を受け取り一致を要求
+ *   (誤操作防止。ボタン 1 つで即削除されるのを避ける)。
+ *
+ * 成功後はクライアント側で sign-out + ホーム遷移する。
+ */
+const DELETE_CONFIRM_PHRASE = "退会する";
+
+export async function deleteAccountAction(
+  confirm: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+
+  if (confirm.trim() !== DELETE_CONFIRM_PHRASE) {
+    return {
+      ok: false,
+      error: `確認のため「${DELETE_CONFIRM_PHRASE}」と入力してください。`,
+    };
+  }
+
+  // 先に「作品を持っているか」を確認して、丁寧なエラーを返す
+  // (admin delete が FK restrict で失敗する前に分かりやすく案内)。
+  const supabase = createClient();
+  const { count: productCount, error: countErr } = await supabase
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("creator_id", user.id);
+  if (countErr) {
+    console.error("[deleteAccountAction] product count failed", countErr);
+  }
+  if ((productCount ?? 0) > 0) {
+    return {
+      ok: false,
+      error:
+        "作品を公開・登録中のため退会できません。先にすべての作品を削除するか、Discord にてご相談ください。",
+    };
+  }
+
+  // admin client で auth.users を削除(profiles は cascade)
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.deleteUser(user.id);
+    if (error) {
+      console.error("[deleteAccountAction] deleteUser failed", error);
+      return {
+        ok: false,
+        error:
+          "退会処理に失敗しました。時間をおいて再度お試しいただくか、Discord にてご相談ください。",
+      };
+    }
+  } catch (err) {
+    console.error("[deleteAccountAction] deleteUser threw", err);
+    return {
+      ok: false,
+      error:
+        "退会処理に失敗しました。時間をおいて再度お試しいただくか、Discord にてご相談ください。",
+    };
+  }
+
+  return { ok: true };
 }
