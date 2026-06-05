@@ -4,6 +4,9 @@ import {
   CheckCircle2,
   Clock,
   Ban,
+  Receipt,
+  Package,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
@@ -15,6 +18,7 @@ import { LibraryCard } from "@/components/library/library-card";
 import { requireUser } from "@/lib/session/require";
 import { listMyLibrary, type LibraryItem } from "@/lib/queries/library";
 import { formatPrice } from "@/lib/format/price";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "ライブラリ" };
 
@@ -29,51 +33,84 @@ export default async function LibraryPage() {
   );
 
   const totalSpent = items.reduce((sum, i) => sum + i.amountJpy, 0);
+  // 直近の購入日(paidAt の最大値)。1 件もないときは null。
+  const latestPaidAt =
+    items.length > 0
+      ? items.reduce(
+          (latest, i) => (i.paidAt > latest ? i.paidAt : latest),
+          items[0].paidAt,
+        )
+      : null;
 
   return (
     <>
       <TopHeader />
       <PageContainer className="space-y-6 py-8">
-        {/* Hero ヘッダー(サイト全体の視覚言語に統一)
-            ライブラリは「所有 / 既購入」のトーンなので indigo + emerald
-            の合成グラデで穏やかな positive 感を出す。 */}
+        {/* Hero ヘッダー(シンプル化。サマリは下の統計タイルに集約)*/}
         <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-emerald-500/8 shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
             <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
 
-            <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-indigo-300 bg-indigo-50 text-indigo-700">
-                  <LibraryBig className="h-5 w-5" aria-hidden />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-tight">
-                    ライブラリ
-                  </h1>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {items.length > 0
-                      ? `購入した作品 ${items.length} 件`
-                      : "購入した作品はまだありません"}
-                  </p>
-                </div>
+            <div className="relative z-10 flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-indigo-300 bg-indigo-50 text-indigo-700">
+                <LibraryBig className="h-5 w-5" aria-hidden />
               </div>
-
-              {items.length > 0 && (
-                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                  <StatChip label="利用可能" value={available.length} />
-                  {pending.length > 0 && (
-                    <StatChip label="準備中" value={pending.length} />
-                  )}
-                  {suspended.length > 0 && (
-                    <StatChip label="停止中" value={suspended.length} />
-                  )}
-                  <StatChip label="購入総額" value={formatPrice(totalSpent)} />
-                </div>
-              )}
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">
+                  ライブラリ
+                </h1>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {items.length > 0
+                    ? `購入した作品 ${items.length} 件`
+                    : "購入した作品はまだありません"}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* 購入サマリ統計タイル(EEEEEE)。dashboard と同じ視覚言語。*/}
+        {items.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryTile
+              icon={Package}
+              label="購入作品"
+              value={`${items.length}`}
+              sub={`利用可能 ${available.length} 件`}
+              tone="indigo"
+            />
+            <SummaryTile
+              icon={Receipt}
+              label="購入総額"
+              value={formatPrice(totalSpent)}
+              sub={
+                items.length > 0
+                  ? `平均 ${formatPrice(Math.round(totalSpent / items.length))} / 件`
+                  : ""
+              }
+              tone="emerald"
+            />
+            <SummaryTile
+              icon={CheckCircle2}
+              label="利用可能"
+              value={`${available.length}`}
+              sub={
+                pending.length > 0
+                  ? `準備中 ${pending.length} 件`
+                  : "すべてダウンロード可"
+              }
+              tone="sky"
+            />
+            <SummaryTile
+              icon={CalendarDays}
+              label="最近の購入"
+              value={latestPaidAt ? formatDate(latestPaidAt) : "—"}
+              sub="直近の購入日"
+              tone="amber"
+            />
+          </div>
+        )}
 
         {items.length === 0 ? (
           <EmptyState
@@ -116,19 +153,60 @@ export default async function LibraryPage() {
   );
 }
 
-function StatChip({
+/**
+ * 購入サマリの統計タイル(EEEEEE)。creator dashboard の StatTile と
+ * 同じ視覚言語(円形アイコン + 大きい数値 + 補足)。
+ */
+function SummaryTile({
+  icon: Icon,
   label,
   value,
+  sub,
+  tone,
 }: {
+  icon: LucideIcon;
   label: string;
-  value: string | number;
+  value: string;
+  sub: string;
+  tone: "indigo" | "emerald" | "sky" | "amber";
 }) {
+  const toneClass: Record<typeof tone, string> = {
+    indigo: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    sky: "border-sky-200 bg-sky-50 text-sky-700",
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+  };
   return (
-    <div className="flex flex-col items-end gap-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-base font-semibold tracking-tight">{value}</span>
-    </div>
+    <Card className="shadow-sm">
+      <CardContent className="space-y-1.5 py-4">
+        <div
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-full border",
+            toneClass[tone],
+          )}
+        >
+          <Icon className="h-4 w-4" aria-hidden />
+        </div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </p>
+        <p className="text-xl font-bold tracking-tight">{value}</p>
+        <p className="line-clamp-1 text-[10px] text-muted-foreground">{sub}</p>
+      </CardContent>
+    </Card>
   );
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
 }
 
 const SECTION_TONES = {
