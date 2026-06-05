@@ -35,12 +35,14 @@ src/
   テーブルを個別関数(`coc7DamageBonus` 等)に分離。
 - 能力値生成: `rollCharacteristicValue("3D6*5")` / `generateAllCharacteristics(system)`
   で rollHint(×倍率・括弧つき)を解釈して生成。
+- 技能ポイント割り振り: `validateSkillAllocation(system, occupation, chars, alloc)`
+  で職業/興味ポイントの予算・残り・最終値・違反(超過/職業外/上限/負)を検証。
+  予算式は `evalPointFormula("EDU*4")`(能力値×係数の和)で評価。
 
 ## 未完(後続タスク)
 
 - `systems/coc/*` の技能・職業は**代表例のみ**。完全版データは別途作成
   (機能データ転記+説明自作)。
-- 技能ポイント割り振りの残数検証ヘルパー(職業/興味ポイント)。
 
 ## 使い方
 
