@@ -31,6 +31,12 @@ export const signupSchema = z.object({
     .trim()
     .min(1, "表示名を入力してください")
     .max(50, "表示名は50文字以内で入力してください"),
+  // 利用規約 / プライバシーポリシーへの同意(TTTTT)。チェックされて
+  // いない(false)と submit できない。boolean + refine で「true 必須」を
+  // 表現(z.literal(true) はバージョン差で message が出ないことがある)。
+  agreedToTerms: z.boolean().refine((v) => v === true, {
+    message: "利用規約とプライバシーポリシーへの同意が必要です",
+  }),
 });
 
 export const forgotPasswordSchema = z.object({
