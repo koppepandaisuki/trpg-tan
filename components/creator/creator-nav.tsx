@@ -30,8 +30,7 @@ const ITEMS: NavItem[] = [
   {
     key: "analytics",
     label: "売上・分析",
-    href: "/creator/dashboard",
-    disabled: true,
+    href: "/creator/analytics",
   },
   {
     key: "settings",
