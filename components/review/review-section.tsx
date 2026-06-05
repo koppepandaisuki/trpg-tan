@@ -23,6 +23,7 @@ import { publicAvatarUrl } from "@/lib/format/storage";
 import { ReviewForm } from "@/components/review/review-form";
 import { ReplyForm } from "@/components/review/reply-form";
 import { HelpfulButton } from "@/components/review/helpful-button";
+import { CollapsibleReviewList } from "@/components/review/collapsible-review-list";
 import { cn } from "@/lib/utils";
 
 /**
@@ -134,9 +135,9 @@ export async function ReviewSection({
         </div>
       )}
 
-      {/* レビュー一覧 */}
+      {/* レビュー一覧(YYYYY: 最初の 3 件のみ表示、残りは展開)*/}
       {reviews.length > 0 ? (
-        <ul className="space-y-3">
+        <CollapsibleReviewList initialCount={3}>
           {reviews.map((r) => (
             <li key={r.id} className="space-y-2">
               <ReviewItemCard
@@ -168,7 +169,7 @@ export async function ReviewSection({
               )}
             </li>
           ))}
-        </ul>
+        </CollapsibleReviewList>
       ) : (
         <Card className="shadow-sm">
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
