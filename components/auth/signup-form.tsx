@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signupSchema, type SignupInput } from "@/lib/validators/auth";
@@ -17,7 +18,12 @@ export function SignupForm() {
     formState: { errors, isSubmitting },
   } = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { email: "", password: "", displayName: "" },
+    defaultValues: {
+      email: "",
+      password: "",
+      displayName: "",
+      agreedToTerms: false,
+    },
   });
 
   async function onSubmit(values: SignupInput) {
@@ -35,6 +41,11 @@ export function SignupForm() {
       {GOOGLE_OAUTH_ENABLED && (
         <>
           <GoogleButton label="Google で新規登録" />
+          {/* OAuth は server action の checkbox 検証を通らないので、
+              暗黙同意の注記を出す(主要サービスと同じ慣行)。 */}
+          <p className="text-center text-[10px] leading-relaxed text-muted-foreground">
+            Google で登録すると <TermsLinks /> に同意したものとみなされます
+          </p>
 
           <div
             className="relative my-2 flex items-center"
@@ -100,6 +111,26 @@ export function SignupForm() {
         )}
       </div>
 
+      {/* 利用規約同意チェック(TTTTT) */}
+      <div className="space-y-1">
+        <label className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-foreground focus:ring-ring"
+            aria-invalid={!!errors.agreedToTerms}
+            {...register("agreedToTerms")}
+          />
+          <span>
+            <TermsLinks /> に同意します
+          </span>
+        </label>
+        {errors.agreedToTerms && (
+          <p className="text-xs text-destructive">
+            {errors.agreedToTerms.message}
+          </p>
+        )}
+      </div>
+
       {errors.root && (
         <p
           role="alert"
@@ -118,5 +149,31 @@ export function SignupForm() {
       </Button>
       </form>
     </div>
+  );
+}
+
+/**
+ * 利用規約 / プライバシーポリシーへのリンク(別タブで開く)。
+ * 同意チェックの文言内とOAuth 注記の両方で再利用。
+ */
+function TermsLinks() {
+  return (
+    <>
+      <Link
+        href="/terms"
+        target="_blank"
+        className="text-accent underline-offset-2 hover:underline"
+      >
+        利用規約
+      </Link>
+      {" ・ "}
+      <Link
+        href="/privacy"
+        target="_blank"
+        className="text-accent underline-offset-2 hover:underline"
+      >
+        プライバシーポリシー
+      </Link>
+    </>
   );
 }
