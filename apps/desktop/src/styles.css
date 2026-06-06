@@ -623,12 +623,53 @@ body {
   }
 }
 
+/* ===== フリーロール欄 ===== */
+.freeroll-result {
+  margin-top: 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.freeroll-total {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--primary-deep);
+  animation: freeroll-pop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.freeroll-log {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+@keyframes freeroll-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* モーション控えめ設定のユーザーには演出を無効化(過剰演出の回避) */
 @media (prefers-reduced-motion: reduce) {
   .dice-overlay,
   .dice-card,
   .dice-row .die,
-  .dice-result {
+  .dice-result,
+  .freeroll-total {
     animation: none !important;
   }
 }
