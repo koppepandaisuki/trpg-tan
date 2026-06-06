@@ -195,6 +195,88 @@ body {
   color: #b91c1c;
 }
 
+/* サイドバーのタブ切替(キャラ / 購入) */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  margin-bottom: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.tab {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.active {
+  background: var(--surface);
+  color: var(--primary-deep);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 購入ライブラリの各種状態 */
+.lib-note {
+  padding: 8px 4px;
+  display: block;
+  font-size: 12px;
+}
+
+.lib-empty {
+  padding: 12px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lib-remote-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+/* 作品カード: バッジ行を持つ拡張版 lib-card */
+.work-card {
+  align-items: flex-start;
+}
+
+.work-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.work-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+  line-height: 1.5;
+}
+
+.work-badge.warn {
+  background: var(--gold-soft);
+  color: #9a6b00;
+}
+
 .basic {
   display: flex;
   gap: 16px;
