@@ -2,9 +2,10 @@
 //
 // プラグイン:
 //   - single-instance: 2重起動を防ぎ、deep-link URL を既存ウィンドウへ転送
-//   - dialog / fs:    .ccsheet の保存/読込(保存先選択 + テキスト読み書き)
+//   - dialog / fs:    .ccsheet の保存/読込 + 購入物のローカル保存(バイナリ)
 //   - deep-link:      paradice://auth/callback を受けて OAuth セッション交換
-//   - opener:         外部ブラウザで Supabase ログインURLを開く
+//   - opener:         外部ブラウザ起動 / DL 済みファイルを Explorer で表示
+//   - http:           DL API 呼び出し + 署名URLからのファイル取得(CORS 回避)
 //
 // single-instance を deep-link より先に登録することで、OS が paradice:// を
 // 受け取ったとき「新しいプロセスを起動→即 argv を既存プロセスへ転送→終了」
@@ -30,6 +31,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_http::init())
         .setup(|app| {
             // 開発時(Windows/Linux)は scheme をランタイム登録しないと
             // deep-link が届かない。インストール版は bundler が登録する。

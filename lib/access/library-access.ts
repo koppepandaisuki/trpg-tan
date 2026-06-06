@@ -1,4 +1,5 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -13,6 +14,10 @@ import { createClient } from "@/lib/supabase/server";
  * purchases (purchases_select_own) and on products (status='published' or
  * own/admin) already does the heavy lifting. We re-assert the filter in
  * code so the intent is readable.
+ *
+ * `client` is optional: the cookie path passes nothing (we build the SSR
+ * client), the desktop Bearer path passes a token-authed client so RLS still
+ * resolves `auth.uid()` to the same user.
  */
 
 export type DownloadDecision =
@@ -30,12 +35,13 @@ export type DownloadDecision =
 export async function canDownload(
   userId: string,
   productId: string,
+  client?: SupabaseClient,
 ): Promise<DownloadDecision> {
   if (!isUuid(productId)) {
     return { ok: false, reason: "not_found" };
   }
 
-  const supabase = createClient();
+  const supabase = client ?? createClient();
 
   // 1. Purchase existence and status.
   //    We pull both 'paid' and 'refunded' rows here (not just 'paid') so
