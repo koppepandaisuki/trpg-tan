@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { CharacterSheet as Sheet } from "@trpg/core";
 import { CharacterSheet } from "./CharacterSheet";
 import { AuthControl } from "./AuthControl";
+import { LibraryPanel } from "./LibraryPanel";
 import { initDeepLinkAuth } from "./auth";
 import {
   getLibrary,
@@ -12,11 +13,16 @@ import {
 } from "./library";
 import { readSheetFromPath, isTauri } from "./storage";
 
+type SidebarTab = "characters" | "library";
+
 /**
- * アプリのルート。左にキャラクター・ライブラリ(一覧)、右にシート編集。
- * Phase 1 はキャラシ(CoC6/7)。将来ここにビルド / PLAY のルートを足す。
+ * アプリのルート。左サイドバーは「キャラ / 購入」の 2 タブ。
+ *  - キャラ: ローカルに保存した .ccsheet の一覧(Phase 1)
+ *  - 購入:   ログイン中ユーザーの購入作品(Phase 2 / スライス2)
+ * 右ペインはシート編集。将来ここにビルド / PLAY のルートを足す。
  */
 export function App() {
+  const [tab, setTab] = useState<SidebarTab>("characters");
   const [library, setLibrary] = useState<LibraryEntry[]>(() => getLibrary());
   const [active, setActive] = useState<{ sheet: Sheet | null; key: string }>(
     () => ({ sheet: null, key: "new-0" }),
@@ -58,61 +64,95 @@ export function App() {
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="sidebar-head">
-          <strong>ライブラリ</strong>
-          <button className="btn mini btn-primary" onClick={newCharacter}>
-            ＋ 新規
+        {/* タブ切替: キャラ / 購入 */}
+        <div className="tabs" role="tablist">
+          <button
+            role="tab"
+            className={`tab ${tab === "characters" ? "active" : ""}`}
+            aria-selected={tab === "characters"}
+            onClick={() => setTab("characters")}
+          >
+            キャラ
+          </button>
+          <button
+            role="tab"
+            className={`tab ${tab === "library" ? "active" : ""}`}
+            aria-selected={tab === "library"}
+            onClick={() => setTab("library")}
+          >
+            購入
           </button>
         </div>
 
-        {library.length === 0 ? (
-          <p className="muted" style={{ padding: "8px 4px" }}>
-            保存したキャラがここに並びます。
-          </p>
-        ) : (
-          <ul className="lib-list">
-            {library.map((e) => (
-              <li
-                key={e.id}
-                className="lib-card"
-                onClick={() => openEntry(e)}
-                title={e.path}
+        {tab === "characters" ? (
+          <>
+            <div className="sidebar-head">
+              <strong>キャラクター</strong>
+              <button className="btn mini btn-primary" onClick={newCharacter}>
+                ＋ 新規
+              </button>
+            </div>
+
+            {library.length === 0 ? (
+              <p className="muted" style={{ padding: "8px 4px" }}>
+                保存したキャラがここに並びます。
+              </p>
+            ) : (
+              <ul className="lib-list">
+                {library.map((e) => (
+                  <li
+                    key={e.id}
+                    className="lib-card"
+                    onClick={() => openEntry(e)}
+                    title={e.path}
+                  >
+                    <div className="lib-thumb">
+                      {e.thumbnail ? (
+                        <img src={e.thumbnail} alt="" />
+                      ) : (
+                        <span>—</span>
+                      )}
+                    </div>
+                    <div className="lib-meta">
+                      <span className="lib-name">{e.name}</span>
+                      <span className="lib-sys">
+                        {e.systemId === "coc6" ? "CoC 6版" : "CoC 7版"}
+                      </span>
+                    </div>
+                    <button
+                      className="lib-del"
+                      title="ライブラリから外す(ファイルは消えません)"
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        handleRemove(e.id);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {error && (
+              <p
+                className="tag fail"
+                style={{ marginTop: 8, display: "block" }}
               >
-                <div className="lib-thumb">
-                  {e.thumbnail ? (
-                    <img src={e.thumbnail} alt="" />
-                  ) : (
-                    <span>—</span>
-                  )}
-                </div>
-                <div className="lib-meta">
-                  <span className="lib-name">{e.name}</span>
-                  <span className="lib-sys">
-                    {e.systemId === "coc6" ? "CoC 6版" : "CoC 7版"}
-                  </span>
-                </div>
-                <button
-                  className="lib-del"
-                  title="ライブラリから外す(ファイルは消えません)"
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    handleRemove(e.id);
-                  }}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
+                {error}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="sidebar-head">
+              <strong>購入した作品</strong>
+            </div>
+            <LibraryPanel />
+          </>
         )}
 
-        {error && (
-          <p className="tag fail" style={{ marginTop: 8, display: "block" }}>
-            {error}
-          </p>
-        )}
-
-        {/* ログイン状態(オプション。ログインで後続のライブラリ取込が解放)*/}
+        {/* ログイン状態(両タブ共通。購入タブの内容はログインで解放)*/}
         <div className="auth-section">
           <AuthControl />
         </div>
