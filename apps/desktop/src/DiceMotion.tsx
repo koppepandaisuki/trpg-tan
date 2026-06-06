@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RollEvent } from "@trpg/core";
-import { playDiceRoll } from "./dice-sound";
+import { playDiceRoll, playSuccess } from "./dice-sound";
+import { getSoundSettings } from "./sound-settings";
 
 /**
  * パラDa-iCE ダイス・モーション(物理転がり + 効果音)。
@@ -121,6 +122,11 @@ export function DiceMotion({
         if (face) face.textContent = String(fin);
       });
       setSettled(true);
+      // 判定が成功していれば成功音(設定 on のとき)。
+      if (roll.check?.isSuccess) {
+        const s = getSoundSettings();
+        if (s.successEnabled) playSuccess(s.successType);
+      }
     }, ROLL_MS);
 
     return () => {

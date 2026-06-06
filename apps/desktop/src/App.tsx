@@ -9,6 +9,7 @@ import { AuthControl } from "./AuthControl";
 import { LibraryPanel } from "./LibraryPanel";
 import { Viewer } from "./Viewer";
 import { PlayTable } from "./PlayTable";
+import { SoundSettings } from "./SoundSettings";
 import { initDeepLinkAuth } from "./auth";
 import type { RemoteLibraryItem } from "./library-remote";
 import type { DownloadedEntry } from "./downloaded";
@@ -53,6 +54,8 @@ export function App() {
     getPlayIndex(),
   );
   const [session, setSession] = useState<Session | null>(null);
+  // 効果音などの設定モーダル。
+  const [showSettings, setShowSettings] = useState(false);
 
   // deep-link(paradice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
   useEffect(() => {
@@ -273,8 +276,15 @@ export function App() {
           </>
         )}
 
-        {/* ログイン状態(全タブ共通。購入タブの内容はログインで解放)*/}
+        {/* 設定 + ログイン状態(全タブ共通)*/}
         <div className="auth-section">
+          <button
+            className="btn mini"
+            style={{ width: "100%", marginBottom: 8 }}
+            onClick={() => setShowSettings(true)}
+          >
+            ⚙ 設定
+          </button>
           <AuthControl />
         </div>
       </aside>
@@ -305,6 +315,8 @@ export function App() {
           onClose={() => setViewing(null)}
         />
       )}
+
+      {showSettings && <SoundSettings onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

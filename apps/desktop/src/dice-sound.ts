@@ -29,6 +29,32 @@ function ensure(): AudioContext {
   return ctx;
 }
 
+/** 単音(オシレータ + エンベロープ)。成功音の部品。 */
+function tone(
+  ac: AudioContext,
+  o: {
+    freq: number;
+    at: number;
+    dur: number;
+    gain: number;
+    type?: OscillatorType;
+    to?: number;
+  },
+): void {
+  const osc = ac.createOscillator();
+  osc.type = o.type ?? "sine";
+  osc.frequency.setValueAtTime(o.freq, o.at);
+  if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, o.at + o.dur);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, o.at);
+  g.gain.exponentialRampToValueAtTime(o.gain, o.at + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, o.at + o.dur);
+  osc.connect(g);
+  g.connect(ac.destination);
+  osc.start(o.at);
+  osc.stop(o.at + o.dur + 0.02);
+}
+
 /** 1 回のクラック(帯域通過ノイズ + 速い減衰)。 */
 function clack(
   ac: AudioContext,
@@ -92,5 +118,44 @@ export function playDiceRoll(durationSec = 1.1, count = 1): void {
     }
   } catch {
     // 音が出せない環境でも無視。
+  }
+}
+
+/* ===== 成功音(3 種)===== */
+
+function chime(ac: AudioContext): void {
+  const t = ac.currentTime + 0.01;
+  const notes = [784, 988, 1175]; // G5 B5 D6(明るい和音)
+  notes.forEach((f, i) => {
+    tone(ac, { freq: f, at: t + i * 0.08, dur: 0.55, gain: 0.2, type: "sine" });
+    tone(ac, { freq: f * 2, at: t + i * 0.08, dur: 0.4, gain: 0.05, type: "sine" });
+  });
+}
+
+function fanfare(ac: AudioContext): void {
+  const t = ac.currentTime + 0.01;
+  tone(ac, { freq: 587, at: t, dur: 0.16, gain: 0.2, type: "triangle" });
+  tone(ac, { freq: 587, at: t, dur: 0.16, gain: 0.05, type: "square" });
+  tone(ac, { freq: 880, at: t + 0.13, dur: 0.42, gain: 0.22, type: "triangle" });
+  tone(ac, { freq: 880, at: t + 0.13, dur: 0.42, gain: 0.06, type: "square" });
+}
+
+function sparkle(ac: AudioContext): void {
+  const t = ac.currentTime + 0.01;
+  const fs = [1568, 1976, 2349, 2637, 3136];
+  fs.forEach((f, i) =>
+    tone(ac, { freq: f, at: t + i * 0.05, dur: 0.24, gain: 0.13, type: "sine" }),
+  );
+}
+
+/** 成功音を鳴らす(設定で選ばれた種類)。 */
+export function playSuccess(type: "chime" | "fanfare" | "sparkle"): void {
+  try {
+    const ac = ensure();
+    if (type === "fanfare") fanfare(ac);
+    else if (type === "sparkle") sparkle(ac);
+    else chime(ac);
+  } catch {
+    // 無視。
   }
 }
