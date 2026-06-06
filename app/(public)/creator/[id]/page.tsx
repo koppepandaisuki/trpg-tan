@@ -79,10 +79,10 @@ export default async function CreatorProfilePage({
 
         {/* Hero ヘッダー(サイトの視覚言語に統一)。indigo/rose の
             グラデで「ひと」を感じさせるトーン(CreatorCard と同系)。 */}
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-rose-500/8 shadow-sm">
+        <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/8 via-transparent to-rose-500/8 shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
             <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-rose-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
 
             <div className="relative z-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
               {/* アバター */}

@@ -67,7 +67,7 @@ export async function ReviewSection({
   return (
     <section className="space-y-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
           <MessageSquare className="h-4 w-4" aria-hidden />
         </div>
         <div className="space-y-0.5">
@@ -315,7 +315,7 @@ function CreatorReplyCard({ reply }: { reply: ReviewReply }) {
   const isEdited = reply.createdAt !== reply.updatedAt;
 
   return (
-    <Card className="ml-4 border-indigo-200 bg-indigo-50/40 shadow-none sm:ml-8">
+    <Card className="ml-4 border-sky-200 bg-sky-50/40 shadow-none sm:ml-8">
       <CardContent className="space-y-1.5 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -334,11 +334,11 @@ function CreatorReplyCard({ reply }: { reply: ReviewReply }) {
                 </div>
               )}
             </div>
-            <p className="truncate text-xs font-medium text-indigo-900">
+            <p className="truncate text-xs font-medium text-sky-900">
               {name}
               <Badge
                 variant="muted"
-                className="ml-1.5 border-indigo-200 bg-indigo-100 text-[9px] text-indigo-800"
+                className="ml-1.5 border-sky-200 bg-sky-100 text-[9px] text-sky-800"
               >
                 作者
               </Badge>

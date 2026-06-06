@@ -211,7 +211,7 @@ function DiscordOrBellButton() {
         aria-label="α テスター Discord に参加(別タブで開く)"
         className={cn(
           buttonVariants({ variant: "ghost", size: "sm" }),
-          "text-indigo-700 hover:text-indigo-800",
+          "text-sky-700 hover:text-sky-800",
         )}
       >
         <MessageCircle className="h-4 w-4" />

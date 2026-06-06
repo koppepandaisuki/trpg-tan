@@ -23,10 +23,10 @@ export function CreatorEntryCard() {
       className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       aria-label="クリエイター一覧を見る"
     >
-      <Card className="overflow-hidden border-border bg-gradient-to-br from-rose-500/8 via-transparent to-indigo-500/8 shadow-sm transition-all group-hover:border-foreground/20 group-hover:shadow-md">
+      <Card className="overflow-hidden border-border bg-gradient-to-br from-rose-500/8 via-transparent to-sky-500/8 shadow-sm transition-all group-hover:border-foreground/20 group-hover:shadow-md">
         <CardContent className="relative flex flex-col items-start gap-4 py-6 sm:flex-row sm:items-center sm:py-7">
           <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-rose-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-12 -left-10 h-36 w-36 rounded-full bg-indigo-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-10 h-36 w-36 rounded-full bg-sky-500/10 blur-3xl" />
 
           {/* アイコン */}
           <div className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-rose-200 bg-rose-50 text-rose-700 transition-transform group-hover:scale-105">

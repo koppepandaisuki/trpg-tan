@@ -111,13 +111,13 @@ export default async function StorePage({ searchParams }: StorePageProps) {
         {/* Hero ヘッダー(サイト全体の視覚言語に統一)。
             ホーム / ライブラリ / 商品詳細と同じ indigo/violet 系で
             「探す」ことの positive さを表現。 */}
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-violet-500/8 shadow-sm">
+        <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/8 via-transparent to-violet-500/8 shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
             <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
 
             <div className="relative z-10 flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-indigo-300 bg-indigo-50 text-indigo-700">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-sky-50 text-sky-700">
                 <StoreIcon className="h-5 w-5" aria-hidden />
               </div>
               <div className="flex-1 space-y-2">
@@ -132,7 +132,7 @@ export default async function StorePage({ searchParams }: StorePageProps) {
                   {q && (
                     <Link
                       href={removeQueryHref}
-                      className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-100"
+                      className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-800 transition hover:border-sky-300 hover:bg-sky-100"
                       aria-label={`検索「${q}」を解除`}
                     >
                       <Search className="h-3 w-3" aria-hidden />

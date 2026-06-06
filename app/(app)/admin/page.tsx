@@ -48,13 +48,13 @@ export default function AdminTopPage() {
 
 const TONE_GRADIENTS: Record<string, string> = {
   slate: "from-slate-500/10 via-transparent to-slate-500/5",
-  indigo: "from-indigo-500/10 via-transparent to-violet-500/5",
+  indigo: "from-sky-500/10 via-transparent to-violet-500/5",
   emerald: "from-emerald-500/10 via-transparent to-emerald-500/5",
 };
 
 const TONE_BADGES: Record<string, string> = {
   slate: "border-slate-300 bg-slate-50 text-slate-700",
-  indigo: "border-indigo-300 bg-indigo-50 text-indigo-700",
+  indigo: "border-sky-300 bg-sky-50 text-sky-700",
   emerald: "border-emerald-300 bg-emerald-50 text-emerald-700",
 };
 

@@ -40,11 +40,11 @@ export function EmptyState({
   secondaryAction,
 }: EmptyStateProps) {
   return (
-    <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/5 via-transparent to-violet-500/5 shadow-sm">
+    <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/5 via-transparent to-violet-500/5 shadow-sm">
       <CardContent className="relative flex flex-col items-center gap-4 py-16 text-center">
         {/* 装飾の半透明ブラー(HomeHero と同じ手法)*/}
         <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
 
         {Icon && (
           <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-border bg-background/70 text-muted-foreground backdrop-blur">
