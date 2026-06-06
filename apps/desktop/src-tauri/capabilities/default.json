@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "メインウィンドウの既定権限。.ccsheet 保存/読込のため dialog と fs(テキスト読み書き)を許可。fs はユーザーがダイアログで選んだ任意パスを対象にするため広めのスコープ(ローカルデスクトップ前提)。",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "**" }]
+    }
+  ]
+}

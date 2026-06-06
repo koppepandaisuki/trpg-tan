@@ -1,0 +1,10 @@
+# フロントエンドのビルド成果物
+dist/
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Vite キャッシュ
+node_modules/
+.vite/
