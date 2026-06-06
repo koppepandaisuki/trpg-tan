@@ -15,6 +15,7 @@ import {
 } from "@trpg/core";
 import { saveSheet, loadSheetViaDialog, isTauri } from "./storage";
 import { DiceOverlay } from "./DiceOverlay";
+import { FreeRoll } from "./FreeRoll";
 
 type SystemId = "coc7" | "coc6";
 const editionOf = (id: SystemId): CoCEdition => (id === "coc7" ? "7" : "6");
@@ -246,6 +247,9 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
         </button>
       </div>
       {message && <p className="muted">{message}</p>}
+
+      {/* フリーロール(任意のダイス記法)*/}
+      <FreeRoll />
 
       {/* 基本情報 + ポートレート */}
       <div className="card">
