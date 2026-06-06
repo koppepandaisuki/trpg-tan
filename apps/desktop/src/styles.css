@@ -776,108 +776,110 @@ body {
   color: var(--primary-deep);
 }
 
-/* ===== パラDa-iCE ダイス・モーション ===== */
+/* ===== パラDa-iCE ダイス・モーション(物理転がり)===== */
 .dm-overlay {
   position: fixed;
   inset: 0;
   z-index: 60;
+  background: rgba(16, 49, 74, 0.22);
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+}
+
+/* 画面内を転がるサイコロ。位置は WAAPI が translate で動かす。 */
+.dm-die3d {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(16, 49, 74, 0.28);
-  backdrop-filter: blur(3px);
+  border-radius: 14px;
+  background: linear-gradient(150deg, #ffffff 0%, #e3f3fd 55%, #cdeafb 100%);
+  border: 2px solid var(--primary);
+  box-shadow:
+    0 10px 22px rgba(37, 121, 182, 0.4),
+    inset 0 2px 5px rgba(255, 255, 255, 0.9),
+    inset 0 -4px 8px rgba(37, 121, 182, 0.2);
+  will-change: transform;
+  z-index: 61;
 }
 
-.dm-card {
-  position: relative;
-  min-width: 280px;
-  padding: 22px 26px 14px;
+.dm-face {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--primary-deep);
+  user-select: none;
+}
+
+/* d100 は 1 個の 100 面ダイス(丸く大きめ。最大3桁を表示)。 */
+.dm-die3d.d100 {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+}
+.dm-die3d.d100 .dm-face {
+  font-size: 22px;
+}
+
+/* 着地後、成功度で色づく */
+.dm-die3d.crit,
+.dm-die3d.gold {
+  border-color: var(--gold);
+  background: linear-gradient(150deg, #fffdf4, #fdeec0);
+}
+.dm-die3d.crit .dm-face,
+.dm-die3d.gold .dm-face {
+  color: #b8860b;
+}
+.dm-die3d.ok {
+  border-color: #2bbfa3;
+}
+.dm-die3d.fumble {
+  border-color: #e0796b;
+  background: linear-gradient(150deg, #fff5f3, #fbd9d3);
+}
+.dm-die3d.fumble .dm-face {
+  color: #c0392b;
+}
+
+/* 着地後の読み上げ(合計 / 成功度) */
+.dm-readout {
+  position: fixed;
+  left: 50%;
+  top: 53%;
+  transform: translateX(-50%);
+  z-index: 62;
+  min-width: 220px;
+  padding: 12px 22px 10px;
   text-align: center;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
-  border: 1px solid var(--border);
-  animation: dm-pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-  transition: box-shadow 0.3s;
-}
-.dm-card.landed.crit,
-.dm-card.landed.gold {
-  box-shadow: 0 12px 36px rgba(244, 201, 74, 0.4);
-}
-.dm-card.landed.ok {
-  box-shadow: 0 12px 36px rgba(125, 228, 211, 0.42);
-}
-.dm-card.landed.fumble {
-  box-shadow: 0 12px 36px rgba(192, 57, 43, 0.32);
-}
-
-.dm-brand {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: var(--primary);
-  opacity: 0.7;
+  animation: dm-pop 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .dm-label {
   margin: 0 0 2px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
 }
 
-.dm-notation {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  font-family: "Consolas", monospace;
-}
-
-.dm-dice {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin: 6px 0 4px;
-}
-
-.dm-die {
-  width: 46px;
-  height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1.5px solid var(--border);
-  border-radius: 12px;
-}
-.dm-die.spin {
-  animation: dm-spin 0.18s linear infinite;
-  color: var(--text-faint);
-}
-.dm-die.land {
-  border-color: var(--primary);
-  color: var(--primary-deep);
-  background: var(--primary-soft);
-  animation: dm-land 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
 .dm-total {
-  margin: 6px 0 2px;
-  font-size: 40px;
+  margin: 2px 0;
+  font-size: 38px;
   font-weight: 800;
   line-height: 1;
   color: var(--text);
 }
 
 .dm-result {
-  margin: 2px 0 6px;
-  font-size: 16px;
+  margin: 2px 0 4px;
+  font-size: 15px;
   font-weight: 800;
 }
 .dm-result.crit,
@@ -909,36 +911,12 @@ body {
 
 @keyframes dm-pop {
   from {
-    transform: scale(0.9);
+    transform: translateX(-50%) scale(0.88);
     opacity: 0;
   }
   to {
-    transform: scale(1);
+    transform: translateX(-50%) scale(1);
     opacity: 1;
-  }
-}
-
-@keyframes dm-spin {
-  0% {
-    transform: translateY(0) rotate(-7deg);
-  }
-  50% {
-    transform: translateY(-4px) rotate(7deg);
-  }
-  100% {
-    transform: translateY(0) rotate(-7deg);
-  }
-}
-
-@keyframes dm-land {
-  0% {
-    transform: scale(1.35) translateY(-6px);
-  }
-  60% {
-    transform: scale(0.94);
-  }
-  100% {
-    transform: scale(1);
   }
 }
 
