@@ -1,5 +1,6 @@
 import { onOpenUrl, getCurrent } from "@tauri-apps/plugin-deep-link";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { listen } from "@tauri-apps/api/event";
 import { supabase } from "./supabase";
 
 /**
@@ -33,6 +34,10 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+// 同じ認可コードを複数経路(getCurrent / onOpenUrl / deep-link-url イベント)で
+// 受け取っても二重に交換しないためのガード。
+const processedCodes = new Set<string>();
+
 /** paradice://auth/callback?code=… を受けて exchangeCodeForSession する共通処理 */
 async function handleCallbackUrl(raw: string): Promise<void> {
   if (!raw.startsWith("paradice://auth/callback")) return;
@@ -44,35 +49,48 @@ async function handleCallbackUrl(raw: string): Promise<void> {
       return;
     }
     const code = parsed.searchParams.get("code");
-    if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) console.error("[auth] exchange failed:", error.message);
+    if (!code) {
+      console.warn("[auth] callback without code:", raw);
+      return;
     }
+    if (processedCodes.has(code)) return; // 二重交換を防ぐ
+    processedCodes.add(code);
+    console.info("[auth] exchanging code for session…");
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) console.error("[auth] exchange failed:", error.message);
+    else console.info("[auth] login success");
   } catch (e) {
     console.error("[auth] deep-link handling failed:", e);
   }
 }
 
 /**
- * deep-link コールバックの登録。アプリ起動時に 1 度だけ呼ぶ。
+ * deep-link コールバックの登録。アプリ起動時に 1 度だけ呼ぶ。3 経路を張る:
  *
- * getCurrent()  → このインスタンスが起動時に受け取った URL を処理
- * onOpenUrl()   → 起動後に既存インスタンスへ転送された URL を処理
- * (single-instance があれば後者だけ使われるが、両方登録しておく)
+ *  1. getCurrent()         … アプリが deep-link で *起動* した場合(コールドスタート)
+ *  2. deep-link-url イベント … 起動後、single-instance が argv から拾って emit(dev で主役)
+ *  3. onOpenUrl()          … deep-link プラグインの自動発火(本番/ macOS 向け)
+ *
+ * 同じ code は processedCodes でガードするので、複数経路で届いても安全。
  */
 export async function initDeepLinkAuth(): Promise<void> {
-  // 起動時 URL(アプリが deep-link で起動した場合)
-  const initial = await getCurrent();
-  if (initial) {
-    for (const url of initial) {
-      await handleCallbackUrl(url);
+  // 1. 起動時 URL(アプリが deep-link で起動した場合)
+  try {
+    const initial = await getCurrent();
+    if (initial) {
+      for (const url of initial) await handleCallbackUrl(url);
     }
+  } catch (e) {
+    console.error("[auth] getCurrent failed:", e);
   }
 
-  // 既存インスタンスへの転送(single-instance + deep-link の通常ケース)
+  // 2. single-instance が転送した URL(実行時登録の dev では実質ここが本命)
+  await listen<string>("deep-link-url", (event) => {
+    void handleCallbackUrl(event.payload);
+  });
+
+  // 3. deep-link プラグインの自動発火(本番インストール版 / macOS)
   await onOpenUrl(async (urls) => {
-    for (const raw of urls) {
-      await handleCallbackUrl(raw);
-    }
+    for (const raw of urls) await handleCallbackUrl(raw);
   });
 }
