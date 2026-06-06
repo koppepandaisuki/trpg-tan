@@ -11,13 +11,14 @@ import {
   panelRemoveEvent,
   type PlayScene,
   type PlayEvent,
+  type RollEvent,
   type Panel,
   type PanelStat,
   type PanelResource,
   type CoCEdition,
   type CoCCheckResult,
 } from "@trpg/core";
-import { DiceOverlay } from "./DiceOverlay";
+import { DiceMotion } from "./DiceMotion";
 import { PlayPanel } from "./PlayPanel";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
@@ -47,11 +48,8 @@ export function PlayTable({
   const [savedPath, setSavedPath] = useState<string | null>(path);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [overlay, setOverlay] = useState<{
-    label: string;
-    target: number;
-    result: CoCCheckResult;
-  } | null>(null);
+  // ダイス・モーション(振った RollEvent をそのまま渡す)。
+  const [motion, setMotion] = useState<RollEvent | null>(null);
 
   const [pickId, setPickId] = useState("");
   const [tokenName, setTokenName] = useState("");
@@ -79,9 +77,7 @@ export function PlayTable({
     const label = `${panel.name} / ${stat.label} 判定`;
     const ev = checkEvent(newCtx(), panel.name, label, stat.target, edition);
     dispatch(ev);
-    if (ev.check) {
-      setOverlay({ label, target: stat.target, result: ev.check });
-    }
+    setMotion(ev);
   }
 
   function changeResource(panel: Panel, resource: PanelResource, delta: number) {
@@ -125,7 +121,9 @@ export function PlayTable({
     const n = notation.trim();
     if (!n) return;
     try {
-      dispatch(freeRollEvent(newCtx(), "GM", n));
+      const ev = freeRollEvent(newCtx(), "GM", n);
+      dispatch(ev);
+      setMotion(ev);
       setNotation("");
       setError(null);
     } catch {
@@ -271,13 +269,8 @@ export function PlayTable({
         </aside>
       </div>
 
-      {overlay && (
-        <DiceOverlay
-          label={overlay.label}
-          target={overlay.target}
-          result={overlay.result}
-          onClose={() => setOverlay(null)}
-        />
+      {motion && (
+        <DiceMotion roll={motion} onClose={() => setMotion(null)} />
       )}
     </div>
   );
