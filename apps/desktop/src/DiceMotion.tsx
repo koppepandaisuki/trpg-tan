@@ -1,28 +1,70 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RollEvent } from "@trpg/core";
 
 /**
- * パラDa-iCE ブランドのダイス・モーション。
+ * パラDa-iCE ダイス・モーション(物理転がり版)。
  *
- * 判定(CoC d100)でも自由ダイス(2d6+1 等)でも、振るたびに中央に
- * フローティングカードが出て、ダイスがタイルとしてタンブル→一枚ずつ
- * “踊るように”ずれて着地(Da-iCE 風の振り付け)→結果バッジがポップする。
+ * 振るたびに実際のサイコロが画面の上から降ってきて、ランダムな軌道で
+ * 画面内を跳ね回りながら回転し、最後に中央へ着地して出目を見せる。
+ * 着地後に合計/成功度を表示し、数秒で自動的に閉じる(クリック/Esc も可)。
  *
- * 結果(roll.dice / total / check)は既に確定済み。見た目だけ演出する。
+ * 結果(roll.dice / total / check)は確定済み。見た目だけ演出する。
  */
 
-const ROLL_MS = 620; // 最初の一枚が着地するまで
-const STAGGER = 120; // タイルごとの着地ずれ
+const ROLL_MS = 1150; // 転がり時間
+const FREEZE_MS = 900; // 出目を最終値に固定するタイミング
 const HOLD_MS = 2200; // 着地後の表示時間
+const DIE = 60; // サイコロの一辺(px)
+const GAP = 16;
 
-/** d100 を 十の位 / 一の位 の 2 タイルに分解(100 は 0,0)。 */
 function d100Tiles(roll: number): number[] {
   if (roll === 100) return [0, 0];
   return [Math.floor((roll % 100) / 10), roll % 10];
 }
 
 function randFace(isCheck: boolean): number {
-  return isCheck ? Math.floor(Math.random() * 10) : Math.floor(Math.random() * 9) + 1;
+  return isCheck ? Math.floor(Math.random() * 10) : Math.floor(Math.random() * 6) + 1;
+}
+
+/** 画面内をランダムに跳ね回って resting(endX,endY) へ着地する keyframe 列。 */
+function tumbleKeyframes(
+  endX: number,
+  endY: number,
+  W: number,
+  H: number,
+): Keyframe[] {
+  const m = 70;
+  const rx = () => m + Math.random() * (W - 2 * m - DIE);
+  const ry = () => m + Math.random() * (H - 2 * m - DIE);
+  const spin = () => (Math.random() < 0.5 ? -1 : 1) * (360 + Math.random() * 540);
+
+  const frames: Keyframe[] = [];
+  let rot = 0;
+  // 上から落下
+  frames.push({
+    transform: `translate(${rx()}px, -90px) rotate(0deg) scale(0.8)`,
+    offset: 0,
+    opacity: 1,
+  });
+  const waypoints = 3 + Math.floor(Math.random() * 2); // 3–4 回跳ねる
+  for (let i = 1; i <= waypoints; i++) {
+    rot += spin();
+    frames.push({
+      transform: `translate(${rx()}px, ${ry()}px) rotate(${rot}deg) scale(1)`,
+      offset: (i / (waypoints + 1)) * 0.92,
+    });
+  }
+  // 着地(回転を整えて少し弾む)
+  const settleRot = Math.round(rot / 90) * 90 + (Math.random() * 8 - 4);
+  frames.push({
+    transform: `translate(${endX}px, ${endY - 16}px) rotate(${settleRot}deg) scale(1.08)`,
+    offset: 0.96,
+  });
+  frames.push({
+    transform: `translate(${endX}px, ${endY}px) rotate(${settleRot}deg) scale(1)`,
+    offset: 1,
+  });
+  return frames;
 }
 
 export function DiceMotion({
@@ -37,27 +79,58 @@ export function DiceMotion({
     () => (isCheck ? d100Tiles(roll.check!.roll) : roll.dice.length ? roll.dice : [0]),
     [roll, isCheck],
   );
-  const lastLand = ROLL_MS + (finals.length - 1) * STAGGER;
+  const dieRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [settled, setSettled] = useState(false);
 
-  const [faces, setFaces] = useState<number[]>(() => finals.map(() => 0));
-  const [landed, setLanded] = useState<boolean[]>(() => finals.map(() => false));
-  const allLanded = landed.every(Boolean);
-
-  // 経過時間ベースで毎フレーム面を更新(着地済みは最終値で固定)。
   useEffect(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const totalW = finals.length * DIE + (finals.length - 1) * GAP;
+    const baseX = (W - totalW) / 2;
+    const restY = H * 0.4;
+
+    const anims = finals.map((_, i) => {
+      const el = dieRefs.current[i];
+      if (!el) return null;
+      el.style.visibility = "visible";
+      const endX = baseX + i * (DIE + GAP);
+      return el.animate(tumbleKeyframes(endX, restY, W, H), {
+        duration: ROLL_MS + Math.random() * 200,
+        easing: "cubic-bezier(0.16, 0.7, 0.27, 1)",
+        fill: "forwards",
+        delay: i * 70,
+      });
+    });
+
+    // 転がっている間は面をランダムに、FREEZE 後は最終値に固定。
     const start = Date.now();
     const iv = window.setInterval(() => {
       const el = Date.now() - start;
-      setFaces(finals.map((fin, i) => (el >= ROLL_MS + i * STAGGER ? fin : randFace(isCheck))));
-      setLanded(finals.map((_, i) => el >= ROLL_MS + i * STAGGER));
-      if (el >= lastLand) window.clearInterval(iv);
-    }, 55);
-    return () => window.clearInterval(iv);
-  }, [finals, isCheck, lastLand]);
+      finals.forEach((fin, i) => {
+        const face = dieRefs.current[i]?.querySelector(".dm-face");
+        if (face) face.textContent = String(el >= FREEZE_MS ? fin : randFace(isCheck));
+      });
+    }, 70);
+
+    const settleT = window.setTimeout(() => {
+      window.clearInterval(iv);
+      finals.forEach((fin, i) => {
+        const face = dieRefs.current[i]?.querySelector(".dm-face");
+        if (face) face.textContent = String(fin);
+      });
+      setSettled(true);
+    }, ROLL_MS);
+
+    return () => {
+      window.clearInterval(iv);
+      window.clearTimeout(settleT);
+      anims.forEach((a) => a?.cancel());
+    };
+  }, [finals, isCheck]);
 
   // 着地後に自動クローズ + Esc。
   useEffect(() => {
-    if (!allLanded) return;
+    if (!settled) return;
     const t = window.setTimeout(onClose, HOLD_MS);
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -65,47 +138,44 @@ export function DiceMotion({
       window.clearTimeout(t);
       window.removeEventListener("keydown", onKey);
     };
-  }, [allLanded, onClose]);
+  }, [settled, onClose]);
 
   const tone = roll.check ? levelTone(roll.check.level) : "ok";
   const bigValue = isCheck ? roll.check!.roll : roll.total;
 
   return (
     <div className="dm-overlay" onClick={onClose} role="dialog" aria-label="ダイスロール">
-      <div
-        className={`dm-card ${allLanded ? `landed ${tone}` : ""}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <span className="dm-brand">パラDa-iCE</span>
-        <p className="dm-label">{roll.label}</p>
-        {roll.notation && <p className="dm-notation">{roll.notation}</p>}
-
-        <div className="dm-dice">
-          {faces.map((f, i) => (
-            <span
-              key={i}
-              className={`dm-die ${landed[i] ? "land" : "spin"}`}
-              style={{ animationDelay: `${i * 40}ms` }}
-            >
-              {f}
-            </span>
-          ))}
+      {finals.map((_, i) => (
+        <div
+          key={i}
+          ref={(el) => {
+            dieRefs.current[i] = el;
+          }}
+          className={`dm-die3d ${settled ? tone : ""}`}
+          style={{ visibility: "hidden" }}
+        >
+          <span className="dm-face">0</span>
         </div>
+      ))}
 
-        <p className="dm-total">{allLanded ? bigValue : "··"}</p>
-
-        {allLanded &&
-          (roll.check ? (
+      {settled && (
+        <div className="dm-readout">
+          <p className="dm-label">{roll.label}</p>
+          <p className="dm-total">{bigValue}</p>
+          {roll.check ? (
             <p className={`dm-result ${tone}`}>
               {levelLabel(roll.check.level)}
               <span className="dm-target">／ 目標 {roll.check.target}</span>
             </p>
           ) : (
-            <p className="dm-result ok">合計 {roll.total}</p>
-          ))}
-
-        <p className="dm-hint">クリック / Esc で閉じる</p>
-      </div>
+            <p className="dm-result ok">
+              {roll.notation ? `${roll.notation} = ` : "合計 "}
+              {roll.total}
+            </p>
+          )}
+          <p className="dm-hint">クリック / Esc で閉じる</p>
+        </div>
+      )}
     </div>
   );
 }
