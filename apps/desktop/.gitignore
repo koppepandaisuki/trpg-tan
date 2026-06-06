@@ -8,3 +8,7 @@ src-tauri/gen/
 # Vite キャッシュ
 node_modules/
 .vite/
+
+# 環境変数(Supabase 公開値。各自で .env を用意)
+.env
+.env.local

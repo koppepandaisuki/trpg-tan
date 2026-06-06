@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CharacterSheet as Sheet } from "@trpg/core";
 import { CharacterSheet } from "./CharacterSheet";
+import { AuthControl } from "./AuthControl";
+import { initDeepLinkAuth } from "./auth";
 import {
   getLibrary,
   upsertEntry,
@@ -20,6 +22,11 @@ export function App() {
     () => ({ sheet: null, key: "new-0" }),
   );
   const [error, setError] = useState<string | null>(null);
+
+  // deep-link(paradice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
+  useEffect(() => {
+    if (isTauri()) void initDeepLinkAuth();
+  }, []);
 
   function newCharacter() {
     setActive({ sheet: null, key: `new-${Date.now()}` });
@@ -104,6 +111,11 @@ export function App() {
             {error}
           </p>
         )}
+
+        {/* ログイン状態(オプション。ログインで後続のライブラリ取込が解放)*/}
+        <div className="auth-section">
+          <AuthControl />
+        </div>
       </aside>
 
       <main className="main">

@@ -73,6 +73,38 @@ body {
   margin-bottom: 10px;
 }
 
+.auth-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.auth-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auth-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mint);
+  flex-shrink: 0;
+}
+
 .main {
   flex: 1;
   min-width: 0;

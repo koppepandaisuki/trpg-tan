@@ -3,6 +3,13 @@
   "productName": "TRPG Desktop",
   "version": "0.0.0",
   "identifier": "com.trpgtan.desktop",
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["paradice"]
+      }
+    }
+  },
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",

@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "dialog:default",
+    "deep-link:default",
+    "opener:default",
     {
       "identifier": "fs:allow-write-text-file",
       "allow": [{ "path": "**" }]
