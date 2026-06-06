@@ -5,31 +5,44 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * トップページ最上部の hero。Steam の今週のおすすめ枠を模した
- * 控えめなランディング(α 期間中は実コンテンツが少ないため、
- * 派手な動画 / カルーセル背景は使わない)。
+ * トップページ最上部の hero。パラDa-iCE ブランド(青いダイス / 白い清潔感 /
+ * 柔らかい光 / 小さな星のきらめき)。派手な装飾は避け、白い面 + 淡い青の
+ * グラデーション + 少量の star sparkle で構成する。
  *
  * 主な役割:
  * - 「ここは何のサイトか」を 1 秒で伝える
  * - メインの導線(ストア / 作成する)に誘導
- *
- * 実コンテンツ(商品 strip)は下に並ぶ。
  */
 export function HomeHero({ hasProducts }: { hasProducts: boolean }) {
   return (
-    <section className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-sky-500/10 via-violet-500/5 to-rose-500/10 p-8 sm:p-10">
-      <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-violet-500/10 blur-3xl" />
-      <div className="absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-sky-500/10 blur-3xl" />
+    <section className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-primary-soft via-white to-mint-soft p-8 shadow-sm sm:p-10">
+      {/* 柔らかい光(青 + ミント)*/}
+      <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-mint/15 blur-3xl" />
+
+      {/* 小さな星のきらめき(少量)*/}
+      <Sparkles
+        className="pointer-events-none absolute right-8 top-7 h-5 w-5 text-gold/70"
+        aria-hidden
+      />
+      <Sparkles
+        className="pointer-events-none absolute right-24 top-20 h-3.5 w-3.5 text-primary/50"
+        aria-hidden
+      />
+      <Sparkles
+        className="pointer-events-none absolute bottom-8 right-16 h-4 w-4 text-mint/70"
+        aria-hidden
+      />
 
       <div className="relative max-w-2xl space-y-4">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-violet-600" aria-hidden />
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-3 py-1 text-xs font-medium text-primary backdrop-blur">
+          <Sparkles className="h-3.5 w-3.5 text-gold" aria-hidden />
           TRPG マーケットプレイス
         </div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
-          シナリオ / アセット / パッケージを
-          <br className="hidden sm:inline" />
           作って、買って、遊ぶ。
+          <br className="hidden sm:inline" />
+          TRPG の作品が集まる場所。
         </h1>
         <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
           {hasProducts
