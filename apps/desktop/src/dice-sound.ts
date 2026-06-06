@@ -159,3 +159,48 @@ export function playSuccess(type: "chime" | "fanfare" | "sparkle"): void {
     // 無視。
   }
 }
+
+/* ===== クリティカル / ファンブル専用音 ===== */
+
+/** クリティカル(イクストリーム/スペシャル): 上昇アルペジオ + 高い和音 + きらめき。 */
+function critical(ac: AudioContext): void {
+  const t = ac.currentTime + 0.01;
+  const run = [523, 659, 784, 1047]; // C5 E5 G5 C6
+  run.forEach((f, i) =>
+    tone(ac, { freq: f, at: t + i * 0.06, dur: 0.18, gain: 0.18, type: "triangle" }),
+  );
+  const chord = [1047, 1319, 1568]; // C6 E6 G6
+  chord.forEach((f) =>
+    tone(ac, { freq: f, at: t + 0.26, dur: 0.6, gain: 0.15, type: "sine" }),
+  );
+  [2093, 2637, 3136].forEach((f, i) =>
+    tone(ac, { freq: f, at: t + 0.3 + i * 0.06, dur: 0.3, gain: 0.08, type: "sine" }),
+  );
+}
+
+/** ファンブル: 下降する“サッドトロンボーン”(各音ピッチが垂れる) + 低い尾。 */
+function fumble(ac: AudioContext): void {
+  const t = ac.currentTime + 0.01;
+  const notes = [311, 277, 233]; // Eb4 Db4 Bb3
+  notes.forEach((f, i) => {
+    const at = t + i * 0.18;
+    tone(ac, { freq: f, at, dur: 0.2, gain: 0.2, type: "sawtooth", to: f * 0.94 });
+  });
+  tone(ac, { freq: 196, at: t + 0.54, dur: 0.55, gain: 0.22, type: "sawtooth", to: 116 });
+}
+
+export function playCritical(): void {
+  try {
+    critical(ensure());
+  } catch {
+    // 無視。
+  }
+}
+
+export function playFumble(): void {
+  try {
+    fumble(ensure());
+  } catch {
+    // 無視。
+  }
+}

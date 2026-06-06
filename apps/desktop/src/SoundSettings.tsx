@@ -6,7 +6,7 @@ import {
   type SoundSettings as Settings,
   type SuccessSoundType,
 } from "./sound-settings";
-import { playSuccess } from "./dice-sound";
+import { playSuccess, playCritical, playFumble } from "./dice-sound";
 
 /**
  * 効果音の設定モーダル。判定成功音の on/off と種類(3 種)を選べる。
@@ -15,12 +15,12 @@ import { playSuccess } from "./dice-sound";
 export function SoundSettings({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<Settings>(() => getSoundSettings());
 
-  function toggle(enabled: boolean) {
-    setS(setSoundSettings({ successEnabled: enabled }));
+  function update(patch: Partial<Settings>) {
+    setS(setSoundSettings(patch));
   }
 
   function choose(type: SuccessSoundType) {
-    setS(setSoundSettings({ successType: type }));
+    update({ successType: type });
     playSuccess(type); // 選択時に試聴
   }
 
@@ -38,7 +38,7 @@ export function SoundSettings({ onClose }: { onClose: () => void }) {
           <input
             type="checkbox"
             checked={s.successEnabled}
-            onChange={(e) => toggle(e.target.checked)}
+            onChange={(e) => update({ successEnabled: e.target.checked })}
           />
           <span>判定が成功したら成功音を鳴らす</span>
         </label>
@@ -77,9 +77,46 @@ export function SoundSettings({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
+        <div className="set-special">
+          <div className="set-row2">
+            <label className="set-row2-main">
+              <input
+                type="checkbox"
+                checked={s.criticalEnabled}
+                onChange={(e) => update({ criticalEnabled: e.target.checked })}
+              />
+              <span>クリティカル音（イクストリーム / スペシャル）</span>
+            </label>
+            <button
+              className="btn mini"
+              onClick={() => playCritical()}
+              title="試聴"
+            >
+              ▶ 試聴
+            </button>
+          </div>
+          <div className="set-row2">
+            <label className="set-row2-main">
+              <input
+                type="checkbox"
+                checked={s.fumbleEnabled}
+                onChange={(e) => update({ fumbleEnabled: e.target.checked })}
+              />
+              <span>ファンブル音</span>
+            </label>
+            <button
+              className="btn mini"
+              onClick={() => playFumble()}
+              title="試聴"
+            >
+              ▶ 試聴
+            </button>
+          </div>
+        </div>
+
         <p className="muted set-note">
-          成功音は判定（能力値・技能）が成功したときだけ鳴ります。ダイスの
-          転がり音は常に鳴ります。
+          通常成功＝成功音、イクストリーム/スペシャル＝クリティカル音、
+          ファンブル＝専用音。ダイスの転がり音は常に鳴ります。
         </p>
       </div>
     </div>
