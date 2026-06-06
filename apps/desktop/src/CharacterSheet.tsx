@@ -36,6 +36,10 @@ function freshId(): string {
 const sysIdOf = (s?: Sheet | null): SystemId =>
   s?.systemId === "coc6" ? "coc6" : "coc7";
 
+/** 派生値のうち 1D100 判定できるもの(値がそのまま目標%)。
+ *  SAN(正気度)・アイデア・幸運・知識(6版)。 */
+const ROLLABLE_DERIVED = new Set(["SAN", "IDEA", "LUCK", "KNOW"]);
+
 interface CharacterSheetProps {
   /** 既存キャラを開くときの初期シート(新規なら null/未指定)*/
   initialSheet?: Sheet | null;
@@ -127,6 +131,21 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     const result = rollCoCCheck(value, edition);
     setLastRoll({ skillKey, label, result }); // ログ用に残す
     setRollOverlay({ label, target: value, result }); // 演出
+  }
+
+  /**
+   * 能力値判定。1D100 で能力値に対してロールする。
+   * 目標値は版で異なる(7版=能力値そのまま 0–99、6版=能力値×5)。
+   */
+  function rollAbility(key: string, label: string) {
+    const value = chars[key] ?? 0;
+    const target = edition === "7" ? value : value * 5;
+    rollSkill(key, `${label} 判定`, target);
+  }
+
+  /** 派生値の直接判定(SAN/アイデア/幸運/知識 など、値がそのまま目標%)。*/
+  function rollDerived(key: string, label: string, target: number) {
+    rollSkill(key, `${label} 判定`, target);
   }
 
   function buildSheet(): Sheet {
@@ -306,6 +325,13 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                     🎲
                   </button>
                 )}
+                <button
+                  className="btn mini"
+                  title={`${c.label}で 1D100 判定`}
+                  onClick={() => rollAbility(c.key, c.label)}
+                >
+                  判定
+                </button>
               </div>
             </div>
           ))}
@@ -316,12 +342,26 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       <div className="card">
         <strong>派生値</strong>
         <div className="grid">
-          {system.derived.map((d) => (
-            <div className="stat" key={d.key}>
-              <div className="k">{d.label}</div>
-              <div className="v">{String(derived[d.key] ?? "-")}</div>
-            </div>
-          ))}
+          {system.derived.map((d) => {
+            const val = derived[d.key];
+            const rollable = ROLLABLE_DERIVED.has(d.key) && typeof val === "number";
+            return (
+              <div className="stat" key={d.key}>
+                <div className="k">{d.label}</div>
+                <div className="v">{String(val ?? "-")}</div>
+                {rollable && (
+                  <button
+                    className="btn mini"
+                    style={{ marginTop: 4 }}
+                    title={`${d.label}で 1D100 判定`}
+                    onClick={() => rollDerived(d.key, d.label, val as number)}
+                  >
+                    判定
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
