@@ -443,3 +443,192 @@ body {
   color: #b91c1c;
   font-size: 12px;
 }
+
+/* ===== ダイスロール演出(ココフォリア風)===== */
+.dice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 50, 74, 0.32);
+  backdrop-filter: blur(3px);
+  animation: overlay-in 0.18s ease;
+  cursor: pointer;
+}
+
+.dice-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 28px 40px;
+  text-align: center;
+  min-width: 240px;
+  cursor: default;
+  animation: card-pop 0.28s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+.dice-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 16px;
+}
+
+.dice-target {
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.dice-row {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  perspective: 600px;
+}
+
+.die {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(145deg, var(--primary), var(--primary-deep));
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.45),
+    inset 0 -3px 6px rgba(17, 131, 207, 0.5),
+    0 8px 18px rgba(37, 121, 182, 0.3);
+}
+
+.dice-row.rolling .die {
+  animation: tumble 0.45s linear infinite;
+}
+
+.dice-row.rolling .die[data-place="ones"] {
+  animation-duration: 0.38s;
+  animation-delay: 0.06s;
+}
+
+.dice-row.result .die {
+  animation: die-land 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.dice-total {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 1px;
+  margin: 12px 0 0;
+}
+
+.dice-result {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 6px 0 0;
+  animation: result-pop 0.3s ease;
+}
+
+.dice-result.ok {
+  color: #0f766e;
+}
+
+.dice-result.crit {
+  color: #c08a0a;
+  text-shadow: 0 0 14px rgba(244, 201, 74, 0.65);
+}
+
+.dice-result.gold {
+  color: #c08a0a;
+}
+
+.dice-result.fail {
+  color: var(--text-muted);
+}
+
+.dice-result.fumble {
+  color: #b91c1c;
+}
+
+.dice-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 12px 0 0;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes card-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tumble {
+  0% {
+    transform: rotateX(0deg) rotateY(0deg) translateY(0) scale(1);
+  }
+  25% {
+    transform: rotateX(180deg) rotateY(90deg) translateY(-9px) scale(1.06);
+  }
+  50% {
+    transform: rotateX(360deg) rotateY(180deg) translateY(0) scale(0.96);
+  }
+  75% {
+    transform: rotateX(540deg) rotateY(270deg) translateY(-6px) scale(1.05);
+  }
+  100% {
+    transform: rotateX(720deg) rotateY(360deg) translateY(0) scale(1);
+  }
+}
+
+@keyframes die-land {
+  0% {
+    transform: scale(1.28) rotate(-6deg);
+  }
+  60% {
+    transform: scale(0.92) rotate(2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes result-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* モーション控えめ設定のユーザーには演出を無効化(過剰演出の回避) */
+@media (prefers-reduced-motion: reduce) {
+  .dice-overlay,
+  .dice-card,
+  .dice-row .die,
+  .dice-result {
+    animation: none !important;
+  }
+}

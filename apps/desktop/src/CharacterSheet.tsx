@@ -14,6 +14,7 @@ import {
   type SystemDefinition,
 } from "@trpg/core";
 import { saveSheet, loadSheetViaDialog, isTauri } from "./storage";
+import { DiceOverlay } from "./DiceOverlay";
 
 type SystemId = "coc7" | "coc6";
 const editionOf = (id: SystemId): CoCEdition => (id === "coc7" ? "7" : "6");
@@ -70,6 +71,12 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     initialSheet?.allocation?.interest ?? {},
   );
   const [lastRoll, setLastRoll] = useState<RollInfo | null>(null);
+  // ココフォリア風ダイス演出のオーバーレイ(振っている間だけ表示)
+  const [rollOverlay, setRollOverlay] = useState<{
+    label: string;
+    target: number;
+    result: CoCCheckResult;
+  } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const system = getSystem(systemId) as SystemDefinition;
@@ -117,7 +124,9 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
   }
 
   function rollSkill(skillKey: string, label: string, value: number) {
-    setLastRoll({ skillKey, label, result: rollCoCCheck(value, edition) });
+    const result = rollCoCCheck(value, edition);
+    setLastRoll({ skillKey, label, result }); // ログ用に残す
+    setRollOverlay({ label, target: value, result }); // 演出
   }
 
   function buildSheet(): Sheet {
@@ -482,6 +491,15 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
           style={{ marginTop: 8, width: "100%", resize: "vertical" }}
         />
       </div>
+
+      {rollOverlay && (
+        <DiceOverlay
+          label={rollOverlay.label}
+          target={rollOverlay.target}
+          result={rollOverlay.result}
+          onClose={() => setRollOverlay(null)}
+        />
+      )}
     </div>
   );
 }
