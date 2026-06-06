@@ -119,7 +119,7 @@ export default async function HomePage() {
         <RecentlyViewed />
 
         <ProductStrip
-          title="売上上位"
+          title="人気ランキング"
           description={
             noRealSalesYet
               ? "実購入データが集まり次第、売上順に並び替わります(現状は新着順で表示)"
@@ -127,6 +127,7 @@ export default async function HomePage() {
           }
           products={topSellers}
           seeAllHref="/store"
+          ranked
         />
 
         {/* 好評な作品 strip(MMMM): listTopRatedProducts が「評価ありが
