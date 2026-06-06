@@ -1,0 +1,129 @@
+import type { CoCEdition, CoCCheckResult } from "../dice/coc-check.js";
+
+/**
+ * PLAY(セッション卓)の永続化スキーマと、イベントソーシングの型。
+ *
+ * 設計:
+ *   - 卓の状態 = 「パネル(キャラ駒)の集合」＋「イベント列(ログ)」。
+ *   - 状態は reduce(scene, event) で前進する純粋な遷移。ダイスの乱数は
+ *     *イベント生成時*(権威=GM)に消費され、結果はイベントに刻まれる。
+ *     これにより reducer は決定論的で、後からネットワークに乗せても
+ *     全員が同じログから同じ状態を再構成できる。
+ *   - これを JSON 直列化したものが `.play` ファイル(1 セッション=1 ファイル)。
+ */
+
+export const PLAY_SCHEMA_VERSION = 1 as const;
+
+/** パネル上で「クリックして判定」できる項目(能力値/技能/派生値)。 */
+export interface PanelStat {
+  key: string; // "STR" / "spot_hidden"
+  label: string; // "筋力" / "目星"
+  /** 素の値(能力値 or 技能%)。表示用。 */
+  value: number;
+  /** 1D100 ≤ target で判定する目標値(版差は取り込み時に解決済み)。 */
+  target: number;
+  kind: "characteristic" | "skill" | "derived";
+}
+
+/** HP/SAN/MP 等、卓で増減する可変リソース。 */
+export interface PanelResource {
+  key: string; // "hp" / "san" / "mp" / 任意
+  label: string; // "HP"
+  current: number;
+  max: number;
+}
+
+export type PanelSource = "sheet" | "token";
+
+/** 卓上のキャラ駒。.ccsheet 由来(snapshot)か自由トークン。 */
+export interface Panel {
+  id: string;
+  source: PanelSource;
+  name: string;
+  portrait?: string | null;
+  color: string;
+  /** sheet 由来のとき: 元システム / 版 / 元シート id。 */
+  systemId?: string;
+  edition?: CoCEdition;
+  sheetId?: string;
+  stats: PanelStat[];
+  resources: PanelResource[];
+}
+
+/** セッション卓(シーン)の全状態。 */
+export interface PlayScene {
+  schemaVersion: typeof PLAY_SCHEMA_VERSION;
+  id: string;
+  title: string;
+  /** 卓の既定システム(coc7/coc6/"")。フリーダイスや判定の版解決に使う。 */
+  systemId: string;
+  panels: Panel[];
+  log: PlayEvent[];
+  meta: { createdAt: string; updatedAt: string };
+}
+
+/* ===== イベント(判別共用体) ===== */
+
+interface BaseEvent {
+  id: string;
+  ts: string; // ISO
+  /** 行為者の表示名(パネル名 or "GM")。 */
+  actor: string;
+}
+
+/** 発言。 */
+export interface ChatEvent extends BaseEvent {
+  kind: "chat";
+  text: string;
+}
+
+/** ダイス(技能/能力判定 or フリーダイス)。結果は生成時に確定済み。 */
+export interface RollEvent extends BaseEvent {
+  kind: "roll";
+  /** 表示ラベル("目星 判定" / "2d6+1")。 */
+  label: string;
+  /** フリーダイスの記法(技能判定のときは未設定)。 */
+  notation?: string;
+  /** 各ダイスの出目。 */
+  dice: number[];
+  /** 合計(符号・定数込み)。判定のときは出目そのもの。 */
+  total: number;
+  /** CoC 判定だった場合の成功度など。 */
+  check?: CoCCheckResult;
+}
+
+/** リソース(HP/SAN/MP…)の増減。 */
+export interface ResourceEvent extends BaseEvent {
+  kind: "resource";
+  panelId: string;
+  resourceKey: string;
+  label: string; // "HP"
+  delta: number; // 適用した増減
+  current: number; // 適用後の現在値
+}
+
+/** パネルの追加。 */
+export interface PanelAddEvent extends BaseEvent {
+  kind: "panel-add";
+  panel: Panel;
+}
+
+/** パネルの削除。 */
+export interface PanelRemoveEvent extends BaseEvent {
+  kind: "panel-remove";
+  panelId: string;
+}
+
+/** システムメッセージ(参加/退出/シーン作成など)。 */
+export interface SystemEvent extends BaseEvent {
+  kind: "system";
+  text: string;
+}
+
+export type PlayEvent =
+  | ChatEvent
+  | RollEvent
+  | ResourceEvent
+  | PanelAddEvent
+  | PanelRemoveEvent
+  | SystemEvent;
