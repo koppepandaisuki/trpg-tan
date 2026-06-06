@@ -185,7 +185,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
         />
 
         {/* Steam ライクなグラデ hero ヘッダー */}
-        <header className="mt-4 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-violet-500/8 p-6 sm:p-8">
+        <header className="mt-4 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-sky-500/8 via-transparent to-violet-500/8 p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="category">{categoryLabel(product.productType)}</Badge>
             {/* 総合評価 Badge(GGGG): 5 件以上のレビューがあれば色付き
@@ -536,10 +536,10 @@ function PurchaseOptionsCard({
   ctaState: CtaState;
 }) {
   return (
-    <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-emerald-500/8 shadow-sm">
+    <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/8 via-transparent to-emerald-500/8 shadow-sm">
       <CardContent className="relative space-y-4 py-5">
         <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-sky-500/10 blur-3xl" />
 
         <div className="relative z-10">
           <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -646,10 +646,10 @@ function CreatorCard({
   const profileHref = `/creator/${creatorId}` as Route;
 
   return (
-    <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-rose-500/8 shadow-sm">
+    <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/8 via-transparent to-rose-500/8 shadow-sm">
       <CardContent className="relative space-y-4 py-5">
         <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-rose-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-sky-500/10 blur-3xl" />
 
         <div className="relative z-10">
           <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

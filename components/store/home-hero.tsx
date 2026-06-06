@@ -17,9 +17,9 @@ import { cn } from "@/lib/utils";
  */
 export function HomeHero({ hasProducts }: { hasProducts: boolean }) {
   return (
-    <section className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-indigo-500/10 via-violet-500/5 to-rose-500/10 p-8 sm:p-10">
+    <section className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-sky-500/10 via-violet-500/5 to-rose-500/10 p-8 sm:p-10">
       <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-violet-500/10 blur-3xl" />
-      <div className="absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl" />
+      <div className="absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-sky-500/10 blur-3xl" />
 
       <div className="relative max-w-2xl space-y-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">

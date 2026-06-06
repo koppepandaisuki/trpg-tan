@@ -247,13 +247,13 @@ function StateView({
 
   // Not started
   return (
-    <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/10 via-transparent to-violet-500/5 shadow-sm">
+    <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/10 via-transparent to-violet-500/5 shadow-sm">
       <CardContent className="relative space-y-3 py-7">
         <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-violet-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-sky-500/10 blur-3xl" />
 
         <div className="relative z-10 flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-indigo-300 bg-indigo-50 text-indigo-700">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-sky-50 text-sky-700">
             <Info className="h-5 w-5" aria-hidden />
           </div>
           <div className="flex-1 space-y-3">

@@ -47,13 +47,13 @@ export default async function LibraryPage() {
       <TopHeader />
       <PageContainer className="space-y-6 py-8">
         {/* Hero ヘッダー(シンプル化。サマリは下の統計タイルに集約)*/}
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-indigo-500/8 via-transparent to-emerald-500/8 shadow-sm">
+        <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/8 via-transparent to-emerald-500/8 shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-sky-500/10 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
 
             <div className="relative z-10 flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-indigo-300 bg-indigo-50 text-indigo-700">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-sky-50 text-sky-700">
                 <LibraryBig className="h-5 w-5" aria-hidden />
               </div>
               <div>
@@ -171,7 +171,7 @@ function SummaryTile({
   tone: "indigo" | "emerald" | "sky" | "amber";
 }) {
   const toneClass: Record<typeof tone, string> = {
-    indigo: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    indigo: "border-sky-200 bg-sky-50 text-sky-700",
     emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
     sky: "border-sky-200 bg-sky-50 text-sky-700",
     amber: "border-amber-200 bg-amber-50 text-amber-700",

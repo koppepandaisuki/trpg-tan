@@ -55,7 +55,7 @@ export default async function CreatorDashboardPage() {
       <SidebarLayout sidebar={<CreatorNav current="dashboard" />}>
         {/* Hero */}
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
             <LayoutDashboard className="h-5 w-5" aria-hidden />
           </div>
           <div className="space-y-0.5">
@@ -237,7 +237,7 @@ function StatTile({
   tone: "indigo" | "emerald" | "sky" | "amber";
 }) {
   const toneClass: Record<typeof tone, string> = {
-    indigo: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    indigo: "border-sky-200 bg-sky-50 text-sky-700",
     emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
     sky: "border-sky-200 bg-sky-50 text-sky-700",
     amber: "border-amber-200 bg-amber-50 text-amber-700",

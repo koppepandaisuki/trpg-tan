@@ -50,10 +50,10 @@ const TONES: Record<
   }
 > = {
   scenario: {
-    gradient: "from-indigo-500/15 to-indigo-500/5",
-    iconBg: "bg-indigo-50",
-    iconBorder: "border-indigo-200",
-    iconColor: "text-indigo-700",
+    gradient: "from-sky-500/15 to-sky-500/5",
+    iconBg: "bg-sky-50",
+    iconBorder: "border-sky-200",
+    iconColor: "text-sky-700",
   },
   rulebook: {
     gradient: "from-emerald-500/15 to-emerald-500/5",
@@ -103,7 +103,7 @@ export function CategoryGrid() {
       {/* 見出し行 — ProductStrip の見出しトーンと統一(LayoutGrid アイコンで
           「グリッドで一覧する」入口感を表現)*/}
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
           <LayoutGrid className="h-4 w-4" aria-hidden />
         </div>
         <div className="space-y-0.5">

@@ -56,7 +56,7 @@ export default async function NewProductPage() {
           ]}
           className="mb-4"
         />
-        <section className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-violet-500/8 via-transparent to-indigo-500/8 p-6 sm:p-8">
+        <section className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-violet-500/8 via-transparent to-sky-500/8 p-6 sm:p-8">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-violet-300 bg-violet-50 text-violet-700">
               <Upload className="h-5 w-5" aria-hidden />

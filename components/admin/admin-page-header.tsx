@@ -17,7 +17,7 @@ export type AdminTone = "slate" | "indigo" | "emerald";
 
 const TONE_GRADIENTS: Record<AdminTone, string> = {
   slate: "from-slate-500/8 via-transparent to-slate-500/5",
-  indigo: "from-indigo-500/8 via-transparent to-violet-500/8",
+  indigo: "from-sky-500/8 via-transparent to-violet-500/8",
   emerald: "from-emerald-500/8 via-transparent to-emerald-500/5",
 };
 
@@ -29,13 +29,13 @@ const TONE_BLOB_A: Record<AdminTone, string> = {
 
 const TONE_BLOB_B: Record<AdminTone, string> = {
   slate: "bg-slate-400/10",
-  indigo: "bg-indigo-500/10",
+  indigo: "bg-sky-500/10",
   emerald: "bg-emerald-400/10",
 };
 
 const TONE_BADGE: Record<AdminTone, string> = {
   slate: "border-slate-300 bg-slate-50 text-slate-700",
-  indigo: "border-indigo-300 bg-indigo-50 text-indigo-700",
+  indigo: "border-sky-300 bg-sky-50 text-sky-700",
   emerald: "border-emerald-300 bg-emerald-50 text-emerald-700",
 };
 
