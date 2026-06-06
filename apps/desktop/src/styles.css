@@ -277,6 +277,18 @@ body {
   color: #9a6b00;
 }
 
+.work-badge.done {
+  background: var(--mint-soft);
+  color: #0d8a73;
+}
+
+.work-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 .basic {
   display: flex;
   gap: 16px;
