@@ -289,6 +289,163 @@ body {
   margin-top: 6px;
 }
 
+/* ===== アプリ内ビューア(購入物の閲覧オーバーレイ)===== */
+.viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.viewer-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.viewer-title strong {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-sub {
+  font-size: 11px;
+}
+
+.viewer-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.viewer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+}
+
+.viewer-msg {
+  padding: 24px;
+  text-align: center;
+}
+
+.viewer-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #525659;
+}
+
+.viewer-center {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.viewer-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+.viewer-audio {
+  width: min(560px, 90%);
+}
+
+.viewer-video {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.viewer-text {
+  margin: 0;
+  padding: 16px 20px;
+  font-family: "Consolas", "Yu Gothic UI", monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
+/* zip ブラウザ: 左一覧 + 右プレビュー */
+.zip-layout {
+  display: flex;
+  height: 100%;
+}
+
+.zip-list {
+  width: 260px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.zip-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.zip-item:hover {
+  background: var(--surface-2);
+}
+
+.zip-item.active {
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+  font-weight: 600;
+}
+
+.zip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zip-size {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.zip-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
 .basic {
   display: flex;
   gap: 16px;

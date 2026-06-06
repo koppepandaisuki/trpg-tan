@@ -20,10 +20,15 @@ import {
 /**
  * 「購入した作品」タブの中身。ログイン中のユーザーの paid 購入を
  * supabase-js(RLS)で取得し、カバー付きカードで一覧する。
+ * 各作品はダウンロード(スライス3)とアプリ内ビューア起動(スライス4)を持つ。
  *
- * ダウンロード/閲覧はスライス3・4で追加。ここでは表示と更新のみ。
+ * onView: DL 済み作品の「開く」押下時に呼ばれる。App がビューアを開く。
  */
-export function LibraryPanel() {
+export function LibraryPanel({
+  onView,
+}: {
+  onView?: (item: RemoteLibraryItem, entry: DownloadedEntry) => void;
+}) {
   const { session, ready } = useAuth();
   const [items, setItems] = useState<RemoteLibraryItem[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -186,6 +191,12 @@ export function LibraryPanel() {
                   <div className="work-actions">
                     {downloaded[it.productId] ? (
                       <>
+                        <button
+                          className="btn mini btn-primary"
+                          onClick={() => onView?.(it, downloaded[it.productId])}
+                        >
+                          開く
+                        </button>
                         <button
                           className="btn mini"
                           onClick={() => void handleReveal(it.productId)}
