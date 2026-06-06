@@ -791,8 +791,8 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -812,6 +812,16 @@ body {
   font-weight: 900;
   color: var(--primary-deep);
   user-select: none;
+}
+
+/* d100 は 1 個の 100 面ダイス(丸く大きめ。最大3桁を表示)。 */
+.dm-die3d.d100 {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+}
+.dm-die3d.d100 .dm-face {
+  font-size: 22px;
 }
 
 /* 着地後、成功度で色づく */
