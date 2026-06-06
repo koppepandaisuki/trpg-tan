@@ -1,0 +1,176 @@
+import { describe, it, expect } from "vitest";
+import type { RandomFn } from "../src/dice/random.js";
+import { CCSHEET_SCHEMA_VERSION, type CharacterSheet } from "../src/character/types.js";
+import {
+  createScene,
+  reduce,
+  reduceAll,
+  clampResource,
+  panelFromSheet,
+  makeTokenPanel,
+  panelAddEvent,
+  panelRemoveEvent,
+  resourceEvent,
+  checkEvent,
+  freeRollEvent,
+  chatEvent,
+  type EventCtx,
+} from "../src/play/index.js";
+
+/** 指定の出目を強制する rng 値([0,1))。die(v, sides) で v を出す。 */
+function die(v: number, sides: number): number {
+  return (v - 1) / sides + 1e-9;
+}
+/** 連続した [0,1) 値を順に返す rng。 */
+function seqRng(values: number[]): RandomFn {
+  let i = 0;
+  return () => values[i++] ?? 0;
+}
+
+const NOW = "2026-01-01T00:00:00.000Z";
+
+function ctx(id: string, rng?: RandomFn): EventCtx {
+  return { id, ts: NOW, rng };
+}
+
+function sampleSheet(): CharacterSheet {
+  return {
+    schemaVersion: CCSHEET_SCHEMA_VERSION,
+    id: "char-1",
+    systemId: "coc7",
+    name: "探索者A",
+    image: null,
+    characteristics: { STR: 50, CON: 60, SIZ: 60, DEX: 60, INT: 70, POW: 50, EDU: 80, APP: 55 },
+    skills: { spot_hidden: 70 },
+    occupationId: null,
+    notes: "",
+    meta: { createdAt: NOW, updatedAt: NOW },
+  };
+}
+
+describe("createScene", () => {
+  it("空のシーンを作る", () => {
+    const s = createScene({ id: "s1", title: "卓", systemId: "coc7", now: NOW });
+    expect(s.panels).toHaveLength(0);
+    expect(s.log).toHaveLength(0);
+    expect(s.title).toBe("卓");
+    expect(s.schemaVersion).toBe(1);
+  });
+  it("タイトル空は既定名", () => {
+    expect(createScene({ id: "s", title: "", now: NOW }).title).toBe("新しい卓");
+  });
+});
+
+describe("panelFromSheet", () => {
+  const panel = panelFromSheet({ id: "p1", sheet: sampleSheet() });
+
+  it("7版は能力値そのままが判定目標値", () => {
+    const str = panel.stats.find((s) => s.key === "STR");
+    expect(str?.target).toBe(50);
+    expect(str?.kind).toBe("characteristic");
+  });
+
+  it("技能はシート記録値が目標値", () => {
+    const spot = panel.stats.find((s) => s.key === "spot_hidden");
+    expect(spot?.value).toBe(70);
+    expect(spot?.target).toBe(70);
+    expect(spot?.kind).toBe("skill");
+    expect(spot?.label).toBeTruthy();
+  });
+
+  it("HP/MP/SAN を派生値から初期化", () => {
+    const hp = panel.resources.find((r) => r.key === "hp");
+    const mp = panel.resources.find((r) => r.key === "mp");
+    const san = panel.resources.find((r) => r.key === "san");
+    expect(hp?.current).toBe(12); // floor((60+60)/10)
+    expect(mp?.current).toBe(10); // floor(50/5)
+    expect(san?.current).toBe(50); // POW
+  });
+
+  it("source は sheet、元シート id を保持", () => {
+    expect(panel.source).toBe("sheet");
+    expect(panel.sheetId).toBe("char-1");
+  });
+});
+
+describe("6版は能力値×5 が目標値", () => {
+  it("STR50 → 250 ではなく値×5(=実際は版定義のSTR)で確認", () => {
+    const sheet = { ...sampleSheet(), systemId: "coc6", characteristics: { STR: 13 } };
+    const panel = panelFromSheet({ id: "p", sheet });
+    const str = panel.stats.find((s) => s.key === "STR");
+    expect(str?.target).toBe(65); // 13 * 5
+  });
+});
+
+describe("reduce", () => {
+  it("panel-add で駒追加、重複は無視", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    const p = makeTokenPanel({ id: "t1", name: "敵", hp: 10 });
+    s = reduce(s, panelAddEvent(ctx("e1"), p));
+    expect(s.panels).toHaveLength(1);
+    s = reduce(s, panelAddEvent(ctx("e2"), p)); // 同 id
+    expect(s.panels).toHaveLength(1);
+    expect(s.log).toHaveLength(2); // ログには両方残る
+  });
+
+  it("resource で現在値を更新", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    const p = makeTokenPanel({ id: "t1", name: "敵", hp: 10 });
+    s = reduce(s, panelAddEvent(ctx("e1"), p));
+    const res = s.panels[0].resources[0];
+    s = reduce(s, resourceEvent(ctx("e2"), "GM", s.panels[0], res, -3));
+    expect(s.panels[0].resources[0].current).toBe(7);
+  });
+
+  it("panel-remove で駒削除", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    s = reduce(s, panelAddEvent(ctx("e1"), makeTokenPanel({ id: "t1", name: "敵" })));
+    s = reduce(s, panelRemoveEvent(ctx("e2"), "t1"));
+    expect(s.panels).toHaveLength(0);
+  });
+});
+
+describe("clampResource", () => {
+  it("0..max にクランプ", () => {
+    expect(clampResource(5, -10, 20)).toBe(0);
+    expect(clampResource(15, 10, 20)).toBe(20);
+    expect(clampResource(10, 3, 20)).toBe(13);
+  });
+});
+
+describe("checkEvent(CoC 判定)", () => {
+  it("出目を強制して成功度を確認(7版 target50, roll5 → extreme)", () => {
+    const rng = seqRng([die(5, 100)]);
+    const ev = checkEvent(ctx("e1", rng), "探索者A", "目星 判定", 50, "7");
+    expect(ev.kind).toBe("roll");
+    expect(ev.dice).toEqual([5]);
+    expect(ev.total).toBe(5);
+    expect(ev.check?.level).toBe("extreme");
+    expect(ev.check?.isSuccess).toBe(true);
+  });
+});
+
+describe("freeRollEvent(フリーダイス)", () => {
+  it("2d6 を [3,4] に強制 → total 7", () => {
+    const rng = seqRng([die(3, 6), die(4, 6)]);
+    const ev = freeRollEvent(ctx("e1", rng), "GM", "2d6");
+    expect(ev.dice).toEqual([3, 4]);
+    expect(ev.total).toBe(7);
+    expect(ev.notation).toBe("2d6");
+  });
+});
+
+describe("reduceAll(ログから再構成)", () => {
+  it("イベント列を順に適用して同じ状態に", () => {
+    const base = createScene({ id: "s", title: "卓", now: NOW });
+    const p = makeTokenPanel({ id: "t1", name: "敵", hp: 10 });
+    const events = [
+      panelAddEvent(ctx("e1"), p),
+      chatEvent(ctx("e2"), "GM", "戦闘開始"),
+      resourceEvent(ctx("e3"), "GM", p, p.resources[0], -4),
+    ];
+    const s = reduceAll(base, events);
+    expect(s.panels[0].resources[0].current).toBe(6);
+    expect(s.log).toHaveLength(3);
+  });
+});
