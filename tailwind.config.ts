@@ -41,6 +41,15 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        "primary-soft": "hsl(var(--primary-soft))",
+        mint: {
+          DEFAULT: "hsl(var(--mint))",
+          soft: "hsl(var(--mint-soft))",
+        },
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          soft: "hsl(var(--gold-soft))",
+        },
       },
       borderRadius: {
         sm: "var(--radius-sm)",
@@ -48,8 +57,11 @@ const config: Config = {
         lg: "var(--radius-lg)",
       },
       boxShadow: {
-        sm: "0 1px 2px 0 rgb(15 23 42 / 0.04)",
-        card: "0 1px 2px 0 rgb(15 23 42 / 0.04), 0 0 0 1px rgb(15 23 42 / 0.04)",
+        /* 柔らかい青みの影(ブランド) */
+        sm: "0 4px 14px rgba(37, 121, 182, 0.06)",
+        card: "0 1px 2px rgba(37, 121, 182, 0.06), 0 0 0 1px rgba(63, 154, 221, 0.10)",
+        md: "0 10px 30px rgba(37, 121, 182, 0.10)",
+        lg: "0 24px 60px rgba(37, 121, 182, 0.14)",
       },
       spacing: {
         "18": "4.5rem",

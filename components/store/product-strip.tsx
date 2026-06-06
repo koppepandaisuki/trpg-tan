@@ -19,11 +19,14 @@ export function ProductStrip({
   description,
   products,
   seeAllHref,
+  ranked = false,
 }: {
   title: string;
   description?: string;
   products: ProductListItem[];
   seeAllHref?: Route;
+  /** true のとき各カードに順位バッジ(1 始まり)を表示する。*/
+  ranked?: boolean;
 }) {
   if (products.length === 0) return null;
 
@@ -52,12 +55,12 @@ export function ProductStrip({
           className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:px-6"
           style={{ scrollbarWidth: "thin" }}
         >
-          {products.map((p) => (
+          {products.map((p, i) => (
             <li
               key={p.id}
               className="w-[180px] shrink-0 snap-start sm:w-[200px] lg:w-[220px]"
             >
-              <WorkCard product={p} />
+              <WorkCard product={p} rank={ranked ? i + 1 : undefined} />
             </li>
           ))}
         </ul>

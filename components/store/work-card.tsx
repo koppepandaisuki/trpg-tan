@@ -8,9 +8,20 @@ import { categoryLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
 import { publicCoverUrl, publicAvatarUrl } from "@/lib/format/storage";
 import type { ProductListItem } from "@/lib/queries/types";
+import { cn } from "@/lib/utils";
 
 interface WorkCardProps {
   product: ProductListItem;
+  /** ランキング順位(1 始まり)。指定時はカバー左上に順位バッジを出す。*/
+  rank?: number;
+}
+
+/** 順位バッジの配色。1=ゴールド/2=シルバー/3=ブロンズ、以降は淡い青。*/
+function rankBadgeTone(rank: number): string {
+  if (rank === 1) return "border-gold bg-gold text-[#5b4a12]";
+  if (rank === 2) return "border-slate-300 bg-slate-100 text-slate-600";
+  if (rank === 3) return "border-amber-300 bg-amber-100 text-amber-800";
+  return "border-border bg-primary-soft text-accent";
 }
 
 /**
@@ -24,7 +35,7 @@ interface WorkCardProps {
  *    アバター未設定者は User icon プレースホルダ。視覚的に「人」を
  *    強調することで購入判断材料を増やす。
  */
-export function WorkCard({ product }: WorkCardProps) {
+export function WorkCard({ product, rank }: WorkCardProps) {
   const coverUrl = publicCoverUrl(product.coverPath);
   const avatarUrl = publicAvatarUrl(product.creator.avatarPath);
 
@@ -34,13 +45,24 @@ export function WorkCard({ product }: WorkCardProps) {
       className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       aria-label={`「${product.title}」の作品詳細を見る`}
     >
-      <Card className="overflow-hidden border-border shadow-sm transition-all group-hover:border-foreground/20 group-hover:shadow-card">
-        <div className="overflow-hidden">
+      <Card className="overflow-hidden border-border shadow-card transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/30 group-hover:shadow-md">
+        <div className="relative overflow-hidden">
           <CoverImage
             src={coverUrl}
             alt={product.title}
             className="transition-transform duration-300 group-hover:scale-[1.04]"
           />
+          {rank != null && (
+            <span
+              className={cn(
+                "absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold shadow-sm",
+                rankBadgeTone(rank),
+              )}
+              aria-label={`ランキング ${rank} 位`}
+            >
+              {rank}
+            </span>
+          )}
         </div>
         <CardContent className="space-y-1.5 p-4">
           <div className="flex flex-wrap items-center gap-1.5">
