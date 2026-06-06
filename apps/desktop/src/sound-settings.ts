@@ -5,10 +5,14 @@
 export type SuccessSoundType = "chime" | "fanfare" | "sparkle";
 
 export interface SoundSettings {
-  /** 判定成功時に成功音を鳴らすか。 */
+  /** 通常成功時に成功音を鳴らすか。 */
   successEnabled: boolean;
   /** 成功音の種類。 */
   successType: SuccessSoundType;
+  /** クリティカル(イクストリーム/スペシャル)で専用音を鳴らすか。 */
+  criticalEnabled: boolean;
+  /** ファンブルで専用音を鳴らすか。 */
+  fumbleEnabled: boolean;
 }
 
 const KEY = "trpg.sound.v1";
@@ -16,6 +20,8 @@ const KEY = "trpg.sound.v1";
 const DEFAULT: SoundSettings = {
   successEnabled: true,
   successType: "chime",
+  criticalEnabled: true,
+  fumbleEnabled: true,
 };
 
 export const SUCCESS_SOUND_TYPES: {
@@ -41,6 +47,14 @@ export function getSoundSettings(): SoundSettings {
       successType: isType(parsed.successType)
         ? parsed.successType
         : DEFAULT.successType,
+      criticalEnabled:
+        typeof parsed.criticalEnabled === "boolean"
+          ? parsed.criticalEnabled
+          : DEFAULT.criticalEnabled,
+      fumbleEnabled:
+        typeof parsed.fumbleEnabled === "boolean"
+          ? parsed.fumbleEnabled
+          : DEFAULT.fumbleEnabled,
     };
   } catch {
     return { ...DEFAULT };

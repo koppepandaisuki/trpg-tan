@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RollEvent } from "@trpg/core";
-import { playDiceRoll, playSuccess } from "./dice-sound";
+import {
+  playDiceRoll,
+  playSuccess,
+  playCritical,
+  playFumble,
+} from "./dice-sound";
 import { getSoundSettings } from "./sound-settings";
 
 /**
@@ -122,10 +127,17 @@ export function DiceMotion({
         if (face) face.textContent = String(fin);
       });
       setSettled(true);
-      // 判定が成功していれば成功音(設定 on のとき)。
-      if (roll.check?.isSuccess) {
+      // 成功度に応じて鳴り分け(各設定 on のとき)。
+      if (roll.check) {
         const s = getSoundSettings();
-        if (s.successEnabled) playSuccess(s.successType);
+        const lvl = roll.check.level;
+        if (lvl === "fumble") {
+          if (s.fumbleEnabled) playFumble();
+        } else if (lvl === "extreme" || lvl === "special") {
+          if (s.criticalEnabled) playCritical();
+        } else if (roll.check.isSuccess) {
+          if (s.successEnabled) playSuccess(s.successType);
+        }
       }
     }, ROLL_MS);
 
