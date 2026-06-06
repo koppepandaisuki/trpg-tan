@@ -3,7 +3,10 @@ import type { CharacterSheet as Sheet } from "@trpg/core";
 import { CharacterSheet } from "./CharacterSheet";
 import { AuthControl } from "./AuthControl";
 import { LibraryPanel } from "./LibraryPanel";
+import { Viewer } from "./Viewer";
 import { initDeepLinkAuth } from "./auth";
+import type { RemoteLibraryItem } from "./library-remote";
+import type { DownloadedEntry } from "./downloaded";
 import {
   getLibrary,
   upsertEntry,
@@ -14,6 +17,7 @@ import {
 import { readSheetFromPath, isTauri } from "./storage";
 
 type SidebarTab = "characters" | "library";
+type Viewing = { item: RemoteLibraryItem; entry: DownloadedEntry };
 
 /**
  * アプリのルート。左サイドバーは「キャラ / 購入」の 2 タブ。
@@ -28,6 +32,8 @@ export function App() {
     () => ({ sheet: null, key: "new-0" }),
   );
   const [error, setError] = useState<string | null>(null);
+  // アプリ内ビューア(購入物の閲覧)。null のとき非表示。
+  const [viewing, setViewing] = useState<Viewing | null>(null);
 
   // deep-link(paradice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
   useEffect(() => {
@@ -148,7 +154,9 @@ export function App() {
             <div className="sidebar-head">
               <strong>購入した作品</strong>
             </div>
-            <LibraryPanel />
+            <LibraryPanel
+              onView={(item, entry) => setViewing({ item, entry })}
+            />
           </>
         )}
 
@@ -165,6 +173,15 @@ export function App() {
           onSaved={handleSaved}
         />
       </main>
+
+      {/* アプリ内ビューア(購入物の閲覧)。シートを保持したまま上に重ねる。*/}
+      {viewing && (
+        <Viewer
+          item={viewing.item}
+          entry={viewing.entry}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   );
 }
