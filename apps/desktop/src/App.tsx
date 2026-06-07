@@ -96,6 +96,7 @@ export function App() {
   }
 
   function newCharacter() {
+    setSession(null); // 卓を開いていてもキャラ編集に切り替える
     setActive({ sheet: null, key: `new-${Date.now()}` });
     setError(null);
   }
@@ -107,6 +108,7 @@ export function App() {
     }
     try {
       const sheet = await readSheetFromPath(entry.path);
+      setSession(null); // 卓を開いていてもキャラ編集に切り替える
       setActive({ sheet, key: `${entry.id}-${Date.now()}` });
       setError(null);
     } catch (e) {

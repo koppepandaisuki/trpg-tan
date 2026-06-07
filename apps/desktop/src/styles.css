@@ -446,6 +446,57 @@ body {
   overflow: auto;
 }
 
+/* ===== 職業ピッカー(アイコン付き)===== */
+.occ-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.occ-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.12s;
+  text-align: left;
+}
+.occ-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.occ-card.active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.occ-ic {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+}
+.occ-card.active .occ-ic {
+  background: var(--primary);
+  color: #fff;
+}
+
+.occ-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* ===== 盤面(背景マップ + トークン)===== */
 .board-wrap {
   margin-bottom: 14px;
