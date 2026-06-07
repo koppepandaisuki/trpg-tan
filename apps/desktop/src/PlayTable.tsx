@@ -25,7 +25,6 @@ import {
   type BgmTrack,
   type SceneInfo,
   type CoCEdition,
-  type CoCCheckResult,
 } from "@trpg/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { DiceMotion } from "./DiceMotion";
@@ -34,7 +33,17 @@ import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
 import { BgmPanel } from "./BgmPanel";
 import { FloatingWidget } from "./FloatingWidget";
+import { LogView } from "./LogView";
 import { WidgetLayoutProvider, type Rect } from "./widget-layout";
+import {
+  emitSync,
+  onHello,
+  onIntent,
+  onRedock,
+  openWidgetWindow,
+  closeWidgetWindow,
+  type PlayIntent,
+} from "./play-bus";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
@@ -85,11 +94,10 @@ export function PlayTable({
 
   const [pickId, setPickId] = useState("");
   const [tokenName, setTokenName] = useState("");
-  const [chat, setChat] = useState("");
-  const [notation, setNotation] = useState("");
+  // 別ウィンドウ(別モニター)へ切り離し中のウィジェット id 集合。
+  const [detached, setDetached] = useState<Set<string>>(() => new Set());
 
   const characters = useMemo(() => getLibrary(), []);
-  const logRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
 
   // 能力値/リソースを持つ“キャラ駒”だけウィジェット化(画像オブジェクトは盤面のみ)。
@@ -97,11 +105,11 @@ export function PlayTable({
     (p) => p.stats.length > 0 || p.resources.length > 0,
   );
 
-  // ログ更新で末尾へ自動スクロール。
-  useEffect(() => {
-    const el = logRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [scene.log.length]);
+  // バス用に最新 scene / detached を ref で参照(リスナは一度だけ登録するため)。
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
+  const detachedRef = useRef(detached);
+  detachedRef.current = detached;
 
   function dispatch(event: PlayEvent) {
     setScene((s) => reduce(s, event));
@@ -241,25 +249,95 @@ export function PlayTable({
     setTokenName("");
   }
 
-  function sendChat() {
-    const text = chat.trim();
-    if (!text) return;
+  function handleChat(text: string) {
     dispatch(chatEvent(newCtx(), "GM", text));
-    setChat("");
   }
 
-  function rollFree() {
-    const n = notation.trim();
-    if (!n) return;
+  function handleFreeRoll(notation: string) {
     try {
-      const ev = freeRollEvent(newCtx(), "GM", n);
+      const ev = freeRollEvent(newCtx(), "GM", notation);
       dispatch(ev);
       setMotion(ev);
-      setNotation("");
       setError(null);
     } catch {
-      setError(`ダイス記法を解釈できません: "${n}"（例: 2d6+1）`);
+      setError(`ダイス記法を解釈できません: "${notation}"（例: 2d6+1）`);
     }
+  }
+
+  /* ===== 切り離し(別ウィンドウ/別モニター)の同期 ===== */
+
+  // intent(窓→メイン)を「最新の」ハンドラで処理するための ref。
+  const intentRef = useRef<(i: PlayIntent) => void>(() => {});
+  intentRef.current = (intent: PlayIntent) => {
+    const s = sceneRef.current;
+    switch (intent.kind) {
+      case "roll": {
+        const p = s.panels.find((x) => x.id === intent.panelId);
+        const stat = p?.stats.find((st) => st.key === intent.statKey);
+        if (p && stat) rollStat(p, stat);
+        break;
+      }
+      case "resource": {
+        const p = s.panels.find((x) => x.id === intent.panelId);
+        const r = p?.resources.find((res) => res.key === intent.resourceKey);
+        if (p && r) changeResource(p, r, intent.delta);
+        break;
+      }
+      case "remove-panel":
+        dispatch(panelRemoveEvent(newCtx(), intent.panelId));
+        break;
+      case "chat":
+        handleChat(intent.text);
+        break;
+      case "free-roll":
+        handleFreeRoll(intent.notation);
+        break;
+      case "bgm-add":
+        addBgmTracks(intent.tracks);
+        break;
+      case "bgm-remove":
+        removeBgmTrack(intent.id);
+        break;
+    }
+  };
+
+  // バスのリスナは一度だけ登録(中身は ref 経由で常に最新を呼ぶ)。
+  useEffect(() => {
+    const subs = [
+      onHello(() => void emitSync(sceneRef.current)),
+      onIntent((i) => intentRef.current(i)),
+      onRedock((wid) =>
+        setDetached((set) => {
+          const next = new Set(set);
+          next.delete(wid);
+          return next;
+        }),
+      ),
+    ];
+    return () => {
+      subs.forEach((p) => p.then((un) => un()).catch(() => {}));
+      // 卓を閉じる時は切り離し窓も閉じる。
+      detachedRef.current.forEach((wid) => void closeWidgetWindow(wid));
+    };
+  }, []);
+
+  // 切り離し窓があるときだけ scene 変更を配信(無ければ送らない)。
+  useEffect(() => {
+    if (detachedRef.current.size > 0) void emitSync(sceneRef.current);
+  }, [scene]);
+
+  function detach(widgetId: string, title: string) {
+    setDetached((set) => new Set(set).add(widgetId));
+    void openWidgetWindow(widgetId, title);
+    void emitSync(sceneRef.current);
+  }
+  function redock(widgetId: string) {
+    setDetached((set) => {
+      const next = new Set(set);
+      next.delete(widgetId);
+      return next;
+    });
+    void closeWidgetWindow(widgetId);
   }
 
   async function save() {
@@ -379,6 +457,9 @@ export function PlayTable({
                 minH={150}
                 bodyClass="ppanel-body"
                 defaultRect={panelDefault(i)}
+                detached={detached.has(`panel:${p.id}`)}
+                onDetach={() => detach(`panel:${p.id}`, p.name)}
+                onRedock={() => redock(`panel:${p.id}`)}
               >
                 <PlayPanel
                   panel={p}
@@ -404,43 +485,15 @@ export function PlayTable({
                 h: Math.min(460, Math.max(240, b.h - 32)),
                 z: 0,
               })}
+              detached={detached.has("log")}
+              onDetach={() => detach("log", "ログ / チャット")}
+              onRedock={() => redock("log")}
             >
-              <div className="plog" ref={logRef}>
-                {scene.log.length === 0 ? (
-                  <p className="muted" style={{ padding: 8, fontSize: 12 }}>
-                    ここに判定・チャットのログが流れます。
-                  </p>
-                ) : (
-                  scene.log.map((ev) => <LogRow key={ev.id} ev={ev} />)
-                )}
-              </div>
-
-              <div className="pinput">
-                <div className="pinput-row">
-                  <input
-                    className="input"
-                    value={chat}
-                    onChange={(e) => setChat(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                    placeholder="発言…"
-                  />
-                  <button className="btn mini" onClick={sendChat}>
-                    送信
-                  </button>
-                </div>
-                <div className="pinput-row">
-                  <input
-                    className="input"
-                    value={notation}
-                    onChange={(e) => setNotation(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && rollFree()}
-                    placeholder="ダイス記法（例: 2d6+1, 1d100）"
-                  />
-                  <button className="btn mini btn-primary" onClick={rollFree}>
-                    ロール
-                  </button>
-                </div>
-              </div>
+              <LogView
+                log={scene.log}
+                onChat={handleChat}
+                onFreeRoll={handleFreeRoll}
+              />
             </FloatingWidget>
 
             <BgmPanel
@@ -460,89 +513,4 @@ export function PlayTable({
       )}
     </div>
   );
-}
-
-/** ログ 1 行のレンダリング(イベント種別で分岐)。 */
-function LogRow({ ev }: { ev: PlayEvent }) {
-  if (ev.kind === "chat")
-    return (
-      <p className="logrow">
-        <b className="log-actor">{ev.actor}</b>
-        <span>{ev.text}</span>
-      </p>
-    );
-  if (ev.kind === "roll") {
-    const tone = ev.check ? levelTone(ev.check) : "";
-    return (
-      <p className="logrow">
-        <b className="log-actor">{ev.actor}</b>
-        <span className="log-roll">
-          {ev.label} → 🎲 [{ev.dice.join(", ")}] = <b>{ev.total}</b>
-          {ev.check && (
-            <span className={`log-level ${tone}`}> {levelLabel(ev.check)}</span>
-          )}
-        </span>
-      </p>
-    );
-  }
-  if (ev.kind === "resource")
-    return (
-      <p className="logrow muted">
-        <b className="log-actor">{ev.actor}</b>
-        <span>
-          {ev.label} {ev.delta >= 0 ? `+${ev.delta}` : ev.delta} →{" "}
-          {ev.current}
-        </span>
-      </p>
-    );
-  if (ev.kind === "panel-add")
-    return (
-      <p className="logrow muted">
-        <span>＋ {ev.panel.name} を卓に追加</span>
-      </p>
-    );
-  if (ev.kind === "panel-remove")
-    return (
-      <p className="logrow muted">
-        <span>− 駒を卓から外した</span>
-      </p>
-    );
-  return (
-    <p className="logrow muted">
-      <span>{ev.kind === "system" ? ev.text : ""}</span>
-    </p>
-  );
-}
-
-function levelTone(r: CoCCheckResult): string {
-  switch (r.level) {
-    case "extreme":
-      return "crit";
-    case "special":
-      return "gold";
-    case "hard":
-    case "regular":
-      return "ok";
-    case "fumble":
-      return "fumble";
-    default:
-      return "fail";
-  }
-}
-
-function levelLabel(r: CoCCheckResult): string {
-  switch (r.level) {
-    case "extreme":
-      return "イクストリーム！";
-    case "hard":
-      return "ハード成功";
-    case "regular":
-      return "成功";
-    case "special":
-      return "スペシャル！";
-    case "fumble":
-      return "ファンブル…";
-    default:
-      return "失敗";
-  }
 }
