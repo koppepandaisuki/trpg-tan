@@ -446,6 +446,20 @@ body {
   overflow: auto;
 }
 
+/* 技能のカテゴリ見出し(いあきゃら風の種類分け) */
+.skills .skill-cat td {
+  padding: 8px 6px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+  border-bottom: 1px solid var(--border);
+}
+.skills .skill-cat:first-child td {
+  padding-top: 4px;
+}
+
 /* ===== 職業ピッカー(アイコン付き)===== */
 .occ-grid {
   display: grid;

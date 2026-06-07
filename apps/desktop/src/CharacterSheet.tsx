@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   getSystem,
   generateAllCharacteristics,
@@ -27,6 +27,23 @@ function freshId(): string {
 
 const sysIdOf = (s?: Sheet | null): SystemId =>
   s?.systemId === "coc6" ? "coc6" : "coc7";
+
+/** 技能カテゴリの表示順(いあきゃら風)。未分類は「その他」として最後。 */
+const SKILL_CAT_ORDER = ["戦闘", "探索", "行動", "技術", "対人", "知識"];
+
+function groupSkillsByCategory(skills: SystemDefinition["skills"]) {
+  const map = new Map<string, SystemDefinition["skills"]>();
+  for (const s of skills) {
+    const cat =
+      s.category && SKILL_CAT_ORDER.includes(s.category) ? s.category : "その他";
+    const arr = map.get(cat);
+    if (arr) arr.push(s);
+    else map.set(cat, [s]);
+  }
+  return [...SKILL_CAT_ORDER, "その他"]
+    .filter((c) => map.has(c))
+    .map((c) => ({ cat: c, skills: map.get(c)! }));
+}
 
 interface CharacterSheetProps {
   /** 既存キャラを開くときの初期シート(新規なら null/未指定)*/
@@ -388,8 +405,13 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
             </tr>
           </thead>
           <tbody>
-            {system.skills.map((s) => {
-              const isOcc = occupation?.occupationSkills.includes(s.key);
+            {groupSkillsByCategory(system.skills).map((group) => (
+              <Fragment key={group.cat}>
+                <tr className="skill-cat">
+                  <td colSpan={5}>{group.cat}技能</td>
+                </tr>
+                {group.skills.map((s) => {
+                  const isOcc = occupation?.occupationSkills.includes(s.key);
               const base = skillBaseValue(s, chars);
               const total = finalValue(s.key, base);
               return (
@@ -433,7 +455,9 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                   </td>
                 </tr>
               );
-            })}
+                })}
+              </Fragment>
+            ))}
           </tbody>
         </table>
 
