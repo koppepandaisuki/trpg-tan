@@ -6,26 +6,16 @@ import {
   computeCoCDerived,
   validateSkillAllocation,
   skillBaseValue,
-  rollCoCCheck,
   CCSHEET_SCHEMA_VERSION,
   type CoCEdition,
-  type CoCCheckResult,
   type CharacterSheet as Sheet,
   type SystemDefinition,
 } from "@trpg/core";
 import { saveSheet, loadSheetViaDialog, isTauri } from "./storage";
-import { DiceOverlay } from "./DiceOverlay";
-import { FreeRoll } from "./FreeRoll";
 import { OccupationIcon } from "./OccupationIcon";
 
 type SystemId = "coc7" | "coc6";
 const editionOf = (id: SystemId): CoCEdition => (id === "coc7" ? "7" : "6");
-
-interface RollInfo {
-  skillKey: string;
-  label: string;
-  result: CoCCheckResult;
-}
 
 function freshId(): string {
   try {
@@ -37,10 +27,6 @@ function freshId(): string {
 
 const sysIdOf = (s?: Sheet | null): SystemId =>
   s?.systemId === "coc6" ? "coc6" : "coc7";
-
-/** 派生値のうち 1D100 判定できるもの(値がそのまま目標%)。
- *  SAN(正気度)・アイデア・幸運・知識(6版)。 */
-const ROLLABLE_DERIVED = new Set(["SAN", "IDEA", "LUCK", "KNOW"]);
 
 interface CharacterSheetProps {
   /** 既存キャラを開くときの初期シート(新規なら null/未指定)*/
@@ -76,13 +62,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
   const [intAlloc, setIntAlloc] = useState<Record<string, number>>(
     initialSheet?.allocation?.interest ?? {},
   );
-  const [lastRoll, setLastRoll] = useState<RollInfo | null>(null);
-  // ココフォリア風ダイス演出のオーバーレイ(振っている間だけ表示)
-  const [rollOverlay, setRollOverlay] = useState<{
-    label: string;
-    target: number;
-    result: CoCCheckResult;
-  } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const system = getSystem(systemId) as SystemDefinition;
@@ -110,7 +89,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setOccupationId("");
     setOccAlloc({});
     setIntAlloc({});
-    setLastRoll(null);
     setImage(null);
     setId(freshId());
     setCreatedAt(new Date().toISOString());
@@ -127,27 +105,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
 
   function finalValue(skillKey: string, base: number): number {
     return base + (occAlloc[skillKey] ?? 0) + (intAlloc[skillKey] ?? 0);
-  }
-
-  function rollSkill(skillKey: string, label: string, value: number) {
-    const result = rollCoCCheck(value, edition);
-    setLastRoll({ skillKey, label, result }); // ログ用に残す
-    setRollOverlay({ label, target: value, result }); // 演出
-  }
-
-  /**
-   * 能力値判定。1D100 で能力値に対してロールする。
-   * 目標値は版で異なる(7版=能力値そのまま 0–99、6版=能力値×5)。
-   */
-  function rollAbility(key: string, label: string) {
-    const value = chars[key] ?? 0;
-    const target = edition === "7" ? value : value * 5;
-    rollSkill(key, `${label} 判定`, target);
-  }
-
-  /** 派生値の直接判定(SAN/アイデア/幸運/知識 など、値がそのまま目標%)。*/
-  function rollDerived(key: string, label: string, target: number) {
-    rollSkill(key, `${label} 判定`, target);
   }
 
   function buildSheet(): Sheet {
@@ -181,7 +138,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setOccupationId(sheet.occupationId ?? "");
     setOccAlloc(sheet.allocation?.occupation ?? {});
     setIntAlloc(sheet.allocation?.interest ?? {});
-    setLastRoll(null);
   }
 
   async function onSave() {
@@ -248,9 +204,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
         </button>
       </div>
       {message && <p className="muted">{message}</p>}
-
-      {/* フリーロール(任意のダイス記法)*/}
-      <FreeRoll />
 
       {/* 基本情報 + ポートレート */}
       <div className="card">
@@ -330,13 +283,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                     🎲
                   </button>
                 )}
-                <button
-                  className="btn mini"
-                  title={`${c.label}で 1D100 判定`}
-                  onClick={() => rollAbility(c.key, c.label)}
-                >
-                  判定
-                </button>
               </div>
             </div>
           ))}
@@ -349,21 +295,10 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
         <div className="grid">
           {system.derived.map((d) => {
             const val = derived[d.key];
-            const rollable = ROLLABLE_DERIVED.has(d.key) && typeof val === "number";
             return (
               <div className="stat" key={d.key}>
                 <div className="k">{d.label}</div>
                 <div className="v">{String(val ?? "-")}</div>
-                {rollable && (
-                  <button
-                    className="btn mini"
-                    style={{ marginTop: 4 }}
-                    title={`${d.label}で 1D100 判定`}
-                    onClick={() => rollDerived(d.key, d.label, val as number)}
-                  >
-                    判定
-                  </button>
-                )}
               </div>
             );
           })}
@@ -450,7 +385,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
               <th>職業P</th>
               <th>興味P</th>
               <th>合計</th>
-              <th>判定</th>
             </tr>
           </thead>
           <tbody>
@@ -497,14 +431,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                   <td>
                     <strong>{total}</strong>
                   </td>
-                  <td>
-                    <button
-                      className="btn mini"
-                      onClick={() => rollSkill(s.key, s.label, total)}
-                    >
-                      1D100
-                    </button>
-                  </td>
                 </tr>
               );
             })}
@@ -517,19 +443,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
               <li key={i}>{e.message}</li>
             ))}
           </ul>
-        )}
-
-        {lastRoll && (
-          <p className="row" style={{ marginTop: 12, gap: 8 }}>
-            <span className="muted">{lastRoll.label}:</span>
-            <span className="stat" style={{ padding: "4px 10px" }}>
-              <span className="k">出目</span>
-              <span className="v">{lastRoll.result.roll}</span>
-            </span>
-            <span className={`tag ${lastRoll.result.isSuccess ? "ok" : "fail"}`}>
-              {levelLabel(lastRoll.result)}
-            </span>
-          </p>
         )}
       </div>
 
@@ -545,32 +458,6 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
           style={{ marginTop: 8, width: "100%", resize: "vertical" }}
         />
       </div>
-
-      {rollOverlay && (
-        <DiceOverlay
-          label={rollOverlay.label}
-          target={rollOverlay.target}
-          result={rollOverlay.result}
-          onClose={() => setRollOverlay(null)}
-        />
-      )}
     </div>
   );
-}
-
-function levelLabel(r: CoCCheckResult): string {
-  switch (r.level) {
-    case "extreme":
-      return "イクストリーム成功";
-    case "hard":
-      return "ハード成功";
-    case "regular":
-      return "レギュラー成功";
-    case "special":
-      return "スペシャル";
-    case "fumble":
-      return "ファンブル";
-    default:
-      return "失敗";
-  }
 }
