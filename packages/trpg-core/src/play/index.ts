@@ -2,6 +2,8 @@ export {
   PLAY_SCHEMA_VERSION,
   type PlayScene,
   type PlayBoard,
+  type PlayBgm,
+  type BgmTrack,
   type Panel,
   type PanelStat,
   type PanelResource,

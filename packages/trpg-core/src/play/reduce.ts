@@ -24,6 +24,7 @@ export function createScene(params: {
     systemId: params.systemId ?? "",
     panels: [],
     board: { image: null, grid: true },
+    bgm: { tracks: [] },
     log: [],
     meta: { createdAt: params.now, updatedAt: params.now },
   };
