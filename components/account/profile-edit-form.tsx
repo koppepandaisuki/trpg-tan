@@ -1,9 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Twitter, Globe, CheckCircle2 } from "lucide-react";
+import {
+  Twitter,
+  Globe,
+  CheckCircle2,
+  Plus,
+  Trash2,
+  Link2,
+} from "lucide-react";
+import { MAX_SOCIAL_LINKS } from "@/lib/validators/profile";
 import {
   profileEditSchema,
   type ProfileEditInput,
@@ -31,12 +39,18 @@ export function ProfileEditForm({ initialValues }: ProfileEditFormProps) {
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<ProfileEditInput>({
     resolver: zodResolver(profileEditSchema),
     defaultValues: initialValues,
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "socialLinks",
   });
 
   async function onSubmit(values: ProfileEditInput) {
@@ -144,6 +158,66 @@ export function ProfileEditForm({ initialValues }: ProfileEditFormProps) {
           <p className="text-xs text-destructive">
             {errors.websiteUrl.message}
           </p>
+        )}
+      </div>
+
+      {/* SNS / 外部リンク(任意・複数)。ラベル + URL を好きなだけ。 */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-sm font-medium">
+            <Link2 className="h-3.5 w-3.5 text-violet-600" aria-hidden />
+            SNS / 外部リンク
+          </span>
+          {fields.length < MAX_SOCIAL_LINKS && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => append({ label: "", url: "" })}
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" /> 追加
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          X / pixiv / YouTube / Misskey / Discord / BOOTH など。ラベル＋URL で最大{" "}
+          {MAX_SOCIAL_LINKS} 件。プロフィールにボタンとして表示されます。
+        </p>
+        {fields.length === 0 ? (
+          <p className="text-xs text-muted-foreground/70">
+            「追加」でリンクを足せます。
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {fields.map((field, i) => (
+              <li key={field.id} className="flex gap-2">
+                <Input
+                  placeholder="ラベル"
+                  maxLength={30}
+                  className="w-28 shrink-0"
+                  aria-label={`リンク ${i + 1} のラベル`}
+                  {...register(`socialLinks.${i}.label` as const)}
+                />
+                <Input
+                  type="url"
+                  placeholder="https://…"
+                  maxLength={200}
+                  aria-label={`リンク ${i + 1} の URL`}
+                  {...register(`socialLinks.${i}.url` as const)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => remove(i)}
+                  aria-label={`リンク ${i + 1} を削除`}
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

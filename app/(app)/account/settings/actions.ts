@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/session/require";
 import {
   profileEditSchema,
   normalizeTwitterHandle,
+  sanitizeSocialLinks,
   type ProfileEditInput,
 } from "@/lib/validators/profile";
 import {
@@ -89,6 +90,7 @@ export async function updateProfileAction(
       bio: parsed.data.bio,
       twitter_handle: normalizeTwitterHandle(parsed.data.twitterHandle),
       website_url: parsed.data.websiteUrl,
+      social_links: sanitizeSocialLinks(parsed.data.socialLinks),
     })
     .eq("id", user.id);
 

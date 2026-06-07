@@ -37,7 +37,9 @@ export default async function AccountSettingsPage() {
   const supabase = createClient();
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("display_name, bio, twitter_handle, website_url, avatar_path")
+    .select(
+      "display_name, bio, twitter_handle, website_url, social_links, avatar_path",
+    )
     .eq("id", user.id)
     .maybeSingle();
 
@@ -46,6 +48,9 @@ export default async function AccountSettingsPage() {
     bio: profileRow?.bio ?? "",
     twitterHandle: profileRow?.twitter_handle ?? "",
     websiteUrl: profileRow?.website_url ?? "",
+    socialLinks: Array.isArray(profileRow?.social_links)
+      ? (profileRow.social_links as { label: string; url: string }[])
+      : [],
   };
 
   const avatarUrl = publicAvatarUrl(profileRow?.avatar_path ?? null);

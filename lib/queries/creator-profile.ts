@@ -2,6 +2,19 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { ProductListItem, ProductType } from "./types";
 import type { ReviewLabel } from "./reviews";
+import type { SocialLink } from "@/lib/validators/profile";
+
+function toSocialLinks(raw: unknown): SocialLink[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (l): l is SocialLink =>
+        !!l &&
+        typeof l === "object" &&
+        typeof (l as SocialLink).url === "string",
+    )
+    .map((l) => ({ label: l.label ?? "", url: l.url }));
+}
 
 /**
  * Steam 風の総合評価ラベル算出。reviews.ts と同じロジックを内部で
@@ -58,6 +71,8 @@ export interface CreatorProfileView {
   bio: string;
   twitterHandle: string;
   websiteUrl: string;
+  /** クリエイターが任意で足した SNS / 外部リンク。 */
+  socialLinks: SocialLink[];
   products: ProductListItem[];
   /** 全作品の集計。products が 0 件のときも安全側で 0 / 評価なし */
   stats: CreatorAggregateStats;
@@ -72,7 +87,7 @@ export async function getCreatorProfile(
   const { data: profileRow, error: profileErr } = await supabase
     .from("public_profiles")
     .select(
-      "id, display_name, avatar_path, bio, twitter_handle, website_url",
+      "id, display_name, avatar_path, bio, twitter_handle, website_url, social_links",
     )
     .eq("id", id)
     .maybeSingle();
@@ -103,6 +118,7 @@ export async function getCreatorProfile(
       bio: profileRow.bio ?? "",
       twitterHandle: profileRow.twitter_handle ?? "",
       websiteUrl: profileRow.website_url ?? "",
+      socialLinks: toSocialLinks(profileRow.social_links),
       products: [],
       stats: emptyStats(),
     };
@@ -139,6 +155,7 @@ export async function getCreatorProfile(
     bio: profileRow.bio ?? "",
     twitterHandle: profileRow.twitter_handle ?? "",
     websiteUrl: profileRow.website_url ?? "",
+    socialLinks: toSocialLinks(profileRow.social_links),
     products,
     stats,
   };
