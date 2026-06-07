@@ -683,7 +683,9 @@ body {
 
 /* ===== 盤面(背景マップ + トークン)===== */
 .board-wrap {
-  margin-bottom: 14px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .board-tools {
@@ -691,6 +693,7 @@ body {
   gap: 6px;
   margin-bottom: 6px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .board-file {
@@ -700,8 +703,8 @@ body {
 .board {
   position: relative;
   width: 100%;
-  height: 52vh;
-  min-height: 300px;
+  flex: 1;
+  min-height: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background-color: #cfe6f6;
@@ -970,7 +973,8 @@ body {
 }
 
 .bgm-list {
-  max-height: 200px;
+  flex: 1;
+  min-height: 60px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1105,13 +1109,121 @@ body {
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-direction: column;
 }
 
-.ptable-panels {
+/* 盤面 + フローティング・ウィジェットを載せるキャンバス。 */
+.pstage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0 14px 14px;
+  overflow: hidden;
+}
+
+/* フローティング・ウィジェット(自由配置のキャラ/ログ/BGM 枠) */
+.fwidget {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  min-width: 160px;
+  min-height: 96px;
+}
+.fwidget-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px 7px 11px;
+  background: var(--grad-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
+}
+.fwidget-bar:active {
+  cursor: grabbing;
+}
+.fwidget-ic {
+  font-size: 13px;
+  line-height: 1;
+}
+.fwidget-title {
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
-  padding: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fwidget-x {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  opacity: 0.85;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 5px;
+}
+.fwidget-x:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.22);
+}
+.fwidget-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+/* キャラパネル: 外枠は fwidget が持つので内側の二重枠を消す。 */
+.fwidget-body.ppanel-body {
+  padding: 0;
+}
+.fwidget-body.ppanel-body .ppanel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+/* ログ/チャット: 内部で plog(flex) + pinput(下部固定)。 */
+.fwidget-body.log-body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* BGM: 縦積み。リストが伸縮、操作列と追加ボタンは下に固定。 */
+.fwidget-body.bgm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fwidget-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.fwidget-resize::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--border-strong);
+  border-bottom: 2px solid var(--border-strong);
+  border-bottom-right-radius: 3px;
 }
 
 /* シーンバー(盤面の上・タブで盤面を切替) */
@@ -1120,7 +1232,8 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 12px;
+  padding: 12px 14px 0;
+  margin-bottom: 10px;
 }
 .scenebar-label {
   font-size: 11px;
