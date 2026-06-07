@@ -1207,23 +1207,50 @@ body {
 }
 .fwidget-resize {
   position: absolute;
+  touch-action: none;
+  z-index: 2;
+}
+/* 右辺をドラッグ → 幅 */
+.fwr-e {
+  top: 10px;
+  bottom: 14px;
+  right: 0;
+  width: 9px;
+  cursor: ew-resize;
+}
+/* 下辺をドラッグ → 高さ */
+.fwr-s {
+  left: 10px;
+  right: 14px;
+  bottom: 0;
+  height: 9px;
+  cursor: ns-resize;
+}
+/* 右下角をドラッグ → 幅・高さ両方 */
+.fwr-se {
   right: 0;
   bottom: 0;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   cursor: nwse-resize;
-  touch-action: none;
 }
-.fwidget-resize::after {
+.fwr-se::after {
   content: "";
   position: absolute;
   right: 3px;
   bottom: 3px;
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-right: 2px solid var(--border-strong);
   border-bottom: 2px solid var(--border-strong);
   border-bottom-right-radius: 3px;
+}
+.fwr-e:hover,
+.fwr-s:hover {
+  background: var(--primary-soft);
+}
+.fwr-se:hover::after {
+  border-color: var(--primary);
 }
 
 /* シーンバー(盤面の上・タブで盤面を切替) */
