@@ -43,9 +43,12 @@ export function DetachedWidget({ widgetId }: { widgetId: string }) {
       <div className="dwindow dwindow-log">
         <LogView
           log={slice.log}
-          onChat={(text) => void sendIntent({ kind: "chat", text })}
-          onFreeRoll={(notation) =>
-            void sendIntent({ kind: "free-roll", notation })
+          speakers={[
+            { id: "GM", name: "GM" },
+            ...slice.panels.map((p) => ({ id: p.id, name: p.name })),
+          ]}
+          onSend={(speakerId, raw) =>
+            void sendIntent({ kind: "send", speakerId, raw })
           }
         />
       </div>

@@ -36,6 +36,7 @@ export {
   systemEvent,
   checkEvent,
   freeRollEvent,
+  compareRollEvent,
   panelAddEvent,
   panelRemoveEvent,
   panelMoveEvent,

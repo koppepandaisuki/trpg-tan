@@ -1,6 +1,7 @@
 import { type RandomFn, defaultRandom } from "../dice/random.js";
 import { rollNotation } from "../dice/notation.js";
 import { rollCoCCheck, type CoCEdition } from "../dice/coc-check.js";
+import { compareRoll, type CompareOp } from "../dice/command.js";
 import type {
   Panel,
   PanelResource,
@@ -68,11 +69,12 @@ export function checkEvent(
   };
 }
 
-/** フリーダイス(記法評価)。 */
+/** フリーダイス(記法評価)。label を省略すると記法そのものを表示名にする。 */
 export function freeRollEvent(
   ctx: EventCtx,
   actor: string,
   notation: string,
+  label?: string,
 ): RollEvent {
   const r = rollNotation(notation, ctx.rng ?? defaultRandom);
   return {
@@ -80,10 +82,34 @@ export function freeRollEvent(
     ts: ctx.ts,
     actor,
     kind: "roll",
-    label: notation,
+    label: label ?? notation,
     notation,
     dice: r.rolls,
     total: r.total,
+  };
+}
+
+/** 比較付きロール(2d6>=8 等)。成否を刻む。 */
+export function compareRollEvent(
+  ctx: EventCtx,
+  actor: string,
+  notation: string,
+  op: CompareOp,
+  target: number,
+  label?: string,
+): RollEvent {
+  const r = compareRoll(notation, op, target, ctx.rng ?? defaultRandom);
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor,
+    kind: "roll",
+    label: label ?? `${notation}${op}${target}`,
+    notation,
+    dice: r.rolls,
+    total: r.total,
+    success: r.success,
+    compare: { op, target },
   };
 }
 
