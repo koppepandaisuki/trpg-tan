@@ -14,6 +14,7 @@ export {
   type PanelRemoveEvent,
   type SystemEvent,
   type PanelMoveEvent,
+  type PanelUpdateEvent,
   type BoardSetEvent,
 } from "./types.js";
 export {
@@ -31,6 +32,7 @@ export {
   panelAddEvent,
   panelRemoveEvent,
   panelMoveEvent,
+  panelUpdateEvent,
   boardSetEvent,
   resourceEvent,
 } from "./actions.js";

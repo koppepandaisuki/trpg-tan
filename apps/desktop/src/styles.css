@@ -548,6 +548,112 @@ body {
   pointer-events: none;
 }
 
+.token.hidden {
+  opacity: 0.5;
+}
+.token.hidden .token-img {
+  border-style: dashed;
+}
+
+.token-eye {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 11px;
+  background: rgba(16, 49, 74, 0.85);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.board.drop-active {
+  outline: 3px dashed var(--primary);
+  outline-offset: -6px;
+}
+
+.board-hint {
+  font-size: 11px;
+  align-self: center;
+  margin-left: auto;
+}
+
+/* 駒の右クリックメニュー */
+.ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+}
+
+.ctx-menu {
+  position: fixed;
+  z-index: 65;
+  width: 234px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: modal-pop 0.14s ease;
+}
+
+.ctx-head {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+.ctx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.ctx-field .input {
+  font-size: 12.5px;
+  padding: 5px 7px;
+}
+.ctx-field textarea.input {
+  resize: vertical;
+}
+
+.ctx-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ctx-row:hover {
+  border-color: var(--border-strong);
+}
+.ctx-row.danger {
+  color: #b91c1c;
+}
+.ctx-row.danger:hover {
+  background: #fef2f2;
+}
+
+.ctx-icon {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
 /* ===== PLAY(セッション卓)===== */
 .ptable {
   display: flex;

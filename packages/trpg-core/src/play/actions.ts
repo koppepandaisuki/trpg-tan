@@ -11,6 +11,7 @@ import type {
   PanelRemoveEvent,
   SystemEvent,
   PanelMoveEvent,
+  PanelUpdateEvent,
   BoardSetEvent,
 } from "./types.js";
 import { clampResource } from "./reduce.js";
@@ -113,6 +114,22 @@ export function panelMoveEvent(
     panelId,
     x: clamp01(x),
     y: clamp01(y),
+  };
+}
+
+/** 駒の属性(名前/情報/秘匿)を更新。指定したフィールドだけ反映。 */
+export function panelUpdateEvent(
+  ctx: EventCtx,
+  panelId: string,
+  patch: { name?: string; note?: string; hidden?: boolean },
+): PanelUpdateEvent {
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor: "GM",
+    kind: "panel-update",
+    panelId,
+    patch,
   };
 }
 
