@@ -27,8 +27,7 @@ export type PlayIntent =
   | { kind: "roll"; panelId: string; statKey: string }
   | { kind: "resource"; panelId: string; resourceKey: string; delta: number }
   | { kind: "remove-panel"; panelId: string }
-  | { kind: "chat"; text: string }
-  | { kind: "free-roll"; notation: string }
+  | { kind: "send"; speakerId: string; raw: string }
   | { kind: "bgm-add"; tracks: BgmTrack[] }
   | { kind: "bgm-remove"; id: string };
 

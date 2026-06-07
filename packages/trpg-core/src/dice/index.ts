@@ -12,3 +12,10 @@ export {
   resolveCoCCheck,
   rollCoCCheck,
 } from "./coc-check.js";
+export {
+  type CompareOp,
+  type DiceCommand,
+  type CompareRollResult,
+  parseDiceCommand,
+  compareRoll,
+} from "./command.js";

@@ -1,23 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import type { PlayEvent, CoCCheckResult } from "@trpg/core";
 
+/** 発言者の選択肢(GM + 卓上の駒)。 */
+export interface Speaker {
+  id: string; // "GM" or panel id
+  name: string;
+}
+
 /**
- * ログ + 入力欄(発言 / ダイス記法)。メイン卓と切り離し窓で共用する
- * プレゼンテーション部品。実際の適用(乱数消費=GM 権威)は呼び出し側に委ねる:
- *   - メイン卓: onChat/onFreeRoll で直接 dispatch
- *   - 切り離し窓: onChat/onFreeRoll で intent をメインへ送る
+ * ログ + 入力欄。メイン卓と切り離し窓で共用。
+ *  - 発言者を選んで(GM / キャラ / トークン)発言
+ *  - 入力欄に 1d100<=70 / 2d6+1 / CCB<=50 等のダイスコマンドを打つと判定
+ * 実際の適用(乱数消費=GM 権威)は onSend の呼び出し側に委ねる
+ * (メイン=parse して dispatch、切り離し窓=intent をメインへ送る)。
  */
 export function LogView({
   log,
-  onChat,
-  onFreeRoll,
+  speakers,
+  onSend,
 }: {
   log: PlayEvent[];
-  onChat: (text: string) => void;
-  onFreeRoll: (notation: string) => void;
+  speakers: Speaker[];
+  onSend: (speakerId: string, raw: string) => void;
 }) {
-  const [chat, setChat] = useState("");
-  const [notation, setNotation] = useState("");
+  const [speakerId, setSpeakerId] = useState("GM");
+  const [text, setText] = useState("");
   const logRef = useRef<HTMLDivElement>(null);
 
   // ログが増えたら末尾へ自動スクロール。
@@ -26,17 +33,16 @@ export function LogView({
     if (el) el.scrollTop = el.scrollHeight;
   }, [log.length]);
 
-  function sendChat() {
-    const t = chat.trim();
+  // 選択中の発言者が居なくなったら GM に戻す。
+  useEffect(() => {
+    if (!speakers.some((s) => s.id === speakerId)) setSpeakerId("GM");
+  }, [speakers, speakerId]);
+
+  function send() {
+    const t = text.trim();
     if (!t) return;
-    onChat(t);
-    setChat("");
-  }
-  function rollFree() {
-    const n = notation.trim();
-    if (!n) return;
-    onFreeRoll(n);
-    setNotation("");
+    onSend(speakerId, t);
+    setText("");
   }
 
   return (
@@ -44,7 +50,8 @@ export function LogView({
       <div className="plog" ref={logRef}>
         {log.length === 0 ? (
           <p className="muted" style={{ padding: 8, fontSize: 12 }}>
-            ここに判定・チャットのログが流れます。
+            発言や判定がここに流れます。例: <code>1d100&lt;=70 目星</code> /{" "}
+            <code>2d6+1</code>
           </p>
         ) : (
           log.map((ev) => <LogRow key={ev.id} ev={ev} />)
@@ -53,27 +60,27 @@ export function LogView({
 
       <div className="pinput">
         <div className="pinput-row">
+          <select
+            className="input pspeaker"
+            value={speakerId}
+            onChange={(e) => setSpeakerId(e.target.value)}
+            title="発言者"
+          >
+            {speakers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
           <input
             className="input"
-            value={chat}
-            onChange={(e) => setChat(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendChat()}
-            placeholder="発言…"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && send()}
+            placeholder="発言 / 1d100<=70 目星 / 2d6+1…"
           />
-          <button className="btn mini" onClick={sendChat}>
+          <button className="btn mini btn-primary" onClick={send}>
             送信
-          </button>
-        </div>
-        <div className="pinput-row">
-          <input
-            className="input"
-            value={notation}
-            onChange={(e) => setNotation(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && rollFree()}
-            placeholder="ダイス記法（例: 2d6+1, 1d100）"
-          />
-          <button className="btn mini btn-primary" onClick={rollFree}>
-            ロール
           </button>
         </div>
       </div>
@@ -99,6 +106,12 @@ export function LogRow({ ev }: { ev: PlayEvent }) {
           {ev.label} → 🎲 [{ev.dice.join(", ")}] = <b>{ev.total}</b>
           {ev.check && (
             <span className={`log-level ${tone}`}> {levelLabel(ev.check)}</span>
+          )}
+          {ev.check === undefined && ev.success !== undefined && (
+            <span className={`log-level ${ev.success ? "ok" : "fail"}`}>
+              {" "}
+              {ev.success ? "成功" : "失敗"}
+            </span>
           )}
         </span>
       </p>

@@ -1,4 +1,5 @@
 import type { CoCEdition, CoCCheckResult } from "../dice/coc-check.js";
+import type { CompareOp } from "../dice/command.js";
 
 /**
  * PLAY(セッション卓)の永続化スキーマと、イベントソーシングの型。
@@ -133,6 +134,10 @@ export interface RollEvent extends BaseEvent {
   total: number;
   /** CoC 判定だった場合の成功度など。 */
   check?: CoCCheckResult;
+  /** 比較付きロール(2d6>=8 等)の成否。 */
+  success?: boolean;
+  /** 比較付きロールの比較条件(表示用)。 */
+  compare?: { op: CompareOp; target: number };
 }
 
 /** リソース(HP/SAN/MP…)の増減。 */

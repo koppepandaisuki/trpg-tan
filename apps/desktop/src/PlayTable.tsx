@@ -5,7 +5,9 @@ import {
   makeTokenPanel,
   checkEvent,
   freeRollEvent,
+  compareRollEvent,
   chatEvent,
+  parseDiceCommand,
   resourceEvent,
   panelAddEvent,
   panelRemoveEvent,
@@ -249,18 +251,40 @@ export function PlayTable({
     setTokenName("");
   }
 
-  function handleChat(text: string) {
-    dispatch(chatEvent(newCtx(), "GM", text));
+  /** 発言者 id → 表示名 + 版(CoC 判定の閾値に使う)。 */
+  function resolveSpeaker(speakerId: string): { name: string; edition: CoCEdition } {
+    if (speakerId === "GM") return { name: "GM", edition: sceneEdition };
+    const p = scene.panels.find((x) => x.id === speakerId);
+    return { name: p?.name ?? "GM", edition: p?.edition ?? sceneEdition };
   }
 
-  function handleFreeRoll(notation: string) {
+  /** チャット入力(発言 or ダイスコマンド)を解釈して適用。 */
+  function handleSend(speakerId: string, raw: string) {
+    const { name, edition } = resolveSpeaker(speakerId);
+    const cmd = parseDiceCommand(raw);
     try {
-      const ev = freeRollEvent(newCtx(), "GM", notation);
+      if (cmd.kind === "none") {
+        dispatch(chatEvent(newCtx(), name, raw));
+        return;
+      }
+      const ev =
+        cmd.kind === "notation"
+          ? freeRollEvent(newCtx(), name, cmd.notation, cmd.label)
+          : cmd.kind === "coc"
+            ? checkEvent(newCtx(), name, cmd.label, cmd.target, edition)
+            : compareRollEvent(
+                newCtx(),
+                name,
+                cmd.notation,
+                cmd.op,
+                cmd.target,
+                cmd.label,
+              );
       dispatch(ev);
       setMotion(ev);
       setError(null);
     } catch {
-      setError(`ダイス記法を解釈できません: "${notation}"（例: 2d6+1）`);
+      setError(`コマンドを解釈できません: "${raw}"`);
     }
   }
 
@@ -286,11 +310,8 @@ export function PlayTable({
       case "remove-panel":
         dispatch(panelRemoveEvent(newCtx(), intent.panelId));
         break;
-      case "chat":
-        handleChat(intent.text);
-        break;
-      case "free-roll":
-        handleFreeRoll(intent.notation);
+      case "send":
+        handleSend(intent.speakerId, intent.raw);
         break;
       case "bgm-add":
         addBgmTracks(intent.tracks);
@@ -491,8 +512,11 @@ export function PlayTable({
             >
               <LogView
                 log={scene.log}
-                onChat={handleChat}
-                onFreeRoll={handleFreeRoll}
+                speakers={[
+                  { id: "GM", name: "GM" },
+                  ...scene.panels.map((p) => ({ id: p.id, name: p.name })),
+                ]}
+                onSend={handleSend}
               />
             </FloatingWidget>
 

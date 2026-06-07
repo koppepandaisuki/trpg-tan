@@ -1501,6 +1501,13 @@ body {
   font-size: 12.5px;
 }
 
+/* 発言者セレクト(GM / キャラ)。入力欄に幅を譲るため固定幅。 */
+.pinput-row .pspeaker {
+  flex: 0 0 auto;
+  max-width: 96px;
+  padding: 6px 4px;
+}
+
 /* パネル(キャラ駒)*/
 .ppanel {
   border: 1px solid var(--border);
