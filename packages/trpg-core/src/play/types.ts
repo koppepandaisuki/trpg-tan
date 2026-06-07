@@ -79,6 +79,13 @@ export interface PlayBgm {
   tracks: BgmTrack[];
 }
 
+/** シーン。盤面(背景+グリッド)を切り替える単位。キャラ/ログ/BGM は卓で共有。 */
+export interface SceneInfo {
+  id: string;
+  name: string;
+  board: PlayBoard;
+}
+
 /** セッション卓(シーン)の全状態。 */
 export interface PlayScene {
   schemaVersion: typeof PLAY_SCHEMA_VERSION;
@@ -91,6 +98,9 @@ export interface PlayScene {
   board?: PlayBoard;
   /** BGM プレイリスト(GM ローカル)。古い .play には無い場合があるので optional。 */
   bgm?: PlayBgm;
+  /** シーン一覧。board は active シーンの盤面を映す(scenes が真。古い .play は optional)。 */
+  scenes?: SceneInfo[];
+  activeSceneId?: string;
   log: PlayEvent[];
   meta: { createdAt: string; updatedAt: string };
 }
@@ -168,12 +178,37 @@ export interface PanelUpdateEvent extends BaseEvent {
   patch: { name?: string; note?: string; hidden?: boolean; size?: number };
 }
 
-/** 盤面設定(背景画像 / グリッド)の変更。 */
+/** 盤面設定(背景画像 / グリッド)の変更。active シーンの盤面に効く。 */
 export interface BoardSetEvent extends BaseEvent {
   kind: "board-set";
   /** undefined のフィールドは据え置き。 */
   image?: string | null;
   grid?: boolean;
+}
+
+/** シーン追加(追加後そのシーンへ切替)。 */
+export interface SceneAddEvent extends BaseEvent {
+  kind: "scene-add";
+  scene: SceneInfo;
+}
+
+/** シーン切替。 */
+export interface SceneSelectEvent extends BaseEvent {
+  kind: "scene-select";
+  sceneId: string;
+}
+
+/** シーン名の変更。 */
+export interface SceneRenameEvent extends BaseEvent {
+  kind: "scene-rename";
+  sceneId: string;
+  name: string;
+}
+
+/** シーン削除(最後の1つは消せない)。 */
+export interface SceneRemoveEvent extends BaseEvent {
+  kind: "scene-remove";
+  sceneId: string;
 }
 
 export type PlayEvent =
@@ -185,4 +220,8 @@ export type PlayEvent =
   | SystemEvent
   | PanelMoveEvent
   | PanelUpdateEvent
-  | BoardSetEvent;
+  | BoardSetEvent
+  | SceneAddEvent
+  | SceneSelectEvent
+  | SceneRenameEvent
+  | SceneRemoveEvent;

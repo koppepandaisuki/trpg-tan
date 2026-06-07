@@ -42,7 +42,28 @@ export async function readPlayFromPath(path: string): Promise<PlayScene> {
   if (parsed.schemaVersion !== PLAY_SCHEMA_VERSION) {
     throw new Error(`未対応の .play バージョンです(${parsed.schemaVersion})`);
   }
-  return parsed;
+  return migrate(parsed);
+}
+
+/**
+ * 旧 .play の前方互換。BGM/シーンが無い卓を開いても落ちないよう、
+ * 既定値を補完する(スキーマ版は据え置き = 既存フィールドの追加のみ)。
+ */
+function migrate(scene: PlayScene): PlayScene {
+  const board = scene.board ?? { image: null, grid: true };
+  const bgm = scene.bgm ?? { tracks: [] };
+  if (scene.scenes && scene.scenes.length > 0 && scene.activeSceneId) {
+    return { ...scene, board, bgm };
+  }
+  // シーン未対応の卓: 現在の盤面を「シーン1」として 1 つ作る。
+  const firstSceneId = `${scene.id}::s1`;
+  return {
+    ...scene,
+    board,
+    bgm,
+    scenes: [{ id: firstSceneId, name: "シーン1", board }],
+    activeSceneId: firstSceneId,
+  };
 }
 
 function serialize(scene: PlayScene): string {

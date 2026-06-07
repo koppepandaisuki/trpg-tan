@@ -4,6 +4,7 @@ export {
   type PlayBoard,
   type PlayBgm,
   type BgmTrack,
+  type SceneInfo,
   type Panel,
   type PanelStat,
   type PanelResource,
@@ -18,6 +19,10 @@ export {
   type PanelMoveEvent,
   type PanelUpdateEvent,
   type BoardSetEvent,
+  type SceneAddEvent,
+  type SceneSelectEvent,
+  type SceneRenameEvent,
+  type SceneRemoveEvent,
 } from "./types.js";
 export {
   createScene,
@@ -36,6 +41,10 @@ export {
   panelMoveEvent,
   panelUpdateEvent,
   boardSetEvent,
+  sceneAddEvent,
+  sceneSelectEvent,
+  sceneRenameEvent,
+  sceneRemoveEvent,
   resourceEvent,
 } from "./actions.js";
 export {

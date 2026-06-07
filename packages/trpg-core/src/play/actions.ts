@@ -13,6 +13,11 @@ import type {
   PanelMoveEvent,
   PanelUpdateEvent,
   BoardSetEvent,
+  SceneInfo,
+  SceneAddEvent,
+  SceneSelectEvent,
+  SceneRenameEvent,
+  SceneRemoveEvent,
 } from "./types.js";
 import { clampResource } from "./reduce.js";
 
@@ -150,6 +155,63 @@ export function boardSetEvent(
 
 function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v));
+}
+
+/** シーン追加(追加後そのシーンへ切替)。空盤面で作る。 */
+export function sceneAddEvent(
+  ctx: EventCtx,
+  scene: { id: string; name: string },
+): SceneAddEvent {
+  const info: SceneInfo = {
+    id: scene.id,
+    name: scene.name,
+    board: { image: null, grid: true },
+  };
+  return { id: ctx.id, ts: ctx.ts, actor: "GM", kind: "scene-add", scene: info };
+}
+
+/** シーン切替。 */
+export function sceneSelectEvent(
+  ctx: EventCtx,
+  sceneId: string,
+): SceneSelectEvent {
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor: "GM",
+    kind: "scene-select",
+    sceneId,
+  };
+}
+
+/** シーン名の変更。 */
+export function sceneRenameEvent(
+  ctx: EventCtx,
+  sceneId: string,
+  name: string,
+): SceneRenameEvent {
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor: "GM",
+    kind: "scene-rename",
+    sceneId,
+    name,
+  };
+}
+
+/** シーン削除(最後の1つは消せない)。 */
+export function sceneRemoveEvent(
+  ctx: EventCtx,
+  sceneId: string,
+): SceneRemoveEvent {
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor: "GM",
+    kind: "scene-remove",
+    sceneId,
+  };
 }
 
 /**
