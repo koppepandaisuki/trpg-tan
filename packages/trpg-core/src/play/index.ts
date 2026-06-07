@@ -1,6 +1,7 @@
 export {
   PLAY_SCHEMA_VERSION,
   type PlayScene,
+  type PlayBoard,
   type Panel,
   type PanelStat,
   type PanelResource,
@@ -12,6 +13,8 @@ export {
   type PanelAddEvent,
   type PanelRemoveEvent,
   type SystemEvent,
+  type PanelMoveEvent,
+  type BoardSetEvent,
 } from "./types.js";
 export {
   createScene,
@@ -27,6 +30,8 @@ export {
   freeRollEvent,
   panelAddEvent,
   panelRemoveEvent,
+  panelMoveEvent,
+  boardSetEvent,
   resourceEvent,
 } from "./actions.js";
 export {

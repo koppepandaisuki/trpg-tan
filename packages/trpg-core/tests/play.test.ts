@@ -10,6 +10,8 @@ import {
   makeTokenPanel,
   panelAddEvent,
   panelRemoveEvent,
+  panelMoveEvent,
+  boardSetEvent,
   resourceEvent,
   checkEvent,
   freeRollEvent,
@@ -157,6 +159,28 @@ describe("freeRollEvent(フリーダイス)", () => {
     expect(ev.dice).toEqual([3, 4]);
     expect(ev.total).toBe(7);
     expect(ev.notation).toBe("2d6");
+  });
+});
+
+describe("盤面(board)", () => {
+  it("createScene は board を初期化(grid on)", () => {
+    const s = createScene({ id: "s", title: "卓", now: NOW });
+    expect(s.board).toEqual({ image: null, grid: true });
+  });
+
+  it("panel-move で駒の正規化座標を設定(0..1 クランプ)", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    s = reduce(s, panelAddEvent(ctx("e1"), makeTokenPanel({ id: "t1", name: "敵" })));
+    s = reduce(s, panelMoveEvent(ctx("e2"), "t1", 0.3, 1.4));
+    expect(s.panels[0].pos).toEqual({ x: 0.3, y: 1 }); // y は 1 にクランプ
+  });
+
+  it("board-set は指定フィールドだけ反映", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    s = reduce(s, boardSetEvent(ctx("e1"), { grid: false }));
+    expect(s.board).toEqual({ image: null, grid: false });
+    s = reduce(s, boardSetEvent(ctx("e2"), { image: "data:img" }));
+    expect(s.board).toEqual({ image: "data:img", grid: false });
   });
 });
 

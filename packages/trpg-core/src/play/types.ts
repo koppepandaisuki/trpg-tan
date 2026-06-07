@@ -48,6 +48,16 @@ export interface Panel {
   sheetId?: string;
   stats: PanelStat[];
   resources: PanelResource[];
+  /** 盤面上の位置(0..1 正規化。盤面サイズに依らず保存できる)。未配置は undefined。 */
+  pos?: { x: number; y: number };
+}
+
+/** 盤面(背景マップ + グリッド)。 */
+export interface PlayBoard {
+  /** 背景画像(data URL)。未設定なら無地。 */
+  image: string | null;
+  /** グリッド表示の on/off。 */
+  grid: boolean;
 }
 
 /** セッション卓(シーン)の全状態。 */
@@ -58,6 +68,8 @@ export interface PlayScene {
   /** 卓の既定システム(coc7/coc6/"")。フリーダイスや判定の版解決に使う。 */
   systemId: string;
   panels: Panel[];
+  /** 盤面。古い .play には無い場合があるので optional。 */
+  board?: PlayBoard;
   log: PlayEvent[];
   meta: { createdAt: string; updatedAt: string };
 }
@@ -120,10 +132,28 @@ export interface SystemEvent extends BaseEvent {
   text: string;
 }
 
+/** 駒を盤面上で移動(座標は 0..1 正規化)。 */
+export interface PanelMoveEvent extends BaseEvent {
+  kind: "panel-move";
+  panelId: string;
+  x: number;
+  y: number;
+}
+
+/** 盤面設定(背景画像 / グリッド)の変更。 */
+export interface BoardSetEvent extends BaseEvent {
+  kind: "board-set";
+  /** undefined のフィールドは据え置き。 */
+  image?: string | null;
+  grid?: boolean;
+}
+
 export type PlayEvent =
   | ChatEvent
   | RollEvent
   | ResourceEvent
   | PanelAddEvent
   | PanelRemoveEvent
-  | SystemEvent;
+  | SystemEvent
+  | PanelMoveEvent
+  | BoardSetEvent;
