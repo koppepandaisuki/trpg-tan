@@ -11,6 +11,7 @@ import {
   panelAddEvent,
   panelRemoveEvent,
   panelMoveEvent,
+  panelUpdateEvent,
   boardSetEvent,
   resourceEvent,
   checkEvent,
@@ -173,6 +174,17 @@ describe("盤面(board)", () => {
     s = reduce(s, panelAddEvent(ctx("e1"), makeTokenPanel({ id: "t1", name: "敵" })));
     s = reduce(s, panelMoveEvent(ctx("e2"), "t1", 0.3, 1.4));
     expect(s.panels[0].pos).toEqual({ x: 0.3, y: 1 }); // y は 1 にクランプ
+  });
+
+  it("panel-update は名前/情報/秘匿を部分更新", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    s = reduce(s, panelAddEvent(ctx("e1"), makeTokenPanel({ id: "t1", name: "敵" })));
+    s = reduce(s, panelUpdateEvent(ctx("e2"), "t1", { name: "ボス", hidden: true }));
+    expect(s.panels[0].name).toBe("ボス");
+    expect(s.panels[0].hidden).toBe(true);
+    s = reduce(s, panelUpdateEvent(ctx("e3"), "t1", { note: "弱点は炎" }));
+    expect(s.panels[0].note).toBe("弱点は炎");
+    expect(s.panels[0].name).toBe("ボス"); // 据え置き
   });
 
   it("board-set は指定フィールドだけ反映", () => {

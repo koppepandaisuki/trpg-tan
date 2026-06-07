@@ -68,6 +68,12 @@ export function reduce(scene: PlayScene, event: PlayEvent): PlayScene {
       );
       return { ...scene, panels, log, meta };
     }
+    case "panel-update": {
+      const panels = scene.panels.map((p) =>
+        p.id === event.panelId ? { ...p, ...event.patch } : p,
+      );
+      return { ...scene, panels, log, meta };
+    }
     case "board-set": {
       const prev = scene.board ?? { image: null, grid: true };
       return {

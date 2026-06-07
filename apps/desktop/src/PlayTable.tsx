@@ -10,6 +10,7 @@ import {
   panelAddEvent,
   panelRemoveEvent,
   panelMoveEvent,
+  panelUpdateEvent,
   boardSetEvent,
   type PlayScene,
   type PlayEvent,
@@ -101,6 +102,25 @@ export function PlayTable({
 
   function toggleGrid() {
     dispatch(boardSetEvent(newCtx(), { grid: !(scene.board?.grid ?? true) }));
+  }
+
+  function addImageObject(
+    name: string,
+    dataUrl: string,
+    pos: { x: number; y: number },
+  ) {
+    const panel = {
+      ...makeTokenPanel({ id: crypto.randomUUID(), name, portrait: dataUrl }),
+      pos,
+    };
+    dispatch(panelAddEvent(newCtx(), panel));
+  }
+
+  function updatePanel(
+    id: string,
+    patch: { name?: string; note?: string; hidden?: boolean },
+  ) {
+    dispatch(panelUpdateEvent(newCtx(), id, patch));
   }
 
   /** 新しい駒の初期配置(盤面のやや中央寄りにランダム)。 */
@@ -241,26 +261,40 @@ export function PlayTable({
             onMove={movePanel}
             onSetImage={setBoardImage}
             onToggleGrid={toggleGrid}
+            onAddImage={addImageObject}
+            onUpdate={updatePanel}
+            onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
           />
 
-          {scene.panels.length === 0 ? (
-            <div className="ptable-empty muted">
-              「＋キャラ」で保存済みキャラを、または「＋トークン」で NPC/敵を
-              卓に出してください。能力値・技能をクリックすると判定が振れます。
-            </div>
-          ) : (
-            <div className="ptable-grid">
-              {scene.panels.map((p) => (
-                <PlayPanel
-                  key={p.id}
-                  panel={p}
-                  onRoll={rollStat}
-                  onResource={changeResource}
-                  onRemove={removePanel}
-                />
-              ))}
-            </div>
-          )}
+          {(() => {
+            // 能力値/リソースを持つ“キャラ駒”だけ下のパネルに出す。
+            // 画像だけのオブジェクトは盤面上にのみ置く。
+            const cards = scene.panels.filter(
+              (p) => p.stats.length > 0 || p.resources.length > 0,
+            );
+            if (cards.length === 0) {
+              return (
+                <div className="ptable-empty muted">
+                  「＋キャラ」で保存済みキャラを、「＋トークン」で NPC/敵を、
+                  画像のドロップでオブジェクトを置けます。能力値・技能を
+                  クリックすると判定が振れます。
+                </div>
+              );
+            }
+            return (
+              <div className="ptable-grid">
+                {cards.map((p) => (
+                  <PlayPanel
+                    key={p.id}
+                    panel={p}
+                    onRoll={rollStat}
+                    onResource={changeResource}
+                    onRemove={removePanel}
+                  />
+                ))}
+              </div>
+            );
+          })()}
         </section>
 
         <aside className="ptable-side">
