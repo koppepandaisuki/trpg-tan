@@ -17,6 +17,7 @@ export function createScene(params: {
   systemId?: string;
   now: string;
 }): PlayScene {
+  const firstSceneId = `${params.id}::s1`;
   return {
     schemaVersion: PLAY_SCHEMA_VERSION,
     id: params.id,
@@ -25,6 +26,8 @@ export function createScene(params: {
     panels: [],
     board: { image: null, grid: true },
     bgm: { tracks: [] },
+    scenes: [{ id: firstSceneId, name: "シーン1", board: { image: null, grid: true } }],
+    activeSceneId: firstSceneId,
     log: [],
     meta: { createdAt: params.now, updatedAt: params.now },
   };
@@ -77,15 +80,55 @@ export function reduce(scene: PlayScene, event: PlayEvent): PlayScene {
     }
     case "board-set": {
       const prev = scene.board ?? { image: null, grid: true };
+      const board = {
+        image: event.image !== undefined ? event.image : prev.image,
+        grid: event.grid !== undefined ? event.grid : prev.grid,
+      };
+      // active シーンの盤面にも反映。
+      const scenes = scene.scenes?.map((s) =>
+        s.id === scene.activeSceneId ? { ...s, board } : s,
+      );
+      return { ...scene, board, scenes, log, meta };
+    }
+    case "scene-add": {
+      const scenes = [...(scene.scenes ?? []), event.scene];
       return {
         ...scene,
-        board: {
-          image: event.image !== undefined ? event.image : prev.image,
-          grid: event.grid !== undefined ? event.grid : prev.grid,
-        },
+        scenes,
+        activeSceneId: event.scene.id,
+        board: event.scene.board,
         log,
         meta,
       };
+    }
+    case "scene-select": {
+      const target = scene.scenes?.find((s) => s.id === event.sceneId);
+      if (!target) return { ...scene, log, meta };
+      return {
+        ...scene,
+        activeSceneId: event.sceneId,
+        board: target.board,
+        log,
+        meta,
+      };
+    }
+    case "scene-rename": {
+      const scenes = scene.scenes?.map((s) =>
+        s.id === event.sceneId ? { ...s, name: event.name } : s,
+      );
+      return { ...scene, scenes, log, meta };
+    }
+    case "scene-remove": {
+      const scenes = scene.scenes ?? [];
+      if (scenes.length <= 1) return { ...scene, log, meta }; // 最後の1つは残す
+      const next = scenes.filter((s) => s.id !== event.sceneId);
+      let activeSceneId = scene.activeSceneId;
+      let board = scene.board;
+      if (scene.activeSceneId === event.sceneId) {
+        activeSceneId = next[0].id;
+        board = next[0].board;
+      }
+      return { ...scene, scenes: next, activeSceneId, board, log, meta };
     }
     case "chat":
     case "roll":

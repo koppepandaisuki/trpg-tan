@@ -12,6 +12,10 @@ import {
   panelMoveEvent,
   panelUpdateEvent,
   boardSetEvent,
+  sceneAddEvent,
+  sceneSelectEvent,
+  sceneRenameEvent,
+  sceneRemoveEvent,
   type PlayScene,
   type PlayEvent,
   type RollEvent,
@@ -19,12 +23,15 @@ import {
   type PanelStat,
   type PanelResource,
   type BgmTrack,
+  type SceneInfo,
   type CoCEdition,
   type CoCCheckResult,
 } from "@trpg/core";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { DiceMotion } from "./DiceMotion";
 import { PlayPanel } from "./PlayPanel";
 import { PlayBoard } from "./PlayBoard";
+import { SceneBar } from "./SceneBar";
 import { BgmPanel } from "./BgmPanel";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
@@ -115,6 +122,34 @@ export function PlayTable({
 
   function toggleGrid() {
     dispatch(boardSetEvent(newCtx(), { grid: !(scene.board?.grid ?? true) }));
+  }
+
+  function addScene() {
+    // 既存名と被らないよう連番(最大+1)で初期名を付ける。
+    const used = new Set((scene.scenes ?? []).map((s) => s.name));
+    let n = (scene.scenes?.length ?? 0) + 1;
+    while (used.has(`シーン${n}`)) n += 1;
+    const id = `${scene.id}::s-${crypto.randomUUID().slice(0, 8)}`;
+    dispatch(sceneAddEvent(newCtx(), { id, name: `シーン${n}` }));
+  }
+
+  function selectScene(id: string) {
+    if (id === scene.activeSceneId) return;
+    dispatch(sceneSelectEvent(newCtx(), id));
+  }
+
+  function renameScene(id: string, name: string) {
+    dispatch(sceneRenameEvent(newCtx(), id, name));
+  }
+
+  async function removeScene(id: string) {
+    const target = scene.scenes?.find((s) => s.id === id);
+    if (!target) return;
+    const ok = await ask(
+      `シーン「${target.name}」を削除しますか？\nこのシーンの盤面（背景・グリッド）が失われます。`,
+      { title: "シーンの削除", kind: "warning" },
+    );
+    if (ok) dispatch(sceneRemoveEvent(newCtx(), id));
   }
 
   function addBgmTracks(newTracks: BgmTrack[]) {
@@ -297,6 +332,14 @@ export function PlayTable({
 
       <div className="ptable-body">
         <section className="ptable-panels">
+          <SceneBar
+            scenes={scene.scenes ?? []}
+            activeId={scene.activeSceneId}
+            onSelect={selectScene}
+            onAdd={addScene}
+            onRename={renameScene}
+            onRemove={(id) => void removeScene(id)}
+          />
           <PlayBoard
             board={scene.board}
             panels={scene.panels}

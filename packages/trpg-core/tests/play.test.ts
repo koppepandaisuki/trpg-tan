@@ -13,6 +13,10 @@ import {
   panelMoveEvent,
   panelUpdateEvent,
   boardSetEvent,
+  sceneAddEvent,
+  sceneSelectEvent,
+  sceneRenameEvent,
+  sceneRemoveEvent,
   resourceEvent,
   checkEvent,
   freeRollEvent,
@@ -193,6 +197,88 @@ describe("盤面(board)", () => {
     expect(s.board).toEqual({ image: null, grid: false });
     s = reduce(s, boardSetEvent(ctx("e2"), { image: "data:img" }));
     expect(s.board).toEqual({ image: "data:img", grid: false });
+  });
+
+  it("board-set は active シーンの盤面にも反映", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    s = reduce(s, boardSetEvent(ctx("e1"), { image: "data:a", grid: false }));
+    const active = s.scenes?.find((x) => x.id === s.activeSceneId);
+    expect(active?.board).toEqual({ image: "data:a", grid: false });
+  });
+});
+
+describe("シーン(scene)", () => {
+  it("createScene は既定シーン1つを active で持つ", () => {
+    const s = createScene({ id: "s", title: "卓", now: NOW });
+    expect(s.scenes).toHaveLength(1);
+    expect(s.activeSceneId).toBe(s.scenes?.[0].id);
+    expect(s.scenes?.[0].name).toBe("シーン1");
+    expect(s.scenes?.[0].board).toEqual({ image: null, grid: true });
+  });
+
+  it("scene-add で追加し、追加したシーンへ切替(盤面は空)", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    s = reduce(s, boardSetEvent(ctx("e1"), { image: "data:1" }));
+    s = reduce(s, sceneAddEvent(ctx("e2"), { id: "sc2", name: "シーン2" }));
+    expect(s.scenes).toHaveLength(2);
+    expect(s.activeSceneId).toBe("sc2");
+    expect(s.board).toEqual({ image: null, grid: true }); // 新シーンは空盤面
+  });
+
+  it("scene-select で盤面が切り替わる(各シーンの盤面は独立)", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    const firstId = s.activeSceneId!;
+    s = reduce(s, boardSetEvent(ctx("e1"), { image: "data:first" }));
+    s = reduce(s, sceneAddEvent(ctx("e2"), { id: "sc2", name: "シーン2" }));
+    s = reduce(s, boardSetEvent(ctx("e3"), { image: "data:second" }));
+    // 1つ目へ戻ると盤面も戻る
+    s = reduce(s, sceneSelectEvent(ctx("e4"), firstId));
+    expect(s.board).toEqual({ image: "data:first", grid: true });
+    // 2つ目へ進むと別盤面
+    s = reduce(s, sceneSelectEvent(ctx("e5"), "sc2"));
+    expect(s.board).toEqual({ image: "data:second", grid: true });
+  });
+
+  it("scene-select は存在しない id を無視", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    const before = s.activeSceneId;
+    s = reduce(s, sceneSelectEvent(ctx("e1"), "missing"));
+    expect(s.activeSceneId).toBe(before);
+  });
+
+  it("scene-rename で名前を変更", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    const id = s.activeSceneId!;
+    s = reduce(s, sceneRenameEvent(ctx("e1"), id, "導入"));
+    expect(s.scenes?.[0].name).toBe("導入");
+  });
+
+  it("scene-remove は active を消すと先頭へ切替", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    const firstId = s.activeSceneId!;
+    s = reduce(s, sceneAddEvent(ctx("e1"), { id: "sc2", name: "シーン2" }));
+    // active = sc2。これを消すと残りの先頭(firstId)へ。
+    s = reduce(s, sceneRemoveEvent(ctx("e2"), "sc2"));
+    expect(s.scenes).toHaveLength(1);
+    expect(s.activeSceneId).toBe(firstId);
+  });
+
+  it("scene-remove は最後の1つを消さない", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    const id = s.activeSceneId!;
+    s = reduce(s, sceneRemoveEvent(ctx("e1"), id));
+    expect(s.scenes).toHaveLength(1);
+    expect(s.activeSceneId).toBe(id);
+  });
+
+  it("非 active を消しても active は維持", () => {
+    let s = createScene({ id: "s", title: "卓", now: NOW });
+    const firstId = s.activeSceneId!;
+    s = reduce(s, sceneAddEvent(ctx("e1"), { id: "sc2", name: "シーン2" }));
+    // active = sc2。firstId を消す。
+    s = reduce(s, sceneRemoveEvent(ctx("e2"), firstId));
+    expect(s.scenes).toHaveLength(1);
+    expect(s.activeSceneId).toBe("sc2");
   });
 });
 

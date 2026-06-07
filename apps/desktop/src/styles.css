@@ -1114,6 +1114,103 @@ body {
   padding: 14px;
 }
 
+/* シーンバー(盤面の上・タブで盤面を切替) */
+.scenebar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.scenebar-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  margin-right: 2px;
+}
+.scene-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.scene-tab:hover {
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+.scene-tab.active {
+  background: var(--grad-primary);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.scene-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-deep);
+}
+.scene-tab.active .scene-dot {
+  background: rgba(255, 255, 255, 0.9);
+}
+.scene-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scene-x {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.55;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 1px;
+  border-radius: 4px;
+}
+.scene-x:hover {
+  opacity: 1;
+  color: var(--danger, #e5484d);
+}
+.scene-tab.active .scene-x:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.22);
+}
+.scene-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong, var(--border));
+  background: transparent;
+  color: var(--primary-deep);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.08s ease;
+}
+.scene-add:hover {
+  background: var(--primary-soft);
+  transform: translateY(-1px);
+}
+.scene-edit {
+  width: 130px;
+  height: 30px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
 .ptable-empty {
   max-width: 420px;
   margin: 40px auto;
