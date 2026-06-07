@@ -6,7 +6,7 @@ import { CategoryGrid } from "@/components/store/category-grid";
 import { HomeCarousel } from "@/components/store/home-carousel";
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
 import { FavoritesSection } from "@/components/favorites/favorites-section";
-import { FavoriteCreatorsSection } from "@/components/favorites/favorite-creators-section";
+import { FollowingCreatorsSection } from "@/components/creator/following-creators-section";
 import { TopCreatorsSection } from "@/components/creator/top-creators-section";
 import { CreatorEntryCard } from "@/components/creator/creator-entry-card";
 import {
@@ -110,8 +110,9 @@ export default async function HomePage() {
             最近見たの上に置いて、常連の「自分の棚」感を強化。 */}
         <FavoritesSection />
 
-        {/* お気に入りクリエイター(VVVV)。同じく localStorage 由来。 */}
-        <FavoriteCreatorsSection />
+        {/* フォロー中のクリエイター。DB(creator_follows)由来。ISR を保つため
+            クライアントで server action 取得。0 件 / 未ログインは描画ゼロ。 */}
+        <FollowingCreatorsSection />
 
         {/* 「最近見た作品」は localStorage 由来の client section。
             履歴がない訪問者には何も描画されない設計なので、上位に置いても
