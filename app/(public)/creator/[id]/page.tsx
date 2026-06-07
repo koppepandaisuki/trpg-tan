@@ -6,6 +6,7 @@ import {
   Globe,
   Receipt,
   ThumbsUp,
+  Link2,
 } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
@@ -15,8 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { WorkCard } from "@/components/store/work-card";
 import { CoverImage } from "@/components/store/cover-image";
 import { ReviewBadge } from "@/components/review/review-badge";
-import { FavoriteCreatorButton } from "@/components/favorites/favorite-creator-button";
+import { FollowCreatorButton } from "@/components/creator/follow-creator-button";
 import { getCreatorProfile } from "@/lib/queries/creator-profile";
+import { getCreatorFollowState } from "@/lib/queries/creator-follow";
 import { publicAvatarUrl } from "@/lib/format/storage";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +67,7 @@ export default async function CreatorProfilePage({
   const profile = await getCreatorProfile(params.id);
   if (!profile) notFound();
 
+  const follow = await getCreatorFollowState(profile.id);
   const avatarUrl = publicAvatarUrl(profile.avatarPath);
   const productCount = profile.products.length;
   const displayName = profile.displayName || "名前未設定のクリエイター";
@@ -133,9 +136,11 @@ export default async function CreatorProfilePage({
                   </p>
                 )}
 
-                {/* SNS リンク(設定されているものだけ表示)。
-                    両方とも未設定なら行ごと出さない。 */}
-                {(profile.twitterHandle || profile.websiteUrl) && (
+                {/* SNS リンク(Twitter / Web + クリエイターが任意で足した
+                    各種リンク)。1 つも無ければ行ごと出さない。 */}
+                {(profile.twitterHandle ||
+                  profile.websiteUrl ||
+                  profile.socialLinks.length > 0) && (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     {profile.twitterHandle && (
                       <SnsLink
@@ -153,18 +158,26 @@ export default async function CreatorProfilePage({
                         tone="emerald"
                       />
                     )}
+                    {profile.socialLinks.map((link, i) => (
+                      <SnsLink
+                        key={`${i}-${link.url}`}
+                        href={link.url}
+                        icon={Link2}
+                        label={link.label}
+                        tone="neutral"
+                      />
+                    ))}
                   </div>
                 )}
 
-                {/* お気に入り登録ボタン(VVVV)。localStorage 管理なので
-                    認証不要、誰でも保存できる。 */}
+                {/* フォロー(DB 永続・SNS 的)+ フォロワー数。 */}
                 <div className="pt-1">
-                  <FavoriteCreatorButton
-                    creator={{
-                      id: profile.id,
-                      displayName,
-                      avatarUrl,
-                    }}
+                  <FollowCreatorButton
+                    creatorId={profile.id}
+                    initialFollowing={follow.isFollowing}
+                    initialCount={follow.count}
+                    isSelf={follow.isSelf}
+                    isAuthed={follow.isAuthed}
                   />
                 </div>
               </div>
@@ -229,12 +242,14 @@ function SnsLink({
   href: string;
   icon: typeof Twitter;
   label: string;
-  tone: "sky" | "emerald";
+  tone: "sky" | "emerald" | "neutral";
 }) {
   const toneClass =
     tone === "sky"
       ? "border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100"
-      : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100";
+      : tone === "emerald"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
+        : "border-violet-200 bg-violet-50 text-violet-700 hover:border-violet-300 hover:bg-violet-100";
 
   return (
     <a

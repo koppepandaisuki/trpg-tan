@@ -16,6 +16,22 @@ import { z } from "zod";
  *   - website_url: 空文字はそのまま許可、入力があれば http(s):// で
  *     始まる必要がある
  */
+/** SNS リンク 1 件(入力用・緩め)。実際の検証/整形は sanitizeSocialLinks。 */
+export const socialLinkInputSchema = z.object({
+  label: z.string().max(60).default(""),
+  url: z.string().max(300).default(""),
+});
+export type SocialLinkInput = z.infer<typeof socialLinkInputSchema>;
+
+/** 保存される SNS リンク(整形済み)。 */
+export interface SocialLink {
+  label: string;
+  url: string;
+}
+
+/** 1 プロフィールに保存できる SNS リンクの上限。 */
+export const MAX_SOCIAL_LINKS = 8;
+
 export const profileEditSchema = z.object({
   displayName: z
     .string()
@@ -40,9 +56,40 @@ export const profileEditSchema = z.object({
       "URL は http:// または https:// で始めてください",
     )
     .default(""),
+  // 任意の SNS リンク集(行ごと label + url)。空行は server で除去。
+  socialLinks: z.array(socialLinkInputSchema).max(20).default([]),
 });
 
 export type ProfileEditInput = z.infer<typeof profileEditSchema>;
+
+/** URL からホスト名(www 抜き)を取り出す。ラベル未入力時の代替表示に使う。 */
+export function domainLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * 入力された SNS リンク配列を保存用に整形:
+ *   - url が http(s):// のものだけ残す
+ *   - label/url を trim + 長さ制限
+ *   - label 未入力ならドメイン名で代替
+ *   - 先頭 MAX_SOCIAL_LINKS 件まで
+ */
+export function sanitizeSocialLinks(
+  links: SocialLinkInput[] | undefined,
+): SocialLink[] {
+  return (links ?? [])
+    .map((l) => ({
+      label: (l.label ?? "").trim().slice(0, 30),
+      url: (l.url ?? "").trim().slice(0, 200),
+    }))
+    .filter((l) => /^https?:\/\//i.test(l.url))
+    .slice(0, MAX_SOCIAL_LINKS)
+    .map((l) => ({ label: l.label || domainLabel(l.url), url: l.url }));
+}
 
 /**
  * Twitter ハンドルの正規化。「@xxx」「https://twitter.com/xxx」「xxx」を
