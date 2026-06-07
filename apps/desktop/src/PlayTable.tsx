@@ -9,6 +9,8 @@ import {
   resourceEvent,
   panelAddEvent,
   panelRemoveEvent,
+  panelMoveEvent,
+  boardSetEvent,
   type PlayScene,
   type PlayEvent,
   type RollEvent,
@@ -20,6 +22,7 @@ import {
 } from "@trpg/core";
 import { DiceMotion } from "./DiceMotion";
 import { PlayPanel } from "./PlayPanel";
+import { PlayBoard } from "./PlayBoard";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
@@ -88,13 +91,33 @@ export function PlayTable({
     dispatch(panelRemoveEvent(newCtx(), panel.id));
   }
 
+  function movePanel(panelId: string, x: number, y: number) {
+    dispatch(panelMoveEvent(newCtx(), panelId, x, y));
+  }
+
+  function setBoardImage(dataUrl: string | null) {
+    dispatch(boardSetEvent(newCtx(), { image: dataUrl }));
+  }
+
+  function toggleGrid() {
+    dispatch(boardSetEvent(newCtx(), { grid: !(scene.board?.grid ?? true) }));
+  }
+
+  /** 新しい駒の初期配置(盤面のやや中央寄りにランダム)。 */
+  function spawnPos(): { x: number; y: number } {
+    return { x: 0.3 + Math.random() * 0.4, y: 0.3 + Math.random() * 0.3 };
+  }
+
   async function addFromCharacter() {
     const entry = characters.find((c) => c.id === pickId);
     if (!entry) return;
     setError(null);
     try {
       const sheet = await readSheetFromPath(entry.path);
-      const panel = panelFromSheet({ id: crypto.randomUUID(), sheet });
+      const panel = {
+        ...panelFromSheet({ id: crypto.randomUUID(), sheet }),
+        pos: spawnPos(),
+      };
       dispatch(panelAddEvent(newCtx(), panel));
       setPickId("");
     } catch (e) {
@@ -105,7 +128,10 @@ export function PlayTable({
   function addToken() {
     const name = tokenName.trim();
     if (!name) return;
-    const panel = makeTokenPanel({ id: crypto.randomUUID(), name });
+    const panel = {
+      ...makeTokenPanel({ id: crypto.randomUUID(), name }),
+      pos: spawnPos(),
+    };
     dispatch(panelAddEvent(newCtx(), panel));
     setTokenName("");
   }
@@ -209,6 +235,14 @@ export function PlayTable({
 
       <div className="ptable-body">
         <section className="ptable-panels">
+          <PlayBoard
+            board={scene.board}
+            panels={scene.panels}
+            onMove={movePanel}
+            onSetImage={setBoardImage}
+            onToggleGrid={toggleGrid}
+          />
+
           {scene.panels.length === 0 ? (
             <div className="ptable-empty muted">
               「＋キャラ」で保存済みキャラを、または「＋トークン」で NPC/敵を

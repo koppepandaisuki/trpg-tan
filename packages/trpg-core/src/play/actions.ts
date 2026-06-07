@@ -10,6 +10,8 @@ import type {
   PanelAddEvent,
   PanelRemoveEvent,
   SystemEvent,
+  PanelMoveEvent,
+  BoardSetEvent,
 } from "./types.js";
 import { clampResource } from "./reduce.js";
 
@@ -94,6 +96,43 @@ export function panelRemoveEvent(
     kind: "panel-remove",
     panelId,
   };
+}
+
+/** 駒を盤面上で移動(x,y は 0..1 正規化)。 */
+export function panelMoveEvent(
+  ctx: EventCtx,
+  panelId: string,
+  x: number,
+  y: number,
+): PanelMoveEvent {
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor: "GM",
+    kind: "panel-move",
+    panelId,
+    x: clamp01(x),
+    y: clamp01(y),
+  };
+}
+
+/** 盤面設定(背景画像 / グリッド)の変更。指定したフィールドだけ反映。 */
+export function boardSetEvent(
+  ctx: EventCtx,
+  patch: { image?: string | null; grid?: boolean },
+): BoardSetEvent {
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor: "GM",
+    kind: "board-set",
+    ...(patch.image !== undefined ? { image: patch.image } : {}),
+    ...(patch.grid !== undefined ? { grid: patch.grid } : {}),
+  };
+}
+
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
 }
 
 /**

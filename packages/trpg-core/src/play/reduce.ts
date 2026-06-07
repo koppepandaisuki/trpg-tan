@@ -23,6 +23,7 @@ export function createScene(params: {
     title: params.title || "新しい卓",
     systemId: params.systemId ?? "",
     panels: [],
+    board: { image: null, grid: true },
     log: [],
     meta: { createdAt: params.now, updatedAt: params.now },
   };
@@ -58,6 +59,26 @@ export function reduce(scene: PlayScene, event: PlayEvent): PlayScene {
         };
       });
       return { ...scene, panels, log, meta };
+    }
+    case "panel-move": {
+      const panels = scene.panels.map((p) =>
+        p.id === event.panelId
+          ? { ...p, pos: { x: event.x, y: event.y } }
+          : p,
+      );
+      return { ...scene, panels, log, meta };
+    }
+    case "board-set": {
+      const prev = scene.board ?? { image: null, grid: true };
+      return {
+        ...scene,
+        board: {
+          image: event.image !== undefined ? event.image : prev.image,
+          grid: event.grid !== undefined ? event.grid : prev.grid,
+        },
+        log,
+        meta,
+      };
     }
     case "chat":
     case "roll":
