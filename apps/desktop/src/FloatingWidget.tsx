@@ -18,6 +18,9 @@ export function FloatingWidget({
   minW = 200,
   minH = 140,
   onClose,
+  onDetach,
+  onRedock,
+  detached = false,
   bodyClass,
   boundsRef,
   children,
@@ -30,6 +33,12 @@ export function FloatingWidget({
   minW?: number;
   minH?: number;
   onClose?: () => void;
+  /** 別ウィンドウ(別モニター)へ切り離す。指定すると ⧉ ボタンを出す。 */
+  onDetach?: () => void;
+  /** 切り離しを解除して元に戻す。 */
+  onRedock?: () => void;
+  /** 切り離し中(本体は別ウィンドウ。ここではプレースホルダを出す)。 */
+  detached?: boolean;
   bodyClass?: string;
   boundsRef: RefObject<HTMLElement | null>;
   children: ReactNode;
@@ -64,7 +73,7 @@ export function FloatingWidget({
 
   function startMove(e: React.PointerEvent) {
     if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest(".fwidget-x")) return; // ×ボタンは除外
+    if ((e.target as HTMLElement).closest("button")) return; // バー上のボタンは除外
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     layout.bringToFront(id);
@@ -122,13 +131,48 @@ export function FloatingWidget({
       >
         {icon && <span className="fwidget-ic">{icon}</span>}
         <span className="fwidget-title">{title}</span>
+        {detached
+          ? onRedock && (
+              <button
+                className="fwidget-x"
+                onClick={onRedock}
+                title="元に戻す（このウィンドウに戻す）"
+                aria-label="元に戻す"
+              >
+                ⤓
+              </button>
+            )
+          : onDetach && (
+              <button
+                className="fwidget-x"
+                onClick={onDetach}
+                title="別ウィンドウへ切り離す（別モニターへ移動可）"
+                aria-label="別ウィンドウへ切り離す"
+              >
+                ⧉
+              </button>
+            )}
         {onClose && (
           <button className="fwidget-x" onClick={onClose} title="閉じる" aria-label="閉じる">
             ×
           </button>
         )}
       </div>
-      <div className={`fwidget-body ${bodyClass ?? ""}`}>{children}</div>
+      <div className={`fwidget-body ${bodyClass ?? ""}`}>
+        {detached ? (
+          <div className="fwidget-detached">
+            <span className="fwidget-detached-ic">⧉</span>
+            <p>別ウィンドウで表示中</p>
+            {onRedock && (
+              <button className="btn mini" onClick={onRedock}>
+                元に戻す
+              </button>
+            )}
+          </div>
+        ) : (
+          children
+        )}
+      </div>
 
       {/* リサイズ: 右辺=幅 / 下辺=高さ / 右下角=両方。 */}
       <span
