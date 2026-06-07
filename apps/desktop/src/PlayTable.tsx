@@ -33,6 +33,16 @@ function newCtx() {
   return { id: crypto.randomUUID(), ts: new Date().toISOString() };
 }
 
+/** data URL 画像の実寸(幅)を読む。cap で上限クランプ。読めなければ既定。 */
+function probeImageWidth(dataUrl: string, cap = 600): Promise<number> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(Math.min(img.naturalWidth || 140, cap));
+    img.onerror = () => resolve(140);
+    img.src = dataUrl;
+  });
+}
+
 /**
  * セッション卓(ローカル最小卓 / Slice 1)。GM 権威のローカル状態を
  * イベントで前進させ、ログに残す。ネットワークは後続スライスで“被せる”。
@@ -136,11 +146,16 @@ export function PlayTable({
     setError(null);
     try {
       const sheet = await readSheetFromPath(entry.path);
-      const panel = {
-        ...panelFromSheet({ id: crypto.randomUUID(), sheet }),
-        pos: spawnPos(),
-      };
-      dispatch(panelAddEvent(newCtx(), panel));
+      const base = panelFromSheet({ id: crypto.randomUUID(), sheet });
+      // ポートレートがあれば実寸(自然な幅)で配置。
+      const size = base.portrait ? await probeImageWidth(base.portrait) : undefined;
+      dispatch(
+        panelAddEvent(newCtx(), {
+          ...base,
+          pos: spawnPos(),
+          ...(size ? { size } : {}),
+        }),
+      );
       setPickId("");
     } catch (e) {
       setError(`キャラを読み込めませんでした: ${String(e)}`);
