@@ -16,6 +16,7 @@ import {
 import { saveSheet, loadSheetViaDialog, isTauri } from "./storage";
 import { DiceOverlay } from "./DiceOverlay";
 import { FreeRoll } from "./FreeRoll";
+import { OccupationIcon } from "./OccupationIcon";
 
 type SystemId = "coc7" | "coc6";
 const editionOf = (id: SystemId): CoCEdition => (id === "coc7" ? "7" : "6");
@@ -373,18 +374,27 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <strong>職業</strong>
-          <select
-            className="input"
-            value={occupationId}
-            onChange={(e) => setOccupationId(e.target.value)}
-          >
-            <option value="">(未選択)</option>
-            {system.occupations.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
+          {occupationId && (
+            <button className="btn mini" onClick={() => setOccupationId("")}>
+              選択解除
+            </button>
+          )}
+        </div>
+        <div className="occ-grid">
+          {system.occupations.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              className={`occ-card ${occupationId === o.id ? "active" : ""}`}
+              onClick={() => setOccupationId(o.id)}
+              title={o.name}
+            >
+              <span className="occ-ic">
+                <OccupationIcon id={o.id} />
+              </span>
+              <span className="occ-name">{o.name}</span>
+            </button>
+          ))}
         </div>
         {occupation && (
           <div className="occ-detail">
