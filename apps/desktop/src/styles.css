@@ -20,11 +20,26 @@
 
   --mint: #7de4d3;
   --mint-soft: #e6fbf7;
+  --mint-deep: #0d8a73;
   --gold: #f4c94a;
   --gold-soft: #fff6d9;
+  --gold-deep: #b8860b;
+  --coral: #f0876b;
 
-  --shadow-sm: 0 4px 14px rgba(37, 121, 182, 0.06);
-  --shadow-md: 0 10px 30px rgba(37, 121, 182, 0.1);
+  --surface-3: #e9f4fd;
+
+  /* 多層シャドウ(環境光 + キーライト)で本物の奥行きを出す */
+  --shadow-xs: 0 1px 2px rgba(18, 74, 122, 0.06);
+  --shadow-sm:
+    0 1px 2px rgba(18, 74, 122, 0.05), 0 3px 10px rgba(18, 74, 122, 0.07);
+  --shadow-md:
+    0 6px 14px rgba(18, 74, 122, 0.09), 0 18px 38px rgba(18, 74, 122, 0.12);
+  --shadow-lg:
+    0 12px 28px rgba(18, 74, 122, 0.12), 0 34px 64px rgba(18, 74, 122, 0.18);
+  --ring: 0 0 0 3px rgba(55, 172, 232, 0.22);
+
+  --grad-primary: linear-gradient(135deg, #54b9ef 0%, #2198d6 100%);
+  --grad-accent: linear-gradient(120deg, var(--primary) 0%, var(--mint) 100%);
 
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -41,11 +56,43 @@
 body {
   margin: 0;
   min-height: 100vh;
-  /* 白 → 淡いブルー + 右上の柔らかい光 */
+  /* ドット・テクスチャ + ミント/スカイのメッシュ光で奥行きを出す。
+     最上層のドットは極薄。カードが上に乗るので内容には干渉しない。 */
   background:
-    radial-gradient(900px 480px at 88% -10%, var(--primary-soft), transparent 60%),
-    linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+    radial-gradient(circle, rgba(63, 154, 221, 0.05) 1px, transparent 1.6px) 0 0 /
+      22px 22px,
+    radial-gradient(
+      1000px 540px at 92% -8%,
+      rgba(125, 228, 211, 0.16),
+      transparent 60%
+    ),
+    radial-gradient(
+      820px 560px at -8% 110%,
+      rgba(55, 172, 232, 0.1),
+      transparent 55%
+    ),
+    linear-gradient(180deg, #fbfdff 0%, #eaf5fe 100%);
   background-attachment: fixed;
+}
+
+/* デスクトップらしい繊細なスクロールバー */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(63, 154, 221, 0.35) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(63, 154, 221, 0.3);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(63, 154, 221, 0.5);
+  background-clip: padding-box;
 }
 
 .layout {
@@ -56,7 +103,9 @@ body {
 .sidebar {
   width: 260px;
   flex-shrink: 0;
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(245, 251, 255, 0.92));
+  backdrop-filter: blur(6px);
   border-right: 1px solid var(--border);
   padding: 16px 12px;
   position: sticky;
@@ -64,6 +113,20 @@ body {
   align-self: flex-start;
   height: 100vh;
   overflow-y: auto;
+}
+
+.sidebar-head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.sidebar-head strong::before {
+  content: "";
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--grad-accent);
 }
 
 .sidebar-head {
@@ -137,8 +200,10 @@ body {
 }
 
 .lib-card:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-2);
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .lib-thumb {
@@ -198,12 +263,13 @@ body {
 /* サイドバーのタブ切替(キャラ / 購入) */
 .tabs {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   padding: 3px;
-  margin-bottom: 12px;
-  background: var(--surface-2);
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 2px rgba(18, 74, 122, 0.05);
 }
 
 .tab {
@@ -213,20 +279,29 @@ body {
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 8px;
-  border-radius: 7px;
+  padding: 7px 8px;
+  border-radius: 9px;
   cursor: pointer;
-  transition: all 0.12s;
+  transition:
+    color 0.14s ease,
+    background 0.14s ease,
+    box-shadow 0.14s ease;
 }
 
 .tab:hover {
   color: var(--text);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .tab.active {
-  background: var(--surface);
+  background: linear-gradient(180deg, #ffffff, #f3faff);
   color: var(--primary-deep);
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    0 1px 2px rgba(18, 74, 122, 0.08),
+    0 2px 6px rgba(18, 74, 122, 0.06);
+}
+.tab.active:hover {
+  background: linear-gradient(180deg, #ffffff, #f3faff);
 }
 
 /* 購入ライブラリの各種状態 */
@@ -1422,12 +1497,40 @@ body {
 }
 
 .card {
-  background: var(--surface);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 16px;
+  padding: 18px;
   box-shadow: var(--shadow-sm);
   margin-top: 16px;
+  transition:
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
+
+/* カードの見出し(セクションタイトル)にグラデのアクセントバーを付ける。
+   素の太字をやめ、視覚的なリズムと色の variety を出す。 */
+.card > strong,
+.card > .row > strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+.card > strong::before,
+.card > .row > strong::before {
+  content: "";
+  width: 4px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--grad-accent);
+  flex-shrink: 0;
 }
 
 .row {
@@ -1445,25 +1548,47 @@ body {
   padding: 8px 14px;
   font-size: 14px;
   font-family: inherit;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.12s;
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.14s ease,
+    border-color 0.14s ease,
+    background 0.14s ease,
+    color 0.14s ease;
 }
 
 .btn:hover {
   border-color: var(--primary);
   color: var(--primary-deep);
+  background: var(--surface-2);
+}
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
 }
 
 .btn-primary {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--grad-primary);
+  border-color: transparent;
   color: #fff;
+  font-weight: 600;
+  box-shadow:
+    0 2px 6px rgba(33, 152, 214, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
   color: #fff;
+  background: var(--grad-primary);
+  filter: brightness(1.06) saturate(1.05);
+  box-shadow:
+    0 5px 14px rgba(33, 152, 214, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.btn-primary:active {
+  filter: brightness(0.98);
 }
 
 .grid {
@@ -1476,8 +1601,16 @@ body {
 .stat {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  background: var(--surface-2);
+  padding: 9px 11px;
+  background: linear-gradient(180deg, #ffffff, var(--surface-2));
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+.stat:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat .k {
@@ -1489,7 +1622,8 @@ body {
 
 .stat .v {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--primary-deep);
 }
 
 .tag {
@@ -1512,32 +1646,6 @@ body {
   color: #b91c1c;
 }
 
-.tabs {
-  display: inline-flex;
-  gap: 4px;
-  background: var(--primary-soft);
-  border-radius: var(--radius-md);
-  padding: 3px;
-}
-
-.tab {
-  border: 0;
-  background: transparent;
-  border-radius: var(--radius-sm);
-  padding: 6px 14px;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-family: inherit;
-}
-
-.tab.active {
-  background: var(--surface);
-  color: var(--primary-deep);
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
-}
-
 .input {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -1552,7 +1660,7 @@ body {
 .input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(55, 172, 232, 0.2);
+  box-shadow: var(--ring);
 }
 
 .input.num {
