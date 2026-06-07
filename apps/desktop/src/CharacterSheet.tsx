@@ -10,6 +10,7 @@ import {
   type CoCEdition,
   type CharacterSheet as Sheet,
   type SystemDefinition,
+  type OccupationDef,
 } from "@trpg/core";
 import { saveSheet, loadSheetViaDialog, isTauri } from "./storage";
 import { OccupationIcon } from "./OccupationIcon";
@@ -54,6 +55,27 @@ function groupSkillsByCategory(skills: SystemDefinition["skills"]) {
     .map((c) => ({ cat: c, skills: map.get(c)! }));
 }
 
+/** オリジナル(自由記入)職業を表すセッション内センチネル。保存時は id=null。*/
+const CUSTOM_OCC_ID = "__custom__";
+
+/**
+ * オリジナル職業の合成 OccupationDef。職業技能は全技能、職業Pは版の標準式
+ * (7e: EDU×4 / 6e: EDU×20)を目安に。あくまで自由割り振り用の足場。
+ */
+function makeCustomOccupation(
+  system: SystemDefinition,
+  name: string,
+): OccupationDef {
+  return {
+    id: CUSTOM_OCC_ID,
+    name: name.trim() || "オリジナル職業",
+    description: "オリジナル職業（自由記入）。職業技能は自由、職業Pの目安は標準式。",
+    skillPointsFormula: system.edition === "7" ? "EDU*4" : "EDU*20",
+    occupationSkills: system.skills.map((s) => s.key), // どの技能にも職業Pを振れる
+    creditRating: { min: 0, max: 99 },
+  };
+}
+
 interface CharacterSheetProps {
   /** 既存キャラを開くときの初期シート(新規なら null/未指定)*/
   initialSheet?: Sheet | null;
@@ -80,7 +102,10 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       generateAllCharacteristics(getSystem(sysIdOf(initialSheet))!),
   );
   const [occupationId, setOccupationId] = useState(
-    initialSheet?.occupationId ?? "",
+    initialSheet?.occupationId ?? (initialSheet?.occupationName ? CUSTOM_OCC_ID : ""),
+  );
+  const [occupationName, setOccupationName] = useState(
+    initialSheet?.occupationName ?? "",
   );
   const [occAlloc, setOccAlloc] = useState<Record<string, number>>(
     initialSheet?.allocation?.occupation ?? {},
@@ -97,8 +122,11 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     [edition, chars],
   );
 
-  const occupation =
-    system.occupations.find((o) => o.id === occupationId) ?? null;
+  const isCustomOcc = occupationId === CUSTOM_OCC_ID;
+  const occupation = useMemo<OccupationDef | null>(() => {
+    if (isCustomOcc) return makeCustomOccupation(system, occupationName);
+    return system.occupations.find((o) => o.id === occupationId) ?? null;
+  }, [system, occupationId, occupationName, isCustomOcc]);
 
   const validation = useMemo(() => {
     if (!occupation) return null;
@@ -113,6 +141,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setSystemId(nextSystem);
     setChars(generateAllCharacteristics(sys));
     setOccupationId("");
+    setOccupationName("");
     setOccAlloc({});
     setIntAlloc({});
     setImage(null);
@@ -145,7 +174,10 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       image,
       characteristics: chars,
       skills,
-      occupationId: occupationId || null,
+      occupationId: isCustomOcc ? null : occupationId || null,
+      occupationName: isCustomOcc
+        ? occupationName.trim() || "オリジナル職業"
+        : null,
       allocation: { occupation: occAlloc, interest: intAlloc },
       notes,
       meta: { createdAt, updatedAt: new Date().toISOString() },
@@ -161,7 +193,10 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setNotes(sheet.notes ?? "");
     setImage(sheet.image ?? null);
     setChars(sheet.characteristics ?? {});
-    setOccupationId(sheet.occupationId ?? "");
+    setOccupationId(
+      sheet.occupationId ?? (sheet.occupationName ? CUSTOM_OCC_ID : ""),
+    );
+    setOccupationName(sheet.occupationName ?? "");
     setOccAlloc(sheet.allocation?.occupation ?? {});
     setIntAlloc(sheet.allocation?.interest ?? {});
   }
@@ -371,7 +406,31 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
               <span className="occ-name">{o.name}</span>
             </button>
           ))}
+          {/* オリジナル(自由記入)職業 */}
+          <button
+            type="button"
+            className={`occ-card occ-card-custom ${isCustomOcc ? "active" : ""}`}
+            onClick={() => setOccupationId(CUSTOM_OCC_ID)}
+            title="オリジナル職業（自由記入）"
+          >
+            <span className="occ-ic">✏️</span>
+            <span className="occ-name">オリジナル</span>
+          </button>
         </div>
+
+        {isCustomOcc && (
+          <div className="occ-custom-input">
+            <input
+              className="input"
+              value={occupationName}
+              onChange={(e) => setOccupationName(e.target.value)}
+              placeholder="職業名を自由に入力（例: 退魔師、サイバー探偵…）"
+              maxLength={40}
+              autoFocus
+            />
+          </div>
+        )}
+
         {occupation && (
           <div className="occ-detail">
             <p className="muted">{occupation.description}</p>
@@ -385,11 +444,14 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
               </span>
               <span className="chip">
                 職業技能{" "}
-                {occupation.occupationSkills
-                  .map(
-                    (k) => system.skills.find((s) => s.key === k)?.label ?? k,
-                  )
-                  .join("・")}
+                {isCustomOcc
+                  ? "自由（どの技能にも職業Pを振れます）"
+                  : occupation.occupationSkills
+                      .map(
+                        (k) =>
+                          system.skills.find((s) => s.key === k)?.label ?? k,
+                      )
+                      .join("・")}
               </span>
             </div>
           </div>

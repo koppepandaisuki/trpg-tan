@@ -23,8 +23,10 @@ export interface CharacterSheet {
   /** 技能: キー → 割り振り後の最終値(%)。未設定技能は base 扱い。
    *  PLAY 等の消費側はこの最終値を見ればよい。 */
   skills: Record<string, number>;
-  /** 選択した職業 id(未選択可)*/
+  /** 選択した職業 id(未選択可)。オリジナル職業のときは null + occupationName。*/
   occupationId?: string | null;
+  /** オリジナル(自由記入)職業名。occupationId が無くこれがある＝独自職業。*/
+  occupationName?: string | null;
   /**
    * 編集状態の復元用(任意): 職業/興味ポイントの割り振り内訳。
    * skills(最終値)とは別に保持し、再編集時にプール内訳を復元できる。

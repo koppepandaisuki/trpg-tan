@@ -681,6 +681,20 @@ body {
   color: var(--text);
 }
 
+/* オリジナル(自由記入)職業の見た目を少し区別する */
+.occ-card-custom {
+  border-style: dashed;
+}
+.occ-card-custom .occ-ic {
+  font-size: 16px;
+}
+.occ-custom-input {
+  margin-top: 10px;
+}
+.occ-custom-input .input {
+  width: 100%;
+}
+
 /* ===== 盤面(背景マップ + トークン)===== */
 .board-wrap {
   height: 100%;
