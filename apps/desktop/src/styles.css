@@ -523,6 +523,86 @@ body {
   overflow: auto;
 }
 
+/* ===== 初心者ヒント(InfoTip) ===== */
+.infotip {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  cursor: help;
+  outline: none;
+}
+
+.infotip-badge {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+  border: 1px solid var(--border);
+  opacity: 0.75;
+  transition:
+    opacity 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.infotip.compact .infotip-badge {
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+}
+.infotip:hover .infotip-badge,
+.infotip:focus .infotip-badge {
+  opacity: 1;
+  background: var(--primary);
+  color: #fff;
+}
+
+.infotip-bubble {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  width: max-content;
+  max-width: 256px;
+  background: #16324a;
+  color: #eef6fd;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  white-space: pre-line;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 11px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+/* 吹き出しの三角 */
+.infotip-bubble::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: #16324a;
+}
+.infotip:hover .infotip-bubble,
+.infotip:focus .infotip-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* 技能のカテゴリ見出し(いあきゃら風の種類分け) */
 .skills .skill-cat td {
   padding: 8px 6px 4px;

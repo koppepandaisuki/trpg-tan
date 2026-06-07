@@ -13,6 +13,15 @@ import {
 } from "@trpg/core";
 import { saveSheet, loadSheetViaDialog, isTauri } from "./storage";
 import { OccupationIcon } from "./OccupationIcon";
+import { InfoTip } from "./InfoTip";
+import {
+  CHARACTERISTIC_HINT,
+  DERIVED_HINT,
+  abilityScale,
+  abilitySectionHint,
+  SKILL_SECTION_HINT,
+  DERIVED_SECTION_HINT,
+} from "./beginner-hints";
 
 type SystemId = "coc7" | "coc6";
 const editionOf = (id: SystemId): CoCEdition => (id === "coc7" ? "7" : "6");
@@ -263,7 +272,10 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       {/* 能力値 */}
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
-          <strong>能力値</strong>
+          <strong>
+            能力値
+            <InfoTip text={abilitySectionHint(edition)} />
+          </strong>
           <button
             className="btn"
             onClick={() => setChars(generateAllCharacteristics(system))}
@@ -275,7 +287,11 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
           {system.characteristics.map((c) => (
             <div className="stat" key={c.key}>
               <div className="k">
-                {c.key} {c.label}
+                {c.key} {c.label}{" "}
+                <InfoTip
+                  compact
+                  text={`${CHARACTERISTIC_HINT[c.key] ?? c.label}\n${abilityScale(edition)}`}
+                />
               </div>
               <div className="row" style={{ gap: 4 }}>
                 <input
@@ -308,13 +324,21 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
 
       {/* 派生値 */}
       <div className="card">
-        <strong>派生値</strong>
+        <strong>
+          派生値
+          <InfoTip text={DERIVED_SECTION_HINT} />
+        </strong>
         <div className="grid">
           {system.derived.map((d) => {
             const val = derived[d.key];
             return (
               <div className="stat" key={d.key}>
-                <div className="k">{d.label}</div>
+                <div className="k">
+                  {d.label}{" "}
+                  {DERIVED_HINT[d.key] && (
+                    <InfoTip compact text={DERIVED_HINT[d.key]} />
+                  )}
+                </div>
                 <div className="v">{String(val ?? "-")}</div>
               </div>
             );
@@ -375,7 +399,10 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       {/* 技能割り振り */}
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
-          <strong>技能</strong>
+          <strong>
+            技能
+            <InfoTip text={SKILL_SECTION_HINT} />
+          </strong>
           {validation && (
             <div className="row" style={{ gap: 8 }}>
               <span
