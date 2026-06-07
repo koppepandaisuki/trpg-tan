@@ -33,6 +33,8 @@ import { PlayPanel } from "./PlayPanel";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
 import { BgmPanel } from "./BgmPanel";
+import { FloatingWidget } from "./FloatingWidget";
+import { WidgetLayoutProvider, type Rect } from "./widget-layout";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
@@ -40,6 +42,12 @@ import { savePlayAs, savePlayToPath } from "./play-storage";
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
 function newCtx() {
   return { id: crypto.randomUUID(), ts: new Date().toISOString() };
+}
+
+/** キャラ・ウィジェットの初期位置(左上から少しずつずらして重ねる)。 */
+function panelDefault(i: number): (b: { w: number; h: number }) => Rect {
+  const off = 16 + (i % 7) * 30;
+  return () => ({ x: off, y: off, w: 268, h: 320, z: 0 });
 }
 
 /** data URL 画像の実寸(幅)を読む。cap で上限クランプ。読めなければ既定。 */
@@ -82,6 +90,12 @@ export function PlayTable({
 
   const characters = useMemo(() => getLibrary(), []);
   const logRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+
+  // 能力値/リソースを持つ“キャラ駒”だけウィジェット化(画像オブジェクトは盤面のみ)。
+  const cards = scene.panels.filter(
+    (p) => p.stats.length > 0 || p.resources.length > 0,
+  );
 
   // ログ更新で末尾へ自動スクロール。
   useEffect(() => {
@@ -331,15 +345,16 @@ export function PlayTable({
       )}
 
       <div className="ptable-body">
-        <section className="ptable-panels">
-          <SceneBar
-            scenes={scene.scenes ?? []}
-            activeId={scene.activeSceneId}
-            onSelect={selectScene}
-            onAdd={addScene}
-            onRename={renameScene}
-            onRemove={(id) => void removeScene(id)}
-          />
+        <SceneBar
+          scenes={scene.scenes ?? []}
+          activeId={scene.activeSceneId}
+          onSelect={selectScene}
+          onAdd={addScene}
+          onRename={renameScene}
+          onRemove={(id) => void removeScene(id)}
+        />
+
+        <div className="pstage" ref={stageRef}>
           <PlayBoard
             board={scene.board}
             panels={scene.panels}
@@ -351,84 +366,94 @@ export function PlayTable({
             onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
           />
 
-          {(() => {
-            // 能力値/リソースを持つ“キャラ駒”だけ下のパネルに出す。
-            // 画像だけのオブジェクトは盤面上にのみ置く。
-            const cards = scene.panels.filter(
-              (p) => p.stats.length > 0 || p.resources.length > 0,
-            );
-            if (cards.length === 0) {
-              return (
-                <div className="ptable-empty muted">
-                  「＋キャラ」で保存済みキャラを、「＋トークン」で NPC/敵を、
-                  画像のドロップでオブジェクトを置けます。能力値・技能を
-                  クリックすると判定が振れます。
-                </div>
-              );
-            }
-            return (
-              <div className="ptable-grid">
-                {cards.map((p) => (
-                  <PlayPanel
-                    key={p.id}
-                    panel={p}
-                    onRoll={rollStat}
-                    onResource={changeResource}
-                    onRemove={removePanel}
-                  />
-                ))}
+          {/* フローティング・ウィジェット層(キャラ・ログ・BGM を自由配置) */}
+          <WidgetLayoutProvider playId={scene.id}>
+            {cards.map((p, i) => (
+              <FloatingWidget
+                key={p.id}
+                id={`panel:${p.id}`}
+                title={p.name}
+                icon="🎭"
+                boundsRef={stageRef}
+                minW={232}
+                minH={150}
+                bodyClass="ppanel-body"
+                defaultRect={panelDefault(i)}
+              >
+                <PlayPanel
+                  panel={p}
+                  onRoll={rollStat}
+                  onResource={changeResource}
+                  onRemove={removePanel}
+                />
+              </FloatingWidget>
+            ))}
+
+            <FloatingWidget
+              id="log"
+              title="ログ / チャット"
+              icon="📜"
+              boundsRef={stageRef}
+              minW={260}
+              minH={220}
+              bodyClass="log-body"
+              defaultRect={(b) => ({
+                x: Math.max(16, b.w - 356),
+                y: 16,
+                w: 340,
+                h: Math.min(460, Math.max(240, b.h - 32)),
+                z: 0,
+              })}
+            >
+              <div className="plog" ref={logRef}>
+                {scene.log.length === 0 ? (
+                  <p className="muted" style={{ padding: 8, fontSize: 12 }}>
+                    ここに判定・チャットのログが流れます。
+                  </p>
+                ) : (
+                  scene.log.map((ev) => <LogRow key={ev.id} ev={ev} />)
+                )}
               </div>
-            );
-          })()}
-        </section>
 
-        <aside className="ptable-side">
-          <div className="plog" ref={logRef}>
-            {scene.log.length === 0 ? (
-              <p className="muted" style={{ padding: 8, fontSize: 12 }}>
-                ここに判定・チャットのログが流れます。
-              </p>
-            ) : (
-              scene.log.map((ev) => <LogRow key={ev.id} ev={ev} />)
-            )}
-          </div>
+              <div className="pinput">
+                <div className="pinput-row">
+                  <input
+                    className="input"
+                    value={chat}
+                    onChange={(e) => setChat(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                    placeholder="発言…"
+                  />
+                  <button className="btn mini" onClick={sendChat}>
+                    送信
+                  </button>
+                </div>
+                <div className="pinput-row">
+                  <input
+                    className="input"
+                    value={notation}
+                    onChange={(e) => setNotation(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && rollFree()}
+                    placeholder="ダイス記法（例: 2d6+1, 1d100）"
+                  />
+                  <button className="btn mini btn-primary" onClick={rollFree}>
+                    ロール
+                  </button>
+                </div>
+              </div>
+            </FloatingWidget>
 
-          <div className="pinput">
-            <div className="pinput-row">
-              <input
-                className="input"
-                value={chat}
-                onChange={(e) => setChat(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                placeholder="発言…"
-              />
-              <button className="btn mini" onClick={sendChat}>
-                送信
-              </button>
-            </div>
-            <div className="pinput-row">
-              <input
-                className="input"
-                value={notation}
-                onChange={(e) => setNotation(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && rollFree()}
-                placeholder="ダイス記法（例: 2d6+1, 1d100）"
-              />
-              <button className="btn mini btn-primary" onClick={rollFree}>
-                ロール
-              </button>
-            </div>
-          </div>
-        </aside>
+            <BgmPanel
+              tracks={scene.bgm?.tracks ?? []}
+              open={showBgm}
+              onClose={() => setShowBgm(false)}
+              onAddTracks={addBgmTracks}
+              onRemoveTrack={removeBgmTrack}
+              boundsRef={stageRef}
+            />
+          </WidgetLayoutProvider>
+        </div>
       </div>
-
-      <BgmPanel
-        tracks={scene.bgm?.tracks ?? []}
-        open={showBgm}
-        onClose={() => setShowBgm(false)}
-        onAddTracks={addBgmTracks}
-        onRemoveTrack={removeBgmTrack}
-      />
 
       {motion && (
         <DiceMotion roll={motion} onClose={() => setMotion(null)} />

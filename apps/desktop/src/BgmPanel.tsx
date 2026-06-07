@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { BgmTrack } from "@trpg/core";
 import { audioUrl, baseName } from "./audio-url";
+import { FloatingWidget } from "./FloatingWidget";
 
 /**
  * BGM プレイヤー(GM ローカル再生)。ファイルを追加してプレイリスト再生。
@@ -17,12 +18,14 @@ export function BgmPanel({
   onClose,
   onAddTracks,
   onRemoveTrack,
+  boundsRef,
 }: {
   tracks: BgmTrack[];
   open: boolean;
   onClose: () => void;
   onAddTracks: (tracks: BgmTrack[]) => void;
   onRemoveTrack: (id: string) => void;
+  boundsRef: RefObject<HTMLElement | null>;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -129,14 +132,23 @@ export function BgmPanel({
       <audio ref={audioRef} onEnded={onEnded} />
 
       {isOpen && (
-        <div className="bgm-panel">
-          <div className="bgm-head">
-            <strong>♪ BGM</strong>
-            <button className="bgm-x" onClick={onClose} title="閉じる">
-              ×
-            </button>
-          </div>
-
+        <FloatingWidget
+          id="bgm"
+          title="BGM"
+          icon="♪"
+          boundsRef={boundsRef}
+          onClose={onClose}
+          minW={220}
+          minH={240}
+          bodyClass="bgm-body"
+          defaultRect={(b) => ({
+            x: 16,
+            y: Math.max(16, b.h - 360),
+            w: 264,
+            h: 344,
+            z: 0,
+          })}
+        >
           <div className="bgm-list">
             {tracks.length === 0 ? (
               <p className="muted" style={{ fontSize: 12, padding: "8px 4px" }}>
@@ -215,7 +227,7 @@ export function BgmPanel({
               {error}
             </p>
           )}
-        </div>
+        </FloatingWidget>
       )}
     </>
   );
