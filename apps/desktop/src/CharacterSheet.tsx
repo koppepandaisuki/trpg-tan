@@ -88,6 +88,9 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
   const [intAlloc, setIntAlloc] = useState<Record<string, number>>(
     initialSheet?.allocation?.interest ?? {},
   );
+  // ＋で追加した興味技能(職業技能でないが伸ばす技能)。
+  const [added, setAdded] = useState<Set<string>>(new Set());
+  const [addPick, setAddPick] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   const system = getSystem(systemId) as SystemDefinition;
@@ -115,6 +118,8 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setOccupationId("");
     setOccAlloc({});
     setIntAlloc({});
+    setAdded(new Set());
+    setAddPick("");
     setImage(null);
     setId(freshId());
     setCreatedAt(new Date().toISOString());
@@ -131,6 +136,38 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
 
   function finalValue(skillKey: string, base: number): number {
     return base + (occAlloc[skillKey] ?? 0) + (intAlloc[skillKey] ?? 0);
+  }
+
+  const hasOccupation = !!occupation;
+
+  /** 操作可能な技能か。職業未選択なら全部、選択後は職業技能 + 追加した
+   *  興味技能(または既に興味Pが入っている技能)だけ。 */
+  function isSkillActive(key: string): boolean {
+    if (!hasOccupation) return true;
+    return (
+      !!occupation?.occupationSkills.includes(key) ||
+      added.has(key) ||
+      (intAlloc[key] ?? 0) > 0
+    );
+  }
+
+  function addInterestSkill() {
+    if (!addPick) return;
+    setAdded((prev) => new Set(prev).add(addPick));
+    setAddPick("");
+  }
+
+  function removeInterestSkill(key: string) {
+    setAdded((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    setIntAlloc((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 
   function buildSheet(): Sheet {
@@ -164,6 +201,8 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setOccupationId(sheet.occupationId ?? "");
     setOccAlloc(sheet.allocation?.occupation ?? {});
     setIntAlloc(sheet.allocation?.interest ?? {});
+    setAdded(new Set());
+    setAddPick("");
   }
 
   async function onSave() {
@@ -439,13 +478,27 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                 </tr>
                 {group.skills.map((s) => {
                   const isOcc = occupation?.occupationSkills.includes(s.key);
-              const base = skillBaseValue(s, chars);
-              const total = finalValue(s.key, base);
-              return (
-                <tr key={s.key}>
+                  const base = skillBaseValue(s, chars);
+                  const total = finalValue(s.key, base);
+                  const active = isSkillActive(s.key);
+                  const removable = hasOccupation && active && !isOcc;
+                  return (
+                <tr
+                  key={s.key}
+                  className={active ? undefined : "skill-inactive"}
+                >
                   <td>
                     {s.label}
                     {isOcc && <span className="dot" title="職業技能" />}
+                    {removable && (
+                      <button
+                        className="skill-del"
+                        title="この興味技能を外す"
+                        onClick={() => removeInterestSkill(s.key)}
+                      >
+                        ×
+                      </button>
+                    )}
                   </td>
                   <td className="muted">{base}</td>
                   <td>
@@ -454,7 +507,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                       type="number"
                       min={0}
                       value={occAlloc[s.key] ?? 0}
-                      disabled={!occupation || !isOcc}
+                      disabled={!isOcc}
                       onChange={(e) =>
                         setOccAlloc({
                           ...occAlloc,
@@ -469,6 +522,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                       type="number"
                       min={0}
                       value={intAlloc[s.key] ?? 0}
+                      disabled={!active}
                       onChange={(e) =>
                         setIntAlloc({
                           ...intAlloc,
@@ -487,6 +541,35 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
             ))}
           </tbody>
         </table>
+
+        {hasOccupation && (
+          <div className="skill-add">
+            <span className="muted skill-add-label">
+              職業技能以外を伸ばす（興味技能）→
+            </span>
+            <select
+              className="input"
+              value={addPick}
+              onChange={(e) => setAddPick(e.target.value)}
+            >
+              <option value="">技能を選んで追加…</option>
+              {system.skills
+                .filter((s) => !isSkillActive(s.key))
+                .map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+            </select>
+            <button
+              className="btn mini btn-primary"
+              disabled={!addPick}
+              onClick={addInterestSkill}
+            >
+              ＋ 追加
+            </button>
+          </div>
+        )}
 
         {validation && validation.errors.length > 0 && (
           <ul className="errors">
