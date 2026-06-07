@@ -66,6 +66,19 @@ export interface PlayBoard {
   grid: boolean;
 }
 
+/** BGM トラック(ローカル音声ファイルへの参照)。実体は埋め込まずパスだけ持つ。 */
+export interface BgmTrack {
+  id: string;
+  name: string;
+  /** ローカル音声ファイルの絶対パス。再生時に読み込んで鳴らす。 */
+  path: string;
+}
+
+/** BGM(GM ローカル再生のプレイリスト)。音声は配信しない設計。 */
+export interface PlayBgm {
+  tracks: BgmTrack[];
+}
+
 /** セッション卓(シーン)の全状態。 */
 export interface PlayScene {
   schemaVersion: typeof PLAY_SCHEMA_VERSION;
@@ -76,6 +89,8 @@ export interface PlayScene {
   panels: Panel[];
   /** 盤面。古い .play には無い場合があるので optional。 */
   board?: PlayBoard;
+  /** BGM プレイリスト(GM ローカル)。古い .play には無い場合があるので optional。 */
+  bgm?: PlayBgm;
   log: PlayEvent[];
   meta: { createdAt: string; updatedAt: string };
 }

@@ -18,12 +18,14 @@ import {
   type Panel,
   type PanelStat,
   type PanelResource,
+  type BgmTrack,
   type CoCEdition,
   type CoCCheckResult,
 } from "@trpg/core";
 import { DiceMotion } from "./DiceMotion";
 import { PlayPanel } from "./PlayPanel";
 import { PlayBoard } from "./PlayBoard";
+import { BgmPanel } from "./BgmPanel";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
@@ -64,6 +66,7 @@ export function PlayTable({
   const [error, setError] = useState<string | null>(null);
   // ダイス・モーション(振った RollEvent をそのまま渡す)。
   const [motion, setMotion] = useState<RollEvent | null>(null);
+  const [showBgm, setShowBgm] = useState(false);
 
   const [pickId, setPickId] = useState("");
   const [tokenName, setTokenName] = useState("");
@@ -112,6 +115,22 @@ export function PlayTable({
 
   function toggleGrid() {
     dispatch(boardSetEvent(newCtx(), { grid: !(scene.board?.grid ?? true) }));
+  }
+
+  function addBgmTracks(newTracks: BgmTrack[]) {
+    setScene((s) => ({
+      ...s,
+      bgm: { tracks: [...(s.bgm?.tracks ?? []), ...newTracks] },
+    }));
+    setDirty(true);
+  }
+
+  function removeBgmTrack(id: string) {
+    setScene((s) => ({
+      ...s,
+      bgm: { tracks: (s.bgm?.tracks ?? []).filter((t) => t.id !== id) },
+    }));
+    setDirty(true);
   }
 
   function addImageObject(
@@ -255,6 +274,12 @@ export function PlayTable({
             ＋トークン
           </button>
           <span className="ptable-spacer" />
+          <button
+            className={`btn mini ${showBgm ? "btn-primary" : ""}`}
+            onClick={() => setShowBgm((v) => !v)}
+          >
+            ♪ BGM
+          </button>
           <button className="btn mini btn-primary" onClick={() => void save()}>
             {dirty ? "保存*" : "保存"}
           </button>
@@ -353,6 +378,14 @@ export function PlayTable({
           </div>
         </aside>
       </div>
+
+      <BgmPanel
+        tracks={scene.bgm?.tracks ?? []}
+        open={showBgm}
+        onClose={() => setShowBgm(false)}
+        onAddTracks={addBgmTracks}
+        onRemoveTrack={removeBgmTrack}
+      />
 
       {motion && (
         <DiceMotion roll={motion} onClose={() => setMotion(null)} />

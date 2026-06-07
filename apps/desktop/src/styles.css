@@ -926,10 +926,140 @@ body {
 
 /* ===== PLAY(セッション卓)===== */
 .ptable {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+}
+
+/* BGM プレイヤー(盤面左下のフローティング) */
+.bgm-panel {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 25;
+  width: 250px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: modal-pop 0.16s ease;
+}
+
+.bgm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.bgm-x {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+.bgm-x:hover {
+  color: var(--text);
+}
+
+.bgm-list {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bgm-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12.5px;
+  border: 1px solid transparent;
+}
+.bgm-item:hover {
+  background: var(--surface-2);
+}
+.bgm-item.active {
+  background: var(--primary-soft);
+  border-color: var(--border);
+}
+
+.bgm-ic {
+  flex-shrink: 0;
+  color: var(--primary-deep);
+  font-size: 11px;
+  width: 12px;
+  text-align: center;
+}
+.bgm-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bgm-del {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.bgm-del:hover {
+  color: #b91c1c;
+}
+
+.bgm-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+}
+.bgm-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 8px;
+  width: 30px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+}
+.bgm-btn:hover {
+  border-color: var(--primary);
+}
+.bgm-btn.play {
+  background: var(--grad-primary);
+  border-color: transparent;
+  color: #fff;
+}
+.bgm-btn.on {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-deep);
+}
+.bgm-vol {
+  flex: 1;
+  min-width: 50px;
+  margin-left: 4px;
+  accent-color: var(--primary);
 }
 
 .ptable-head {
