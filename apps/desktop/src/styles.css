@@ -56,6 +56,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.55;
   /* ドット・テクスチャ + ミント/スカイのメッシュ光で奥行きを出す。
      最上層のドットは極薄。カードが上に乗るので内容には干渉しない。 */
   background:
@@ -119,7 +121,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13.5px;
+  font-size: 15px;
 }
 .sidebar-head strong::before {
   content: "";
@@ -174,9 +176,9 @@ body {
 }
 
 .app {
-  max-width: 880px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 32px 24px 64px;
+  padding: 30px 40px 72px;
 }
 
 .lib-list {
@@ -234,7 +236,7 @@ body {
 }
 
 .lib-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -242,7 +244,7 @@ body {
 }
 
 .lib-sys {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 
@@ -277,9 +279,9 @@ body {
   border: 0;
   background: transparent;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  padding: 7px 8px;
+  padding: 8px 8px;
   border-radius: 9px;
   cursor: pointer;
   transition:
@@ -581,7 +583,7 @@ body {
 }
 
 .occ-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
 }
@@ -1493,7 +1495,7 @@ body {
 
 .muted {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 .card {
@@ -1519,7 +1521,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  font-size: 14px;
+  font-size: 16px;
   letter-spacing: 0.02em;
   color: var(--text);
 }
@@ -1545,8 +1547,8 @@ body {
   background: var(--surface);
   color: var(--text);
   border-radius: var(--radius-md);
-  padding: 8px 14px;
-  font-size: 14px;
+  padding: 9px 16px;
+  font-size: 15px;
   font-family: inherit;
   font-weight: 500;
   cursor: pointer;
@@ -1593,9 +1595,9 @@ body {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-top: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .stat {
@@ -1614,22 +1616,22 @@ body {
 }
 
 .stat .k {
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
 }
 
 .stat .v {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--primary-deep);
 }
 
 .tag {
   display: inline-block;
-  font-size: 11px;
-  padding: 2px 8px;
+  font-size: 12px;
+  padding: 3px 10px;
   border-radius: 999px;
   border: 1px solid;
 }
@@ -1649,8 +1651,8 @@ body {
 .input {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  padding: 7px 10px;
-  font-size: 14px;
+  padding: 8px 11px;
+  font-size: 15px;
   font-family: inherit;
   background: var(--surface);
   color: var(--text);
@@ -1684,15 +1686,15 @@ body {
 }
 
 .btn.mini {
-  padding: 3px 8px;
-  font-size: 12px;
-  border-radius: 8px;
+  padding: 5px 11px;
+  font-size: 13px;
+  border-radius: 9px;
 }
 
 .chip {
   display: inline-block;
-  font-size: 11px;
-  padding: 3px 9px;
+  font-size: 12px;
+  padding: 4px 10px;
   border-radius: 8px;
   background: var(--primary-soft);
   border: 1px solid var(--border);
@@ -1709,7 +1711,7 @@ body {
   width: 100%;
   border-collapse: collapse;
   margin-top: 10px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .skills th,
@@ -1720,7 +1722,7 @@ body {
 }
 
 .skills th {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   font-weight: 600;
 }
