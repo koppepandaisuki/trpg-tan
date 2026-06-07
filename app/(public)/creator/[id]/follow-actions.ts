@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session/require";
 import { followCreator, unfollowCreator } from "@/lib/mutations/creator-follow";
+import {
+  listFollowingCreators,
+  type FollowingCreatorCard,
+} from "@/lib/queries/creator-follow";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,4 +24,9 @@ export async function setFollowAction(
   else await unfollowCreator(creatorId);
   revalidatePath(`/creator/${creatorId}`);
   return { ok: true };
+}
+
+/** ホームの「フォロー中のクリエイター」strip 用。未ログインは空配列。 */
+export async function getMyFollowingAction(): Promise<FollowingCreatorCard[]> {
+  return listFollowingCreators();
 }
