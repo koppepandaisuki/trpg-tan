@@ -10,9 +10,13 @@ import type { Panel, PlayBoard as BoardState } from "@trpg/core";
  *  - 画像オブジェクトは名前を出さず、画像そのものを表示
  */
 
-/** 追加した画像(円形マーカーでなく、画像そのものを出すオブジェクト)か。 */
+/**
+ * 画像そのものを実寸で出す駒か(円形マーカーにしない)。
+ * ポートレート(画像)を持つ駒はすべて画像表示にする — キャラシ製のキャラも
+ * 追加画像と同じく実寸・比率で表示する。画像が無い駒だけ円形マーカー。
+ */
 function isImageObject(p: Panel): boolean {
-  return p.source === "token" && !!p.portrait;
+  return !!p.portrait;
 }
 
 export function PlayBoard({
