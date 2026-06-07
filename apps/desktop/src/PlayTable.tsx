@@ -108,17 +108,19 @@ export function PlayTable({
     name: string,
     dataUrl: string,
     pos: { x: number; y: number },
+    size: number,
   ) {
     const panel = {
       ...makeTokenPanel({ id: crypto.randomUUID(), name, portrait: dataUrl }),
       pos,
+      size,
     };
     dispatch(panelAddEvent(newCtx(), panel));
   }
 
   function updatePanel(
     id: string,
-    patch: { name?: string; note?: string; hidden?: boolean },
+    patch: { name?: string; note?: string; hidden?: boolean; size?: number },
   ) {
     dispatch(panelUpdateEvent(newCtx(), id, patch));
   }

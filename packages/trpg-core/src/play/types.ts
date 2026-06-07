@@ -50,6 +50,8 @@ export interface Panel {
   resources: PanelResource[];
   /** 盤面上の位置(0..1 正規化。盤面サイズに依らず保存できる)。未配置は undefined。 */
   pos?: { x: number; y: number };
+  /** 盤面上の表示サイズ(px)。円形駒は直径、画像オブジェクトは幅。未指定は既定。 */
+  size?: number;
   /** 情報/メモ(右クリックメニューで編集)。 */
   note?: string;
   /** プレイヤーに秘匿するか(GM 視点では薄く表示。将来の同期で非送信)。 */
@@ -144,11 +146,11 @@ export interface PanelMoveEvent extends BaseEvent {
   y: number;
 }
 
-/** 駒の属性(名前/情報/秘匿)の更新。指定したフィールドだけ反映。 */
+/** 駒の属性(名前/情報/秘匿/サイズ)の更新。指定したフィールドだけ反映。 */
 export interface PanelUpdateEvent extends BaseEvent {
   kind: "panel-update";
   panelId: string;
-  patch: { name?: string; note?: string; hidden?: boolean };
+  patch: { name?: string; note?: string; hidden?: boolean; size?: number };
 }
 
 /** 盤面設定(背景画像 / グリッド)の変更。 */
