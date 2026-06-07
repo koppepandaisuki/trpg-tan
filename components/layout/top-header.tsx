@@ -12,6 +12,7 @@ import { BrandMark } from "@/components/brand/brand-mark";
 import { MobileMenu } from "@/components/layout/mobile-menu";
 import { SearchBar } from "@/components/layout/search-bar";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
+import { PresenceHeartbeat } from "@/components/friends/presence-heartbeat";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,8 @@ export async function TopHeader({ className }: { className?: string }) {
         className,
       )}
     >
+      {/* ログイン中は在席の心拍を打つ(描画なし) */}
+      {user && <PresenceHeartbeat />}
       <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
         <Link
           href="/"
