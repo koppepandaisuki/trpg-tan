@@ -570,6 +570,41 @@ body {
   pointer-events: none;
 }
 
+/* 画像オブジェクト(実寸・比率そのまま。クロップ無し・名前無し) */
+.token.img-object {
+  line-height: 0;
+}
+.obj-img {
+  display: block;
+  height: auto;
+  max-width: none;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(16, 49, 74, 0.35);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 右下のリサイズハンドル(ホバーで表示) */
+.token-resize {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  background: var(--primary);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(16, 49, 74, 0.4);
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 0.12s;
+  touch-action: none;
+}
+.token:hover .token-resize,
+.token.dragging .token-resize {
+  opacity: 1;
+}
+
 .board.drop-active {
   outline: 3px dashed var(--primary);
   outline-offset: -6px;

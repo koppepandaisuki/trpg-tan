@@ -4,10 +4,17 @@ import type { Panel, PlayBoard as BoardState } from "@trpg/core";
 /**
  * 盤面(ココフォリア風)。背景マップ + グリッド + キャラ駒/画像オブジェクト。
  *
- *  - 画像をドラッグ&ドロップ、または「画像を追加」で盤面にオブジェクトを置く
- *  - 駒はドラッグで移動(離した瞬間に確定。座標は 0..1 正規化で保存)
+ *  - 画像をドラッグ&ドロップ / 「画像を追加」で配置(実寸・比率そのまま)
+ *  - 駒はドラッグで移動、右下ハンドルでマウスリサイズ(離した瞬間に確定)
  *  - 駒を右クリック → メニュー(名前 / 情報 / 👁プレイヤー可視 / 削除)
+ *  - 画像オブジェクトは名前を出さず、画像そのものを表示
  */
+
+/** 追加した画像(円形マーカーでなく、画像そのものを出すオブジェクト)か。 */
+function isImageObject(p: Panel): boolean {
+  return p.source === "token" && !!p.portrait;
+}
+
 export function PlayBoard({
   board,
   panels,
@@ -23,14 +30,29 @@ export function PlayBoard({
   onMove: (panelId: string, x: number, y: number) => void;
   onSetImage: (dataUrl: string | null) => void;
   onToggleGrid: () => void;
-  onAddImage: (name: string, dataUrl: string, pos: { x: number; y: number }) => void;
-  onUpdate: (panelId: string, patch: Partial<Pick<Panel, "name" | "note" | "hidden">>) => void;
+  onAddImage: (
+    name: string,
+    dataUrl: string,
+    pos: { x: number; y: number },
+    size: number,
+  ) => void;
+  onUpdate: (
+    panelId: string,
+    patch: Partial<Pick<Panel, "name" | "note" | "hidden" | "size">>,
+  ) => void;
   onRemove: (panelId: string) => void;
 }) {
   const grid = board?.grid ?? true;
   const image = board?.image ?? null;
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [resize, setResize] = useState<{
+    id: string;
+    startX: number;
+    startY: number;
+    startSize: number;
+    size: number;
+  } | null>(null);
   const [dropActive, setDropActive] = useState(false);
   const [menu, setMenu] = useState<{ panelId: string; x: number; y: number } | null>(null);
 
@@ -39,6 +61,10 @@ export function PlayBoard({
   function posOf(p: Panel, i: number): { x: number; y: number } {
     if (drag && drag.id === p.id) return { x: drag.x, y: drag.y };
     return p.pos ?? { x: 0.12 + (i % 6) * 0.13, y: 0.16 + Math.floor(i / 6) * 0.2 };
+  }
+  function sizeOf(p: Panel): number {
+    if (resize && resize.id === p.id) return resize.size;
+    return p.size ?? (isImageObject(p) ? 140 : 56);
   }
 
   function clientToNorm(clientX: number, clientY: number) {
@@ -51,30 +77,65 @@ export function PlayBoard({
   }
 
   function startDrag(e: React.PointerEvent, p: Panel, i: number) {
-    if (e.button !== 0) return; // 右クリックはドラッグしない
+    if (e.button !== 0) return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const s = posOf(p, i);
     setDrag({ id: p.id, x: s.x, y: s.y });
   }
-  function moveDrag(e: React.PointerEvent) {
-    if (!drag) return;
-    const n = clientToNorm(e.clientX, e.clientY);
-    setDrag({ id: drag.id, x: n.x, y: n.y });
-  }
-  function endDrag() {
-    if (!drag) return;
-    onMove(drag.id, drag.x, drag.y);
-    setDrag(null);
+
+  function startResize(e: React.PointerEvent, p: Panel) {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const s = sizeOf(p);
+    setResize({ id: p.id, startX: e.clientX, startY: e.clientY, startSize: s, size: s });
   }
 
+  function onPointerMove(e: React.PointerEvent) {
+    if (resize) {
+      const d = Math.max(e.clientX - resize.startX, e.clientY - resize.startY);
+      const size = Math.max(24, Math.min(1200, Math.round(resize.startSize + d)));
+      setResize({ ...resize, size });
+      return;
+    }
+    if (drag) {
+      const n = clientToNorm(e.clientX, e.clientY);
+      setDrag({ id: drag.id, x: n.x, y: n.y });
+    }
+  }
+  function onPointerUp() {
+    if (resize) {
+      onUpdate(resize.id, { size: resize.size });
+      setResize(null);
+      return;
+    }
+    if (drag) {
+      onMove(drag.id, drag.x, drag.y);
+      setDrag(null);
+    }
+  }
+
+  /** 画像ファイルを実寸(幅)で配置。盤面幅の 80% / 700px を上限にクランプ。 */
   function addImageFile(file: File, pos: { x: number; y: number }) {
     if (!file.type.startsWith("image/")) return;
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === "string") {
-        onAddImage(stripExt(file.name), reader.result, pos);
-      }
+      if (typeof reader.result !== "string") return;
+      const dataUrl = reader.result;
+      const probe = new Image();
+      probe.onload = () => {
+        const boardW = ref.current?.clientWidth ?? 800;
+        const size = Math.min(
+          probe.naturalWidth || 160,
+          Math.round(boardW * 0.8),
+          700,
+        );
+        onAddImage(stripExt(file.name), dataUrl, pos, size);
+      };
+      probe.onerror = () => onAddImage(stripExt(file.name), dataUrl, pos, 160);
+      probe.src = dataUrl;
     };
     reader.readAsDataURL(file);
   }
@@ -93,7 +154,6 @@ export function PlayBoard({
     if (file) addImageFile(file, { x: 0.5, y: 0.5 });
     e.target.value = "";
   }
-
   function pickBackground(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -123,15 +183,15 @@ export function PlayBoard({
         <button className="btn mini" onClick={onToggleGrid}>
           グリッド: {grid ? "ON" : "OFF"}
         </button>
-        <span className="board-hint muted">画像をここにドロップでも追加できます</span>
+        <span className="board-hint muted">画像をここにドロップでも追加</span>
       </div>
 
       <div
         ref={ref}
         className={`board ${dropActive ? "drop-active" : ""}`}
         style={image ? { backgroundImage: `url(${image})` } : undefined}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
         onDragOver={(e) => {
           e.preventDefault();
           setDropActive(true);
@@ -144,18 +204,21 @@ export function PlayBoard({
         {panels.length === 0 && (
           <div className="board-empty muted">
             画像をドロップ、または「画像を追加 / ＋キャラ / ＋トークン」で駒を
-            置けます。ドラッグで移動、右クリックでメニュー。
+            置けます。ドラッグで移動、右下のハンドルでサイズ変更、右クリックで
+            メニュー。
           </div>
         )}
 
         {panels.map((p, i) => {
           const pos = posOf(p, i);
+          const size = sizeOf(p);
+          const img = isImageObject(p);
           return (
             <div
               key={p.id}
-              className={`token ${drag?.id === p.id ? "dragging" : ""} ${
-                p.hidden ? "hidden" : ""
-              }`}
+              className={`token ${img ? "img-object" : ""} ${
+                drag?.id === p.id ? "dragging" : ""
+              } ${p.hidden ? "hidden" : ""}`}
               style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
               onPointerDown={(e) => startDrag(e, p, i)}
               onContextMenu={(e) => {
@@ -164,11 +227,40 @@ export function PlayBoard({
               }}
               title={p.note ? `${p.name}\n${p.note}` : p.name}
             >
-              <div className="token-img" style={{ borderColor: p.color, background: p.color }}>
-                {p.portrait ? <img src={p.portrait} alt="" /> : <span>◆</span>}
-              </div>
+              {img ? (
+                <img
+                  className="obj-img"
+                  src={p.portrait ?? ""}
+                  alt=""
+                  draggable={false}
+                  style={{ width: size }}
+                />
+              ) : (
+                <div
+                  className="token-img"
+                  style={{
+                    width: size,
+                    height: size,
+                    borderColor: p.color,
+                    background: p.color,
+                  }}
+                >
+                  {p.portrait ? (
+                    <img src={p.portrait} alt="" draggable={false} />
+                  ) : (
+                    <span>◆</span>
+                  )}
+                </div>
+              )}
+
               {p.hidden && <span className="token-eye">🚫</span>}
-              <span className="token-name">{p.name}</span>
+              {!img && <span className="token-name">{p.name}</span>}
+
+              <span
+                className="token-resize"
+                onPointerDown={(e) => startResize(e, p)}
+                title="ドラッグでサイズ変更"
+              />
             </div>
           );
         })}
@@ -206,7 +298,10 @@ function ObjectMenu({
   panel: Panel;
   x: number;
   y: number;
-  onUpdate: (panelId: string, patch: Partial<Pick<Panel, "name" | "note" | "hidden">>) => void;
+  onUpdate: (
+    panelId: string,
+    patch: Partial<Pick<Panel, "name" | "note" | "hidden" | "size">>,
+  ) => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
@@ -222,11 +317,7 @@ function ObjectMenu({
   }, [onClose]);
 
   return (
-    <div
-      className="ctx-menu"
-      style={{ left, top }}
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="ctx-menu" style={{ left, top }} onClick={(e) => e.stopPropagation()}>
       <div className="ctx-head">
         {panel.source === "sheet" ? "キャラ駒" : "オブジェクト"}
       </div>
