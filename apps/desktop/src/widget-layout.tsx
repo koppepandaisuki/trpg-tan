@@ -64,8 +64,6 @@ export function WidgetLayoutProvider({
   children: ReactNode;
 }) {
   const [map, setMap] = useState<RectMap>(() => load(playId));
-  const mapRef = useRef(map);
-  mapRef.current = map;
   const zRef = useRef(10);
 
   // 卓を切り替えたら配置を読み直す。z カウンタも現在の最大値に合わせる。
@@ -81,10 +79,13 @@ export function WidgetLayoutProvider({
     save(playId, map);
   }, [playId, map]);
 
+  // map に依存させることで、配置が変わるたびに Context 値の identity が変わり、
+  // 購読側(各ウィジェット)が再描画される。ここを [] にすると値が固定され、
+  // ドラッグしても見た目が動かない(状態だけ更新され描画されない)バグになる。
   const api = useMemo<WidgetLayoutApi>(
     () => ({
-      has: (id) => mapRef.current[id] !== undefined,
-      get: (id) => mapRef.current[id],
+      has: (id) => map[id] !== undefined,
+      get: (id) => map[id],
       ensure: (id, def) =>
         setMap((m) =>
           m[id] ? m : { ...m, [id]: { ...def, z: (zRef.current += 1) } },
@@ -99,7 +100,7 @@ export function WidgetLayoutProvider({
           return { ...m, [id]: { ...cur, z } };
         }),
     }),
-    [],
+    [map],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

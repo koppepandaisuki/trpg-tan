@@ -37,6 +37,7 @@ export function FloatingWidget({
   const layout = useWidgetLayout();
   const dragRef = useRef<{
     mode: "move" | "resize";
+    dir?: "e" | "s" | "se";
     px: number;
     py: number;
     rect: Rect;
@@ -69,13 +70,13 @@ export function FloatingWidget({
     layout.bringToFront(id);
     dragRef.current = { mode: "move", px: e.clientX, py: e.clientY, rect: rect! };
   }
-  function startResize(e: React.PointerEvent) {
+  function startResize(e: React.PointerEvent, dir: "e" | "s" | "se") {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     layout.bringToFront(id);
-    dragRef.current = { mode: "resize", px: e.clientX, py: e.clientY, rect: rect! };
+    dragRef.current = { mode: "resize", dir, px: e.clientX, py: e.clientY, rect: rect! };
   }
   function onMove(e: React.PointerEvent) {
     const d = dragRef.current;
@@ -89,8 +90,15 @@ export function FloatingWidget({
       const y = Math.max(0, Math.min(d.rect.y + dy, Math.max(0, b.h - 32)));
       layout.set(id, { ...d.rect, x, y });
     } else {
-      const w = Math.max(minW, Math.min(d.rect.w + dx, b.w - d.rect.x));
-      const h = Math.max(minH, Math.min(d.rect.h + dy, b.h - d.rect.y));
+      const dir = d.dir ?? "se";
+      let w = d.rect.w;
+      let h = d.rect.h;
+      if (dir === "e" || dir === "se") {
+        w = Math.max(minW, Math.min(d.rect.w + dx, b.w - d.rect.x));
+      }
+      if (dir === "s" || dir === "se") {
+        h = Math.max(minH, Math.min(d.rect.h + dy, b.h - d.rect.y));
+      }
       layout.set(id, { ...d.rect, w, h });
     }
   }
@@ -121,9 +129,25 @@ export function FloatingWidget({
         )}
       </div>
       <div className={`fwidget-body ${bodyClass ?? ""}`}>{children}</div>
+
+      {/* リサイズ: 右辺=幅 / 下辺=高さ / 右下角=両方。 */}
       <span
-        className="fwidget-resize"
-        onPointerDown={startResize}
+        className="fwidget-resize fwr-e"
+        onPointerDown={(e) => startResize(e, "e")}
+        onPointerMove={onMove}
+        onPointerUp={endDrag}
+        title="ドラッグで幅を変更"
+      />
+      <span
+        className="fwidget-resize fwr-s"
+        onPointerDown={(e) => startResize(e, "s")}
+        onPointerMove={onMove}
+        onPointerUp={endDrag}
+        title="ドラッグで高さを変更"
+      />
+      <span
+        className="fwidget-resize fwr-se"
+        onPointerDown={(e) => startResize(e, "se")}
         onPointerMove={onMove}
         onPointerUp={endDrag}
         title="ドラッグでサイズ変更"
