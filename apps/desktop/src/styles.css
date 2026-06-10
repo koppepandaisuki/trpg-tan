@@ -1688,6 +1688,84 @@ body {
   color: var(--primary-deep);
 }
 
+/* チャットパレット(キャラ駒内) */
+.ppanel-palette {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.ppanel-palette-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ppanel-section {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.palette-edit {
+  border: 0;
+  background: transparent;
+  color: var(--primary-deep);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.palette-edit:hover {
+  text-decoration: underline;
+}
+.palette-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.palette-line {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.12s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette-line:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.palette-head-line {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-faint);
+  padding: 4px 2px 1px;
+}
+.palette-empty {
+  font-size: 11px;
+  padding: 2px;
+}
+.palette-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.palette-editor textarea {
+  width: 100%;
+  font-size: 12px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  resize: vertical;
+}
+.palette-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ===== パラDa-iCE ダイス・モーション(物理転がり)===== */
 .dm-overlay {
   position: fixed;

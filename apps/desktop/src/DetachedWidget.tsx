@@ -83,6 +83,16 @@ export function DetachedWidget({ widgetId }: { widgetId: string }) {
           onRemove={(p) =>
             void sendIntent({ kind: "remove-panel", panelId: p.id })
           }
+          onPalette={(line) =>
+            void sendIntent({ kind: "send", speakerId: panel.id, raw: line })
+          }
+          onEditPalette={(text) =>
+            void sendIntent({
+              kind: "panel-update",
+              panelId: panel.id,
+              patch: { palette: text },
+            })
+          }
         />
       </div>
     );

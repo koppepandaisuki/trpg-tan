@@ -208,7 +208,13 @@ export function PlayTable({
 
   function updatePanel(
     id: string,
-    patch: { name?: string; note?: string; hidden?: boolean; size?: number },
+    patch: {
+      name?: string;
+      note?: string;
+      hidden?: boolean;
+      size?: number;
+      palette?: string;
+    },
   ) {
     dispatch(panelUpdateEvent(newCtx(), id, patch));
   }
@@ -312,6 +318,9 @@ export function PlayTable({
         break;
       case "send":
         handleSend(intent.speakerId, intent.raw);
+        break;
+      case "panel-update":
+        dispatch(panelUpdateEvent(newCtx(), intent.panelId, intent.patch));
         break;
       case "bgm-add":
         addBgmTracks(intent.tracks);
@@ -487,6 +496,8 @@ export function PlayTable({
                   onRoll={rollStat}
                   onResource={changeResource}
                   onRemove={removePanel}
+                  onPalette={(line) => handleSend(p.id, line)}
+                  onEditPalette={(text) => updatePanel(p.id, { palette: text })}
                 />
               </FloatingWidget>
             ))}

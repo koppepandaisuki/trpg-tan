@@ -152,7 +152,13 @@ export function panelMoveEvent(
 export function panelUpdateEvent(
   ctx: EventCtx,
   panelId: string,
-  patch: { name?: string; note?: string; hidden?: boolean; size?: number },
+  patch: {
+    name?: string;
+    note?: string;
+    hidden?: boolean;
+    size?: number;
+    palette?: string;
+  },
 ): PanelUpdateEvent {
   return {
     id: ctx.id,
