@@ -45,10 +45,20 @@ export function PlayPanel({
 }) {
   const characteristics = panel.stats.filter((s) => s.kind === "characteristic");
   const skills = panel.stats.filter((s) => s.kind === "skill");
+  // キャラごとの折りたたみ。閉じている間はアイコン+名前+HP/MP/SAN+能力値の
+  // 簡易表示だけにして、サイドバーを縦に節約する。
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="ppanel" style={{ borderTopColor: panel.color }}>
-      <div className="ppanel-head">
+      <div
+        className="ppanel-head"
+        onClick={() => setOpen((v) => !v)}
+        title={open ? "クリックで折りたたむ" : "クリックで展開"}
+      >
+        <span className="ppanel-caret" aria-hidden>
+          {open ? "▾" : "▸"}
+        </span>
         <div className="ppanel-portrait" style={{ background: panel.color }}>
           {panel.portrait ? <img src={panel.portrait} alt="" /> : <span>👤</span>}
         </div>
@@ -65,12 +75,44 @@ export function PlayPanel({
         <button
           className="ppanel-del"
           title="卓から外す"
-          onClick={() => onRemove(panel)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(panel);
+          }}
         >
           ×
         </button>
       </div>
 
+      {/* 折りたたみ中のサマリ(読み取り専用): リソース + 基本能力値。 */}
+      {!open && (
+        <div className="ppanel-mini">
+          {panel.resources.length > 0 && (
+            <div className="pmini-res">
+              {panel.resources.map((r) => (
+                <span key={r.key} className="pmini-chip">
+                  <span aria-hidden>{resourceIcon(r.key)}</span>
+                  {r.current}
+                  <i>/{r.max}</i>
+                </span>
+              ))}
+            </div>
+          )}
+          {characteristics.length > 0 && (
+            <div className="pmini-stats">
+              {characteristics.map((s) => (
+                <span key={s.key} className="pmini-stat" title={s.label}>
+                  {s.key}
+                  <b>{s.target}</b>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {open && (
+        <>
       {/* 速さ(行動順)。変更するとサイドバー/盤面左上が速さ順に並び替わる。 */}
       <div className="ppanel-speed">
         <span className="pres-label">
@@ -165,6 +207,8 @@ export function PlayPanel({
         onSend={onSend}
         onEdit={onEditPalette}
       />
+        </>
+      )}
     </div>
   );
 }

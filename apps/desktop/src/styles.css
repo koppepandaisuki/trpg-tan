@@ -3057,6 +3057,64 @@ body {
   margin-left: 4px;
 }
 
+/* キャラカードの折りたたみ(ヘッダクリックで開閉) */
+.ppanel-head {
+  cursor: pointer;
+  user-select: none;
+}
+.ppanel-caret {
+  width: 13px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.ppanel-mini {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pmini-res {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pmini-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 13.5px;
+  font-weight: 800;
+  background: var(--surface-2);
+}
+.pmini-chip i {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.pmini-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pmini-stat {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 1px 7px;
+  background: var(--surface);
+}
+.pmini-stat b {
+  margin-left: 3px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
 /* 速さ(行動順) */
 .ppanel-speed {
   display: flex;
