@@ -10,9 +10,10 @@ function resourceIcon(key: string): string {
   return "◆";
 }
 
-/** 技能/能力の判定コマンド(CCFOLIA 風)。CC<=目標値 ＋ ラベル。 */
+/** 技能/能力の判定コマンド(CCFOLIA 風)。CC<=目標値 ＋ ラベル。
+ *  能力値は英語表記(STR 等)で統一し、技能は日本語ラベルのまま。 */
 function cmdFor(s: PanelStat): string {
-  return `CC<=${s.target} ${s.label}`;
+  return `CC<=${s.target} ${s.kind === "characteristic" ? s.key : s.label}`;
 }
 
 /**
@@ -29,6 +30,7 @@ export function PlayPanel({
   onFill,
   onSend,
   onEditPalette,
+  onSpeed,
 }: {
   panel: Panel;
   onResource: (panel: Panel, resource: PanelResource, delta: number) => void;
@@ -38,6 +40,8 @@ export function PlayPanel({
   /** ダブルクリック: 即ロール(この駒として)。 */
   onSend: (text: string) => void;
   onEditPalette: (text: string) => void;
+  /** 速さ(行動順)の変更。サイドバー/盤面左上の並び順に反映される。 */
+  onSpeed: (panel: Panel, speed: number) => void;
 }) {
   const characteristics = panel.stats.filter((s) => s.kind === "characteristic");
   const skills = panel.stats.filter((s) => s.kind === "skill");
@@ -65,6 +69,27 @@ export function PlayPanel({
         >
           ×
         </button>
+      </div>
+
+      {/* 速さ(行動順)。変更するとサイドバー/盤面左上が速さ順に並び替わる。 */}
+      <div className="ppanel-speed">
+        <span className="pres-label">
+          <span className="pres-ic" aria-hidden>
+            ⚡
+          </span>
+          速さ
+        </span>
+        <input
+          className="input pspeed-input"
+          type="number"
+          value={panel.speed ?? ""}
+          placeholder="–"
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v)) onSpeed(panel, v);
+          }}
+          title="行動順(大きいほど先)"
+        />
       </div>
 
       {panel.resources.length > 0 && (
@@ -108,9 +133,10 @@ export function PlayPanel({
               className="pstat"
               onClick={() => onFill(cmdFor(s))}
               onDoubleClick={() => onSend(cmdFor(s))}
-              title={`クリック: 入力欄に / ダブルクリック: 即ロール（CC<=${s.target}）`}
+              title={`${s.label} ─ クリック: 入力欄に / ダブルクリック: 即ロール（CC<=${s.target}）`}
             >
-              <span className="pstat-label">{s.label}</span>
+              {/* 能力値は英語表記で統一(日本語ラベルは title で補足)。 */}
+              <span className="pstat-label">{s.key}</span>
               <span className="pstat-val">{s.target}</span>
             </button>
           ))}

@@ -158,6 +158,9 @@ export function panelUpdateEvent(
     hidden?: boolean;
     size?: number;
     palette?: string;
+    speed?: number;
+    sceneId?: string | null;
+    layer?: number;
   },
 ): PanelUpdateEvent {
   return {

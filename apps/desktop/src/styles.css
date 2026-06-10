@@ -2891,6 +2891,365 @@ body {
 .pside-log .pinput {
   padding: 10px;
 }
+
+/* サイドバーの折りたたみ(テキスト / カットイン)— BGM と同じ見た目。 */
+.pside-stock,
+.pside-cutin {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.pside-stock > summary,
+.pside-cutin > summary {
+  padding: 9px 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--primary-deep);
+  user-select: none;
+  list-style: none;
+}
+.pside-stock > summary::before,
+.pside-cutin > summary::before {
+  content: "▸ ";
+}
+.pside-stock[open] > summary::before,
+.pside-cutin[open] > summary::before {
+  content: "▾ ";
+}
+.pside-stock[open] > summary,
+.pside-cutin[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+.tstock,
+.cutin-panel {
+  padding: 10px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tstock .palette-lines {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+/* ログのタブ(すべて / チャット / ダイス)+ 並び順 */
+.plog-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px 0;
+  flex-shrink: 0;
+}
+.plog-tab {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.plog-tab:hover {
+  border-color: var(--border-strong);
+}
+.plog-tab.active {
+  background: var(--grad-primary);
+  border-color: transparent;
+  color: #fff;
+}
+.plog-sort {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.plog-sort:hover {
+  color: var(--text);
+}
+
+/* シークレットダイス */
+.psecret {
+  flex: 0 0 auto;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.psecret.on {
+  background: var(--gold-soft);
+  border-color: var(--gold);
+}
+.pinput-secret {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 2px 8px;
+  font-size: 12px;
+}
+.pinput-secret-label {
+  font-weight: 700;
+  color: var(--gold-deep);
+}
+.pinput-viewer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.logrow.log-secret {
+  background: var(--gold-soft);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+}
+.log-lock {
+  margin-right: 3px;
+}
+.log-secret-note {
+  font-size: 11px;
+  color: var(--gold-deep);
+  margin-left: 4px;
+}
+
+/* 速さ(行動順) */
+.ppanel-speed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pspeed-input {
+  width: 76px;
+  padding: 4px 8px;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 盤面左上のステータス一覧(速さ順) */
+.bstatus {
+  position: absolute;
+  top: 54px;
+  left: 22px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+  max-width: 340px;
+}
+.bstatus-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(3px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 12px 3px 5px;
+  box-shadow: var(--shadow-xs);
+}
+.bstatus-speed {
+  min-width: 26px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 1px 4px;
+}
+.bstatus-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+.bstatus-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bstatus-name {
+  font-size: 13px;
+  font-weight: 700;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bstatus-res {
+  display: flex;
+  gap: 8px;
+}
+.bstatus-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+}
+.bstatus-ic {
+  font-size: 11px;
+}
+.bstatus-bar {
+  width: 34px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(18, 74, 122, 0.14);
+  overflow: hidden;
+}
+.bstatus-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mint-deep);
+  transition: width 0.25s ease;
+}
+.bstatus-fill.mid {
+  background: var(--gold);
+}
+.bstatus-fill.low {
+  background: #e0796b;
+}
+
+/* カットイン */
+.cutin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cutin-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cutin-fire {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: all 0.12s;
+  min-width: 0;
+}
+.cutin-fire:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.cutin-fire img {
+  width: 44px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.cutin-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cutin-del {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.cutin-del:hover {
+  color: #b91c1c;
+}
+
+/* カットイン再生(非ブロッキングの全画面演出) */
+.cutin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  pointer-events: none;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cutin-band {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  height: 46%;
+  background: linear-gradient(
+    100deg,
+    rgba(16, 49, 74, 0) 0%,
+    rgba(16, 49, 74, 0.78) 18%,
+    rgba(16, 49, 74, 0.78) 82%,
+    rgba(16, 49, 74, 0) 100%
+  );
+  transform: skewY(-3deg);
+  animation: cutin-band 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.cutin-image {
+  position: relative;
+  max-width: min(62vw, 760px);
+  max-height: 58vh;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.45));
+  animation: cutin-img 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes cutin-band {
+  0% {
+    opacity: 0;
+    transform: skewY(-3deg) scaleX(0.2);
+  }
+  10% {
+    opacity: 1;
+    transform: skewY(-3deg) scaleX(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* 職業技能外への職業P割り振り(禁止せず注意喚起のハイライト) */
+.input.occ-warn {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: 0 0 0 2px rgba(244, 201, 74, 0.25);
+}
+
+@keyframes cutin-img {
+  0% {
+    transform: translateX(110vw) rotate(2deg);
+    opacity: 0;
+  }
+  16% {
+    transform: translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  80% {
+    transform: translateX(0) scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-16vw) scale(1.04);
+    opacity: 0;
+  }
+}
 .pside-log .pinput-row .input {
   font-size: 14px;
   padding: 8px 10px;

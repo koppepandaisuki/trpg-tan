@@ -26,6 +26,7 @@ import {
   type PanelResource,
   type BgmTrack,
   type SceneInfo,
+  type CutIn,
   type CoCEdition,
 } from "@trpg/core";
 import { ask } from "@tauri-apps/plugin-dialog";
@@ -35,6 +36,9 @@ import { SceneBar } from "./SceneBar";
 import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
 import { BgmPlayer } from "./BgmPanel";
+import { BoardStatusBar } from "./BoardStatusBar";
+import { TextStockPanel } from "./TextStock";
+import { CutInPanel, CutInOverlay } from "./CutIn";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
@@ -83,14 +87,20 @@ export function PlayTable({
     speakerId: "GM",
     text: "",
   });
+  // シークレットダイス(出目を伏せる)+ 見せる相手(名前)。
+  const [secret, setSecret] = useState(false);
+  const [visibleTo, setVisibleTo] = useState<string[]>([]);
+  // 再生中のカットイン。
+  const [cutin, setCutin] = useState<CutIn | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const characters = useMemo(() => getLibrary(), []);
 
   // 能力値/リソースを持つ“キャラ駒”だけサイドバーに出す(画像オブジェクトは盤面のみ)。
-  const cards = scene.panels.filter(
-    (p) => p.stats.length > 0 || p.resources.length > 0,
-  );
+  // 速さ(行動順)の降順で、サイドバー / 盤面左上の両方が同じ順序に並ぶ。
+  const cards = scene.panels
+    .filter((p) => p.stats.length > 0 || p.resources.length > 0)
+    .sort((a, b) => (b.speed ?? -Infinity) - (a.speed ?? -Infinity));
 
   function dispatch(event: PlayEvent) {
     setScene((s) => reduce(s, event));
@@ -181,6 +191,8 @@ export function PlayTable({
       ...makeTokenPanel({ id: crypto.randomUUID(), name, portrait: dataUrl }),
       pos,
       size,
+      // 画像オブジェクトは既定で「このシーン専用」(右クリックで引き継ぎに変更可)。
+      ...(scene.activeSceneId ? { sceneId: scene.activeSceneId } : {}),
     };
     dispatch(panelAddEvent(newCtx(), panel));
   }
@@ -193,9 +205,35 @@ export function PlayTable({
       hidden?: boolean;
       size?: number;
       palette?: string;
+      speed?: number;
+      sceneId?: string | null;
+      layer?: number;
     },
   ) {
     dispatch(panelUpdateEvent(newCtx(), id, patch));
+  }
+
+  /* ===== シナリオテキストストック / カットイン(GM ローカル編集) ===== */
+
+  function setTextStock(text: string) {
+    setScene((s) => ({ ...s, textStock: text }));
+    setDirty(true);
+  }
+
+  function addCutin(name: string, image: string) {
+    setScene((s) => ({
+      ...s,
+      cutins: [...(s.cutins ?? []), { id: crypto.randomUUID(), name, image }],
+    }));
+    setDirty(true);
+  }
+
+  function removeCutin(id: string) {
+    setScene((s) => ({
+      ...s,
+      cutins: (s.cutins ?? []).filter((c) => c.id !== id),
+    }));
+    setDirty(true);
   }
 
   /** 新しい駒の初期配置(盤面のやや中央寄りにランダム)。 */
@@ -252,7 +290,7 @@ export function PlayTable({
         dispatch(chatEvent(newCtx(), name, raw));
         return;
       }
-      const ev =
+      let ev =
         cmd.kind === "notation"
           ? freeRollEvent(newCtx(), name, cmd.notation, cmd.label)
           : cmd.kind === "coc"
@@ -265,6 +303,10 @@ export function PlayTable({
                 cmd.target,
                 cmd.label,
               );
+      // シークレットダイス: 出目を伏せる(見せる相手はチェックで指定)。
+      if (secret) {
+        ev = { ...ev, secret: true, visibleTo: [...visibleTo] };
+      }
       dispatch(ev);
       setMotion(ev);
       setError(null);
@@ -388,10 +430,31 @@ export function PlayTable({
                   onFill={(text) => fill(p.id, text)}
                   onSend={(text) => sendNow(p.id, text)}
                   onEditPalette={(text) => updatePanel(p.id, { palette: text })}
+                  onSpeed={(panel, speed) => updatePanel(panel.id, { speed })}
                 />
               ))
             )}
           </div>
+
+          <details className="pside-stock">
+            <summary>📖 テキスト</summary>
+            <TextStockPanel
+              stock={scene.textStock ?? ""}
+              onFill={(text) => fill("GM", text)}
+              onSend={(text) => sendNow("GM", text)}
+              onEdit={setTextStock}
+            />
+          </details>
+
+          <details className="pside-cutin">
+            <summary>🎬 カットイン</summary>
+            <CutInPanel
+              cutins={scene.cutins ?? []}
+              onAdd={addCutin}
+              onRemove={removeCutin}
+              onFire={setCutin}
+            />
+          </details>
 
           <details className="pside-bgm">
             <summary>♪ BGM</summary>
@@ -411,10 +474,14 @@ export function PlayTable({
               ]}
               speakerId={compose.speakerId}
               text={compose.text}
+              secret={secret}
+              visibleTo={visibleTo}
               onSpeakerChange={(id) =>
                 setCompose((c) => ({ ...c, speakerId: id }))
               }
               onTextChange={(t) => setCompose((c) => ({ ...c, text: t }))}
+              onSecretChange={setSecret}
+              onVisibleToChange={setVisibleTo}
               onSubmit={submitCompose}
               inputRef={inputRef}
             />
@@ -435,6 +502,7 @@ export function PlayTable({
             <PlayBoard
               board={scene.board}
               panels={scene.panels}
+              activeSceneId={scene.activeSceneId}
               onMove={movePanel}
               onSetImage={setBoardImage}
               onToggleGrid={toggleGrid}
@@ -442,6 +510,8 @@ export function PlayTable({
               onUpdate={updatePanel}
               onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
             />
+            {/* 盤面左上のステータス一覧(速さ順・サイドバーと同順)。 */}
+            <BoardStatusBar cards={cards} />
           </div>
         </main>
       </div>
@@ -449,6 +519,7 @@ export function PlayTable({
       {motion && (
         <DiceMotion roll={motion} onClose={() => setMotion(null)} />
       )}
+      {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}
     </div>
   );
 }

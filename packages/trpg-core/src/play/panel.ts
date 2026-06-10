@@ -94,6 +94,8 @@ export function panelFromSheet(params: {
     sheetId: sheet.id,
     stats,
     resources,
+    // 行動順(速さ)。CoC は DEX で初期化(後から卓上で変更可)。
+    ...(typeof chars.DEX === "number" ? { speed: chars.DEX } : {}),
   };
 }
 
