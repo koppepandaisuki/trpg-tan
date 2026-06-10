@@ -192,6 +192,19 @@ describe("盤面(board)", () => {
     // チャットパレットも panel-update で保存。
     s = reduce(s, panelUpdateEvent(ctx("e4"), "t1", { palette: "1d100<=70 目星" }));
     expect(s.panels[0].palette).toBe("1d100<=70 目星");
+    // 速さ / レイヤー / シーン帰属も panel-update で更新できる。
+    s = reduce(s, panelUpdateEvent(ctx("e5"), "t1", { speed: 12, layer: 3 }));
+    expect(s.panels[0].speed).toBe(12);
+    expect(s.panels[0].layer).toBe(3);
+    s = reduce(s, panelUpdateEvent(ctx("e6"), "t1", { sceneId: "sc-1" }));
+    expect(s.panels[0].sceneId).toBe("sc-1");
+    s = reduce(s, panelUpdateEvent(ctx("e7"), "t1", { sceneId: null }));
+    expect(s.panels[0].sceneId).toBeNull();
+  });
+
+  it("panelFromSheet は DEX から速さを初期化", () => {
+    const panel = panelFromSheet({ id: "p-spd", sheet: sampleSheet() });
+    expect(panel.speed).toBe(60); // sampleSheet の DEX
   });
 
   it("board-set は指定フィールドだけ反映", () => {

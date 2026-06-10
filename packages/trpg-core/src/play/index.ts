@@ -5,6 +5,7 @@ export {
   type PlayBgm,
   type BgmTrack,
   type SceneInfo,
+  type CutIn,
   type Panel,
   type PanelStat,
   type PanelResource,

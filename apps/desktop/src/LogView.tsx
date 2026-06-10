@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Ref } from "react";
 import type { PlayEvent, CoCCheckResult } from "@trpg/core";
 
 /** 発言者の選択肢(GM + 卓上の駒)。 */
@@ -7,63 +7,149 @@ export interface Speaker {
   name: string;
 }
 
+type LogFilter = "all" | "chat" | "dice";
+
 /**
- * ログ + 入力欄。メイン卓と切り離し窓で共用。
- *  - 発言者を選んで(GM / キャラ / トークン)発言
- *  - 入力欄に 1d100<=70 / 2d6+1 / CCB<=50 等のダイスコマンドを打つと判定
- * 実際の適用(乱数消費=GM 権威)は onSend の呼び出し側に委ねる
- * (メイン=parse して dispatch、切り離し窓=intent をメインへ送る)。
+ * ログ + 入力欄。入力は親(PlayTable)が保持する制御コンポーネント。
+ *  - タブで「すべて / チャット / ダイス」を切替、並び順も昇降切替
+ *  - 🔒 でシークレットダイス(見せる相手はチェックボックスで指定)
+ *  - 技能/パレットのクリックで入力欄に式が入り、手で調整して送信
  */
 export function LogView({
   log,
   speakers,
-  onSend,
+  speakerId,
+  text,
+  secret,
+  visibleTo,
+  onSpeakerChange,
+  onTextChange,
+  onSecretChange,
+  onVisibleToChange,
+  onSubmit,
+  inputRef,
 }: {
   log: PlayEvent[];
   speakers: Speaker[];
-  onSend: (speakerId: string, raw: string) => void;
+  speakerId: string;
+  text: string;
+  secret: boolean;
+  visibleTo: string[];
+  onSpeakerChange: (id: string) => void;
+  onTextChange: (t: string) => void;
+  onSecretChange: (v: boolean) => void;
+  onVisibleToChange: (names: string[]) => void;
+  onSubmit: () => void;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
-  const [speakerId, setSpeakerId] = useState("GM");
-  const [text, setText] = useState("");
+  const [filter, setFilter] = useState<LogFilter>("all");
+  const [newestFirst, setNewestFirst] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
-  // ログが増えたら末尾へ自動スクロール。
+  const shown = useMemo(() => {
+    const filtered =
+      filter === "all"
+        ? log
+        : log.filter((ev) =>
+            filter === "chat" ? ev.kind === "chat" : ev.kind === "roll",
+          );
+    return newestFirst ? [...filtered].reverse() : filtered;
+  }, [log, filter, newestFirst]);
+
+  // ログが増えたら末尾へ自動スクロール(古い順表示のときだけ)。
   useEffect(() => {
+    if (newestFirst) return;
     const el = logRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [log.length]);
+  }, [log.length, filter, newestFirst]);
 
   // 選択中の発言者が居なくなったら GM に戻す。
   useEffect(() => {
-    if (!speakers.some((s) => s.id === speakerId)) setSpeakerId("GM");
-  }, [speakers, speakerId]);
+    if (!speakers.some((s) => s.id === speakerId)) onSpeakerChange("GM");
+  }, [speakers, speakerId, onSpeakerChange]);
 
-  function send() {
-    const t = text.trim();
-    if (!t) return;
-    onSend(speakerId, t);
-    setText("");
+  function toggleViewer(name: string) {
+    onVisibleToChange(
+      visibleTo.includes(name)
+        ? visibleTo.filter((n) => n !== name)
+        : [...visibleTo, name],
+    );
   }
 
   return (
     <>
+      <div className="plog-tabs" role="tablist" aria-label="ログ表示">
+        {(
+          [
+            ["all", "すべて"],
+            ["chat", "💬 チャット"],
+            ["dice", "🎲 ダイス"],
+          ] as [LogFilter, string][]
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={filter === key}
+            className={`plog-tab ${filter === key ? "active" : ""}`}
+            onClick={() => setFilter(key)}
+          >
+            {label}
+          </button>
+        ))}
+        <button
+          className="plog-sort"
+          onClick={() => setNewestFirst((v) => !v)}
+          title="並び順を切替"
+        >
+          {newestFirst ? "↑ 新しい順" : "↓ 古い順"}
+        </button>
+      </div>
+
       <div className="plog" ref={logRef}>
-        {log.length === 0 ? (
-          <p className="muted" style={{ padding: 8, fontSize: 12 }}>
-            発言や判定がここに流れます。例: <code>1d100&lt;=70 目星</code> /{" "}
-            <code>2d6+1</code>
+        {shown.length === 0 ? (
+          <p className="muted" style={{ padding: 10, fontSize: 13 }}>
+            {filter === "all" ? (
+              <>
+                発言や判定がここに流れます。技能ボタンを<b>クリック</b>
+                で下の入力欄に式が入り、<b>ダブルクリック</b>で即ロールします。
+              </>
+            ) : (
+              "このタブに表示できるログはまだありません。"
+            )}
           </p>
         ) : (
-          log.map((ev) => <LogRow key={ev.id} ev={ev} />)
+          shown.map((ev) => <LogRow key={ev.id} ev={ev} />)
         )}
       </div>
 
       <div className="pinput">
+        {secret && (
+          <div className="pinput-secret">
+            <span className="pinput-secret-label">🔒 出目を見せる相手:</span>
+            {speakers
+              .filter((s) => s.id !== "GM")
+              .map((s) => (
+                <label key={s.id} className="pinput-viewer">
+                  <input
+                    type="checkbox"
+                    checked={visibleTo.includes(s.name)}
+                    onChange={() => toggleViewer(s.name)}
+                  />
+                  {s.name}
+                </label>
+              ))}
+            {speakers.length <= 1 && (
+              <span className="muted" style={{ fontSize: 11 }}>
+                (GM のみに見える)
+              </span>
+            )}
+          </div>
+        )}
         <div className="pinput-row">
           <select
             className="input pspeaker"
             value={speakerId}
-            onChange={(e) => setSpeakerId(e.target.value)}
+            onChange={(e) => onSpeakerChange(e.target.value)}
             title="発言者"
           >
             {speakers.map((s) => (
@@ -73,13 +159,22 @@ export function LogView({
             ))}
           </select>
           <input
+            ref={inputRef}
             className="input"
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
-            placeholder="発言 / 1d100<=70 目星 / 2d6+1…"
+            onChange={(e) => onTextChange(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+            placeholder="発言 / CC<=70 目星 / 2d6+1…"
           />
-          <button className="btn mini btn-primary" onClick={send}>
+          <button
+            className={`btn mini psecret ${secret ? "on" : ""}`}
+            onClick={() => onSecretChange(!secret)}
+            title="シークレットダイス(出目を伏せる)"
+            aria-pressed={secret}
+          >
+            {secret ? "🔒" : "🔓"}
+          </button>
+          <button className="btn mini btn-primary" onClick={onSubmit}>
             送信
           </button>
         </div>
@@ -100,9 +195,21 @@ export function LogRow({ ev }: { ev: PlayEvent }) {
   if (ev.kind === "roll") {
     const tone = ev.check ? levelTone(ev.check) : "";
     return (
-      <p className="logrow">
+      <p className={`logrow ${ev.secret ? "log-secret" : ""}`}>
         <b className="log-actor">{ev.actor}</b>
         <span className="log-roll">
+          {ev.secret && (
+            <span
+              className="log-lock"
+              title={
+                ev.visibleTo && ev.visibleTo.length > 0
+                  ? `公開: ${ev.visibleTo.join("・")}`
+                  : "GM のみ"
+              }
+            >
+              🔒
+            </span>
+          )}
           {ev.label} → 🎲 [{ev.dice.join(", ")}] = <b>{ev.total}</b>
           {ev.check && (
             <span className={`log-level ${tone}`}> {levelLabel(ev.check)}</span>
@@ -111,6 +218,13 @@ export function LogRow({ ev }: { ev: PlayEvent }) {
             <span className={`log-level ${ev.success ? "ok" : "fail"}`}>
               {" "}
               {ev.success ? "成功" : "失敗"}
+            </span>
+          )}
+          {ev.secret && (
+            <span className="log-secret-note">
+              {ev.visibleTo && ev.visibleTo.length > 0
+                ? `（${ev.visibleTo.join("・")}に公開）`
+                : "（GMのみ）"}
             </span>
           )}
         </span>

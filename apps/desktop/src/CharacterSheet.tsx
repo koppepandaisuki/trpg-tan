@@ -321,11 +321,12 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
         <div className="grid">
           {system.characteristics.map((c) => (
             <div className="stat" key={c.key}>
+              {/* 能力値は英語表記で統一(和名は ? ヒントに退避)。 */}
               <div className="k">
-                {c.key} {c.label}{" "}
+                {c.key}{" "}
                 <InfoTip
                   compact
-                  text={`${CHARACTERISTIC_HINT[c.key] ?? c.label}\n${abilityScale(edition)}`}
+                  text={`${c.label}\n${CHARACTERISTIC_HINT[c.key] ?? ""}\n${abilityScale(edition)}`}
                 />
               </div>
               <div className="row" style={{ gap: 4 }}>
@@ -503,6 +504,9 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                   const isOcc = occupation?.occupationSkills.includes(s.key);
                   const base = skillBaseValue(s, chars);
                   const total = finalValue(s.key, base);
+                  // 職業技能外への職業P割り振りは禁止ではなくハイライトで注意喚起
+                  // (ハウスルールや追加取得に対応するため厳格ロックはしない)。
+                  const occWarn = !isOcc && (occAlloc[s.key] ?? 0) > 0;
                   return (
                 <tr key={s.key} className={isOcc ? "skill-occ" : undefined}>
                   <td>
@@ -512,11 +516,15 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                   <td className="muted">{base}</td>
                   <td>
                     <input
-                      className="input num sm"
+                      className={`input num sm ${occWarn ? "occ-warn" : ""}`}
                       type="number"
                       min={0}
                       value={occAlloc[s.key] ?? 0}
-                      disabled={!isOcc}
+                      title={
+                        occWarn
+                          ? "職業技能ではない技能に職業Pを振っています"
+                          : undefined
+                      }
                       onChange={(e) =>
                         setOccAlloc({
                           ...occAlloc,

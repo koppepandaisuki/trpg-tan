@@ -22,6 +22,7 @@ function isImageObject(p: Panel): boolean {
 export function PlayBoard({
   board,
   panels,
+  activeSceneId,
   onMove,
   onSetImage,
   onToggleGrid,
@@ -31,6 +32,8 @@ export function PlayBoard({
 }: {
   board: BoardState | undefined;
   panels: Panel[];
+  /** 現在のシーン id。シーン帰属オブジェクトの表示判定に使う。 */
+  activeSceneId?: string;
   onMove: (panelId: string, x: number, y: number) => void;
   onSetImage: (dataUrl: string | null) => void;
   onToggleGrid: () => void;
@@ -42,12 +45,18 @@ export function PlayBoard({
   ) => void;
   onUpdate: (
     panelId: string,
-    patch: Partial<Pick<Panel, "name" | "note" | "hidden" | "size">>,
+    patch: Partial<
+      Pick<Panel, "name" | "note" | "hidden" | "size" | "sceneId" | "layer">
+    >,
   ) => void;
   onRemove: (panelId: string) => void;
 }) {
   const grid = board?.grid ?? true;
   const image = board?.image ?? null;
+  // このシーンに出すオブジェクト(未帰属=全シーン共通)。layer 昇順 = 後勝ちで前面。
+  const visible = panels
+    .filter((p) => !p.sceneId || p.sceneId === activeSceneId)
+    .sort((a, b) => (a.layer ?? 0) - (b.layer ?? 0));
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [resize, setResize] = useState<{
@@ -205,7 +214,7 @@ export function PlayBoard({
       >
         {grid && <div className="board-grid" />}
 
-        {panels.length === 0 && (
+        {visible.length === 0 && (
           <div className="board-empty muted">
             画像をドロップ、または「画像を追加 / ＋キャラ / ＋トークン」で駒を
             置けます。ドラッグで移動、右下のハンドルでサイズ変更、右クリックで
@@ -213,7 +222,7 @@ export function PlayBoard({
           </div>
         )}
 
-        {panels.map((p, i) => {
+        {visible.map((p, i) => {
           const pos = posOf(p, i);
           const size = sizeOf(p);
           const img = isImageObject(p);
@@ -277,6 +286,7 @@ export function PlayBoard({
             panel={menuPanel}
             x={menu.x}
             y={menu.y}
+            activeSceneId={activeSceneId}
             onUpdate={onUpdate}
             onDelete={() => {
               onRemove(menuPanel.id);
@@ -295,6 +305,7 @@ function ObjectMenu({
   panel,
   x,
   y,
+  activeSceneId,
   onUpdate,
   onDelete,
   onClose,
@@ -302,9 +313,12 @@ function ObjectMenu({
   panel: Panel;
   x: number;
   y: number;
+  activeSceneId?: string;
   onUpdate: (
     panelId: string,
-    patch: Partial<Pick<Panel, "name" | "note" | "hidden" | "size">>,
+    patch: Partial<
+      Pick<Panel, "name" | "note" | "hidden" | "size" | "sceneId" | "layer">
+    >,
   ) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -364,6 +378,45 @@ function ObjectMenu({
             : "プレイヤーに公開中（クリックで秘匿）"}
         </span>
       </button>
+
+      {/* シーン引き継ぎ: 未帰属=全シーン共通 / 帰属=このシーン専用。 */}
+      <button
+        className="ctx-row"
+        onClick={() =>
+          onUpdate(panel.id, {
+            sceneId: panel.sceneId ? null : (activeSceneId ?? null),
+          })
+        }
+        disabled={!activeSceneId && !panel.sceneId}
+      >
+        <span className="ctx-icon">{panel.sceneId ? "📌" : "🔁"}</span>
+        <span>
+          {panel.sceneId
+            ? "このシーン専用（クリックで引き継ぐ）"
+            : "次シーンへ引き継ぐ（クリックでこのシーン専用）"}
+        </span>
+      </button>
+
+      {/* 重なり順(レイヤー)。 */}
+      <div className="ctx-layer">
+        <span className="ctx-icon">🗂</span>
+        <span>重なり順</span>
+        <span style={{ flex: 1 }} />
+        <button
+          className="btn mini"
+          onClick={() => onUpdate(panel.id, { layer: (panel.layer ?? 0) - 1 })}
+          title="背面へ"
+        >
+          ⬇ 背面
+        </button>
+        <button
+          className="btn mini"
+          onClick={() => onUpdate(panel.id, { layer: (panel.layer ?? 0) + 1 })}
+          title="前面へ"
+        >
+          ⬆ 前面
+        </button>
+      </div>
 
       <button className="ctx-row danger" onClick={onDelete}>
         <span className="ctx-icon">🗑</span>

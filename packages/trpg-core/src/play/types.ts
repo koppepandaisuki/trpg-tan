@@ -62,6 +62,12 @@ export interface Panel {
    * 例: "1d100<=70 目星" / "1d6+1 ダメージ" / "# 攻撃" / "「やあ」"。
    */
   palette?: string;
+  /** 速さ(行動順)。シート由来は DEX で初期化。大きいほど先に並ぶ。 */
+  speed?: number;
+  /** 帰属シーン。未設定 = 全シーン共通(次シーンへ引き継ぐ)。 */
+  sceneId?: string | null;
+  /** 盤面上の重なり順(大きいほど前面)。未設定は 0。 */
+  layer?: number;
 }
 
 /** 盤面(背景マップ + グリッド)。 */
@@ -92,6 +98,14 @@ export interface SceneInfo {
   board: PlayBoard;
 }
 
+/** カットイン(演出用の画像。クリックで画面に流す)。 */
+export interface CutIn {
+  id: string;
+  name: string;
+  /** data URL。 */
+  image: string;
+}
+
 /** セッション卓(シーン)の全状態。 */
 export interface PlayScene {
   schemaVersion: typeof PLAY_SCHEMA_VERSION;
@@ -107,6 +121,10 @@ export interface PlayScene {
   /** シーン一覧。board は active シーンの盤面を映す(scenes が真。古い .play は optional)。 */
   scenes?: SceneInfo[];
   activeSceneId?: string;
+  /** シナリオテキストストック(1 行 1 テキスト。# 行は見出し)。GM の定型文置き場。 */
+  textStock?: string;
+  /** カットイン画像(演出)。 */
+  cutins?: CutIn[];
   log: PlayEvent[];
   meta: { createdAt: string; updatedAt: string };
 }
@@ -143,6 +161,10 @@ export interface RollEvent extends BaseEvent {
   success?: boolean;
   /** 比較付きロールの比較条件(表示用)。 */
   compare?: { op: CompareOp; target: number };
+  /** シークレットダイス(他プレイヤーには出目を伏せる)。 */
+  secret?: boolean;
+  /** 秘匿時に出目を見せる相手(パネル id / 将来のプレイヤー id)。空=GMのみ。 */
+  visibleTo?: string[];
 }
 
 /** リソース(HP/SAN/MP…)の増減。 */
@@ -191,6 +213,9 @@ export interface PanelUpdateEvent extends BaseEvent {
     hidden?: boolean;
     size?: number;
     palette?: string;
+    speed?: number;
+    sceneId?: string | null;
+    layer?: number;
   };
 }
 

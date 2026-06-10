@@ -1,26 +1,47 @@
 import { useEffect, useState } from "react";
 import type { Panel, PanelResource, PanelStat } from "@trpg/core";
 
+/** HP/MP/SAN 等のリソースに添えるアイコン。 */
+function resourceIcon(key: string): string {
+  const k = key.toLowerCase();
+  if (k === "hp") return "❤️";
+  if (k === "mp") return "🔷";
+  if (k === "san") return "🧠";
+  return "◆";
+}
+
+/** 技能/能力の判定コマンド(CCFOLIA 風)。CC<=目標値 ＋ ラベル。
+ *  能力値は英語表記(STR 等)で統一し、技能は日本語ラベルのまま。 */
+function cmdFor(s: PanelStat): string {
+  return `CC<=${s.target} ${s.kind === "characteristic" ? s.key : s.label}`;
+}
+
 /**
- * 卓上のキャラ駒(パネル)1 枚。ポートレート + 名前 + リソース(HP/SAN/MP の
- * 増減) + 判定ボタン(能力値/技能をクリックで 1D100) + チャットパレット。
+ * 卓上のキャラ駒(パネル)1 枚。サイドバーに固定表示。
+ *  - 名前 + HP/MP/SAN(アイコン付き・増減)
+ *  - 能力値/技能ボタン: シングルクリックで入力欄にダイス式を流し込み、
+ *    ダブルクリックで即ロール(CCFOLIA のチャパレ挙動)
+ *  - 自由編集のチャットパレット
  */
 export function PlayPanel({
   panel,
-  onRoll,
   onResource,
   onRemove,
-  onPalette,
+  onFill,
+  onSend,
   onEditPalette,
+  onSpeed,
 }: {
   panel: Panel;
-  onRoll: (panel: Panel, stat: PanelStat) => void;
   onResource: (panel: Panel, resource: PanelResource, delta: number) => void;
   onRemove: (panel: Panel) => void;
-  /** パレット行をこの駒として送信。 */
-  onPalette?: (line: string) => void;
-  /** パレット本文(複数行)を保存。 */
-  onEditPalette?: (text: string) => void;
+  /** クリック: 入力欄へダイス式を流し込む(この駒として)。 */
+  onFill: (text: string) => void;
+  /** ダブルクリック: 即ロール(この駒として)。 */
+  onSend: (text: string) => void;
+  onEditPalette: (text: string) => void;
+  /** 速さ(行動順)の変更。サイドバー/盤面左上の並び順に反映される。 */
+  onSpeed: (panel: Panel, speed: number) => void;
 }) {
   const characteristics = panel.stats.filter((s) => s.kind === "characteristic");
   const skills = panel.stats.filter((s) => s.kind === "skill");
@@ -29,7 +50,7 @@ export function PlayPanel({
     <div className="ppanel" style={{ borderTopColor: panel.color }}>
       <div className="ppanel-head">
         <div className="ppanel-portrait" style={{ background: panel.color }}>
-          {panel.portrait ? <img src={panel.portrait} alt="" /> : <span>◆</span>}
+          {panel.portrait ? <img src={panel.portrait} alt="" /> : <span>👤</span>}
         </div>
         <div className="ppanel-id">
           <strong className="ppanel-name">{panel.name}</strong>
@@ -50,11 +71,37 @@ export function PlayPanel({
         </button>
       </div>
 
+      {/* 速さ(行動順)。変更するとサイドバー/盤面左上が速さ順に並び替わる。 */}
+      <div className="ppanel-speed">
+        <span className="pres-label">
+          <span className="pres-ic" aria-hidden>
+            ⚡
+          </span>
+          速さ
+        </span>
+        <input
+          className="input pspeed-input"
+          type="number"
+          value={panel.speed ?? ""}
+          placeholder="–"
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v)) onSpeed(panel, v);
+          }}
+          title="行動順(大きいほど先)"
+        />
+      </div>
+
       {panel.resources.length > 0 && (
         <div className="ppanel-res">
           {panel.resources.map((r) => (
             <div key={r.key} className="pres">
-              <span className="pres-label">{r.label}</span>
+              <span className="pres-label">
+                <span className="pres-ic" aria-hidden>
+                  {resourceIcon(r.key)}
+                </span>
+                {r.label}
+              </span>
               <button
                 className="pres-btn"
                 onClick={() => onResource(panel, r, -1)}
@@ -84,10 +131,12 @@ export function PlayPanel({
             <button
               key={s.key}
               className="pstat"
-              onClick={() => onRoll(panel, s)}
-              title={`${s.label} で 1D100 判定（目標 ${s.target}）`}
+              onClick={() => onFill(cmdFor(s))}
+              onDoubleClick={() => onSend(cmdFor(s))}
+              title={`${s.label} ─ クリック: 入力欄に / ダブルクリック: 即ロール（CC<=${s.target}）`}
             >
-              <span className="pstat-label">{s.label}</span>
+              {/* 能力値は英語表記で統一(日本語ラベルは title で補足)。 */}
+              <span className="pstat-label">{s.key}</span>
               <span className="pstat-val">{s.target}</span>
             </button>
           ))}
@@ -100,8 +149,9 @@ export function PlayPanel({
             <button
               key={s.key}
               className="pskill"
-              onClick={() => onRoll(panel, s)}
-              title={`${s.label} 判定（${s.target}）`}
+              onClick={() => onFill(cmdFor(s))}
+              onDoubleClick={() => onSend(cmdFor(s))}
+              title={`クリック: 入力欄に / ダブルクリック: 即ロール（${s.target}）`}
             >
               {s.label} <b>{s.target}</b>
             </button>
@@ -109,9 +159,12 @@ export function PlayPanel({
         </div>
       )}
 
-      {onPalette && onEditPalette && (
-        <PalettePanel panel={panel} onSend={onPalette} onEdit={onEditPalette} />
-      )}
+      <PalettePanel
+        panel={panel}
+        onFill={onFill}
+        onSend={onSend}
+        onEdit={onEditPalette}
+      />
     </div>
   );
 }
@@ -121,7 +174,6 @@ interface PaletteLine {
   comment: boolean;
 }
 
-/** パレット本文を行へ。先頭が # / // の行は見出し(クリック不可)。 */
 function parsePaletteLines(text: string): PaletteLine[] {
   return text
     .split(/\r?\n/)
@@ -134,23 +186,21 @@ function parsePaletteLines(text: string): PaletteLine[] {
     );
 }
 
-/**
- * チャットパレット。1 行 1 コマンドをクリックでこの駒として送信。
- * 「✎ 編集」で textarea。技能から雛形を取り込むボタンも。
- */
+/** チャットパレット。クリックで入力欄へ、ダブルクリックで即送信。 */
 function PalettePanel({
   panel,
+  onFill,
   onSend,
   onEdit,
 }: {
   panel: Panel;
+  onFill: (line: string) => void;
   onSend: (line: string) => void;
   onEdit: (text: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(panel.palette ?? "");
 
-  // 外部で palette が変わったら(別ウィンドウ編集など)反映。編集中は触らない。
   useEffect(() => {
     if (!editing) setDraft(panel.palette ?? "");
   }, [panel.palette, editing]);
@@ -167,7 +217,7 @@ function PalettePanel({
   }
   function importSkills() {
     const text = panel.stats
-      .map((s) => `1d100<=${s.target} ${s.label}`)
+      .map((s) => `CC<=${s.target} ${s.label}`)
       .join("\n");
     setDraft((prev) => (prev.trim() ? `${prev.trim()}\n${text}` : text));
   }
@@ -189,7 +239,7 @@ function PalettePanel({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={
-              "1 行 1 コマンド\n例: 1d100<=70 目星\n1d6+1 ダメージ\n# 見出し"
+              "1 行 1 コマンド\n例: CC<=70 目星\n1d6+1 ダメージ\n# 見出し"
             }
           />
           <div className="palette-editor-actions">
@@ -209,7 +259,7 @@ function PalettePanel({
         </div>
       ) : lines.length === 0 ? (
         <p className="palette-empty muted">
-          「✎ 編集」でコマンドを追加（例: 1d100&lt;=70 目星）
+          「✎ 編集」でコマンドを追加（クリックで入力欄に / ダブルクリックで即ロール）
         </p>
       ) : (
         <div className="palette-lines">
@@ -222,8 +272,9 @@ function PalettePanel({
               <button
                 key={i}
                 className="palette-line"
-                onClick={() => onSend(ln.text)}
-                title={ln.text}
+                onClick={() => onFill(ln.text)}
+                onDoubleClick={() => onSend(ln.text)}
+                title="クリック: 入力欄に / ダブルクリック: 即ロール"
               >
                 {ln.text}
               </button>
