@@ -125,7 +125,7 @@ export function LogView({
       <div className="pinput">
         {secret && (
           <div className="pinput-secret">
-            <span className="pinput-secret-label">🔒 出目を見せる相手:</span>
+            <span className="pinput-secret-label">❓ 出目を見せる相手:</span>
             {speakers
               .filter((s) => s.id !== "GM")
               .map((s) => (
@@ -145,6 +145,8 @@ export function LogView({
             )}
           </div>
         )}
+        {/* 1 段目: 発言者 + シークレット切替 / 2 段目: 本文 + 送信。
+            (1 行に詰めるとサイドバー幅で送信ボタンがはみ出すため分割) */}
         <div className="pinput-row">
           <select
             className="input pspeaker"
@@ -158,6 +160,16 @@ export function LogView({
               </option>
             ))}
           </select>
+          <button
+            className={`btn mini psecret ${secret ? "on" : ""}`}
+            onClick={() => onSecretChange(!secret)}
+            title="シークレットダイス(出目を伏せる)"
+            aria-pressed={secret}
+          >
+            ❓ シークレット
+          </button>
+        </div>
+        <div className="pinput-row">
           <input
             ref={inputRef}
             className="input"
@@ -166,15 +178,7 @@ export function LogView({
             onKeyDown={(e) => e.key === "Enter" && onSubmit()}
             placeholder="発言 / CC<=70 目星 / 2d6+1…"
           />
-          <button
-            className={`btn mini psecret ${secret ? "on" : ""}`}
-            onClick={() => onSecretChange(!secret)}
-            title="シークレットダイス(出目を伏せる)"
-            aria-pressed={secret}
-          >
-            {secret ? "🔒" : "🔓"}
-          </button>
-          <button className="btn mini btn-primary" onClick={onSubmit}>
+          <button className="btn mini btn-primary psend" onClick={onSubmit}>
             送信
           </button>
         </div>
@@ -207,7 +211,7 @@ export function LogRow({ ev }: { ev: PlayEvent }) {
                   : "GM のみ"
               }
             >
-              🔒
+              ❓
             </span>
           )}
           {ev.label} → 🎲 [{ev.dice.join(", ")}] = <b>{ev.total}</b>

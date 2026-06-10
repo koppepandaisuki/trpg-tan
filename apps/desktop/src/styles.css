@@ -767,6 +767,17 @@ body {
   cursor: grabbing;
   z-index: 5;
 }
+/* 位置固定中はつかめない見た目に。 */
+.token.locked {
+  cursor: default;
+}
+.token-pin {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  font-size: 12px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
 
 .token-img {
   width: 48px;
@@ -1658,11 +1669,20 @@ body {
   font-size: 12.5px;
 }
 
-/* 発言者セレクト(GM / キャラ)。入力欄に幅を譲るため固定幅。 */
+/* 発言者セレクト(GM / キャラ)。専用の行なので幅いっぱい使える。 */
 .pinput-row .pspeaker {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+}
+/* 入力欄ははみ出さず縮む(送信ボタンがサイドバー外へ被らないように)。 */
+.pinput-row .input {
+  min-width: 0;
+}
+.pinput-row .psend,
+.pinput-row .psecret {
   flex: 0 0 auto;
-  max-width: 96px;
-  padding: 6px 4px;
+  white-space: nowrap;
 }
 
 /* パネル(キャラ駒)*/
@@ -2937,7 +2957,9 @@ body {
 .plog-tabs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
+  row-gap: 4px;
   padding: 8px 10px 0;
   flex-shrink: 0;
 }
@@ -2946,11 +2968,12 @@ body {
   background: var(--surface);
   color: var(--text-muted);
   border-radius: 999px;
-  padding: 3px 11px;
-  font-size: 12.5px;
+  padding: 3px 9px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.12s;
+  white-space: nowrap;
 }
 .plog-tab:hover {
   border-color: var(--border-strong);
