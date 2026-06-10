@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, type Ref } from "react";
 import type { PlayEvent, CoCCheckResult } from "@trpg/core";
 
 /** 発言者の選択肢(GM + 卓上の駒)。 */
@@ -8,23 +8,29 @@ export interface Speaker {
 }
 
 /**
- * ログ + 入力欄。メイン卓と切り離し窓で共用。
- *  - 発言者を選んで(GM / キャラ / トークン)発言
- *  - 入力欄に 1d100<=70 / 2d6+1 / CCB<=50 等のダイスコマンドを打つと判定
- * 実際の適用(乱数消費=GM 権威)は onSend の呼び出し側に委ねる
- * (メイン=parse して dispatch、切り離し窓=intent をメインへ送る)。
+ * ログ + 入力欄。入力は親(PlayTable)が保持する制御コンポーネント。
+ * 技能/パレットのクリックでこの入力欄にダイス式が流し込まれ、手で調整して
+ * Enter / 送信で確定する(CCFOLIA のチャパレ挙動)。
  */
 export function LogView({
   log,
   speakers,
-  onSend,
+  speakerId,
+  text,
+  onSpeakerChange,
+  onTextChange,
+  onSubmit,
+  inputRef,
 }: {
   log: PlayEvent[];
   speakers: Speaker[];
-  onSend: (speakerId: string, raw: string) => void;
+  speakerId: string;
+  text: string;
+  onSpeakerChange: (id: string) => void;
+  onTextChange: (t: string) => void;
+  onSubmit: () => void;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
-  const [speakerId, setSpeakerId] = useState("GM");
-  const [text, setText] = useState("");
   const logRef = useRef<HTMLDivElement>(null);
 
   // ログが増えたら末尾へ自動スクロール。
@@ -35,23 +41,16 @@ export function LogView({
 
   // 選択中の発言者が居なくなったら GM に戻す。
   useEffect(() => {
-    if (!speakers.some((s) => s.id === speakerId)) setSpeakerId("GM");
-  }, [speakers, speakerId]);
-
-  function send() {
-    const t = text.trim();
-    if (!t) return;
-    onSend(speakerId, t);
-    setText("");
-  }
+    if (!speakers.some((s) => s.id === speakerId)) onSpeakerChange("GM");
+  }, [speakers, speakerId, onSpeakerChange]);
 
   return (
     <>
       <div className="plog" ref={logRef}>
         {log.length === 0 ? (
-          <p className="muted" style={{ padding: 8, fontSize: 12 }}>
-            発言や判定がここに流れます。例: <code>1d100&lt;=70 目星</code> /{" "}
-            <code>2d6+1</code>
+          <p className="muted" style={{ padding: 10, fontSize: 13 }}>
+            発言や判定がここに流れます。技能ボタンを<b>クリック</b>で下の入力欄に式が入り、
+            <b>ダブルクリック</b>で即ロールします。
           </p>
         ) : (
           log.map((ev) => <LogRow key={ev.id} ev={ev} />)
@@ -63,7 +62,7 @@ export function LogView({
           <select
             className="input pspeaker"
             value={speakerId}
-            onChange={(e) => setSpeakerId(e.target.value)}
+            onChange={(e) => onSpeakerChange(e.target.value)}
             title="発言者"
           >
             {speakers.map((s) => (
@@ -73,13 +72,14 @@ export function LogView({
             ))}
           </select>
           <input
+            ref={inputRef}
             className="input"
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
-            placeholder="発言 / 1d100<=70 目星 / 2d6+1…"
+            onChange={(e) => onTextChange(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+            placeholder="発言 / CC<=70 目星 / 2d6+1…"
           />
-          <button className="btn mini btn-primary" onClick={send}>
+          <button className="btn mini btn-primary" onClick={onSubmit}>
             送信
           </button>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   reduce,
   panelFromSheet,
@@ -32,16 +32,9 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { DiceMotion } from "./DiceMotion";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
-import { WidgetDock } from "./WidgetDock";
-import {
-  emitSync,
-  onHello,
-  onIntent,
-  onRedock,
-  openWidgetWindow,
-  closeWidgetWindow,
-  type PlayIntent,
-} from "./play-bus";
+import { PlayPanel } from "./PlayPanel";
+import { LogView } from "./LogView";
+import { BgmPlayer } from "./BgmPanel";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
@@ -85,21 +78,19 @@ export function PlayTable({
 
   const [pickId, setPickId] = useState("");
   const [tokenName, setTokenName] = useState("");
-  // 開いているウィジェット窓(ログ/BGM/キャラ)の id 集合。
-  const [detached, setDetached] = useState<Set<string>>(() => new Set());
+  // チャット入力(発言者 + 本文)。技能/パレットのクリックでここに流し込む。
+  const [compose, setCompose] = useState<{ speakerId: string; text: string }>({
+    speakerId: "GM",
+    text: "",
+  });
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const characters = useMemo(() => getLibrary(), []);
 
-  // 能力値/リソースを持つ“キャラ駒”だけウィジェット化(画像オブジェクトは盤面のみ)。
+  // 能力値/リソースを持つ“キャラ駒”だけサイドバーに出す(画像オブジェクトは盤面のみ)。
   const cards = scene.panels.filter(
     (p) => p.stats.length > 0 || p.resources.length > 0,
   );
-
-  // バス用に最新 scene / detached を ref で参照(リスナは一度だけ登録するため)。
-  const sceneRef = useRef(scene);
-  sceneRef.current = scene;
-  const detachedRef = useRef(detached);
-  detachedRef.current = detached;
 
   function dispatch(event: PlayEvent) {
     setScene((s) => reduce(s, event));
@@ -228,8 +219,6 @@ export function PlayTable({
           ...(size ? { size } : {}),
         }),
       );
-      // 追加したキャラの窓を自動で開く。
-      detach(`panel:${base.id}`, base.name);
       setPickId("");
     } catch (e) {
       setError(`キャラを読み込めませんでした: ${String(e)}`);
@@ -284,80 +273,24 @@ export function PlayTable({
     }
   }
 
-  /* ===== 切り離し(別ウィンドウ/別モニター)の同期 ===== */
+  /* ===== チャット入力(CCFOLIA 風)===== */
 
-  // intent(窓→メイン)を「最新の」ハンドラで処理するための ref。
-  const intentRef = useRef<(i: PlayIntent) => void>(() => {});
-  intentRef.current = (intent: PlayIntent) => {
-    const s = sceneRef.current;
-    switch (intent.kind) {
-      case "roll": {
-        const p = s.panels.find((x) => x.id === intent.panelId);
-        const stat = p?.stats.find((st) => st.key === intent.statKey);
-        if (p && stat) rollStat(p, stat);
-        break;
-      }
-      case "resource": {
-        const p = s.panels.find((x) => x.id === intent.panelId);
-        const r = p?.resources.find((res) => res.key === intent.resourceKey);
-        if (p && r) changeResource(p, r, intent.delta);
-        break;
-      }
-      case "remove-panel":
-        dispatch(panelRemoveEvent(newCtx(), intent.panelId));
-        break;
-      case "send":
-        handleSend(intent.speakerId, intent.raw);
-        break;
-      case "panel-update":
-        dispatch(panelUpdateEvent(newCtx(), intent.panelId, intent.patch));
-        break;
-      case "bgm-add":
-        addBgmTracks(intent.tracks);
-        break;
-      case "bgm-remove":
-        removeBgmTrack(intent.id);
-        break;
-    }
-  };
-
-  // バスのリスナは一度だけ登録(中身は ref 経由で常に最新を呼ぶ)。
-  useEffect(() => {
-    const subs = [
-      onHello(() => void emitSync(sceneRef.current)),
-      onIntent((i) => intentRef.current(i)),
-      onRedock((wid) =>
-        setDetached((set) => {
-          const next = new Set(set);
-          next.delete(wid);
-          return next;
-        }),
-      ),
-    ];
-    return () => {
-      subs.forEach((p) => p.then((un) => un()).catch(() => {}));
-      // 卓を閉じる時は切り離し窓も閉じる。
-      detachedRef.current.forEach((wid) => void closeWidgetWindow(wid));
-    };
-  }, []);
-
-  // 切り離し窓があるときだけ scene 変更を配信(無ければ送らない)。
-  useEffect(() => {
-    if (detachedRef.current.size > 0) void emitSync(sceneRef.current);
-  }, [scene]);
-
-  function detach(widgetId: string, title: string) {
-    setDetached((set) => new Set(set).add(widgetId));
-    void openWidgetWindow(widgetId, title);
-    void emitSync(sceneRef.current);
+  /** クリック: 入力欄にダイス式を流し込む(その駒として)。手で調整できる。 */
+  function fill(speakerId: string, text: string) {
+    setCompose({ speakerId, text });
+    inputRef.current?.focus();
   }
-  function redock(widgetId: string) {
-    setDetached((set) => {
-      const next = new Set(set);
-      next.delete(widgetId);
-      return next;
-    });
-    void closeWidgetWindow(widgetId);
+  /** ダブルクリック: 即ロール(その駒として)。入力欄は空に戻す。 */
+  function sendNow(speakerId: string, text: string) {
+    handleSend(speakerId, text);
+    setCompose((c) => ({ ...c, text: "" }));
+  }
+  /** 入力欄を送信(Enter / 送信ボタン)。 */
+  function submitCompose() {
+    const t = compose.text.trim();
+    if (!t) return;
+    handleSend(compose.speakerId, t);
+    setCompose((c) => ({ ...c, text: "" }));
   }
 
   async function save() {
@@ -436,35 +369,81 @@ export function PlayTable({
         </p>
       )}
 
-      <div className="ptable-body">
-        <SceneBar
-          scenes={scene.scenes ?? []}
-          activeId={scene.activeSceneId}
-          onSelect={selectScene}
-          onAdd={addScene}
-          onRename={renameScene}
-          onRemove={(id) => void removeScene(id)}
-        />
+      <div className="ptable-body2">
+        {/* 左サイドバー(固定): キャラ + ログ/チャット + BGM */}
+        <aside className="pside">
+          <div className="pside-chars">
+            {cards.length === 0 ? (
+              <p className="pside-empty muted">
+                「＋キャラ」で保存済みキャラを、「＋トークン」で NPC/敵を、
+                画像のドロップで盤面オブジェクトを置けます。
+              </p>
+            ) : (
+              cards.map((p) => (
+                <PlayPanel
+                  key={p.id}
+                  panel={p}
+                  onResource={changeResource}
+                  onRemove={removePanel}
+                  onFill={(text) => fill(p.id, text)}
+                  onSend={(text) => sendNow(p.id, text)}
+                  onEditPalette={(text) => updatePanel(p.id, { palette: text })}
+                />
+              ))
+            )}
+          </div>
 
-        <WidgetDock
-          cards={cards}
-          openIds={detached}
-          onOpen={detach}
-          onClose={redock}
-        />
+          <details className="pside-bgm">
+            <summary>♪ BGM</summary>
+            <BgmPlayer
+              tracks={scene.bgm?.tracks ?? []}
+              onAddTracks={addBgmTracks}
+              onRemoveTrack={removeBgmTrack}
+            />
+          </details>
 
-        <div className="pstage">
-          <PlayBoard
-            board={scene.board}
-            panels={scene.panels}
-            onMove={movePanel}
-            onSetImage={setBoardImage}
-            onToggleGrid={toggleGrid}
-            onAddImage={addImageObject}
-            onUpdate={updatePanel}
-            onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
+          <div className="pside-log">
+            <LogView
+              log={scene.log}
+              speakers={[
+                { id: "GM", name: "GM" },
+                ...scene.panels.map((p) => ({ id: p.id, name: p.name })),
+              ]}
+              speakerId={compose.speakerId}
+              text={compose.text}
+              onSpeakerChange={(id) =>
+                setCompose((c) => ({ ...c, speakerId: id }))
+              }
+              onTextChange={(t) => setCompose((c) => ({ ...c, text: t }))}
+              onSubmit={submitCompose}
+              inputRef={inputRef}
+            />
+          </div>
+        </aside>
+
+        {/* メイン: シーンバー + 盤面 */}
+        <main className="pmain">
+          <SceneBar
+            scenes={scene.scenes ?? []}
+            activeId={scene.activeSceneId}
+            onSelect={selectScene}
+            onAdd={addScene}
+            onRename={renameScene}
+            onRemove={(id) => void removeScene(id)}
           />
-        </div>
+          <div className="pstage">
+            <PlayBoard
+              board={scene.board}
+              panels={scene.panels}
+              onMove={movePanel}
+              onSetImage={setBoardImage}
+              onToggleGrid={toggleGrid}
+              onAddImage={addImageObject}
+              onUpdate={updatePanel}
+              onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
+            />
+          </div>
+        </main>
       </div>
 
       {motion && (

@@ -1126,7 +1126,83 @@ body {
   flex-direction: column;
 }
 
-/* 盤面 + フローティング・ウィジェットを載せるキャンバス。 */
+/* ===== PLAY: 左サイドバー固定 + 盤面メイン ===== */
+.ptable-body2 {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.pside {
+  width: 380px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.pside-chars {
+  flex: 1.4 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pside-empty {
+  font-size: 13.5px;
+  line-height: 1.8;
+  padding: 16px 8px;
+}
+.pside-bgm {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.pside-bgm > summary {
+  padding: 9px 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--primary-deep);
+  user-select: none;
+  list-style: none;
+}
+.pside-bgm > summary::before {
+  content: "▸ ";
+}
+.pside-bgm[open] > summary::before {
+  content: "▾ ";
+}
+.pside-bgm[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+.pside-bgm .bgm-window {
+  height: auto;
+  padding: 10px 14px 14px;
+}
+.pside-bgm .bgm-list {
+  max-height: 160px;
+  flex: none;
+}
+.pside-log {
+  flex: 1 1 0;
+  min-height: 180px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+}
+.pmain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 盤面キャンバス(メイン領域いっぱい)。 */
 .pstage {
   position: relative;
   flex: 1;
@@ -2675,4 +2751,121 @@ body {
   .freeroll-total {
     animation: none !important;
   }
+}
+
+/* =====================================================================
+   PLAY サイドバー: 文字を大きく・見やすく(キャラ駒 / ログ / 入力)
+   ===================================================================== */
+.pside .ppanel {
+  padding: 12px;
+  border-top-width: 4px;
+}
+.pside .ppanel-head {
+  gap: 10px;
+}
+.pside .ppanel-portrait {
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+}
+.pside .ppanel-name {
+  font-size: 16px;
+}
+.pside .ppanel-sys {
+  font-size: 11px;
+}
+.pside .ppanel-del {
+  font-size: 20px;
+}
+
+/* リソース(HP/MP/SAN)を大きく + アイコン */
+.pside .ppanel-res {
+  gap: 6px;
+  margin-top: 10px;
+}
+.pside .pres {
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.pside .pres-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pres-ic {
+  font-size: 14px;
+  line-height: 1;
+}
+.pside .pres-val {
+  font-size: 17px;
+  font-weight: 700;
+}
+.pside .pres-max {
+  font-size: 12px;
+}
+.pside .pres-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 16px;
+}
+
+/* 能力値 / 技能ボタンを大きく(クリック=入力, ダブルクリック=ロール) */
+.pside .ppanel-stats {
+  gap: 6px;
+  margin-top: 10px;
+}
+.pside .pstat {
+  padding: 6px 4px;
+}
+.pside .pstat-label {
+  font-size: 12px;
+}
+.pside .pstat-val {
+  font-size: 16px;
+}
+.pside .ppanel-skills {
+  gap: 5px;
+}
+.pside .pskill {
+  font-size: 13px;
+  padding: 4px 10px;
+}
+
+/* パレット行も大きめ */
+.pside .ppanel-section {
+  font-size: 12px;
+}
+.pside .palette-line {
+  font-size: 13px;
+  padding: 5px 9px;
+}
+
+/* ログ + 入力を大きく */
+.pside-log .plog {
+  padding: 10px 12px;
+  gap: 7px;
+}
+.pside-log .logrow {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.pside-log .log-actor {
+  font-size: 14px;
+}
+.pside-log .pinput {
+  padding: 10px;
+}
+.pside-log .pinput-row .input {
+  font-size: 14px;
+  padding: 8px 10px;
+}
+.pside-log .pinput-row .pspeaker {
+  max-width: 110px;
+}
+.pside-log .pinput-row .btn.mini {
+  font-size: 14px;
+  padding: 8px 14px;
 }
