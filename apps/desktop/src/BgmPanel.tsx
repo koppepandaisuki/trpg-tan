@@ -1,31 +1,23 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { BgmTrack } from "@trpg/core";
 import { audioUrl, baseName } from "./audio-url";
-import { FloatingWidget } from "./FloatingWidget";
 
 /**
- * BGM プレイヤー(GM ローカル再生)。ファイルを追加してプレイリスト再生。
- * 音声は配信せず GM のマシンで鳴らすだけ(サーバ負荷ゼロ)。
- *
- * <audio> は常にマウントしておき、パネルを閉じても再生が続くようにする。
+ * BGM プレイヤー(GM ローカル再生)。別ウィンドウの中身として描画する。
+ * 音声はこのウィンドウで鳴る(配信せず GM のマシンで再生)。トラック一覧は
+ * onAddTracks / onRemoveTrack でメイン卓へ送り、.play に保存・同期する。
  */
 const VOL_KEY = "trpg.bgm.volume.v1";
 
-export function BgmPanel({
+export function BgmPlayer({
   tracks,
-  open: isOpen,
-  onClose,
   onAddTracks,
   onRemoveTrack,
-  boundsRef,
 }: {
   tracks: BgmTrack[];
-  open: boolean;
-  onClose: () => void;
   onAddTracks: (tracks: BgmTrack[]) => void;
   onRemoveTrack: (id: string) => void;
-  boundsRef: RefObject<HTMLElement | null>;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -128,107 +120,87 @@ export function BgmPanel({
   }
 
   return (
-    <>
+    <div className="bgm-window">
       <audio ref={audioRef} onEnded={onEnded} />
 
-      {isOpen && (
-        <FloatingWidget
-          id="bgm"
-          title="BGM"
-          icon="♪"
-          boundsRef={boundsRef}
-          onClose={onClose}
-          minW={220}
-          minH={240}
-          bodyClass="bgm-body"
-          defaultRect={(b) => ({
-            x: 16,
-            y: Math.max(16, b.h - 360),
-            w: 264,
-            h: 344,
-            z: 0,
-          })}
+      <div className="bgm-list">
+        {tracks.length === 0 ? (
+          <p className="muted" style={{ fontSize: 12, padding: "8px 4px" }}>
+            「＋ 音声を追加」で BGM を入れてください。
+          </p>
+        ) : (
+          tracks.map((t) => (
+            <div
+              key={t.id}
+              className={`bgm-item ${currentId === t.id ? "active" : ""}`}
+              onClick={() => void playTrack(t.id)}
+              title={t.path}
+            >
+              <span className="bgm-ic">
+                {currentId === t.id && playing ? "▶" : "♪"}
+              </span>
+              <span className="bgm-name">{t.name}</span>
+              <button
+                className="bgm-del"
+                title="一覧から外す"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  remove(t.id);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="bgm-controls">
+        <button className="bgm-btn" onClick={() => step(-1)} title="前へ">
+          ⏮
+        </button>
+        <button
+          className="bgm-btn play"
+          onClick={togglePlay}
+          title={playing ? "一時停止" : "再生"}
         >
-          <div className="bgm-list">
-            {tracks.length === 0 ? (
-              <p className="muted" style={{ fontSize: 12, padding: "8px 4px" }}>
-                「＋ 音声を追加」で BGM を入れてください。
-              </p>
-            ) : (
-              tracks.map((t) => (
-                <div
-                  key={t.id}
-                  className={`bgm-item ${currentId === t.id ? "active" : ""}`}
-                  onClick={() => void playTrack(t.id)}
-                  title={t.path}
-                >
-                  <span className="bgm-ic">
-                    {currentId === t.id && playing ? "▶" : "♪"}
-                  </span>
-                  <span className="bgm-name">{t.name}</span>
-                  <button
-                    className="bgm-del"
-                    title="一覧から外す"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      remove(t.id);
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
+          {playing ? "⏸" : "▶"}
+        </button>
+        <button className="bgm-btn" onClick={() => step(1)} title="次へ">
+          ⏭
+        </button>
+        <button
+          className={`bgm-btn ${loop ? "on" : ""}`}
+          onClick={() => setLoop((v) => !v)}
+          title="リピート"
+        >
+          🔁
+        </button>
+        <input
+          className="bgm-vol"
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={volume}
+          onChange={(e) => setVolume(Number(e.target.value))}
+          title="音量"
+        />
+      </div>
 
-          <div className="bgm-controls">
-            <button className="bgm-btn" onClick={() => step(-1)} title="前へ">
-              ⏮
-            </button>
-            <button
-              className="bgm-btn play"
-              onClick={togglePlay}
-              title={playing ? "一時停止" : "再生"}
-            >
-              {playing ? "⏸" : "▶"}
-            </button>
-            <button className="bgm-btn" onClick={() => step(1)} title="次へ">
-              ⏭
-            </button>
-            <button
-              className={`bgm-btn ${loop ? "on" : ""}`}
-              onClick={() => setLoop((v) => !v)}
-              title="リピート"
-            >
-              🔁
-            </button>
-            <input
-              className="bgm-vol"
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
-              title="音量"
-            />
-          </div>
+      <button
+        className="btn mini btn-primary"
+        style={{ width: "100%" }}
+        onClick={() => void pickFiles()}
+      >
+        ＋ 音声を追加
+      </button>
 
-          <button
-            className="btn mini btn-primary"
-            style={{ width: "100%" }}
-            onClick={() => void pickFiles()}
-          >
-            ＋ 音声を追加
-          </button>
-
-          {error && (
-            <p className="tag fail" style={{ fontSize: 11, marginTop: 6 }}>
-              {error}
-            </p>
-          )}
-        </FloatingWidget>
+      {error && (
+        <p className="tag fail" style={{ fontSize: 11, marginTop: 6 }}>
+          {error}
+        </p>
       )}
-    </>
+    </div>
   );
 }

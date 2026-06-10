@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
+import { BgmPlayer } from "./BgmPanel";
 import {
   onSync,
   emitHello,
@@ -50,6 +51,18 @@ export function DetachedWidget({ widgetId }: { widgetId: string }) {
           onSend={(speakerId, raw) =>
             void sendIntent({ kind: "send", speakerId, raw })
           }
+        />
+      </div>
+    );
+  }
+
+  if (widgetId === "bgm") {
+    return (
+      <div className="dwindow dwindow-bgm">
+        <BgmPlayer
+          tracks={slice.bgm?.tracks ?? []}
+          onAddTracks={(tracks) => void sendIntent({ kind: "bgm-add", tracks })}
+          onRemoveTrack={(id) => void sendIntent({ kind: "bgm-remove", id })}
         />
       </div>
     );
