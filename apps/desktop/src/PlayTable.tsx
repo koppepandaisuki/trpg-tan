@@ -208,6 +208,7 @@ export function PlayTable({
       speed?: number;
       sceneId?: string | null;
       layer?: number;
+      locked?: boolean;
     },
   ) {
     dispatch(panelUpdateEvent(newCtx(), id, patch));
@@ -470,7 +471,8 @@ export function PlayTable({
               log={scene.log}
               speakers={[
                 { id: "GM", name: "GM" },
-                ...scene.panels.map((p) => ({ id: p.id, name: p.name })),
+                // 発言者・秘匿対象はキャラ駒のみ(画像オブジェクトは含めない)。
+                ...cards.map((p) => ({ id: p.id, name: p.name })),
               ]}
               speakerId={compose.speakerId}
               text={compose.text}

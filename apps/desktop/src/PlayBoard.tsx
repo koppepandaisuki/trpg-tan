@@ -46,7 +46,10 @@ export function PlayBoard({
   onUpdate: (
     panelId: string,
     patch: Partial<
-      Pick<Panel, "name" | "note" | "hidden" | "size" | "sceneId" | "layer">
+      Pick<
+        Panel,
+        "name" | "note" | "hidden" | "size" | "sceneId" | "layer" | "locked"
+      >
     >,
   ) => void;
   onRemove: (panelId: string) => void;
@@ -90,7 +93,7 @@ export function PlayBoard({
   }
 
   function startDrag(e: React.PointerEvent, p: Panel, i: number) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || p.locked) return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const s = posOf(p, i);
@@ -231,7 +234,7 @@ export function PlayBoard({
               key={p.id}
               className={`token ${img ? "img-object" : ""} ${
                 drag?.id === p.id ? "dragging" : ""
-              } ${p.hidden ? "hidden" : ""}`}
+              } ${p.hidden ? "hidden" : ""} ${p.locked ? "locked" : ""}`}
               style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
               onPointerDown={(e) => startDrag(e, p, i)}
               onContextMenu={(e) => {
@@ -267,13 +270,16 @@ export function PlayBoard({
               )}
 
               {p.hidden && <span className="token-eye">🚫</span>}
+              {p.locked && <span className="token-pin">📌</span>}
               {!img && <span className="token-name">{p.name}</span>}
 
-              <span
-                className="token-resize"
-                onPointerDown={(e) => startResize(e, p)}
-                title="ドラッグでサイズ変更"
-              />
+              {!p.locked && (
+                <span
+                  className="token-resize"
+                  onPointerDown={(e) => startResize(e, p)}
+                  title="ドラッグでサイズ変更"
+                />
+              )}
             </div>
           );
         })}
@@ -317,7 +323,10 @@ function ObjectMenu({
   onUpdate: (
     panelId: string,
     patch: Partial<
-      Pick<Panel, "name" | "note" | "hidden" | "size" | "sceneId" | "layer">
+      Pick<
+        Panel,
+        "name" | "note" | "hidden" | "size" | "sceneId" | "layer" | "locked"
+      >
     >,
   ) => void;
   onDelete: () => void;
@@ -376,6 +385,19 @@ function ObjectMenu({
           {panel.hidden
             ? "プレイヤーに秘匿中（クリックで公開）"
             : "プレイヤーに公開中（クリックで秘匿）"}
+        </span>
+      </button>
+
+      {/* 位置固定: ドラッグ移動・リサイズを禁止(誤操作防止)。 */}
+      <button
+        className="ctx-row"
+        onClick={() => onUpdate(panel.id, { locked: !panel.locked })}
+      >
+        <span className="ctx-icon">{panel.locked ? "📌" : "📍"}</span>
+        <span>
+          {panel.locked
+            ? "位置を固定中（クリックで解除）"
+            : "位置を固定する（移動・リサイズ禁止）"}
         </span>
       </button>
 

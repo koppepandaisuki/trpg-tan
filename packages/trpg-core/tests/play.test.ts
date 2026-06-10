@@ -200,6 +200,8 @@ describe("盤面(board)", () => {
     expect(s.panels[0].sceneId).toBe("sc-1");
     s = reduce(s, panelUpdateEvent(ctx("e7"), "t1", { sceneId: null }));
     expect(s.panels[0].sceneId).toBeNull();
+    s = reduce(s, panelUpdateEvent(ctx("e8"), "t1", { locked: true }));
+    expect(s.panels[0].locked).toBe(true);
   });
 
   it("panelFromSheet は DEX から速さを初期化", () => {

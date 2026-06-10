@@ -68,6 +68,8 @@ export interface Panel {
   sceneId?: string | null;
   /** 盤面上の重なり順(大きいほど前面)。未設定は 0。 */
   layer?: number;
+  /** 位置固定(ドラッグ移動・リサイズを禁止)。 */
+  locked?: boolean;
 }
 
 /** 盤面(背景マップ + グリッド)。 */
@@ -216,6 +218,7 @@ export interface PanelUpdateEvent extends BaseEvent {
     speed?: number;
     sceneId?: string | null;
     layer?: number;
+    locked?: boolean;
   };
 }
 

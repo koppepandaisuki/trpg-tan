@@ -161,6 +161,7 @@ export function panelUpdateEvent(
     speed?: number;
     sceneId?: string | null;
     layer?: number;
+    locked?: boolean;
   },
 ): PanelUpdateEvent {
   return {
