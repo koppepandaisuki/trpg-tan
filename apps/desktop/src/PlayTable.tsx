@@ -30,13 +30,9 @@ import {
 } from "@trpg/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { DiceMotion } from "./DiceMotion";
-import { PlayPanel } from "./PlayPanel";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
-import { BgmPanel } from "./BgmPanel";
-import { FloatingWidget } from "./FloatingWidget";
-import { LogView } from "./LogView";
-import { WidgetLayoutProvider, type Rect } from "./widget-layout";
+import { WidgetDock } from "./WidgetDock";
 import {
   emitSync,
   onHello,
@@ -53,12 +49,6 @@ import { savePlayAs, savePlayToPath } from "./play-storage";
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
 function newCtx() {
   return { id: crypto.randomUUID(), ts: new Date().toISOString() };
-}
-
-/** キャラ・ウィジェットの初期位置(左上から少しずつずらして重ねる)。 */
-function panelDefault(i: number): (b: { w: number; h: number }) => Rect {
-  const off = 16 + (i % 7) * 30;
-  return () => ({ x: off, y: off, w: 268, h: 320, z: 0 });
 }
 
 /** data URL 画像の実寸(幅)を読む。cap で上限クランプ。読めなければ既定。 */
@@ -92,15 +82,13 @@ export function PlayTable({
   const [error, setError] = useState<string | null>(null);
   // ダイス・モーション(振った RollEvent をそのまま渡す)。
   const [motion, setMotion] = useState<RollEvent | null>(null);
-  const [showBgm, setShowBgm] = useState(false);
 
   const [pickId, setPickId] = useState("");
   const [tokenName, setTokenName] = useState("");
-  // 別ウィンドウ(別モニター)へ切り離し中のウィジェット id 集合。
+  // 開いているウィジェット窓(ログ/BGM/キャラ)の id 集合。
   const [detached, setDetached] = useState<Set<string>>(() => new Set());
 
   const characters = useMemo(() => getLibrary(), []);
-  const stageRef = useRef<HTMLDivElement>(null);
 
   // 能力値/リソースを持つ“キャラ駒”だけウィジェット化(画像オブジェクトは盤面のみ)。
   const cards = scene.panels.filter(
@@ -240,6 +228,8 @@ export function PlayTable({
           ...(size ? { size } : {}),
         }),
       );
+      // 追加したキャラの窓を自動で開く。
+      detach(`panel:${base.id}`, base.name);
       setPickId("");
     } catch (e) {
       setError(`キャラを読み込めませんでした: ${String(e)}`);
@@ -431,12 +421,6 @@ export function PlayTable({
             ＋トークン
           </button>
           <span className="ptable-spacer" />
-          <button
-            className={`btn mini ${showBgm ? "btn-primary" : ""}`}
-            onClick={() => setShowBgm((v) => !v)}
-          >
-            ♪ BGM
-          </button>
           <button className="btn mini btn-primary" onClick={() => void save()}>
             {dirty ? "保存*" : "保存"}
           </button>
@@ -462,7 +446,14 @@ export function PlayTable({
           onRemove={(id) => void removeScene(id)}
         />
 
-        <div className="pstage" ref={stageRef}>
+        <WidgetDock
+          cards={cards}
+          openIds={detached}
+          onOpen={detach}
+          onClose={redock}
+        />
+
+        <div className="pstage">
           <PlayBoard
             board={scene.board}
             panels={scene.panels}
@@ -473,73 +464,6 @@ export function PlayTable({
             onUpdate={updatePanel}
             onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
           />
-
-          {/* フローティング・ウィジェット層(キャラ・ログ・BGM を自由配置) */}
-          <WidgetLayoutProvider playId={scene.id}>
-            {cards.map((p, i) => (
-              <FloatingWidget
-                key={p.id}
-                id={`panel:${p.id}`}
-                title={p.name}
-                icon="🎭"
-                boundsRef={stageRef}
-                minW={232}
-                minH={150}
-                bodyClass="ppanel-body"
-                defaultRect={panelDefault(i)}
-                detached={detached.has(`panel:${p.id}`)}
-                onDetach={() => detach(`panel:${p.id}`, p.name)}
-                onRedock={() => redock(`panel:${p.id}`)}
-              >
-                <PlayPanel
-                  panel={p}
-                  onRoll={rollStat}
-                  onResource={changeResource}
-                  onRemove={removePanel}
-                  onPalette={(line) => handleSend(p.id, line)}
-                  onEditPalette={(text) => updatePanel(p.id, { palette: text })}
-                />
-              </FloatingWidget>
-            ))}
-
-            <FloatingWidget
-              id="log"
-              title="ログ / チャット"
-              icon="📜"
-              boundsRef={stageRef}
-              minW={260}
-              minH={220}
-              bodyClass="log-body"
-              defaultRect={(b) => ({
-                x: Math.max(16, b.w - 356),
-                y: 16,
-                w: 340,
-                h: Math.min(460, Math.max(240, b.h - 32)),
-                z: 0,
-              })}
-              detached={detached.has("log")}
-              onDetach={() => detach("log", "ログ / チャット")}
-              onRedock={() => redock("log")}
-            >
-              <LogView
-                log={scene.log}
-                speakers={[
-                  { id: "GM", name: "GM" },
-                  ...scene.panels.map((p) => ({ id: p.id, name: p.name })),
-                ]}
-                onSend={handleSend}
-              />
-            </FloatingWidget>
-
-            <BgmPanel
-              tracks={scene.bgm?.tracks ?? []}
-              open={showBgm}
-              onClose={() => setShowBgm(false)}
-              onAddTracks={addBgmTracks}
-              onRemoveTrack={removeBgmTrack}
-              boundsRef={stageRef}
-            />
-          </WidgetLayoutProvider>
         </div>
       </div>
 
