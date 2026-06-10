@@ -1924,89 +1924,122 @@ body {
 }
 
 /* ===== パラDa-iCE ダイス・モーション(物理転がり)===== */
+/* 非ブロッキング: 盤面操作を妨げない(読み上げカードのみ操作可)。 */
 .dm-overlay {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(16, 49, 74, 0.22);
-  backdrop-filter: blur(2px);
+  background: transparent;
+  pointer-events: none;
   overflow: hidden;
 }
 
 /* 画面内を転がるサイコロ。位置は WAAPI が translate で動かす。 */
-.dm-die3d {
+.dm-die {
   position: fixed;
   top: 0;
   left: 0;
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  background: linear-gradient(150deg, #ffffff 0%, #e3f3fd 55%, #cdeafb 100%);
-  border: 2px solid var(--primary);
-  box-shadow:
-    0 10px 22px rgba(37, 121, 182, 0.4),
-    inset 0 2px 5px rgba(255, 255, 255, 0.9),
-    inset 0 -4px 8px rgba(37, 121, 182, 0.2);
+  filter: drop-shadow(0 10px 14px rgba(18, 74, 122, 0.28));
   will-change: transform;
-  z-index: 61;
 }
-
-.dm-face {
-  font-size: 26px;
+.dm-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.dm-body {
+  fill: #ffffff;
+  stroke: var(--primary-deep);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+.dm-facet {
+  fill: none;
+  stroke: rgba(17, 131, 207, 0.22);
+  stroke-width: 2;
+}
+.dm-pip {
+  fill: var(--text);
+}
+.dm-num {
+  font-size: 34px;
   font-weight: 900;
-  color: var(--primary-deep);
+  fill: var(--text);
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
   user-select: none;
 }
-
-/* d100 は 1 個の 100 面ダイス(丸く大きめ。最大3桁を表示)。 */
-.dm-die3d.d100 {
-  width: 68px;
-  height: 68px;
-  border-radius: 50%;
+.dm-num.small {
+  font-size: 26px;
 }
-.dm-die3d.d100 .dm-face {
-  font-size: 22px;
+.dm-pct {
+  font-size: 13px;
+  font-weight: 800;
+  fill: var(--text-faint);
+  text-anchor: middle;
 }
 
 /* 着地後、成功度で色づく */
-.dm-die3d.crit,
-.dm-die3d.gold {
-  border-color: var(--gold);
-  background: linear-gradient(150deg, #fffdf4, #fdeec0);
+.dm-die.crit .dm-body,
+.dm-die.gold .dm-body {
+  stroke: var(--gold-deep);
+  fill: #fffae8;
 }
-.dm-die3d.crit .dm-face,
-.dm-die3d.gold .dm-face {
-  color: #b8860b;
+.dm-die.crit .dm-num,
+.dm-die.gold .dm-num {
+  fill: var(--gold-deep);
 }
-.dm-die3d.ok {
-  border-color: #2bbfa3;
+.dm-die.ok .dm-body {
+  stroke: var(--mint-deep);
 }
-.dm-die3d.fumble {
-  border-color: #e0796b;
-  background: linear-gradient(150deg, #fff5f3, #fbd9d3);
+.dm-die.fail .dm-body {
+  stroke: var(--text-faint);
 }
-.dm-die3d.fumble .dm-face {
-  color: #c0392b;
+.dm-die.fumble .dm-body {
+  stroke: #c0392b;
+  fill: #fff4f2;
+}
+.dm-die.fumble .dm-num,
+.dm-die.fumble .dm-pip {
+  fill: #c0392b;
 }
 
-/* 着地後の読み上げ(合計 / 成功度) */
+/* 着地後の読み上げ(合計 / 成功度)。カードだけ操作可能。 */
 .dm-readout {
   position: fixed;
   left: 50%;
-  top: 53%;
+  top: 56%;
   transform: translateX(-50%);
   z-index: 62;
-  min-width: 220px;
-  padding: 12px 22px 10px;
+  min-width: 240px;
+  padding: 12px 26px 10px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   animation: dm-pop 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: auto;
+}
+.dm-close {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dm-close:hover {
+  color: var(--text);
+}
+.dm-actor {
+  color: var(--primary-deep);
+  margin-right: 4px;
 }
 
 .dm-label {
