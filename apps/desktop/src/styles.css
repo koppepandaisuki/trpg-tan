@@ -366,11 +366,12 @@ body {
   margin-top: 6px;
 }
 
-/* ===== アプリ内ビューア(購入物の閲覧オーバーレイ)===== */
+/* ===== アプリ内ビューア(購入物の閲覧オーバーレイ)=====
+   PLAY 中のドロワー(z=80)から開いても上に出るよう 85。 */
 .viewer-overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 85;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -1144,13 +1145,29 @@ body {
   display: flex;
 }
 .pside {
-  width: 380px;
+  width: 340px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: var(--surface);
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+/* 右サイドバー(ログ / チャット)。 */
+.psider {
+  width: 340px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.psider .pside-log {
+  flex: 1;
+  min-height: 0;
+  border-top: 0;
 }
 .pside-chars {
   flex: 1.4 1 0;
@@ -2120,11 +2137,12 @@ body {
   }
 }
 
-/* ===== 設定モーダル ===== */
+/* ===== 設定モーダル =====
+   ドロワー(z=80)の上に出すため 90(設定はどこから開いても最前面)。 */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 90;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3272,21 +3290,29 @@ body {
   position: static;
   border-right: 0;
 }
+/* × はパネルの外側(右隣)に浮かせ、中のタブやボタンと重ならないように。 */
 .drawer-close {
   position: absolute;
-  top: 6px;
-  right: 8px;
+  top: 12px;
+  left: calc(100% + 12px);
   z-index: 2;
-  border: 0;
-  background: transparent;
-  color: var(--text-faint);
-  font-size: 20px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  padding: 4px 6px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .drawer-close:hover {
   color: var(--text);
+  border-color: var(--border-strong);
 }
 @keyframes drawer-in {
   from {

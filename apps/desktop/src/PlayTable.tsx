@@ -84,7 +84,6 @@ export function PlayTable({
   const [motion, setMotion] = useState<RollEvent | null>(null);
 
   const [pickId, setPickId] = useState("");
-  const [tokenName, setTokenName] = useState("");
   // チャット入力(発言者 + 本文)。技能/パレットのクリックでここに流し込む。
   const [compose, setCompose] = useState<{ speakerId: string; text: string }>({
     speakerId: "GM",
@@ -267,17 +266,6 @@ export function PlayTable({
     }
   }
 
-  function addToken() {
-    const name = tokenName.trim();
-    if (!name) return;
-    const panel = {
-      ...makeTokenPanel({ id: crypto.randomUUID(), name }),
-      pos: spawnPos(),
-    };
-    dispatch(panelAddEvent(newCtx(), panel));
-    setTokenName("");
-  }
-
   /** 発言者 id → 表示名 + 版(CoC 判定の閾値に使う)。 */
   function resolveSpeaker(speakerId: string): { name: string; edition: CoCEdition } {
     if (speakerId === "GM") return { name: "GM", edition: sceneEdition };
@@ -389,16 +377,6 @@ export function PlayTable({
           >
             ＋キャラ
           </button>
-          <input
-            className="input ptable-token"
-            value={tokenName}
-            onChange={(e) => setTokenName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addToken()}
-            placeholder="トークン名"
-          />
-          <button className="btn mini" onClick={addToken} disabled={!tokenName.trim()}>
-            ＋トークン
-          </button>
           <span className="ptable-spacer" />
           {onMenu && (
             <button
@@ -426,13 +404,13 @@ export function PlayTable({
       )}
 
       <div className="ptable-body2">
-        {/* 左サイドバー(固定): キャラ + ログ/チャット + BGM */}
+        {/* 左サイドバー(固定): キャラ + テキスト/カットイン/BGM */}
         <aside className="pside">
           <div className="pside-chars">
             {cards.length === 0 ? (
               <p className="pside-empty muted">
-                「＋キャラ」で保存済みキャラを、「＋トークン」で NPC/敵を、
-                画像のドロップで盤面オブジェクトを置けます。
+                「＋キャラ」で保存済みキャラを呼び出せます。盤面には画像の
+                ドロップでマップやオブジェクトを置けます。
               </p>
             ) : (
               cards.map((p) => (
@@ -478,29 +456,6 @@ export function PlayTable({
               onRemoveTrack={removeBgmTrack}
             />
           </details>
-
-          <div className="pside-log">
-            <LogView
-              log={scene.log}
-              speakers={[
-                { id: "GM", name: "GM" },
-                // 発言者・秘匿対象はキャラ駒のみ(画像オブジェクトは含めない)。
-                ...cards.map((p) => ({ id: p.id, name: p.name })),
-              ]}
-              speakerId={compose.speakerId}
-              text={compose.text}
-              secret={secret}
-              visibleTo={visibleTo}
-              onSpeakerChange={(id) =>
-                setCompose((c) => ({ ...c, speakerId: id }))
-              }
-              onTextChange={(t) => setCompose((c) => ({ ...c, text: t }))}
-              onSecretChange={setSecret}
-              onVisibleToChange={setVisibleTo}
-              onSubmit={submitCompose}
-              inputRef={inputRef}
-            />
-          </div>
         </aside>
 
         {/* メイン: シーンバー + 盤面 */}
@@ -529,6 +484,32 @@ export function PlayTable({
             <BoardStatusBar cards={cards} />
           </div>
         </main>
+
+        {/* 右サイドバー(固定): ログ / チャット(CCFOLIA のルームチャット位置) */}
+        <aside className="psider">
+          <div className="pside-log">
+            <LogView
+              log={scene.log}
+              speakers={[
+                { id: "GM", name: "GM" },
+                // 発言者・秘匿対象はキャラ駒のみ(画像オブジェクトは含めない)。
+                ...cards.map((p) => ({ id: p.id, name: p.name })),
+              ]}
+              speakerId={compose.speakerId}
+              text={compose.text}
+              secret={secret}
+              visibleTo={visibleTo}
+              onSpeakerChange={(id) =>
+                setCompose((c) => ({ ...c, speakerId: id }))
+              }
+              onTextChange={(t) => setCompose((c) => ({ ...c, text: t }))}
+              onSecretChange={setSecret}
+              onVisibleToChange={setVisibleTo}
+              onSubmit={submitCompose}
+              inputRef={inputRef}
+            />
+          </div>
+        </aside>
       </div>
 
       {motion && (
