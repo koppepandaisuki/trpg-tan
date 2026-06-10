@@ -57,6 +57,11 @@ export interface Panel {
   note?: string;
   /** プレイヤーに秘匿するか(GM 視点では薄く表示。将来の同期で非送信)。 */
   hidden?: boolean;
+  /**
+   * チャットパレット(1 行 1 コマンド)。クリックでこの駒として送信する。
+   * 例: "1d100<=70 目星" / "1d6+1 ダメージ" / "# 攻撃" / "「やあ」"。
+   */
+  palette?: string;
 }
 
 /** 盤面(背景マップ + グリッド)。 */
@@ -176,11 +181,17 @@ export interface PanelMoveEvent extends BaseEvent {
   y: number;
 }
 
-/** 駒の属性(名前/情報/秘匿/サイズ)の更新。指定したフィールドだけ反映。 */
+/** 駒の属性(名前/情報/秘匿/サイズ/パレット)の更新。指定したフィールドだけ反映。 */
 export interface PanelUpdateEvent extends BaseEvent {
   kind: "panel-update";
   panelId: string;
-  patch: { name?: string; note?: string; hidden?: boolean; size?: number };
+  patch: {
+    name?: string;
+    note?: string;
+    hidden?: boolean;
+    size?: number;
+    palette?: string;
+  };
 }
 
 /** 盤面設定(背景画像 / グリッド)の変更。active シーンの盤面に効く。 */

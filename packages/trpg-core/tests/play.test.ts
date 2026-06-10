@@ -189,6 +189,9 @@ describe("盤面(board)", () => {
     s = reduce(s, panelUpdateEvent(ctx("e3"), "t1", { note: "弱点は炎" }));
     expect(s.panels[0].note).toBe("弱点は炎");
     expect(s.panels[0].name).toBe("ボス"); // 据え置き
+    // チャットパレットも panel-update で保存。
+    s = reduce(s, panelUpdateEvent(ctx("e4"), "t1", { palette: "1d100<=70 目星" }));
+    expect(s.panels[0].palette).toBe("1d100<=70 目星");
   });
 
   it("board-set は指定フィールドだけ反映", () => {

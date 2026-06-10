@@ -28,6 +28,17 @@ export type PlayIntent =
   | { kind: "resource"; panelId: string; resourceKey: string; delta: number }
   | { kind: "remove-panel"; panelId: string }
   | { kind: "send"; speakerId: string; raw: string }
+  | {
+      kind: "panel-update";
+      panelId: string;
+      patch: {
+        name?: string;
+        note?: string;
+        hidden?: boolean;
+        size?: number;
+        palette?: string;
+      };
+    }
   | { kind: "bgm-add"; tracks: BgmTrack[] }
   | { kind: "bgm-remove"; id: string };
 
