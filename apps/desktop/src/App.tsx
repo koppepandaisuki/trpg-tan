@@ -56,6 +56,9 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   // 効果音などの設定モーダル。
   const [showSettings, setShowSettings] = useState(false);
+  // PLAY 中のサイドバー(ドロワー)。卓では画面を広く使うため、
+  // 常設サイドバーは消してハンバーガーから上に重ねて出す。
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // deep-link(paradice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
   useEffect(() => {
@@ -70,6 +73,7 @@ export function App() {
       now: new Date().toISOString(),
     });
     setSession({ scene, path: null });
+    setDrawerOpen(false);
     setError(null);
   }
 
@@ -81,6 +85,7 @@ export function App() {
     try {
       const scene = await readPlayFromPath(entry.path);
       setSession({ scene, path: entry.path });
+      setDrawerOpen(false);
       setError(null);
     } catch (e) {
       setError(`卓を開けませんでした(移動/削除の可能性): ${String(e)}`);
@@ -97,6 +102,7 @@ export function App() {
 
   function newCharacter() {
     setSession(null); // 卓を開いていてもキャラ編集に切り替える
+    setDrawerOpen(false);
     setActive({ sheet: null, key: `new-${Date.now()}` });
     setError(null);
   }
@@ -109,6 +115,7 @@ export function App() {
     try {
       const sheet = await readSheetFromPath(entry.path);
       setSession(null); // 卓を開いていてもキャラ編集に切り替える
+      setDrawerOpen(false);
       setActive({ sheet, key: `${entry.id}-${Date.now()}` });
       setError(null);
     } catch (e) {
@@ -124,8 +131,8 @@ export function App() {
     setLibrary((lib) => removeEntry(lib, id));
   }
 
-  return (
-    <div className="layout">
+  // サイドバー本体。通常は常設、PLAY 中はドロワー(上に重ねる)として出す。
+  const sidebar = (
       <aside className="sidebar">
         {/* タブ切替: キャラ / 購入 */}
         <div className="tabs" role="tablist">
@@ -290,6 +297,12 @@ export function App() {
           <AuthControl />
         </div>
       </aside>
+  );
+
+  return (
+    <div className="layout">
+      {/* PLAY 中は常設サイドバーを消して画面を最大化(☰ ドロワーで呼び出す) */}
+      {!session && sidebar}
 
       <main className="main">
         {session ? (
@@ -299,6 +312,7 @@ export function App() {
             path={session.path}
             onClose={() => setSession(null)}
             onPersist={handlePlayPersist}
+            onMenu={() => setDrawerOpen(true)}
           />
         ) : (
           <CharacterSheet
@@ -316,6 +330,23 @@ export function App() {
           entry={viewing.entry}
           onClose={() => setViewing(null)}
         />
+      )}
+
+      {/* PLAY 中のサイドバー・ドロワー(画面の上に重ねる)。背景クリックで閉じる。 */}
+      {session && drawerOpen && (
+        <div className="drawer-overlay" onClick={() => setDrawerOpen(false)}>
+          <div className="drawer" onClick={(e) => e.stopPropagation()}>
+            {sidebar}
+            <button
+              className="drawer-close"
+              onClick={() => setDrawerOpen(false)}
+              title="閉じる"
+              aria-label="メニューを閉じる"
+            >
+              ×
+            </button>
+          </div>
+        </div>
       )}
 
       {showSettings && <SoundSettings onClose={() => setShowSettings(false)} />}
