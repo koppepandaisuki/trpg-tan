@@ -3248,6 +3248,55 @@ body {
     opacity: 0;
   }
 }
+/* PLAY 中のサイドバー・ドロワー(☰ から画面の上に重ねて出す) */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(16, 49, 74, 0.35);
+  backdrop-filter: blur(2px);
+}
+.drawer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 290px;
+  display: flex;
+  box-shadow: var(--shadow-lg);
+  animation: drawer-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.drawer .sidebar {
+  width: 100%;
+  height: 100%;
+  position: static;
+  border-right: 0;
+}
+.drawer-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.drawer-close:hover {
+  color: var(--text);
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 /* 職業技能外への職業P割り振り(禁止せず注意喚起のハイライト) */
 .input.occ-warn {
   border-color: var(--gold);

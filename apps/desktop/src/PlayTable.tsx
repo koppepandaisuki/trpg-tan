@@ -67,11 +67,14 @@ export function PlayTable({
   path,
   onClose,
   onPersist,
+  onMenu,
 }: {
   initial: PlayScene;
   path: string | null;
   onClose: () => void;
   onPersist: (scene: PlayScene, path: string) => void;
+  /** ☰ メニュー(キャラ/購入/卓のドロワー)を開く。 */
+  onMenu?: () => void;
 }) {
   const [scene, setScene] = useState<PlayScene>(initial);
   const [savedPath, setSavedPath] = useState<string | null>(path);
@@ -397,6 +400,16 @@ export function PlayTable({
             ＋トークン
           </button>
           <span className="ptable-spacer" />
+          {onMenu && (
+            <button
+              className="btn mini"
+              onClick={onMenu}
+              title="メニュー（キャラ / 購入 / 卓）"
+              aria-label="メニューを開く"
+            >
+              ☰
+            </button>
+          )}
           <button className="btn mini btn-primary" onClick={() => void save()}>
             {dirty ? "保存*" : "保存"}
           </button>
