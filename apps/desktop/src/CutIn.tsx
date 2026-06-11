@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { CutIn } from "@trpg/core";
+import type { BgmTrack, CutIn } from "@trpg/core";
 import { audioUrl, baseName } from "./audio-url";
 
 /**
@@ -14,12 +14,15 @@ const CUTIN_MS = 2400;
 /** サイドバーの管理パネル(追加 / 一覧 / 発火 / 削除 / 効果音)。 */
 export function CutInPanel({
   cutins,
+  seTracks,
   onAdd,
   onRemove,
   onFire,
   onSetSound,
 }: {
   cutins: CutIn[];
+  /** SE パネルに登録済みの音源(添付の選択肢)。 */
+  seTracks: BgmTrack[];
   onAdd: (name: string, image: string) => void;
   onRemove: (id: string) => void;
   onFire: (cutin: CutIn) => void;
@@ -71,19 +74,39 @@ export function CutInPanel({
                 <img src={c.image} alt={c.name} />
                 <span className="cutin-name">{c.name}</span>
               </button>
-              <button
+              {/* 効果音: SE パネルの登録音源から選ぶ(ファイル直指定も可)。 */}
+              <select
                 className={`cutin-snd ${c.soundPath ? "on" : ""}`}
-                onClick={() =>
-                  c.soundPath ? onSetSound(c.id, null) : void pickSound(c.id)
-                }
+                value={c.soundPath ?? ""}
                 title={
                   c.soundPath
-                    ? `効果音: ${c.soundName}（クリックで外す）`
+                    ? `効果音: ${c.soundName}`
                     : "効果音を添付（発火時に一緒に鳴らす）"
                 }
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") {
+                    onSetSound(c.id, null);
+                  } else if (v === "__file__") {
+                    void pickSound(c.id);
+                  } else {
+                    const t = seTracks.find((x) => x.path === v);
+                    if (t) onSetSound(c.id, { path: t.path, name: t.name });
+                  }
+                }}
               >
-                {c.soundPath ? "♪" : "♪＋"}
-              </button>
+                <option value="">♪ なし</option>
+                {c.soundPath &&
+                  !seTracks.some((t) => t.path === c.soundPath) && (
+                    <option value={c.soundPath}>♪ {c.soundName}</option>
+                  )}
+                {seTracks.map((t) => (
+                  <option key={t.id} value={t.path}>
+                    ♪ {t.name}
+                  </option>
+                ))}
+                <option value="__file__">ファイルから…</option>
+              </select>
               <button
                 className="cutin-del"
                 onClick={() => onRemove(c.id)}

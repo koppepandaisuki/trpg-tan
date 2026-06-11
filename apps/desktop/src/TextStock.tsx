@@ -16,9 +16,10 @@ export function TextStockPanel({
 }: {
   stock: string;
   onFill: (text: string) => void;
-  onSend: (text: string) => void;
+  /** seName は行末の [SE:名前] から(SE パネルの登録名と一致すれば鳴る)。 */
+  onSend: (text: string, seName?: string) => void;
   /** 画面にテロップとして大きく表示する。 */
-  onTelop: (text: string) => void;
+  onTelop: (text: string, seName?: string) => void;
   onEdit: (text: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -32,11 +33,22 @@ export function TextStockPanel({
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
-    .map((l) =>
-      l.startsWith("#") || l.startsWith("//")
-        ? { text: l.replace(/^#+\s*|^\/\/\s*/, ""), comment: true }
-        : { text: l, comment: false },
-    );
+    .map((l) => {
+      if (l.startsWith("#") || l.startsWith("//")) {
+        return {
+          text: l.replace(/^#+\s*|^\/\/\s*/, ""),
+          comment: true,
+          seName: undefined as string | undefined,
+        };
+      }
+      // 行内の [SE:名前] は効果音の指定(表示/送信テキストからは取り除く)。
+      const m = l.match(/\[SE:([^\]]+)\]/i);
+      return {
+        text: l.replace(/\s*\[SE:[^\]]+\]\s*/gi, " ").trim(),
+        comment: false,
+        seName: m?.[1].trim(),
+      };
+    });
 
   function save() {
     onEdit(draft);
@@ -60,7 +72,7 @@ export function TextStockPanel({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={
-              "1 行 1 テキスト\n# 導入\n古びた洋館の扉が軋む——\n「ようこそ、お待ちしておりました」"
+              "1 行 1 テキスト\n# 導入\n古びた洋館の扉が軋む—— [SE:軋み]\n「ようこそ、お待ちしておりました」\n※ [SE:名前] で SE パネルの効果音を一緒に鳴らせます"
             }
           />
           <div className="palette-editor-actions">
@@ -96,22 +108,23 @@ export function TextStockPanel({
                 <button
                   className="palette-line"
                   onClick={() => onFill(ln.text)}
-                  onDoubleClick={() => onSend(ln.text)}
+                  onDoubleClick={() => onSend(ln.text, ln.seName)}
                   title="クリック: 入力欄に / ダブルクリック: チャットへ即送信"
                 >
                   {ln.text}
+                  {ln.seName && <span className="tstock-se">♪{ln.seName}</span>}
                 </button>
                 <button
                   className="tstock-act"
-                  onClick={() => onSend(ln.text)}
-                  title="チャットへ送信"
+                  onClick={() => onSend(ln.text, ln.seName)}
+                  title={`チャットへ送信${ln.seName ? `（♪${ln.seName} 再生）` : ""}`}
                 >
                   💬
                 </button>
                 <button
                   className="tstock-act"
-                  onClick={() => onTelop(ln.text)}
-                  title="画面に大きく表示（チャットには流れません）"
+                  onClick={() => onTelop(ln.text, ln.seName)}
+                  title={`画面に大きく表示${ln.seName ? `（♪${ln.seName} 再生）` : ""}`}
                 >
                   📢
                 </button>

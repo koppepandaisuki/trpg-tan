@@ -37,6 +37,7 @@ export function LogView({
   onVisibleToChange,
   onSubmit,
   onExport,
+  maskSecret = false,
   inputRef,
 }: {
   log: PlayEvent[];
@@ -55,6 +56,8 @@ export function LogView({
   onSubmit: () => void;
   /** チャットログをファイルへ書き出す(リプレイ保存)。 */
   onExport?: () => void;
+  /** 参加者ビュー: シークレットダイスの出目を伏せて表示する。 */
+  maskSecret?: boolean;
   inputRef?: Ref<HTMLInputElement>;
 }) {
   const [filter, setFilter] = useState<LogFilter>("all");
@@ -181,7 +184,9 @@ export function LogView({
             )}
           </p>
         ) : (
-          shown.map((ev) => <LogRow key={ev.id} ev={ev} />)
+          shown.map((ev) => (
+            <LogRow key={ev.id} ev={ev} maskSecret={maskSecret} />
+          ))
         )}
       </div>
 
@@ -251,7 +256,13 @@ export function LogView({
 }
 
 /** ログ 1 行のレンダリング(イベント種別で分岐)。 */
-export function LogRow({ ev }: { ev: PlayEvent }) {
+export function LogRow({
+  ev,
+  maskSecret = false,
+}: {
+  ev: PlayEvent;
+  maskSecret?: boolean;
+}) {
   if (ev.kind === "chat")
     return (
       <p className="logrow">
@@ -260,6 +271,17 @@ export function LogRow({ ev }: { ev: PlayEvent }) {
       </p>
     );
   if (ev.kind === "roll") {
+    // 参加者ビューではシークレットダイスの出目を伏せる。
+    if (maskSecret && ev.secret) {
+      return (
+        <p className="logrow log-secret">
+          <b className="log-actor">{ev.actor}</b>
+          <span className="log-roll">
+            ❓ シークレットダイス（出目は非公開）
+          </span>
+        </p>
+      );
+    }
     const tone = ev.check ? levelTone(ev.check) : "";
     return (
       <p className={`logrow ${ev.secret ? "log-secret" : ""}`}>

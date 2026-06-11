@@ -23,6 +23,7 @@ export function PlayBoard({
   board,
   panels,
   activeSceneId,
+  playerMode = false,
   onMove,
   onSetImage,
   onToggleGrid,
@@ -34,6 +35,8 @@ export function PlayBoard({
   panels: Panel[];
   /** 現在のシーン id。シーン帰属オブジェクトの表示判定に使う。 */
   activeSceneId?: string;
+  /** 参加者ビュー(GM ツール/秘匿駒/右クリック/リサイズを隠す)。 */
+  playerMode?: boolean;
   onMove: (panelId: string, x: number, y: number) => void;
   onSetImage: (dataUrl: string | null) => void;
   onToggleGrid: () => void;
@@ -57,8 +60,10 @@ export function PlayBoard({
   const grid = board?.grid ?? true;
   const image = board?.image ?? null;
   // このシーンに出すオブジェクト(未帰属=全シーン共通)。layer 昇順 = 後勝ちで前面。
+  // 参加者ビューでは秘匿(hidden)の駒を描画しない。
   const visible = panels
     .filter((p) => !p.sceneId || p.sceneId === activeSceneId)
+    .filter((p) => !playerMode || !p.hidden)
     .sort((a, b) => (a.layer ?? 0) - (b.layer ?? 0));
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -203,6 +208,7 @@ export function PlayBoard({
 
   return (
     <div className="board-wrap">
+      {!playerMode && (
       <div className="board-tools">
         <label className="btn mini board-file">
           画像を追加
@@ -231,6 +237,7 @@ export function PlayBoard({
         )}
         <span className="board-hint muted">画像をここにドロップでも追加</span>
       </div>
+      )}
 
       <div
         ref={ref}
@@ -268,7 +275,9 @@ export function PlayBoard({
               onPointerDown={(e) => startDrag(e, p, i)}
               onContextMenu={(e) => {
                 e.preventDefault();
-                setMenu({ panelId: p.id, x: e.clientX, y: e.clientY });
+                if (!playerMode) {
+                  setMenu({ panelId: p.id, x: e.clientX, y: e.clientY });
+                }
               }}
               title={p.note ? `${p.name}\n${p.note}` : p.name}
             >
@@ -302,7 +311,7 @@ export function PlayBoard({
               {p.locked && <span className="token-pin">📌</span>}
               {!img && <span className="token-name">{p.name}</span>}
 
-              {!p.locked && (
+              {!p.locked && !playerMode && (
                 <span
                   className="token-resize"
                   onPointerDown={(e) => startResize(e, p)}
