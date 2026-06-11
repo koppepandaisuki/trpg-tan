@@ -10,6 +10,8 @@ import { LibraryPanel } from "./LibraryPanel";
 import { Viewer } from "./Viewer";
 import { PlayTable } from "./PlayTable";
 import { PlayClient } from "./PlayClient";
+import { StorePanel } from "./StorePanel";
+import type { RemoteProductType } from "./library-remote";
 import { SoundSettings } from "./SoundSettings";
 import { initDeepLinkAuth } from "./auth";
 import type { RemoteLibraryItem } from "./library-remote";
@@ -31,7 +33,7 @@ import {
 } from "./play-storage";
 import { readSheetFromPath, isTauri } from "./storage";
 
-type SidebarTab = "characters" | "library" | "play";
+type SidebarTab = "characters" | "library" | "play" | "store";
 type Viewing = { item: RemoteLibraryItem; entry: DownloadedEntry };
 type Session = { scene: PlayScene; path: string | null };
 
@@ -59,6 +61,11 @@ export function App() {
   const [joining, setJoining] = useState<{ code: string; name: string } | null>(
     null,
   );
+  // ストア(メインペインで開く)。category はサイドバーのジャンルから。
+  const [store, setStore] = useState<{
+    open: boolean;
+    category: RemoteProductType | null;
+  }>({ open: false, category: null });
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState(
     () => localStorage.getItem("trpg.net.name.v1") ?? "",
@@ -83,6 +90,16 @@ export function App() {
     });
     setSession({ scene, path: null });
     setJoining(null);
+    setStore((s) => ({ ...s, open: false }));
+    setDrawerOpen(false);
+    setError(null);
+  }
+
+  /** ストアをメインペインで開く(セッション中なら卓を閉じる)。 */
+  function openStore(category: RemoteProductType | null) {
+    setSession(null);
+    setJoining(null);
+    setStore({ open: true, category });
     setDrawerOpen(false);
     setError(null);
   }
@@ -102,6 +119,7 @@ export function App() {
     }
     setSession(null);
     setJoining({ code, name });
+    setStore((s) => ({ ...s, open: false }));
     setDrawerOpen(false);
     setError(null);
   }
@@ -115,6 +133,7 @@ export function App() {
       const scene = await readPlayFromPath(entry.path);
       setSession({ scene, path: entry.path });
       setJoining(null);
+      setStore((s) => ({ ...s, open: false }));
       setDrawerOpen(false);
       setError(null);
     } catch (e) {
@@ -132,6 +151,7 @@ export function App() {
 
   function newCharacter() {
     setSession(null); // 卓を開いていてもキャラ編集に切り替える
+    setStore((s) => ({ ...s, open: false }));
     setDrawerOpen(false);
     setActive({ sheet: null, key: `new-${Date.now()}` });
     setError(null);
@@ -145,6 +165,7 @@ export function App() {
     try {
       const sheet = await readSheetFromPath(entry.path);
       setSession(null); // 卓を開いていてもキャラ編集に切り替える
+      setStore((s) => ({ ...s, open: false }));
       setDrawerOpen(false);
       setActive({ sheet, key: `${entry.id}-${Date.now()}` });
       setError(null);
@@ -189,6 +210,14 @@ export function App() {
             onClick={() => setTab("play")}
           >
             卓
+          </button>
+          <button
+            role="tab"
+            className={`tab ${tab === "store" ? "active" : ""}`}
+            aria-selected={tab === "store"}
+            onClick={() => setTab("store")}
+          >
+            ストア
           </button>
         </div>
 
@@ -260,7 +289,7 @@ export function App() {
               onView={(item, entry) => setViewing({ item, entry })}
             />
           </>
-        ) : (
+        ) : tab === "play" ? (
           <>
             <div className="sidebar-head">
               <strong>セッション卓</strong>
@@ -339,6 +368,41 @@ export function App() {
               </p>
             )}
           </>
+        ) : (
+          <>
+            <div className="sidebar-head">
+              <strong>ストア</strong>
+            </div>
+            <p className="muted" style={{ padding: "0 4px 8px", fontSize: 12 }}>
+              シナリオやマップなどの作品を、アプリ内で探して閲覧できます。
+            </p>
+            <button
+              className="btn btn-primary"
+              style={{ width: "100%", marginBottom: 10 }}
+              onClick={() => openStore(store.category)}
+            >
+              🛒 ストアを開く
+            </button>
+            <div className="store-side-cats">
+              {(
+                [
+                  ["scenario", "📜 シナリオ"],
+                  ["rulebook", "📕 ルールブック"],
+                  ["character_art", "🎭 キャラ素材"],
+                  ["map", "🗺 マップ"],
+                  ["bgm_audio", "♪ BGM/音声"],
+                ] as [RemoteProductType, string][]
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  className="btn mini store-side-cat"
+                  onClick={() => openStore(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
         {/* 設定 + ログイン状態(全タブ共通)*/}
@@ -376,6 +440,12 @@ export function App() {
             code={joining.code}
             name={joining.name}
             onClose={() => setJoining(null)}
+          />
+        ) : store.open ? (
+          <StorePanel
+            key={store.category ?? "all"}
+            initialCategory={store.category}
+            onGoLibrary={() => setTab("library")}
           />
         ) : (
           <CharacterSheet
