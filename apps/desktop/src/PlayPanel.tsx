@@ -31,6 +31,7 @@ export function PlayPanel({
   onSend,
   onEditPalette,
   onSpeed,
+  playerMode = false,
 }: {
   panel: Panel;
   onResource: (panel: Panel, resource: PanelResource, delta: number) => void;
@@ -42,6 +43,8 @@ export function PlayPanel({
   onEditPalette: (text: string) => void;
   /** 速さ(行動順)の変更。サイドバー/盤面左上の並び順に反映される。 */
   onSpeed: (panel: Panel, speed: number) => void;
+  /** 参加者ビュー(卓から外す × を隠す)。 */
+  playerMode?: boolean;
 }) {
   const characteristics = panel.stats.filter((s) => s.kind === "characteristic");
   const skills = panel.stats.filter((s) => s.kind === "skill");
@@ -72,16 +75,18 @@ export function PlayPanel({
                 : "CoC 7版"}
           </span>
         </div>
-        <button
-          className="ppanel-del"
-          title="卓から外す"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(panel);
-          }}
-        >
-          ×
-        </button>
+        {!playerMode && (
+          <button
+            className="ppanel-del"
+            title="卓から外す"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(panel);
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
 
       {/* 折りたたみ中のサマリ(読み取り専用): リソース + 基本能力値。 */}

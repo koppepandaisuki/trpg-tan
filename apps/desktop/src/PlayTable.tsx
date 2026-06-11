@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   reduce,
   panelFromSheet,
@@ -102,15 +102,41 @@ export function PlayTable({
   // 再生中のカットイン / テロップ(定型文の画面表示)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const [telop, setTelop] = useState<string | null>(null);
+  // 参加者ビュー(没入モード): 盤面フルスクリーン + 格納式ドロワー。
+  const [playerMode, setPlayerMode] = useState(false);
+  const [leftOpen, setLeftOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const characters = useMemo(() => getLibrary(), []);
+
+  // 参加者ビューのキーボード操作: [ で左(キャラ)、] で右(チャット)を開閉。
+  useEffect(() => {
+    if (!playerMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT")
+      ) {
+        return;
+      }
+      if (e.key === "[") setLeftOpen((v) => !v);
+      if (e.key === "]") setRightOpen((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [playerMode]);
 
   // 能力値/リソースを持つ“キャラ駒”だけサイドバーに出す(画像オブジェクトは盤面のみ)。
   // 速さ(行動順)の降順で、サイドバー / 盤面左上の両方が同じ順序に並ぶ。
   const cards = scene.panels
     .filter((p) => p.stats.length > 0 || p.resources.length > 0)
     .sort((a, b) => (b.speed ?? -Infinity) - (a.speed ?? -Infinity));
+  // 参加者ビューでは秘匿キャラを出さない。
+  const playerCards = cards.filter((p) => !p.hidden);
 
   function dispatch(event: PlayEvent) {
     setScene((s) => reduce(s, event));
@@ -457,52 +483,78 @@ export function PlayTable({
   return (
     <div className="ptable">
       <header className="ptable-head">
-        <input
-          className="ptable-title input"
-          value={scene.title}
-          onChange={(e) => {
-            setScene((s) => ({ ...s, title: e.target.value }));
-            setDirty(true);
-          }}
-          placeholder="卓のタイトル"
-        />
+        {playerMode ? (
+          <span className="ptable-title-ro">{scene.title || "卓"}</span>
+        ) : (
+          <input
+            className="ptable-title input"
+            value={scene.title}
+            onChange={(e) => {
+              setScene((s) => ({ ...s, title: e.target.value }));
+              setDirty(true);
+            }}
+            placeholder="卓のタイトル"
+          />
+        )}
         <div className="ptable-tools">
-          <select
-            className="input ptable-pick"
-            value={pickId}
-            onChange={(e) => setPickId(e.target.value)}
-          >
-            <option value="">キャラを選択…</option>
-            {characters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}（{c.systemId === "coc6" ? "6版" : "7版"}）
-              </option>
-            ))}
-          </select>
-          <button
-            className="btn mini"
-            onClick={() => void addFromCharacter()}
-            disabled={!pickId}
-          >
-            ＋キャラ
-          </button>
-          <span className="ptable-spacer" />
-          {onMenu && (
-            <button
-              className="btn mini"
-              onClick={onMenu}
-              title="メニュー（キャラ / 購入 / 卓）"
-              aria-label="メニューを開く"
-            >
-              ☰
-            </button>
+          {!playerMode && (
+            <>
+              <select
+                className="input ptable-pick"
+                value={pickId}
+                onChange={(e) => setPickId(e.target.value)}
+              >
+                <option value="">キャラを選択…</option>
+                {characters.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}（{c.systemId === "coc6" ? "6版" : "7版"}）
+                  </option>
+                ))}
+              </select>
+              <button
+                className="btn mini"
+                onClick={() => void addFromCharacter()}
+                disabled={!pickId}
+              >
+                ＋キャラ
+              </button>
+            </>
           )}
-          <button className="btn mini btn-primary" onClick={() => void save()}>
-            {dirty ? "保存*" : "保存"}
+          <span className="ptable-spacer" />
+          <button
+            className={`btn mini ${playerMode ? "btn-primary" : ""}`}
+            onClick={() => setPlayerMode((v) => !v)}
+            title={
+              playerMode
+                ? "GM ビューに戻る"
+                : "参加者ビュー（没入モード。GM ツールを隠し、[ ] でサイドバー開閉）"
+            }
+          >
+            {playerMode ? "🛠 GMビュー" : "🎲 プレイヤービュー"}
           </button>
-          <button className="btn mini" onClick={onClose}>
-            閉じる
-          </button>
+          {!playerMode && (
+            <>
+              {onMenu && (
+                <button
+                  className="btn mini"
+                  onClick={onMenu}
+                  title="メニュー（キャラ / 購入 / 卓）"
+                  aria-label="メニューを開く"
+                >
+                  ☰
+                </button>
+              )}
+              <button
+                className="btn mini btn-primary"
+                onClick={() => void save()}
+              >
+                {dirty ? "保存*" : "保存"}
+              </button>
+              <button className="btn mini" onClick={onClose}>
+                閉じる
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -512,6 +564,7 @@ export function PlayTable({
         </p>
       )}
 
+      {!playerMode && (
       <div className="ptable-body2">
         {/* 左サイドバー(固定): ブロックはドラッグで並べ替え・高さ変更可 */}
         <aside className="pside">
@@ -708,6 +761,138 @@ export function PlayTable({
           />
         </aside>
       </div>
+      )}
+
+      {/* 参加者ビュー: 盤面フルスクリーン + 格納式ドロワー([ / ] でも開閉)。
+          サイコロ・キャラ・チャット・メモ以外は表示しない(没入重視)。 */}
+      {playerMode && (
+        <div className="ptable-body2 pbody-player">
+          <main className="pmain">
+            <div className="pstage">
+              <PlayBoard
+                board={scene.board}
+                panels={scene.panels}
+                activeSceneId={scene.activeSceneId}
+                playerMode
+                onMove={movePanel}
+                onSetImage={setBoardImage}
+                onToggleGrid={toggleGrid}
+                onAddImage={addImageObject}
+                onUpdate={updatePanel}
+                onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
+              />
+              <BoardStatusBar cards={playerCards} />
+            </div>
+          </main>
+
+          {/* 左ドロワー: キャラクター */}
+          <aside className={`pdrawer left ${leftOpen ? "open" : ""}`}>
+            <div className="pdrawer-head">🎭 キャラクター</div>
+            <div className="pdrawer-body ss-chars">
+              {playerCards.length === 0 ? (
+                <p className="pside-empty muted">
+                  表示できるキャラクターがいません。
+                </p>
+              ) : (
+                playerCards.map((p) => (
+                  <PlayPanel
+                    key={p.id}
+                    panel={p}
+                    playerMode
+                    onResource={changeResource}
+                    onRemove={removePanel}
+                    onFill={(text) => fill(p.id, text)}
+                    onSend={(text) => sendNow(p.id, text)}
+                    onEditPalette={(text) =>
+                      updatePanel(p.id, { palette: text })
+                    }
+                    onSpeed={(panel, speed) =>
+                      updatePanel(panel.id, { speed })
+                    }
+                  />
+                ))
+              )}
+            </div>
+            <button
+              className="pdrawer-tab"
+              onClick={() => setLeftOpen((v) => !v)}
+              title="キャラクター（[ キーでも開閉）"
+              aria-label="キャラクターを開閉"
+            >
+              {leftOpen ? "◀" : "▶"}
+            </button>
+          </aside>
+
+          {/* 右ドロワー: チャット + メモ */}
+          <aside className={`pdrawer right ${rightOpen ? "open" : ""}`}>
+            <div className="pdrawer-body pdrawer-stack">
+              <SideStack
+                storageKey={`trpg.play.stack-player.v1::${scene.id}`}
+                sections={[
+                  {
+                    id: "chat",
+                    title: "チャット / ログ",
+                    icon: "💬",
+                    defaultHeight: 460,
+                    body: (
+                      <div className="pside-log">
+                        <LogView
+                          log={scene.log}
+                          speakers={[
+                            { id: "GM", name: "GM" },
+                            ...playerCards.map((p) => ({
+                              id: p.id,
+                              name: p.name,
+                            })),
+                          ]}
+                          speakerId={compose.speakerId}
+                          text={compose.text}
+                          secret={secret}
+                          visibleTo={visibleTo}
+                          channel={channel}
+                          onChannelChange={setChannel}
+                          onSpeakerChange={(id) =>
+                            setCompose((c) => ({ ...c, speakerId: id }))
+                          }
+                          onTextChange={(t) =>
+                            setCompose((c) => ({ ...c, text: t }))
+                          }
+                          onSecretChange={setSecret}
+                          onVisibleToChange={setVisibleTo}
+                          onSubmit={submitCompose}
+                          maskSecret
+                          inputRef={inputRef}
+                        />
+                      </div>
+                    ),
+                  },
+                  {
+                    id: "memo",
+                    title: "メモ",
+                    icon: "📝",
+                    defaultOpen: false,
+                    body: (
+                      <MemoPanel
+                        playId={scene.id}
+                        shared={scene.sharedMemo ?? ""}
+                        onSharedChange={setSharedMemo}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            </div>
+            <button
+              className="pdrawer-tab"
+              onClick={() => setRightOpen((v) => !v)}
+              title="チャット / メモ（] キーでも開閉）"
+              aria-label="チャットとメモを開閉"
+            >
+              {rightOpen ? "▶" : "◀"}
+            </button>
+          </aside>
+        </div>
+      )}
 
       {motion && (
         <DiceMotion roll={motion} onClose={() => setMotion(null)} />
