@@ -579,11 +579,15 @@ async function fetchTrendingItems(limit: number): Promise<StoreItem[]> {
   return toStoreItems(ordered);
 }
 
+/** カルーセル用: StoreItem + スクリーンショット(右パネルのサムネ)。 */
+export type FeaturedItem = StoreItem & { screens: string[] };
+
 /**
  * フィーチャー(カルーセル用): 売上上位 + 好評上位を merge し、足りない分は
- * 新着で補完(Web の listFeaturedProducts と同じ規約)。
+ * 新着で補完(Web の listFeaturedProducts と同じ規約)。選ばれた作品の
+ * スクリーンショットを一括で引いて添える(Steam の「注目&おすすめ」右パネル)。
  */
-async function fetchFeaturedItems(limit: number): Promise<StoreItem[]> {
+async function fetchFeaturedItems(limit: number): Promise<FeaturedItem[]> {
   const [selling, rated] = await Promise.all([
     fetchTopSellingItems(limit),
     fetchTopRatedItems(limit),
@@ -594,16 +598,35 @@ async function fetchFeaturedItems(limit: number): Promise<StoreItem[]> {
     if (seen.has(it.id)) continue;
     seen.add(it.id);
     merged.push(it);
-    if (merged.length >= limit) return merged;
-  }
-  const recent = await fetchRecentItems(limit * 2);
-  for (const it of recent) {
-    if (seen.has(it.id)) continue;
-    seen.add(it.id);
-    merged.push(it);
     if (merged.length >= limit) break;
   }
-  return merged;
+  if (merged.length < limit) {
+    const recent = await fetchRecentItems(limit * 2);
+    for (const it of recent) {
+      if (seen.has(it.id)) continue;
+      seen.add(it.id);
+      merged.push(it);
+      if (merged.length >= limit) break;
+    }
+  }
+  if (merged.length === 0) return [];
+
+  // スクリーンショットを一括取得して各作品に最大 4 枚添付。
+  const { data: shotRows } = await supabase
+    .from("product_screenshots")
+    .select("product_id, path, order_index")
+    .in(
+      "product_id",
+      merged.map((it) => it.id),
+    )
+    .order("order_index", { ascending: true });
+  const shotMap = new Map<string, string[]>();
+  for (const row of shotRows ?? []) {
+    const list = shotMap.get(row.product_id) ?? [];
+    if (list.length < 4) list.push(screenshotUrl(row.path));
+    shotMap.set(row.product_id, list);
+  }
+  return merged.map((it) => ({ ...it, screens: shotMap.get(it.id) ?? [] }));
 }
 
 const HOME_CATEGORIES: RemoteProductType[] = [
@@ -615,7 +638,7 @@ const HOME_CATEGORIES: RemoteProductType[] = [
 ];
 
 export interface StoreHome {
-  featured: StoreItem[];
+  featured: FeaturedItem[];
   trending: StoreItem[];
   recent: StoreItem[];
   topRated: StoreItem[];
