@@ -895,7 +895,11 @@ export function PlayTable({
       )}
 
       {motion && (
-        <DiceMotion roll={motion} onClose={() => setMotion(null)} />
+        <DiceMotion
+          roll={motion}
+          masked={playerMode && !!motion.secret}
+          onClose={() => setMotion(null)}
+        />
       )}
       {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}
       {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}

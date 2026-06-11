@@ -275,7 +275,9 @@ export function PlayBoard({
               onPointerDown={(e) => startDrag(e, p, i)}
               onContextMenu={(e) => {
                 e.preventDefault();
-                if (!playerMode) {
+                // 参加者はキャラ駒(ステータスを持つ駒)のみメニューを開ける。
+                const isChar = p.stats.length > 0 || p.resources.length > 0;
+                if (!playerMode || isChar) {
                   setMenu({ panelId: p.id, x: e.clientX, y: e.clientY });
                 }
               }}
@@ -331,6 +333,7 @@ export function PlayBoard({
             x={menu.x}
             y={menu.y}
             activeSceneId={activeSceneId}
+            playerMode={playerMode}
             onUpdate={onUpdate}
             onDelete={() => {
               onRemove(menuPanel.id);
@@ -350,6 +353,7 @@ function ObjectMenu({
   x,
   y,
   activeSceneId,
+  playerMode = false,
   onUpdate,
   onDelete,
   onClose,
@@ -358,6 +362,8 @@ function ObjectMenu({
   x: number;
   y: number;
   activeSceneId?: string;
+  /** 参加者ビュー: 名前とメモだけ(GM 専用の行は隠す)。 */
+  playerMode?: boolean;
   onUpdate: (
     panelId: string,
     patch: Partial<
@@ -428,6 +434,9 @@ function ObjectMenu({
         />
       </label>
 
+      {/* ここから下は GM 専用(参加者は名前とメモのみ)。 */}
+      {!playerMode && (
+        <>
       <button
         className="ctx-row"
         onClick={() => onUpdate(panel.id, { hidden: !panel.hidden })}
@@ -496,6 +505,8 @@ function ObjectMenu({
         <span className="ctx-icon">🗑</span>
         <span>盤面から削除</span>
       </button>
+        </>
+      )}
     </div>
   );
 }

@@ -121,14 +121,19 @@ function tumbleKeyframes(
 
 export function DiceMotion({
   roll,
+  masked = false,
   onClose,
 }: {
   roll: RollEvent;
+  /** 秘匿表示(参加者ビューのシークレットダイス): 灰色の無地ダイス + 結果「？」。 */
+  masked?: boolean;
   onClose: () => void;
 }) {
   const dice = useMemo(() => buildDice(roll), [roll]);
   const dieRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [faces, setFaces] = useState<string[]>(() => dice.map((d) => randFace(d.sides)));
+  const [faces, setFaces] = useState<string[]>(() =>
+    dice.map((d) => (masked ? "" : randFace(d.sides))),
+  );
   const [settled, setSettled] = useState(false);
 
   useEffect(() => {
@@ -156,18 +161,22 @@ export function DiceMotion({
       });
     });
 
-    const iv = window.setInterval(() => {
-      setFaces(dice.map((d) => randFace(d.sides)));
-    }, 70);
+    // 秘匿時は出目を一切見せない(回転中も無地のまま)。
+    const iv = masked
+      ? 0
+      : window.setInterval(() => {
+          setFaces(dice.map((d) => randFace(d.sides)));
+        }, 70);
 
     const freezeT = window.setTimeout(() => {
-      window.clearInterval(iv);
-      setFaces(dice.map((d) => d.finalText));
+      if (iv) window.clearInterval(iv);
+      setFaces(dice.map((d) => (masked ? "" : d.finalText)));
     }, FREEZE_MS);
 
     const settleT = window.setTimeout(() => {
       setSettled(true);
-      if (roll.check) {
+      // 成功度の効果音は出目のネタバレになるので秘匿時は鳴らさない。
+      if (roll.check && !masked) {
         const s = getSoundSettings();
         const lvl = roll.check.level;
         if (lvl === "fumble") {
@@ -181,14 +190,14 @@ export function DiceMotion({
     }, ROLL_MS);
 
     return () => {
-      window.clearInterval(iv);
+      if (iv) window.clearInterval(iv);
       window.clearTimeout(freezeT);
       window.clearTimeout(settleT);
       anims.forEach((a) => a?.cancel());
     };
     // dice は roll から導出され、roll ごとに 1 回だけ実行する。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roll]);
+  }, [roll, masked]);
 
   useEffect(() => {
     if (!settled) return;
@@ -218,7 +227,7 @@ export function DiceMotion({
           ref={(el) => {
             dieRefs.current[i] = el;
           }}
-          className={`dm-die ${settled ? tone : ""}`}
+          className={`dm-die ${masked ? "masked" : settled ? tone : ""}`}
           style={{ visibility: "hidden", width: sizeOf(d.sides), height: sizeOf(d.sides) }}
         >
           <DieSvg sides={d.sides} text={faces[i] ?? ""} />
@@ -230,23 +239,36 @@ export function DiceMotion({
           <button className="dm-close" onClick={onClose} title="閉じる" aria-label="閉じる">
             ×
           </button>
-          <p className="dm-label">
-            <span className="dm-actor">{roll.actor}</span> {roll.label}
-          </p>
-          <p className="dm-total">{bigValue}</p>
-          {roll.check ? (
-            <p className={`dm-result ${tone}`}>
-              {levelLabel(roll.check.level)}
-              <span className="dm-target">／ 目標 {roll.check.target}</span>
-            </p>
+          {masked ? (
+            <>
+              {/* 秘匿: ラベルも出目も伏せる(コマンド内容からの推測も防ぐ)。 */}
+              <p className="dm-label">
+                <span className="dm-actor">{roll.actor}</span> シークレットダイス
+              </p>
+              <p className="dm-total masked">？</p>
+              <p className="dm-result fail">出目は非公開</p>
+            </>
           ) : (
-            <p className={`dm-result ${tone}`}>
-              {roll.notation ? `${roll.notation} ＝ ` : "合計 "}
-              [{roll.dice.join(", ")}] → {roll.total}
-              {roll.success !== undefined && (
-                <span> {roll.success ? "成功" : "失敗"}</span>
+            <>
+              <p className="dm-label">
+                <span className="dm-actor">{roll.actor}</span> {roll.label}
+              </p>
+              <p className="dm-total">{bigValue}</p>
+              {roll.check ? (
+                <p className={`dm-result ${tone}`}>
+                  {levelLabel(roll.check.level)}
+                  <span className="dm-target">／ 目標 {roll.check.target}</span>
+                </p>
+              ) : (
+                <p className={`dm-result ${tone}`}>
+                  {roll.notation ? `${roll.notation} ＝ ` : "合計 "}
+                  [{roll.dice.join(", ")}] → {roll.total}
+                  {roll.success !== undefined && (
+                    <span> {roll.success ? "成功" : "失敗"}</span>
+                  )}
+                </p>
               )}
-            </p>
+            </>
           )}
         </div>
       )}
