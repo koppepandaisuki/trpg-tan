@@ -9,6 +9,7 @@ import { AuthControl } from "./AuthControl";
 import { LibraryPanel } from "./LibraryPanel";
 import { Viewer } from "./Viewer";
 import { PlayTable } from "./PlayTable";
+import { PlayClient } from "./PlayClient";
 import { SoundSettings } from "./SoundSettings";
 import { initDeepLinkAuth } from "./auth";
 import type { RemoteLibraryItem } from "./library-remote";
@@ -54,6 +55,14 @@ export function App() {
     getPlayIndex(),
   );
   const [session, setSession] = useState<Session | null>(null);
+  // ネットワーク参加(参加コードで他の人の卓に入る)。
+  const [joining, setJoining] = useState<{ code: string; name: string } | null>(
+    null,
+  );
+  const [joinCode, setJoinCode] = useState("");
+  const [joinName, setJoinName] = useState(
+    () => localStorage.getItem("trpg.net.name.v1") ?? "",
+  );
   // 効果音などの設定モーダル。
   const [showSettings, setShowSettings] = useState(false);
   // PLAY 中のサイドバー(ドロワー)。卓では画面を広く使うため、
@@ -73,6 +82,26 @@ export function App() {
       now: new Date().toISOString(),
     });
     setSession({ scene, path: null });
+    setJoining(null);
+    setDrawerOpen(false);
+    setError(null);
+  }
+
+  /** 参加コードで他の人の卓に入る(参加者ビュー固定)。 */
+  function joinByCode() {
+    const code = joinCode.trim().toUpperCase();
+    const name = joinName.trim();
+    if (!code || !name) {
+      setError("参加コードとあなたの名前を入力してください");
+      return;
+    }
+    try {
+      localStorage.setItem("trpg.net.name.v1", name);
+    } catch {
+      // 保存できなくても参加は続行
+    }
+    setSession(null);
+    setJoining({ code, name });
     setDrawerOpen(false);
     setError(null);
   }
@@ -85,6 +114,7 @@ export function App() {
     try {
       const scene = await readPlayFromPath(entry.path);
       setSession({ scene, path: entry.path });
+      setJoining(null);
       setDrawerOpen(false);
       setError(null);
     } catch (e) {
@@ -239,6 +269,32 @@ export function App() {
               </button>
             </div>
 
+            {/* ネットワーク参加: GM が発行した参加コードで入室 */}
+            <div className="net-join">
+              <strong className="net-join-title">🌐 ネットワークで参加</strong>
+              <input
+                className="input"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="参加コード（例: ABC234）"
+                maxLength={6}
+              />
+              <input
+                className="input"
+                value={joinName}
+                onChange={(e) => setJoinName(e.target.value)}
+                placeholder="あなたの名前"
+                onKeyDown={(e) => e.key === "Enter" && joinByCode()}
+              />
+              <button
+                className="btn mini btn-primary"
+                onClick={joinByCode}
+                disabled={!joinCode.trim() || !joinName.trim()}
+              >
+                参加する
+              </button>
+            </div>
+
             {playIndex.length === 0 ? (
               <p className="muted" style={{ padding: "8px 4px" }}>
                 作った卓がここに並びます。「＋新規」で始めましょう。
@@ -301,8 +357,8 @@ export function App() {
 
   return (
     <div className="layout">
-      {/* PLAY 中は常設サイドバーを消して画面を最大化(☰ ドロワーで呼び出す) */}
-      {!session && sidebar}
+      {/* PLAY/参加中は常設サイドバーを消して画面を最大化(☰ ドロワーで呼び出す) */}
+      {!session && !joining && sidebar}
 
       <main className="main">
         {session ? (
@@ -313,6 +369,13 @@ export function App() {
             onClose={() => setSession(null)}
             onPersist={handlePlayPersist}
             onMenu={() => setDrawerOpen(true)}
+          />
+        ) : joining ? (
+          <PlayClient
+            key={`${joining.code}-${joining.name}`}
+            code={joining.code}
+            name={joining.name}
+            onClose={() => setJoining(null)}
           />
         ) : (
           <CharacterSheet
