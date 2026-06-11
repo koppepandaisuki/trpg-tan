@@ -123,6 +123,8 @@ export interface PlayScene {
   board?: PlayBoard;
   /** BGM プレイリスト(GM ローカル)。古い .play には無い場合があるので optional。 */
   bgm?: PlayBgm;
+  /** SE(効果音)リスト。単発再生のほか、カットイン/定型文に添付する音源庫。 */
+  se?: PlayBgm;
   /** シーン一覧。board は active シーンの盤面を映す(scenes が真。古い .play は optional)。 */
   scenes?: SceneInfo[];
   activeSceneId?: string;

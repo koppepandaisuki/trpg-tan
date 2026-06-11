@@ -43,6 +43,7 @@ import { CutInPanel, CutInOverlay } from "./CutIn";
 import { SideStack } from "./SideStack";
 import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
+import { SePanel, playSeFile } from "./SePanel";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
@@ -188,6 +189,29 @@ export function PlayTable({
       bgm: { tracks: (s.bgm?.tracks ?? []).filter((t) => t.id !== id) },
     }));
     setDirty(true);
+  }
+
+  function addSeTracks(newTracks: BgmTrack[]) {
+    setScene((s) => ({
+      ...s,
+      se: { tracks: [...(s.se?.tracks ?? []), ...newTracks] },
+    }));
+    setDirty(true);
+  }
+
+  function removeSeTrack(id: string) {
+    setScene((s) => ({
+      ...s,
+      se: { tracks: (s.se?.tracks ?? []).filter((t) => t.id !== id) },
+    }));
+    setDirty(true);
+  }
+
+  /** SE パネルの登録名で効果音を鳴らす(定型文の [SE:名前] 用)。 */
+  function playSeByName(name?: string) {
+    if (!name) return;
+    const t = (scene.se?.tracks ?? []).find((x) => x.name === name);
+    if (t) void playSeFile(t.path);
   }
 
   function addImageObject(
@@ -535,8 +559,14 @@ export function PlayTable({
                   <TextStockPanel
                     stock={scene.textStock ?? ""}
                     onFill={(text) => fill("GM", text)}
-                    onSend={(text) => sendNow("GM", text)}
-                    onTelop={setTelop}
+                    onSend={(text, se) => {
+                      playSeByName(se);
+                      sendNow("GM", text);
+                    }}
+                    onTelop={(text, se) => {
+                      playSeByName(se);
+                      setTelop(text);
+                    }}
                     onEdit={setTextStock}
                   />
                 ),
@@ -549,6 +579,7 @@ export function PlayTable({
                 body: (
                   <CutInPanel
                     cutins={scene.cutins ?? []}
+                    seTracks={scene.se?.tracks ?? []}
                     onAdd={addCutin}
                     onRemove={removeCutin}
                     onFire={setCutin}
@@ -566,6 +597,19 @@ export function PlayTable({
                     tracks={scene.bgm?.tracks ?? []}
                     onAddTracks={addBgmTracks}
                     onRemoveTrack={removeBgmTrack}
+                  />
+                ),
+              },
+              {
+                id: "se",
+                title: "SE（効果音）",
+                icon: "🔔",
+                defaultOpen: false,
+                body: (
+                  <SePanel
+                    tracks={scene.se?.tracks ?? []}
+                    onAdd={addSeTracks}
+                    onRemove={removeSeTrack}
                   />
                 ),
               },
