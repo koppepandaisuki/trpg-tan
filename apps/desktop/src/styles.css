@@ -2043,6 +2043,21 @@ body {
   fill: #c0392b;
 }
 
+/* 秘匿(シークレットダイス): 灰色の無地ダイス。出目は描かれない。 */
+.dm-die.masked .dm-body {
+  fill: #d6dde3;
+  stroke: #9aa8b4;
+}
+.dm-die.masked .dm-facet {
+  stroke: rgba(90, 110, 128, 0.25);
+}
+.dm-die.masked .dm-pct {
+  fill: transparent;
+}
+.dm-total.masked {
+  color: var(--text-faint);
+}
+
 /* 着地後の読み上げ(合計 / 成功度)。カードだけ操作可能。 */
 .dm-readout {
   position: fixed;
