@@ -1,0 +1,497 @@
+import { useCallback, useEffect, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { useAuth } from "./useAuth";
+import { supabaseConfigured } from "./supabase";
+import { PRODUCT_TYPE_LABEL, FILE_FORMAT_LABEL } from "./library-remote";
+import type { RemoteProductType } from "./library-remote";
+import {
+  fetchStore,
+  fetchStoreDetail,
+  fetchMyPurchasedIds,
+  formatPriceJpy,
+  webProductUrl,
+  type StoreItem,
+  type StoreDetail,
+  type StoreSort,
+  type StoreReviewSummary,
+} from "./store-remote";
+
+/**
+ * ストア(メインペイン)。Web のストアをアプリ内に移植したもの。
+ *  - 一覧: カテゴリ / 検索(タイトル・作者・タグ) / 並び順 / ページング
+ *  - 詳細: カバー + スクショギャラリー / 説明 / メタ / タグ / レビュー
+ *  - 決済だけは Web(Stripe)で行う → 商品ページをブラウザで開く
+ *  - ログイン中は購入済みを検出してバッジ + 「購入タブで開く」導線
+ */
+
+const CATEGORIES: { key: RemoteProductType | null; label: string }[] = [
+  { key: null, label: "すべて" },
+  { key: "scenario", label: "シナリオ" },
+  { key: "rulebook", label: "ルールブック" },
+  { key: "character_art", label: "キャラ素材" },
+  { key: "map", label: "マップ" },
+  { key: "bgm_audio", label: "BGM/音声" },
+];
+
+/** レビューラベル → 色トーン。 */
+function reviewTone(label: string): string {
+  if (label.includes("好評")) return "ok";
+  if (label === "賛否両論") return "mid";
+  if (label.includes("不評")) return "bad";
+  return "none";
+}
+
+function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
+  if (!review || review.total === 0) {
+    return <span className="store-rev none">評価なし</span>;
+  }
+  return (
+    <span className={`store-rev ${reviewTone(review.label)}`}>
+      {review.label}（{review.total}）
+    </span>
+  );
+}
+
+export function StorePanel({
+  initialCategory = null,
+  onGoLibrary,
+}: {
+  initialCategory?: RemoteProductType | null;
+  /** 「購入タブで開く」押下時(App がタブを切替える)。 */
+  onGoLibrary?: () => void;
+}) {
+  const { session } = useAuth();
+  const [category, setCategory] = useState<RemoteProductType | null>(
+    initialCategory,
+  );
+  const [qInput, setQInput] = useState("");
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<StoreSort>("published");
+  const [page, setPage] = useState(1);
+
+  const [items, setItems] = useState<StoreItem[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [purchased, setPurchased] = useState<Set<string>>(new Set());
+
+  // 詳細ビュー(null なら一覧)。
+  const [detail, setDetail] = useState<StoreDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [mainImage, setMainImage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchStore({ category, q, sort, page });
+      setItems(res.items);
+      setTotal(res.total);
+      setTotalPages(res.totalPages);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [category, q, sort, page]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // 購入済み集合(ログイン中のみ)。
+  useEffect(() => {
+    const userId = session?.user.id;
+    if (!userId) {
+      setPurchased(new Set());
+      return;
+    }
+    void fetchMyPurchasedIds(userId).then(setPurchased).catch(() => {});
+  }, [session?.user.id]);
+
+  async function openDetail(item: StoreItem) {
+    setDetailLoading(true);
+    setError(null);
+    try {
+      const d = await fetchStoreDetail(item.id);
+      if (!d) {
+        setError("この作品は現在公開されていません");
+        return;
+      }
+      setDetail(d);
+      setMainImage(d.coverUrl ?? d.screenshotUrls[0] ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  function search() {
+    setPage(1);
+    setQ(qInput);
+  }
+
+  if (!supabaseConfigured) {
+    return (
+      <div className="store">
+        <p className="muted" style={{ padding: 24 }}>
+          ストアを使うには接続設定(VITE_SUPABASE_URL / ANON_KEY)が必要です。
+        </p>
+      </div>
+    );
+  }
+
+  /* ===== 詳細ビュー ===== */
+  if (detail) {
+    const isPurchased = purchased.has(detail.id);
+    const gallery = [
+      ...(detail.coverUrl ? [detail.coverUrl] : []),
+      ...detail.screenshotUrls,
+    ];
+    return (
+      <div className="store">
+        <div className="store-head">
+          <button className="btn mini" onClick={() => setDetail(null)}>
+            ← ストアに戻る
+          </button>
+          <h2 className="store-dtitle">{detail.title}</h2>
+        </div>
+
+        <div className="store-body">
+          <div className="store-detail">
+            {/* 左: ギャラリー */}
+            <div className="store-gallery">
+              <div className="store-gmain">
+                {mainImage ? (
+                  <img src={mainImage} alt={detail.title} />
+                ) : (
+                  <span className="store-noimg">No Image</span>
+                )}
+              </div>
+              {gallery.length > 1 && (
+                <div className="store-gthumbs">
+                  {gallery.map((url) => (
+                    <button
+                      key={url}
+                      className={`store-gthumb ${mainImage === url ? "active" : ""}`}
+                      onClick={() => setMainImage(url)}
+                    >
+                      <img src={url} alt="" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* 説明 */}
+              <h3 className="store-sec">作品について</h3>
+              <p className="store-desc">{detail.description || "（説明なし）"}</p>
+
+              {/* レビュー */}
+              <h3 className="store-sec">
+                レビュー <ReviewBadge review={detail.review} />
+              </h3>
+              {detail.reviews.length === 0 ? (
+                <p className="muted" style={{ fontSize: 12.5 }}>
+                  まだレビューはありません。レビューの投稿は Web 版から行えます。
+                </p>
+              ) : (
+                <div className="store-reviews">
+                  {detail.reviews.map((r) => (
+                    <div key={r.id} className="store-review">
+                      <div className="store-review-head">
+                        <span className={`store-thumb ${r.rating}`}>
+                          {r.rating === "positive" ? "👍" : "👎"}
+                        </span>
+                        <b>{r.user.displayName || "ユーザー"}</b>
+                        <span className="muted" style={{ fontSize: 11 }}>
+                          {new Date(r.createdAt).toLocaleDateString("ja-JP")}
+                        </span>
+                        {r.helpfulCount > 0 && (
+                          <span className="muted" style={{ fontSize: 11 }}>
+                            ・{r.helpfulCount}人が役に立ったと評価
+                          </span>
+                        )}
+                      </div>
+                      {r.comment && <p className="store-review-body">{r.comment}</p>}
+                      {r.reply && (
+                        <div className="store-reply">
+                          <b>↳ {r.reply.creatorName || "作者"}（作者）:</b>{" "}
+                          {r.reply.body}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 右: 購入 / メタ */}
+            <aside className="store-side">
+              <div className="store-buybox">
+                <span className="store-price">{formatPriceJpy(detail.priceJpy)}</span>
+                <ReviewBadge review={detail.review} />
+                {isPurchased ? (
+                  <>
+                    <span className="work-badge done store-owned">✓ 購入済み</span>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => onGoLibrary?.()}
+                    >
+                      📚 購入タブで開く
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => void openUrl(webProductUrl(detail.slug))}
+                    >
+                      🛒 Webストアで購入
+                    </button>
+                    <p className="store-buynote">
+                      決済はブラウザ(Web版)で行います。購入後、アプリの
+                      「購入」タブに反映されます。
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div className="store-meta">
+                <div className="store-creator">
+                  {detail.creator.avatarUrl ? (
+                    <img src={detail.creator.avatarUrl} alt="" />
+                  ) : (
+                    <span className="store-avatar-ph">👤</span>
+                  )}
+                  <div>
+                    <b>{detail.creator.displayName || "（無名）"}</b>
+                    {detail.creatorBio && (
+                      <p className="muted store-bio">{detail.creatorBio}</p>
+                    )}
+                  </div>
+                </div>
+
+                <dl className="store-dl">
+                  <dt>種別</dt>
+                  <dd>{PRODUCT_TYPE_LABEL[detail.productType] ?? detail.productType}</dd>
+                  <dt>形式</dt>
+                  <dd>{FILE_FORMAT_LABEL[detail.fileFormat] ?? detail.fileFormat}</dd>
+                  {detail.systemLabel && (
+                    <>
+                      <dt>システム</dt>
+                      <dd>{detail.systemLabel}</dd>
+                    </>
+                  )}
+                  {detail.players && (
+                    <>
+                      <dt>人数</dt>
+                      <dd>{detail.players}</dd>
+                    </>
+                  )}
+                  {detail.playtime && (
+                    <>
+                      <dt>時間</dt>
+                      <dd>{detail.playtime}</dd>
+                    </>
+                  )}
+                  {detail.recommendedSkills && (
+                    <>
+                      <dt>推奨技能</dt>
+                      <dd>{detail.recommendedSkills}</dd>
+                    </>
+                  )}
+                  <dt>商用利用</dt>
+                  <dd>{detail.allowCommercial ? "可" : "不可"}</dd>
+                  <dt>再配布</dt>
+                  <dd>{detail.allowRedistribution ? "可" : "不可"}</dd>
+                  <dt>公開日</dt>
+                  <dd>{new Date(detail.publishedAt).toLocaleDateString("ja-JP")}</dd>
+                </dl>
+
+                {detail.tags.length > 0 && (
+                  <div className="store-tags">
+                    {detail.tags.map((t) => (
+                      <button
+                        key={t}
+                        className="store-tag"
+                        title={`タグ「${t}」で検索`}
+                        onClick={() => {
+                          setDetail(null);
+                          setQInput(t);
+                          setQ(t);
+                          setPage(1);
+                        }}
+                      >
+                        #{t}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ===== 一覧ビュー ===== */
+  return (
+    <div className="store">
+      <div className="store-head">
+        <h2 className="store-title">🛒 ストア</h2>
+        <div className="store-search">
+          <input
+            className="input"
+            value={qInput}
+            onChange={(e) => setQInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && search()}
+            placeholder="タイトル / 作者 / タグで検索"
+          />
+          <button className="btn mini" onClick={search}>
+            検索
+          </button>
+        </div>
+        <select
+          className="input store-sort"
+          value={sort}
+          onChange={(e) => {
+            setSort(e.target.value as StoreSort);
+            setPage(1);
+          }}
+        >
+          <option value="published">新着順</option>
+          <option value="rating">好評順</option>
+        </select>
+      </div>
+
+      <div className="store-cats">
+        {CATEGORIES.map((c) => (
+          <button
+            key={c.label}
+            className={`store-cat ${category === c.key ? "active" : ""}`}
+            onClick={() => {
+              setCategory(c.key);
+              setPage(1);
+            }}
+          >
+            {c.label}
+          </button>
+        ))}
+        {q && (
+          <span className="store-qchip">
+            「{q}」の検索結果
+            <button
+              onClick={() => {
+                setQ("");
+                setQInput("");
+                setPage(1);
+              }}
+              title="検索を解除"
+            >
+              ×
+            </button>
+          </span>
+        )}
+        <span className="store-count muted">
+          {items ? `${total} 件` : ""}
+        </span>
+      </div>
+
+      {error && (
+        <p className="tag fail" style={{ margin: "4px 16px" }}>
+          {error}
+        </p>
+      )}
+
+      <div className="store-body">
+        {loading && items === null && (
+          <p className="muted" style={{ padding: 24 }}>
+            読み込み中…
+          </p>
+        )}
+
+        {items && items.length === 0 && (
+          <p className="muted" style={{ padding: 24 }}>
+            該当する作品がありません。
+          </p>
+        )}
+
+        {items && items.length > 0 && (
+          <div className={`store-grid ${loading ? "dim" : ""}`}>
+            {items.map((it) => (
+              <button
+                key={it.id}
+                className="store-card"
+                onClick={() => void openDetail(it)}
+                disabled={detailLoading}
+                title={it.title}
+              >
+                <div className="store-cover">
+                  {it.coverUrl ? (
+                    <img src={it.coverUrl} alt="" loading="lazy" />
+                  ) : (
+                    <span className="store-noimg">No Image</span>
+                  )}
+                  {purchased.has(it.id) && (
+                    <span className="store-owned-chip">✓ 購入済み</span>
+                  )}
+                </div>
+                <div className="store-card-body">
+                  <span className="store-card-title">{it.title}</span>
+                  <span className="store-card-creator">
+                    {it.creator.avatarUrl ? (
+                      <img src={it.creator.avatarUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className="store-avatar-ph small">👤</span>
+                    )}
+                    {it.creator.displayName || "（無名）"}
+                  </span>
+                  <span className="store-card-badges">
+                    <span className="work-badge">
+                      {PRODUCT_TYPE_LABEL[it.productType] ?? it.productType}
+                    </span>
+                    {it.systemLabel && (
+                      <span className="work-badge">{it.systemLabel}</span>
+                    )}
+                  </span>
+                  <span className="store-card-foot">
+                    <span className="store-price small">
+                      {formatPriceJpy(it.priceJpy)}
+                    </span>
+                    <ReviewBadge review={it.review} />
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {items && totalPages > 1 && (
+          <div className="store-pager">
+            <button
+              className="btn mini"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              ← 前へ
+            </button>
+            <span className="muted" style={{ fontSize: 12 }}>
+              {page} / {totalPages}
+            </span>
+            <button
+              className="btn mini"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              次へ →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
