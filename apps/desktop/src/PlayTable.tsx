@@ -44,7 +44,15 @@ import { CutInPanel, CutInOverlay } from "./CutIn";
 import { SideStack } from "./SideStack";
 import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
+import { ScenarioViewer } from "./ScenarioViewer";
 import { SePanel, playSeFile } from "./SePanel";
+import {
+  connectRoom,
+  makeRoomCode,
+  type NetIntent,
+  type NetMsg,
+  type Room,
+} from "./net";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
@@ -109,6 +117,16 @@ export function PlayTable({
   const [rightOpen, setRightOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // ネットワーク共有(GM がホスト)。room があれば全イベントを配信する。
+  const [room, setRoom] = useState<Room | null>(null);
+  const [members, setMembers] = useState<string[]>([]);
+  const [sharePop, setSharePop] = useState(false);
+  const [netBusy, setNetBusy] = useState(false);
+  const roomRef = useRef<Room | null>(null);
+  roomRef.current = room;
+  // 受信処理は毎レンダー最新のクロージャに差し替える(古い scene を見ない)。
+  const netMsgRef = useRef<(msg: NetMsg) => void>(() => {});
+
   const characters = useMemo(() => getLibrary(), []);
 
   // 参加者ビューのキーボード操作: [ で左(キャラ)、] で右(チャット)を開閉。
@@ -142,6 +160,8 @@ export function PlayTable({
   function dispatch(event: PlayEvent) {
     setScene((s) => reduce(s, event));
     setDirty(true);
+    // 共有中は確定イベントをそのまま配信(参加者は reduce で追随)。
+    roomRef.current?.send({ type: "event", ev: event });
   }
 
   const sceneEdition: CoCEdition = scene.systemId === "coc6" ? "6" : "7";
@@ -292,9 +312,17 @@ export function PlayTable({
     setDirty(true);
   }
 
+  const memoTimer = useRef<number | undefined>(undefined);
   function setSharedMemo(text: string) {
     setScene((s) => ({ ...s, sharedMemo: text }));
     setDirty(true);
+    // 共有中はデバウンスして参加者へ(キーストローク毎に流さない)。
+    if (roomRef.current) {
+      window.clearTimeout(memoTimer.current);
+      memoTimer.current = window.setTimeout(() => {
+        roomRef.current?.send({ type: "memo", text });
+      }, 600);
+    }
   }
 
   function addCutin(name: string, image: string) {
@@ -408,10 +436,20 @@ export function PlayTable({
     return { name: p?.name ?? "GM", edition: p?.edition ?? sceneEdition };
   }
 
-  /** チャット入力(発言 or ダイスコマンド)を解釈して適用。 */
-  function handleSend(speakerId: string, raw: string) {
+  /**
+   * チャット入力(発言 or ダイスコマンド)を解釈して適用。
+   * opts はネット参加者の intent 用(本人の入力時の設定で上書きする)。
+   */
+  function handleSend(
+    speakerId: string,
+    raw: string,
+    opts?: { channel?: string; secret?: boolean; visibleTo?: string[] },
+  ) {
     const { name, edition } = resolveSpeaker(speakerId);
-    const ch = channel === "main" ? undefined : channel;
+    const chSel = opts?.channel ?? channel;
+    const ch = chSel === "main" ? undefined : chSel;
+    const isSecret = opts?.secret ?? secret;
+    const viewers = opts?.visibleTo ?? visibleTo;
 
     // 差分切替(キャラ発言時のみ):
     //   「face ラベル」/「@ラベル」単独 → 切替のみ
@@ -457,8 +495,8 @@ export function PlayTable({
         );
       }
       // シークレットダイス: 出目を伏せる(見せる相手はチェックで指定)。
-      if (secret) {
-        ev = { ...ev, secret: true, visibleTo: [...visibleTo] };
+      if (isSecret) {
+        ev = { ...ev, secret: true, visibleTo: [...viewers] };
       }
       // 個別チャット内のロールはそのチャンネルに留める。
       if (ch) {
@@ -470,6 +508,88 @@ export function PlayTable({
     } catch {
       setError(`コマンドを解釈できません: "${raw}"`);
     }
+  }
+
+  /* ===== ネットワーク共有(GM がホスト)===== */
+
+  /** 参加者からの操作意図を GM 権限で検証し、正規イベント化する。 */
+  function applyIntent(intent: NetIntent) {
+    if (intent.kind === "send") {
+      handleSend(intent.speakerId, intent.raw, {
+        channel: intent.channel,
+        secret: intent.secret,
+        visibleTo: intent.visibleTo,
+      });
+    } else if (intent.kind === "resource") {
+      const p = scene.panels.find((x) => x.id === intent.panelId);
+      const r = p?.resources.find((x) => x.key === intent.resourceKey);
+      if (p && r) changeResource(p, r, intent.delta);
+    } else if (intent.kind === "move") {
+      movePanel(intent.panelId, intent.x, intent.y);
+    } else if (intent.kind === "panel-update") {
+      updatePanel(intent.panelId, intent.patch);
+    } else if (intent.kind === "memo") {
+      setSharedMemo(intent.text);
+    }
+  }
+
+  // 受信ハンドラは毎レンダー最新化(古い scene を掴んだままにしない)。
+  useEffect(() => {
+    netMsgRef.current = (msg: NetMsg) => {
+      if (msg.type === "hello") {
+        // 新規参加者へ現在の卓全体を送る(チャンクで分割される)。
+        roomRef.current?.send({ type: "snapshot", scene });
+      } else if (msg.type === "intent") {
+        applyIntent(msg.intent);
+      }
+    };
+  });
+
+  /** 共有を開始(すでに共有中ならポップオーバーの開閉だけ)。 */
+  async function startShare() {
+    if (roomRef.current) {
+      setSharePop((v) => !v);
+      return;
+    }
+    setNetBusy(true);
+    setError(null);
+    try {
+      const r = await connectRoom(makeRoomCode(), "GM");
+      r.onMessage((m) => netMsgRef.current(m));
+      r.onPresence(setMembers);
+      setRoom(r);
+      setSharePop(true);
+    } catch (e) {
+      setError(`共有を開始できませんでした: ${String(e)}`);
+    } finally {
+      setNetBusy(false);
+    }
+  }
+
+  function stopShare() {
+    roomRef.current?.send({ type: "closed" });
+    roomRef.current?.close();
+    setRoom(null);
+    setMembers([]);
+    setSharePop(false);
+  }
+
+  // 卓を閉じる/アンマウント時はルームも畳む。
+  useEffect(() => {
+    return () => {
+      roomRef.current?.send({ type: "closed" });
+      roomRef.current?.close();
+    };
+  }, []);
+
+  /** カットイン/テロップは演出メッセージとして参加者にも飛ばす。 */
+  function fireCutin(c: CutIn) {
+    setCutin(c);
+    roomRef.current?.send({ type: "cutin", cutin: c });
+  }
+  function fireTelop(text: string) {
+    setTelop(text);
+    roomRef.current?.send({ type: "telop", text });
   }
 
   /* ===== チャット入力(CCFOLIA 風)===== */
@@ -564,6 +684,22 @@ export function PlayTable({
           </button>
           {!playerMode && (
             <>
+              <button
+                className={`btn mini ${room ? "btn-primary" : ""}`}
+                onClick={() => void startShare()}
+                disabled={netBusy}
+                title={
+                  room
+                    ? `共有中（コード ${room.code}）— クリックで詳細`
+                    : "ネットワーク共有を開始（参加コードを発行）"
+                }
+              >
+                {netBusy
+                  ? "🌐 接続中…"
+                  : room
+                    ? `🌐 ${room.code}・${Math.max(0, members.filter((n) => n !== "GM").length)}人`
+                    : "🌐 共有"}
+              </button>
               {onMenu && (
                 <button
                   className="btn mini"
@@ -592,6 +728,40 @@ export function PlayTable({
         <p className="tag fail" style={{ margin: "6px 12px" }}>
           {error}
         </p>
+      )}
+
+      {/* 共有ポップオーバー(参加コード / 参加者 / 終了)。 */}
+      {sharePop && room && (
+        <div className="share-pop">
+          <div className="share-row">
+            <span className="share-label">参加コード</span>
+            <code className="share-code">{room.code}</code>
+            <button
+              className="btn mini"
+              onClick={() => void navigator.clipboard.writeText(room.code)}
+              title="コードをコピー"
+            >
+              コピー
+            </button>
+          </div>
+          <p className="share-note">
+            参加者はアプリの「卓」タブ →「ネットワークで参加」にこのコードを
+            入力します。ダイス・チャット・盤面が同期されます。
+          </p>
+          <div className="share-members">
+            {members.filter((n) => n !== "GM").length === 0
+              ? "参加者を待っています…"
+              : `参加中: ${members.filter((n) => n !== "GM").join("・")}`}
+          </div>
+          <div className="share-row share-actions">
+            <button className="btn mini" onClick={() => setSharePop(false)}>
+              閉じる
+            </button>
+            <button className="btn mini share-stop" onClick={stopShare}>
+              共有を終了
+            </button>
+          </div>
+        </div>
       )}
 
       {!playerMode && (
@@ -648,11 +818,18 @@ export function PlayTable({
                     }}
                     onTelop={(text, se) => {
                       playSeByName(se);
-                      setTelop(text);
+                      fireTelop(text);
                     }}
                     onEdit={setTextStock}
                   />
                 ),
+              },
+              {
+                id: "scenario",
+                title: "シナリオ",
+                icon: "📜",
+                defaultOpen: false,
+                body: <ScenarioViewer playId={scene.id} />,
               },
               {
                 id: "cutin",
@@ -665,7 +842,7 @@ export function PlayTable({
                     seTracks={scene.se?.tracks ?? []}
                     onAdd={addCutin}
                     onRemove={removeCutin}
-                    onFire={setCutin}
+                    onFire={fireCutin}
                     onSetSound={setCutinSound}
                   />
                 ),

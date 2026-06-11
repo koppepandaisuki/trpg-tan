@@ -38,6 +38,7 @@ export function LogView({
   onSubmit,
   onExport,
   maskSecret = false,
+  viewerName,
   inputRef,
 }: {
   log: PlayEvent[];
@@ -58,6 +59,8 @@ export function LogView({
   onExport?: () => void;
   /** 参加者ビュー: シークレットダイスの出目を伏せて表示する。 */
   maskSecret?: boolean;
+  /** 自分の表示名。visibleTo に含まれるシークレットは伏せずに見せる。 */
+  viewerName?: string;
   inputRef?: Ref<HTMLInputElement>;
 }) {
   const [filter, setFilter] = useState<LogFilter>("all");
@@ -185,7 +188,12 @@ export function LogView({
           </p>
         ) : (
           shown.map((ev) => (
-            <LogRow key={ev.id} ev={ev} maskSecret={maskSecret} />
+            <LogRow
+              key={ev.id}
+              ev={ev}
+              maskSecret={maskSecret}
+              viewerName={viewerName}
+            />
           ))
         )}
       </div>
@@ -259,9 +267,12 @@ export function LogView({
 export function LogRow({
   ev,
   maskSecret = false,
+  viewerName,
 }: {
   ev: PlayEvent;
   maskSecret?: boolean;
+  /** 自分の表示名。visibleTo に含まれていれば出目を見せる。 */
+  viewerName?: string;
 }) {
   if (ev.kind === "chat")
     return (
@@ -271,8 +282,11 @@ export function LogRow({
       </p>
     );
   if (ev.kind === "roll") {
-    // 参加者ビューではシークレットダイスの出目を伏せる。
-    if (maskSecret && ev.secret) {
+    // 参加者ビューではシークレットダイスの出目を伏せる
+    // (「見せる相手」に自分が入っていれば見える)。
+    const canPeek =
+      !!viewerName && (ev.visibleTo ?? []).includes(viewerName);
+    if (maskSecret && ev.secret && !canPeek) {
       return (
         <p className="logrow log-secret">
           <b className="log-actor">{ev.actor}</b>
