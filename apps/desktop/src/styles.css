@@ -3324,6 +3324,224 @@ body {
     opacity: 0;
   }
 }
+/* ===== サイドバーの可変スタック(並べ替え + 高さ変更 + 開閉) ===== */
+.pside,
+.psider {
+  overflow-y: auto;
+}
+.sstack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.ss-sec {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.ss-sec.drag-over {
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+}
+.ss-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--primary-deep);
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface-2);
+}
+.ss-grip {
+  color: var(--text-faint);
+  cursor: grab;
+  font-size: 13px;
+}
+.ss-head:active .ss-grip {
+  cursor: grabbing;
+}
+.ss-caret {
+  color: var(--text-faint);
+  font-size: 11px;
+  width: 11px;
+}
+.ss-ic {
+  font-size: 13px;
+}
+.ss-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ss-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+.ss-resize {
+  height: 7px;
+  cursor: ns-resize;
+  touch-action: none;
+  background:
+    radial-gradient(circle, var(--border-strong) 1px, transparent 1.4px) center /
+    6px 4px repeat-x;
+}
+.ss-resize:hover {
+  background-color: var(--primary-soft);
+}
+/* キャラ一覧(スタック内) */
+.ss-chars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+/* スタック内の BGM プレイヤー(旧 details 用の調整を引き継ぐ) */
+.ss-body .bgm-window {
+  height: auto;
+  padding: 10px 14px 14px;
+}
+.ss-body .bgm-list {
+  max-height: 180px;
+  flex: none;
+}
+/* スタック内のチャットはセクション高さいっぱいに */
+.ss-body .pside-log {
+  flex: 1;
+  min-height: 0;
+  border-top: 0;
+}
+
+/* チャンネル(メイン / 個別チャット) */
+.chan-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px 0;
+  flex-shrink: 0;
+}
+.chan-tab {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 7px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.chan-tab:hover {
+  border-color: var(--border-strong);
+}
+.chan-tab.active {
+  background: var(--primary-deep);
+  border-color: transparent;
+  color: #fff;
+}
+.chan-note {
+  margin: 6px 10px 0;
+  font-size: 11px;
+  color: var(--gold-deep);
+  background: var(--gold-soft);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+}
+
+/* メモ(共有 / 個人) */
+.memo-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  flex: 1;
+  min-height: 0;
+}
+.memo-tabs {
+  display: flex;
+  gap: 4px;
+}
+.memo-area {
+  width: 100%;
+  flex: 1;
+  min-height: 140px;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* ルールブック Q&A */
+.rqa {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+.rqa-books {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.rqa-book {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rqa-book-del {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
+}
+.rqa-book-del:hover {
+  color: #b91c1c;
+}
+.rqa-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+.rqa-hit {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 8px 10px;
+}
+.rqa-hit-src {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-deep);
+  margin-bottom: 4px;
+}
+.rqa-hit-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
 /* PLAY 中のサイドバー・ドロワー(☰ から画面の上に重ねて出す) */
 .drawer-overlay {
   position: fixed;

@@ -40,8 +40,16 @@ export function chatEvent(
   ctx: EventCtx,
   actor: string,
   text: string,
+  channel?: string,
 ): ChatEvent {
-  return { id: ctx.id, ts: ctx.ts, actor, kind: "chat", text };
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor,
+    kind: "chat",
+    text,
+    ...(channel ? { channel } : {}),
+  };
 }
 
 export function systemEvent(ctx: EventCtx, text: string): SystemEvent {

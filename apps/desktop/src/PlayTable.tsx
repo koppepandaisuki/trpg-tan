@@ -39,6 +39,9 @@ import { BgmPlayer } from "./BgmPanel";
 import { BoardStatusBar } from "./BoardStatusBar";
 import { TextStockPanel } from "./TextStock";
 import { CutInPanel, CutInOverlay } from "./CutIn";
+import { SideStack } from "./SideStack";
+import { MemoPanel } from "./MemoPanel";
+import { RulebookQA } from "./RulebookQA";
 import { getLibrary } from "./library";
 import { readSheetFromPath } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
@@ -92,6 +95,8 @@ export function PlayTable({
   // シークレットダイス(出目を伏せる)+ 見せる相手(名前)。
   const [secret, setSecret] = useState(false);
   const [visibleTo, setVisibleTo] = useState<string[]>([]);
+  // チャットのチャンネル("main" or パネル id=個別チャット)。
+  const [channel, setChannel] = useState("main");
   // 再生中のカットイン。
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -223,6 +228,11 @@ export function PlayTable({
     setDirty(true);
   }
 
+  function setSharedMemo(text: string) {
+    setScene((s) => ({ ...s, sharedMemo: text }));
+    setDirty(true);
+  }
+
   function addCutin(name: string, image: string) {
     setScene((s) => ({
       ...s,
@@ -276,10 +286,11 @@ export function PlayTable({
   /** チャット入力(発言 or ダイスコマンド)を解釈して適用。 */
   function handleSend(speakerId: string, raw: string) {
     const { name, edition } = resolveSpeaker(speakerId);
+    const ch = channel === "main" ? undefined : channel;
     const cmd = parseDiceCommand(raw);
     try {
       if (cmd.kind === "none") {
-        dispatch(chatEvent(newCtx(), name, raw));
+        dispatch(chatEvent(newCtx(), name, raw, ch));
         return;
       }
       let ev =
@@ -298,6 +309,10 @@ export function PlayTable({
       // シークレットダイス: 出目を伏せる(見せる相手はチェックで指定)。
       if (secret) {
         ev = { ...ev, secret: true, visibleTo: [...visibleTo] };
+      }
+      // 個別チャット内のロールはそのチャンネルに留める。
+      if (ch) {
+        ev = { ...ev, channel: ch };
       }
       dispatch(ev);
       setMotion(ev);
@@ -404,58 +419,86 @@ export function PlayTable({
       )}
 
       <div className="ptable-body2">
-        {/* 左サイドバー(固定): キャラ + テキスト/カットイン/BGM */}
+        {/* 左サイドバー(固定): ブロックはドラッグで並べ替え・高さ変更可 */}
         <aside className="pside">
-          <div className="pside-chars">
-            {cards.length === 0 ? (
-              <p className="pside-empty muted">
-                「＋キャラ」で保存済みキャラを呼び出せます。盤面には画像の
-                ドロップでマップやオブジェクトを置けます。
-              </p>
-            ) : (
-              cards.map((p) => (
-                <PlayPanel
-                  key={p.id}
-                  panel={p}
-                  onResource={changeResource}
-                  onRemove={removePanel}
-                  onFill={(text) => fill(p.id, text)}
-                  onSend={(text) => sendNow(p.id, text)}
-                  onEditPalette={(text) => updatePanel(p.id, { palette: text })}
-                  onSpeed={(panel, speed) => updatePanel(panel.id, { speed })}
-                />
-              ))
-            )}
-          </div>
-
-          <details className="pside-stock">
-            <summary>📖 テキスト</summary>
-            <TextStockPanel
-              stock={scene.textStock ?? ""}
-              onFill={(text) => fill("GM", text)}
-              onSend={(text) => sendNow("GM", text)}
-              onEdit={setTextStock}
-            />
-          </details>
-
-          <details className="pside-cutin">
-            <summary>🎬 カットイン</summary>
-            <CutInPanel
-              cutins={scene.cutins ?? []}
-              onAdd={addCutin}
-              onRemove={removeCutin}
-              onFire={setCutin}
-            />
-          </details>
-
-          <details className="pside-bgm">
-            <summary>♪ BGM</summary>
-            <BgmPlayer
-              tracks={scene.bgm?.tracks ?? []}
-              onAddTracks={addBgmTracks}
-              onRemoveTrack={removeBgmTrack}
-            />
-          </details>
+          <SideStack
+            storageKey={`trpg.play.stack-left.v1::${scene.id}`}
+            sections={[
+              {
+                id: "chars",
+                title: "キャラクター",
+                icon: "🎭",
+                body: (
+                  <div className="ss-chars">
+                    {cards.length === 0 ? (
+                      <p className="pside-empty muted">
+                        「＋キャラ」で保存済みキャラを呼び出せます。盤面には
+                        画像のドロップでマップやオブジェクトを置けます。
+                      </p>
+                    ) : (
+                      cards.map((p) => (
+                        <PlayPanel
+                          key={p.id}
+                          panel={p}
+                          onResource={changeResource}
+                          onRemove={removePanel}
+                          onFill={(text) => fill(p.id, text)}
+                          onSend={(text) => sendNow(p.id, text)}
+                          onEditPalette={(text) =>
+                            updatePanel(p.id, { palette: text })
+                          }
+                          onSpeed={(panel, speed) =>
+                            updatePanel(panel.id, { speed })
+                          }
+                        />
+                      ))
+                    )}
+                  </div>
+                ),
+              },
+              {
+                id: "stock",
+                title: "テキスト",
+                icon: "📖",
+                defaultOpen: false,
+                body: (
+                  <TextStockPanel
+                    stock={scene.textStock ?? ""}
+                    onFill={(text) => fill("GM", text)}
+                    onSend={(text) => sendNow("GM", text)}
+                    onEdit={setTextStock}
+                  />
+                ),
+              },
+              {
+                id: "cutin",
+                title: "カットイン",
+                icon: "🎬",
+                defaultOpen: false,
+                body: (
+                  <CutInPanel
+                    cutins={scene.cutins ?? []}
+                    onAdd={addCutin}
+                    onRemove={removeCutin}
+                    onFire={setCutin}
+                  />
+                ),
+              },
+              {
+                id: "bgm",
+                title: "BGM",
+                icon: "♪",
+                defaultOpen: false,
+                body: (
+                  <BgmPlayer
+                    tracks={scene.bgm?.tracks ?? []}
+                    onAddTracks={addBgmTracks}
+                    onRemoveTrack={removeBgmTrack}
+                  />
+                ),
+              },
+            ]}
+          />
         </aside>
 
         {/* メイン: シーンバー + 盤面 */}
@@ -485,30 +528,67 @@ export function PlayTable({
           </div>
         </main>
 
-        {/* 右サイドバー(固定): ログ / チャット(CCFOLIA のルームチャット位置) */}
+        {/* 右サイドバー(固定): チャット / メモ / ルールQ&A(並べ替え・高さ変更可) */}
         <aside className="psider">
-          <div className="pside-log">
-            <LogView
-              log={scene.log}
-              speakers={[
-                { id: "GM", name: "GM" },
-                // 発言者・秘匿対象はキャラ駒のみ(画像オブジェクトは含めない)。
-                ...cards.map((p) => ({ id: p.id, name: p.name })),
-              ]}
-              speakerId={compose.speakerId}
-              text={compose.text}
-              secret={secret}
-              visibleTo={visibleTo}
-              onSpeakerChange={(id) =>
-                setCompose((c) => ({ ...c, speakerId: id }))
-              }
-              onTextChange={(t) => setCompose((c) => ({ ...c, text: t }))}
-              onSecretChange={setSecret}
-              onVisibleToChange={setVisibleTo}
-              onSubmit={submitCompose}
-              inputRef={inputRef}
-            />
-          </div>
+          <SideStack
+            storageKey={`trpg.play.stack-right.v1::${scene.id}`}
+            sections={[
+              {
+                id: "chat",
+                title: "チャット / ログ",
+                icon: "💬",
+                defaultHeight: 480,
+                body: (
+                  <div className="pside-log">
+                    <LogView
+                      log={scene.log}
+                      speakers={[
+                        { id: "GM", name: "GM" },
+                        // 発言者・秘匿対象・個別チャットはキャラ駒のみ。
+                        ...cards.map((p) => ({ id: p.id, name: p.name })),
+                      ]}
+                      speakerId={compose.speakerId}
+                      text={compose.text}
+                      secret={secret}
+                      visibleTo={visibleTo}
+                      channel={channel}
+                      onChannelChange={setChannel}
+                      onSpeakerChange={(id) =>
+                        setCompose((c) => ({ ...c, speakerId: id }))
+                      }
+                      onTextChange={(t) =>
+                        setCompose((c) => ({ ...c, text: t }))
+                      }
+                      onSecretChange={setSecret}
+                      onVisibleToChange={setVisibleTo}
+                      onSubmit={submitCompose}
+                      inputRef={inputRef}
+                    />
+                  </div>
+                ),
+              },
+              {
+                id: "memo",
+                title: "メモ",
+                icon: "📝",
+                defaultOpen: false,
+                body: (
+                  <MemoPanel
+                    playId={scene.id}
+                    shared={scene.sharedMemo ?? ""}
+                    onSharedChange={setSharedMemo}
+                  />
+                ),
+              },
+              {
+                id: "rulebook",
+                title: "ルールブック Q&A",
+                icon: "📕",
+                defaultOpen: false,
+                body: <RulebookQA playId={scene.id} />,
+              },
+            ]}
+          />
         </aside>
       </div>
 

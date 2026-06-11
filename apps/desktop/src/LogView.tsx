@@ -9,10 +9,17 @@ export interface Speaker {
 
 type LogFilter = "all" | "chat" | "dice";
 
+/** イベントの所属チャンネル(chat / roll 以外は常にメイン)。 */
+function channelOf(ev: PlayEvent): string {
+  if (ev.kind === "chat" || ev.kind === "roll") return ev.channel ?? "main";
+  return "main";
+}
+
 /**
  * ログ + 入力欄。入力は親(PlayTable)が保持する制御コンポーネント。
+ *  - チャンネル(メイン / キャラごとの個別チャット)を切替
  *  - タブで「すべて / チャット / ダイス」を切替、並び順も昇降切替
- *  - 🔒 でシークレットダイス(見せる相手はチェックボックスで指定)
+ *  - ❓ でシークレットダイス(見せる相手はチェックボックスで指定)
  *  - 技能/パレットのクリックで入力欄に式が入り、手で調整して送信
  */
 export function LogView({
@@ -22,6 +29,8 @@ export function LogView({
   text,
   secret,
   visibleTo,
+  channel,
+  onChannelChange,
   onSpeakerChange,
   onTextChange,
   onSecretChange,
@@ -35,6 +44,9 @@ export function LogView({
   text: string;
   secret: boolean;
   visibleTo: string[];
+  /** 表示/送信先チャンネル("main" or パネル id)。 */
+  channel: string;
+  onChannelChange: (id: string) => void;
   onSpeakerChange: (id: string) => void;
   onTextChange: (t: string) => void;
   onSecretChange: (v: boolean) => void;
@@ -47,14 +59,22 @@ export function LogView({
   const logRef = useRef<HTMLDivElement>(null);
 
   const shown = useMemo(() => {
+    const inChannel = log.filter((ev) => channelOf(ev) === channel);
     const filtered =
       filter === "all"
-        ? log
-        : log.filter((ev) =>
+        ? inChannel
+        : inChannel.filter((ev) =>
             filter === "chat" ? ev.kind === "chat" : ev.kind === "roll",
           );
     return newestFirst ? [...filtered].reverse() : filtered;
-  }, [log, filter, newestFirst]);
+  }, [log, filter, newestFirst, channel]);
+
+  // チャンネル先のキャラが居なくなったらメインへ戻す。
+  useEffect(() => {
+    if (channel !== "main" && !speakers.some((s) => s.id === channel)) {
+      onChannelChange("main");
+    }
+  }, [speakers, channel, onChannelChange]);
 
   // ログが増えたら末尾へ自動スクロール(古い順表示のときだけ)。
   useEffect(() => {
@@ -78,6 +98,37 @@ export function LogView({
 
   return (
     <>
+      {/* チャンネル: メイン + キャラごとの個別チャット(GM⇔キャラ)。 */}
+      <div className="chan-tabs" role="tablist" aria-label="チャンネル">
+        <button
+          role="tab"
+          aria-selected={channel === "main"}
+          className={`chan-tab ${channel === "main" ? "active" : ""}`}
+          onClick={() => onChannelChange("main")}
+        >
+          メイン
+        </button>
+        {speakers
+          .filter((s) => s.id !== "GM")
+          .map((s) => (
+            <button
+              key={s.id}
+              role="tab"
+              aria-selected={channel === s.id}
+              className={`chan-tab ${channel === s.id ? "active" : ""}`}
+              onClick={() => onChannelChange(s.id)}
+              title={`${s.name} との個別チャット`}
+            >
+              🗨 {s.name}
+            </button>
+          ))}
+      </div>
+      {channel !== "main" && (
+        <p className="chan-note">
+          個別チャット — ここの発言と出目はメインには流れません
+        </p>
+      )}
+
       <div className="plog-tabs" role="tablist" aria-label="ログ表示">
         {(
           [
