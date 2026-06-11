@@ -29,7 +29,8 @@ import {
   type CutIn,
   type CoCEdition,
 } from "@trpg/core";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { DiceMotion } from "./DiceMotion";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
@@ -37,7 +38,7 @@ import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
 import { BgmPlayer } from "./BgmPanel";
 import { BoardStatusBar } from "./BoardStatusBar";
-import { TextStockPanel } from "./TextStock";
+import { TextStockPanel, TelopOverlay } from "./TextStock";
 import { CutInPanel, CutInOverlay } from "./CutIn";
 import { SideStack } from "./SideStack";
 import { MemoPanel } from "./MemoPanel";
@@ -97,8 +98,9 @@ export function PlayTable({
   const [visibleTo, setVisibleTo] = useState<string[]>([]);
   // チャットのチャンネル("main" or パネル id=個別チャット)。
   const [channel, setChannel] = useState("main");
-  // 再生中のカットイン。
+  // 再生中のカットイン / テロップ(定型文の画面表示)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
+  const [telop, setTelop] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const characters = useMemo(() => getLibrary(), []);
@@ -249,6 +251,67 @@ export function PlayTable({
     setDirty(true);
   }
 
+  function setCutinSound(
+    id: string,
+    sound: { path: string; name: string } | null,
+  ) {
+    setScene((s) => ({
+      ...s,
+      cutins: (s.cutins ?? []).map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              soundPath: sound?.path,
+              soundName: sound?.name,
+            }
+          : c,
+      ),
+    }));
+    setDirty(true);
+  }
+
+  /** チャットログをテキストファイルへ書き出す(リプレイ保存)。 */
+  async function exportLog() {
+    const nameOf = (id?: string) =>
+      id ? (scene.panels.find((p) => p.id === id)?.name ?? id) : "メイン";
+    const lines: string[] = [];
+    for (const ev of scene.log) {
+      const time = new Date(ev.ts).toLocaleTimeString("ja-JP", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      if (ev.kind === "chat") {
+        lines.push(`[${time}][${nameOf(ev.channel)}] ${ev.actor}: ${ev.text}`);
+      } else if (ev.kind === "roll") {
+        const res = ev.check
+          ? `${ev.check.isSuccess ? "成功" : "失敗"}(${ev.check.level})`
+          : ev.success !== undefined
+            ? ev.success
+              ? "成功"
+              : "失敗"
+            : "";
+        lines.push(
+          `[${time}][${nameOf(ev.channel)}] ${ev.actor}: 🎲 ${ev.label} [${ev.dice.join(",")}] = ${ev.total}${res ? ` ${res}` : ""}${ev.secret ? "（シークレット）" : ""}`,
+        );
+      } else if (ev.kind === "resource") {
+        lines.push(
+          `[${time}] ${ev.actor}: ${ev.label} ${ev.delta >= 0 ? "+" : ""}${ev.delta} → ${ev.current}`,
+        );
+      } else if (ev.kind === "system") {
+        lines.push(`[${time}] ${ev.text}`);
+      }
+    }
+    try {
+      const p = await saveDialog({
+        defaultPath: `${scene.title || "session"}-log.txt`,
+        filters: [{ name: "テキスト", extensions: ["txt"] }],
+      });
+      if (p) await writeTextFile(p, lines.join("\n"));
+    } catch (e) {
+      setError(`ログを書き出せませんでした: ${String(e)}`);
+    }
+  }
+
   /** 新しい駒の初期配置(盤面のやや中央寄りにランダム)。 */
   function spawnPos(): { x: number; y: number } {
     return { x: 0.3 + Math.random() * 0.4, y: 0.3 + Math.random() * 0.3 };
@@ -293,19 +356,26 @@ export function PlayTable({
         dispatch(chatEvent(newCtx(), name, raw, ch));
         return;
       }
-      let ev =
-        cmd.kind === "notation"
-          ? freeRollEvent(newCtx(), name, cmd.notation, cmd.label)
-          : cmd.kind === "coc"
-            ? checkEvent(newCtx(), name, cmd.label, cmd.target, edition)
-            : compareRollEvent(
-                newCtx(),
-                name,
-                cmd.notation,
-                cmd.op,
-                cmd.target,
-                cmd.label,
-              );
+      let ev: RollEvent;
+      if (cmd.kind === "notation") {
+        ev = freeRollEvent(newCtx(), name, cmd.notation, cmd.label);
+      } else if (cmd.kind === "coc") {
+        ev = checkEvent(newCtx(), name, cmd.label, cmd.target, edition);
+      } else if (cmd.kind === "choice") {
+        // choice[a,b,c]: 1d{N} を振って選択肢を 1 つ選ぶ。
+        const base = freeRollEvent(newCtx(), name, `1d${cmd.options.length}`);
+        const picked = cmd.options[(base.dice[0] ?? 1) - 1];
+        ev = { ...base, label: `choice → ${picked}` };
+      } else {
+        ev = compareRollEvent(
+          newCtx(),
+          name,
+          cmd.notation,
+          cmd.op,
+          cmd.target,
+          cmd.label,
+        );
+      }
       // シークレットダイス: 出目を伏せる(見せる相手はチェックで指定)。
       if (secret) {
         ev = { ...ev, secret: true, visibleTo: [...visibleTo] };
@@ -466,6 +536,7 @@ export function PlayTable({
                     stock={scene.textStock ?? ""}
                     onFill={(text) => fill("GM", text)}
                     onSend={(text) => sendNow("GM", text)}
+                    onTelop={setTelop}
                     onEdit={setTextStock}
                   />
                 ),
@@ -481,6 +552,7 @@ export function PlayTable({
                     onAdd={addCutin}
                     onRemove={removeCutin}
                     onFire={setCutin}
+                    onSetSound={setCutinSound}
                   />
                 ),
               },
@@ -562,6 +634,7 @@ export function PlayTable({
                       onSecretChange={setSecret}
                       onVisibleToChange={setVisibleTo}
                       onSubmit={submitCompose}
+                      onExport={() => void exportLog()}
                       inputRef={inputRef}
                     />
                   </div>
@@ -596,6 +669,7 @@ export function PlayTable({
         <DiceMotion roll={motion} onClose={() => setMotion(null)} />
       )}
       {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}
+      {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}
     </div>
   );
 }

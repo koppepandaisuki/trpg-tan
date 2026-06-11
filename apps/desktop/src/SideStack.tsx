@@ -48,7 +48,12 @@ export function SideStack({
   sections: SideSection[];
 }) {
   const [state, setState] = useState<StackState>(() => load(storageKey));
-  const dragId = useRef<string | null>(null);
+  // 並べ替えドラッグ(ポインタ式)。HTML5 DnD は WebView で不安定なので使わない。
+  const reorderRef = useRef<{
+    id: string;
+    mids: { id: string; mid: number }[];
+  } | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const resizeRef = useRef<{ id: string; startY: number; startH: number } | null>(
     null,
@@ -83,15 +88,50 @@ export function SideStack({
     }));
   }
 
-  function drop(targetId: string) {
-    const src = dragId.current;
-    dragId.current = null;
+  /* ===== 並べ替え(⠿ をポインタドラッグ) ===== */
+
+  function startReorder(e: React.PointerEvent, id: string) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // 各セクションの中点 Y を記録(ドラッグ中はこの座標で挿入先を判定)。
+    const mids = ordered.map((s) => {
+      const el = document.getElementById(`ss-sec-${storageKey}-${s.id}`);
+      const r = el?.getBoundingClientRect();
+      return { id: s.id, mid: r ? r.top + r.height / 2 : 0 };
+    });
+    reorderRef.current = { id, mids };
+    setDragging(id);
+  }
+
+  /** ポインタ位置 → 挿入先(この id の前に入れる。"__end__"=末尾)。 */
+  function reorderTarget(clientY: number): string {
+    const r = reorderRef.current;
+    if (!r) return "__end__";
+    for (const m of r.mids) {
+      if (m.id !== r.id && clientY < m.mid) return m.id;
+    }
+    return "__end__";
+  }
+
+  function onReorderMove(e: React.PointerEvent) {
+    if (!reorderRef.current) return;
+    setOverId(reorderTarget(e.clientY));
+  }
+
+  function endReorder(e: React.PointerEvent) {
+    const r = reorderRef.current;
+    reorderRef.current = null;
+    setDragging(null);
     setOverId(null);
-    if (!src || src === targetId) return;
+    if (!r) return;
+    const target = reorderTarget(e.clientY);
+    if (target === r.id) return;
     setState((st) => {
-      const ids = ordered.map((s) => s.id).filter((id) => id !== src);
-      const at = ids.indexOf(targetId);
-      ids.splice(at < 0 ? ids.length : at, 0, src);
+      const ids = ordered.map((s) => s.id).filter((id) => id !== r.id);
+      const at = target === "__end__" ? ids.length : ids.indexOf(target);
+      ids.splice(at < 0 ? ids.length : at, 0, r.id);
       return { ...st, order: ids };
     });
   }
@@ -124,32 +164,29 @@ export function SideStack({
         return (
           <section
             key={s.id}
-            className={`ss-sec ${overId === s.id ? "drag-over" : ""}`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setOverId(s.id);
-            }}
-            onDragLeave={() => setOverId((v) => (v === s.id ? null : v))}
-            onDrop={(e) => {
-              e.preventDefault();
-              drop(s.id);
-            }}
+            id={`ss-sec-${storageKey}-${s.id}`}
+            className={`ss-sec ${overId === s.id ? "drag-over" : ""} ${
+              dragging === s.id ? "dragging" : ""
+            } ${
+              overId === "__end__" && ordered[ordered.length - 1]?.id === s.id
+                ? "drag-over-end"
+                : ""
+            }`}
           >
             <div
               className="ss-head"
-              draggable
-              onDragStart={(e) => {
-                dragId.current = s.id;
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              onDragEnd={() => {
-                dragId.current = null;
-                setOverId(null);
-              }}
               onClick={() => toggle(s.id, s.defaultOpen ?? true)}
-              title="クリックで開閉 / ドラッグで並べ替え"
+              title="クリックで開閉"
             >
-              <span className="ss-grip" aria-hidden>
+              <span
+                className="ss-grip"
+                aria-hidden
+                onPointerDown={(e) => startReorder(e, s.id)}
+                onPointerMove={onReorderMove}
+                onPointerUp={endReorder}
+                onClick={(e) => e.stopPropagation()}
+                title="ドラッグで並べ替え"
+              >
                 ⠿
               </span>
               <span className="ss-caret" aria-hidden>

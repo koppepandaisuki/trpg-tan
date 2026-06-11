@@ -30,7 +30,8 @@ export type DiceCommand =
       op: CompareOp;
       target: number;
       label: string;
-    };
+    }
+  | { kind: "choice"; options: string[]; label: string };
 
 /** 記法として解釈でき、かつダイス(d)を含むか。 */
 function isDiceRoll(s: string): boolean {
@@ -63,6 +64,18 @@ function normalizeOp(raw: string): CompareOp {
 export function parseDiceCommand(input: string): DiceCommand {
   const s = input.trim();
   if (!s) return { kind: "none" };
+
+  // choice[a,b,c] / choice[a、b、c]: 選択肢からランダムに 1 つ選ぶ(BCDice 風)。
+  const ch = s.match(/^choice\[(.+)\]$/i);
+  if (ch) {
+    const options = ch[1]
+      .split(/[,、]/)
+      .map((o) => o.trim())
+      .filter(Boolean);
+    if (options.length >= 2) {
+      return { kind: "choice", options, label: s };
+    }
+  }
 
   // CoC: CC / CCB (+ 任意の <= / 括弧) + 目標値。例 CC<=70, CCB(70), CCB70
   const cc = s.match(/^ccb?(?:<=|≦)?\s*\(?(\d{1,3})\)?(?:\s+(.+))?$/i);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Panel, PlayBoard as BoardState } from "@trpg/core";
 
 /**
@@ -71,6 +71,16 @@ export function PlayBoard({
   } | null>(null);
   const [dropActive, setDropActive] = useState(false);
   const [menu, setMenu] = useState<{ panelId: string; x: number; y: number } | null>(null);
+  // グリッド吸着(40px セル中心へスナップ)。設定は端末に保存。
+  const [snap, setSnap] = useState(
+    () => localStorage.getItem("trpg.board.snap.v1") !== "0",
+  );
+  function toggleSnap() {
+    setSnap((v) => {
+      localStorage.setItem("trpg.board.snap.v1", v ? "0" : "1");
+      return !v;
+    });
+  }
 
   const menuPanel = menu ? panels.find((p) => p.id === menu.panelId) ?? null : null;
 
@@ -128,7 +138,18 @@ export function PlayBoard({
       return;
     }
     if (drag) {
-      onMove(drag.id, drag.x, drag.y);
+      let { x, y } = drag;
+      // 吸着: 40px グリッドのセル中心へスナップ(グリッド表示時のみ)。
+      if (snap && grid) {
+        const r = ref.current?.getBoundingClientRect();
+        if (r) {
+          const sx = Math.floor((x * r.width) / 40) * 40 + 20;
+          const sy = Math.floor((y * r.height) / 40) * 40 + 20;
+          x = Math.max(0, Math.min(1, sx / r.width));
+          y = Math.max(0, Math.min(1, sy / r.height));
+        }
+      }
+      onMove(drag.id, x, y);
       setDrag(null);
     }
   }
@@ -199,6 +220,15 @@ export function PlayBoard({
         <button className="btn mini" onClick={onToggleGrid}>
           グリッド: {grid ? "ON" : "OFF"}
         </button>
+        {grid && (
+          <button
+            className="btn mini"
+            onClick={toggleSnap}
+            title="駒をグリッドのマス目に吸着させる"
+          >
+            吸着: {snap ? "ON" : "OFF"}
+          </button>
+        )}
         <span className="board-hint muted">画像をここにドロップでも追加</span>
       </div>
 
@@ -333,8 +363,17 @@ function ObjectMenu({
 }) {
   const [name, setName] = useState(panel.name);
   const [note, setNote] = useState(panel.note ?? "");
-  const left = Math.min(x, window.innerWidth - 250);
-  const top = Math.min(y, window.innerHeight - 280);
+  // メニュー実寸を測ってから画面内に収める(画面下/右の駒でも埋もれない)。
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: x, top: y });
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    setPos({
+      left: Math.max(8, Math.min(x, window.innerWidth - el.offsetWidth - 10)),
+      top: Math.max(8, Math.min(y, window.innerHeight - el.offsetHeight - 10)),
+    });
+  }, [x, y]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -343,7 +382,12 @@ function ObjectMenu({
   }, [onClose]);
 
   return (
-    <div className="ctx-menu" style={{ left, top }} onClick={(e) => e.stopPropagation()}>
+    <div
+      ref={menuRef}
+      className="ctx-menu"
+      style={{ left: pos.left, top: pos.top }}
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="ctx-head">
         {panel.source === "sheet" ? "キャラ駒" : "オブジェクト"}
       </div>
