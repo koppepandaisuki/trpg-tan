@@ -16,6 +16,7 @@ import {
   type StoreHome,
   type StoreSort,
   type StoreReviewSummary,
+  type FeaturedItem,
 } from "./store-remote";
 
 /**
@@ -61,27 +62,32 @@ function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
   );
 }
 
-/* ===== ホーム: 大型カルーセル(Steam のフィーチャー枠) ===== */
-
+/* ===== ホーム: 「注目＆おすすめ」カルーセル(Steam 型) =====
+ *  - 中央: 大きなカバー(右パネルのスクショにホバーすると差し替わる)
+ *  - 右: 作品名 / 評価 / スクショ 2×2 の情報パネル
+ *  - 左右端: 前後の作品が少し覗く(クリックで送り)
+ */
 function HeroCarousel({
   items,
   purchased,
   onOpen,
 }: {
-  items: StoreItem[];
+  items: FeaturedItem[];
   purchased: Set<string>;
   onOpen: (item: StoreItem) => void;
 }) {
   const [idx, setIdx] = useState(0);
+  const [hoverShot, setHoverShot] = useState<string | null>(null);
   const timer = useRef<number | undefined>(undefined);
 
-  // 6 秒ごとに自動送り。手動選択でタイマーを巻き直す。
+  // 7 秒ごとに自動送り。手動操作でタイマーを巻き直す。
   const restart = useCallback(() => {
     window.clearInterval(timer.current);
     if (items.length <= 1) return;
     timer.current = window.setInterval(() => {
       setIdx((i) => (i + 1) % items.length);
-    }, 6000);
+      setHoverShot(null);
+    }, 7000);
   }, [items.length]);
 
   useEffect(() => {
@@ -90,86 +96,130 @@ function HeroCarousel({
   }, [restart]);
 
   if (items.length === 0) return null;
-  const cur = items[Math.min(idx, items.length - 1)];
+  const n = items.length;
+  const cur = items[Math.min(idx, n - 1)];
+  const prev = items[(idx - 1 + n) % n];
+  const next = items[(idx + 1) % n];
 
   function select(i: number) {
-    setIdx(i);
+    setIdx(((i % n) + n) % n);
+    setHoverShot(null);
     restart();
   }
 
+  const mainImg = hoverShot ?? cur.coverUrl;
+
   return (
-    <div className="hero">
-      <div className="hero-main" onClick={() => onOpen(cur)} role="button">
-        {cur.coverUrl ? (
-          <img key={cur.id} src={cur.coverUrl} alt={cur.title} />
-        ) : (
-          <span className="store-noimg">No Image</span>
+    <section className="feat">
+      <div className="strip-head">
+        <h3>注目＆おすすめ</h3>
+      </div>
+      <div className="feat-row">
+        {/* 左ピーク(前の作品) */}
+        {n > 1 && (
+          <button
+            className="feat-peek left"
+            onClick={() => select(idx - 1)}
+            title={prev.title}
+            aria-label="前へ"
+          >
+            {prev.coverUrl && <img src={prev.coverUrl} alt="" loading="lazy" />}
+            <span className="feat-peek-arrow">‹</span>
+          </button>
         )}
-        <div className="hero-overlay">
-          <span className="hero-kicker">おすすめ＆注目</span>
-          <h3 className="hero-title">{cur.title}</h3>
-          <div className="hero-meta">
-            <span className="hero-creator">
-              {cur.creator.avatarUrl && <img src={cur.creator.avatarUrl} alt="" />}
-              {cur.creator.displayName || "（無名）"}
-            </span>
-            <ReviewBadge review={cur.review} />
-            <span className="hero-price">{formatPriceJpy(cur.priceJpy)}</span>
-            {purchased.has(cur.id) && (
-              <span className="store-owned-chip static">✓ 購入済み</span>
+
+        {/* 中央 + 右パネル(ひとつのカード) */}
+        <div className="feat-card" onClick={() => onOpen(cur)} role="button">
+          <div className="feat-main">
+            {mainImg ? (
+              <img key={mainImg} src={mainImg} alt={cur.title} />
+            ) : (
+              <span className="store-noimg">No Image</span>
             )}
+            <div className="hero-overlay">
+              <div className="hero-meta">
+                <span className="hero-creator">
+                  {cur.creator.avatarUrl && (
+                    <img src={cur.creator.avatarUrl} alt="" />
+                  )}
+                  {cur.creator.displayName || "（無名）"}
+                </span>
+                <span className="hero-price">{formatPriceJpy(cur.priceJpy)}</span>
+                {purchased.has(cur.id) && (
+                  <span className="store-owned-chip static">✓ 購入済み</span>
+                )}
+              </div>
+            </div>
           </div>
+
+          <aside className="feat-info">
+            <h4 className="feat-title">{cur.title}</h4>
+            <p className="feat-revline">
+              {cur.review && cur.review.total > 0 ? (
+                <>
+                  <span className={`feat-revlabel ${reviewTone(cur.review.label)}`}>
+                    {cur.review.label}
+                  </span>
+                  <span className="muted">
+                    （{cur.review.total.toLocaleString("ja-JP")}件のレビュー）
+                  </span>
+                </>
+              ) : (
+                <span className="muted">レビュー募集中</span>
+              )}
+            </p>
+            <div className="feat-shots">
+              {(cur.screens.length > 0
+                ? cur.screens
+                : cur.coverUrl
+                  ? [cur.coverUrl]
+                  : []
+              ).map((url) => (
+                <span
+                  key={url}
+                  className="feat-shot"
+                  onMouseEnter={() => setHoverShot(url)}
+                  onMouseLeave={() => setHoverShot(null)}
+                >
+                  <img src={url} alt="" loading="lazy" />
+                </span>
+              ))}
+            </div>
+            <p className="feat-tagline muted">
+              {PRODUCT_TYPE_LABEL[cur.productType] ?? cur.productType}
+              {cur.systemLabel ? ` ・ ${cur.systemLabel}` : ""}
+            </p>
+          </aside>
         </div>
-        {items.length > 1 && (
-          <>
-            <button
-              className="hero-arrow left"
-              onClick={(e) => {
-                e.stopPropagation();
-                select((idx - 1 + items.length) % items.length);
-              }}
-              aria-label="前へ"
-            >
-              ‹
-            </button>
-            <button
-              className="hero-arrow right"
-              onClick={(e) => {
-                e.stopPropagation();
-                select((idx + 1) % items.length);
-              }}
-              aria-label="次へ"
-            >
-              ›
-            </button>
-          </>
+
+        {/* 右ピーク(次の作品) */}
+        {n > 1 && (
+          <button
+            className="feat-peek right"
+            onClick={() => select(idx + 1)}
+            title={next.title}
+            aria-label="次へ"
+          >
+            {next.coverUrl && <img src={next.coverUrl} alt="" loading="lazy" />}
+            <span className="feat-peek-arrow">›</span>
+          </button>
         )}
       </div>
 
-      {items.length > 1 && (
-        <div className="hero-side">
+      {/* ドットインジケータ */}
+      {n > 1 && (
+        <div className="feat-dots">
           {items.map((it, i) => (
             <button
               key={it.id}
-              className={`hero-thumb ${i === idx ? "active" : ""}`}
+              className={`feat-dot ${i === idx ? "active" : ""}`}
               onClick={() => select(i)}
-              onDoubleClick={() => onOpen(it)}
-              title={it.title}
-            >
-              <span className="hero-thumb-img">
-                {it.coverUrl ? <img src={it.coverUrl} alt="" loading="lazy" /> : "◆"}
-              </span>
-              <span className="hero-thumb-meta">
-                <span className="hero-thumb-title">{it.title}</span>
-                <span className="hero-thumb-price">
-                  {formatPriceJpy(it.priceJpy)}
-                </span>
-              </span>
-            </button>
+              aria-label={it.title}
+            />
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -633,6 +683,20 @@ export function StorePanel({
 
           {home && home.featured.length > 0 && (
             <div className="shome" aria-busy={detailLoading}>
+              {/* 大型バナー(Steam のフェス枠相当。今はブランド常設) */}
+              <div className="sbanner" onClick={() => browseWith({})}>
+                <span className="sbanner-dice" aria-hidden>
+                  🎲
+                </span>
+                <div className="sbanner-copy">
+                  <strong className="sbanner-title">パラDa-iCE ストア</strong>
+                  <span className="sbanner-sub">
+                    シナリオ・マップ・素材がここに。買ったらそのまま卓へ。
+                  </span>
+                </div>
+                <span className="sbanner-cta">すべての作品を見る →</span>
+              </div>
+
               <HeroCarousel
                 items={home.featured}
                 purchased={purchased}
