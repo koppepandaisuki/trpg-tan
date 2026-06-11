@@ -202,6 +202,16 @@ describe("盤面(board)", () => {
     expect(s.panels[0].sceneId).toBeNull();
     s = reduce(s, panelUpdateEvent(ctx("e8"), "t1", { locked: true }));
     expect(s.panels[0].locked).toBe(true);
+    // 差分: variants の登録と portrait の切替。
+    s = reduce(
+      s,
+      panelUpdateEvent(ctx("e9"), "t1", {
+        variants: [{ id: "v1", label: "笑顔", image: "data:v1" }],
+      }),
+    );
+    expect(s.panels[0].variants).toHaveLength(1);
+    s = reduce(s, panelUpdateEvent(ctx("e10"), "t1", { portrait: "data:v1" }));
+    expect(s.panels[0].portrait).toBe("data:v1");
   });
 
   it("panelFromSheet は DEX から速さを初期化", () => {

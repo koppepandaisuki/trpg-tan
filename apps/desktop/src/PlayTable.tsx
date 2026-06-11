@@ -22,6 +22,7 @@ import {
   type PlayEvent,
   type RollEvent,
   type Panel,
+  type PanelVariant,
   type PanelStat,
   type PanelResource,
   type BgmTrack,
@@ -268,9 +269,20 @@ export function PlayTable({
       sceneId?: string | null;
       layer?: number;
       locked?: boolean;
+      portrait?: string | null;
+      variants?: PanelVariant[];
     },
   ) {
     dispatch(panelUpdateEvent(newCtx(), id, patch));
+  }
+
+  /** 差分切替(ラベル一致)。見つかれば portrait を差し替えて true。 */
+  function switchVariant(panelId: string, label: string): boolean {
+    const p = scene.panels.find((x) => x.id === panelId);
+    const v = p?.variants?.find((x) => x.label === label);
+    if (!p || !v) return false;
+    dispatch(panelUpdateEvent(newCtx(), panelId, { portrait: v.image }));
+    return true;
   }
 
   /* ===== シナリオテキストストック / カットイン(GM ローカル編集) ===== */
@@ -400,6 +412,24 @@ export function PlayTable({
   function handleSend(speakerId: string, raw: string) {
     const { name, edition } = resolveSpeaker(speakerId);
     const ch = channel === "main" ? undefined : channel;
+
+    // 差分切替(キャラ発言時のみ):
+    //   「face ラベル」/「@ラベル」単独 → 切替のみ
+    //   「発言 @ラベル」 → 切替してから残りを発言(CCFOLIA 風)
+    if (speakerId !== "GM") {
+      const only = raw.match(/^(?:face[:：]?\s*|@)(\S+)$/i);
+      if (only) {
+        if (!switchVariant(speakerId, only[1])) {
+          setError(`差分「${only[1]}」が見つかりません（右クリックメニューで登録）`);
+        }
+        return;
+      }
+      const suffix = raw.match(/^([\s\S]*\S)\s+@(\S+)$/);
+      if (suffix && switchVariant(speakerId, suffix[2])) {
+        raw = suffix[1];
+      }
+    }
+
     const cmd = parseDiceCommand(raw);
     try {
       if (cmd.kind === "none") {

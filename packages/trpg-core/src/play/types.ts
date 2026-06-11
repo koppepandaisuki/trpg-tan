@@ -36,6 +36,15 @@ export interface PanelResource {
 
 export type PanelSource = "sheet" | "token";
 
+/** キャラの差分(立ち絵/表情/状態)。portrait を切り替える候補。 */
+export interface PanelVariant {
+  id: string;
+  /** 表示名("基本" / "笑顔" / "負傷"…)。チャットの @ラベル で参照する。 */
+  label: string;
+  /** data URL。 */
+  image: string;
+}
+
 /** 卓上のキャラ駒。.ccsheet 由来(snapshot)か自由トークン。 */
 export interface Panel {
   id: string;
@@ -70,6 +79,8 @@ export interface Panel {
   layer?: number;
   /** 位置固定(ドラッグ移動・リサイズを禁止)。 */
   locked?: boolean;
+  /** 差分(立ち絵/表情)。切替は panel-update の portrait で行う。 */
+  variants?: PanelVariant[];
 }
 
 /** 盤面(背景マップ + グリッド)。 */
@@ -229,6 +240,10 @@ export interface PanelUpdateEvent extends BaseEvent {
     sceneId?: string | null;
     layer?: number;
     locked?: boolean;
+    /** 差分切替(現在の立ち絵)。 */
+    portrait?: string | null;
+    /** 差分リストの編集。 */
+    variants?: PanelVariant[];
   };
 }
 

@@ -4,6 +4,7 @@ import { rollCoCCheck, type CoCEdition } from "../dice/coc-check.js";
 import { compareRoll, type CompareOp } from "../dice/command.js";
 import type {
   Panel,
+  PanelVariant,
   PanelResource,
   ChatEvent,
   RollEvent,
@@ -170,6 +171,8 @@ export function panelUpdateEvent(
     sceneId?: string | null;
     layer?: number;
     locked?: boolean;
+    portrait?: string | null;
+    variants?: PanelVariant[];
   },
 ): PanelUpdateEvent {
   return {
