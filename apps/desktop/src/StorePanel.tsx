@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
@@ -7,21 +7,23 @@ import type { RemoteProductType } from "./library-remote";
 import {
   fetchStore,
   fetchStoreDetail,
+  fetchStoreHome,
   fetchMyPurchasedIds,
   formatPriceJpy,
   webProductUrl,
   type StoreItem,
   type StoreDetail,
+  type StoreHome,
   type StoreSort,
   type StoreReviewSummary,
 } from "./store-remote";
 
 /**
- * ストア(メインペイン)。Web のストアをアプリ内に移植したもの。
- *  - 一覧: カテゴリ / 検索(タイトル・作者・タグ) / 並び順 / ページング
- *  - 詳細: カバー + スクショギャラリー / 説明 / メタ / タグ / レビュー
- *  - 決済だけは Web(Stripe)で行う → 商品ページをブラウザで開く
- *  - ログイン中は購入済みを検出してバッジ + 「購入タブで開く」導線
+ * ストア(メインペイン)。Steam ライクな 3 面構成:
+ *  - ホーム: 大型カルーセル(フィーチャー) + 急上昇 / 新着 / 好評 /
+ *    ジャンル別の横スクロール・ストリップ
+ *  - 一覧: カテゴリ / 検索 / 並び順 / ページングのグリッド
+ *  - 詳細: ギャラリー / 説明 / メタ / レビュー / 購入導線(決済は Web)
  */
 
 const CATEGORIES: { key: RemoteProductType | null; label: string }[] = [
@@ -33,7 +35,14 @@ const CATEGORIES: { key: RemoteProductType | null; label: string }[] = [
   { key: "bgm_audio", label: "BGM/音声" },
 ];
 
-/** レビューラベル → 色トーン。 */
+const CATEGORY_ICON: Record<RemoteProductType, string> = {
+  scenario: "📜",
+  rulebook: "📕",
+  character_art: "🎭",
+  map: "🗺",
+  bgm_audio: "♪",
+};
+
 function reviewTone(label: string): string {
   if (label.includes("好評")) return "ok";
   if (label === "賛否両論") return "mid";
@@ -52,6 +61,182 @@ function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
   );
 }
 
+/* ===== ホーム: 大型カルーセル(Steam のフィーチャー枠) ===== */
+
+function HeroCarousel({
+  items,
+  purchased,
+  onOpen,
+}: {
+  items: StoreItem[];
+  purchased: Set<string>;
+  onOpen: (item: StoreItem) => void;
+}) {
+  const [idx, setIdx] = useState(0);
+  const timer = useRef<number | undefined>(undefined);
+
+  // 6 秒ごとに自動送り。手動選択でタイマーを巻き直す。
+  const restart = useCallback(() => {
+    window.clearInterval(timer.current);
+    if (items.length <= 1) return;
+    timer.current = window.setInterval(() => {
+      setIdx((i) => (i + 1) % items.length);
+    }, 6000);
+  }, [items.length]);
+
+  useEffect(() => {
+    restart();
+    return () => window.clearInterval(timer.current);
+  }, [restart]);
+
+  if (items.length === 0) return null;
+  const cur = items[Math.min(idx, items.length - 1)];
+
+  function select(i: number) {
+    setIdx(i);
+    restart();
+  }
+
+  return (
+    <div className="hero">
+      <div className="hero-main" onClick={() => onOpen(cur)} role="button">
+        {cur.coverUrl ? (
+          <img key={cur.id} src={cur.coverUrl} alt={cur.title} />
+        ) : (
+          <span className="store-noimg">No Image</span>
+        )}
+        <div className="hero-overlay">
+          <span className="hero-kicker">おすすめ＆注目</span>
+          <h3 className="hero-title">{cur.title}</h3>
+          <div className="hero-meta">
+            <span className="hero-creator">
+              {cur.creator.avatarUrl && <img src={cur.creator.avatarUrl} alt="" />}
+              {cur.creator.displayName || "（無名）"}
+            </span>
+            <ReviewBadge review={cur.review} />
+            <span className="hero-price">{formatPriceJpy(cur.priceJpy)}</span>
+            {purchased.has(cur.id) && (
+              <span className="store-owned-chip static">✓ 購入済み</span>
+            )}
+          </div>
+        </div>
+        {items.length > 1 && (
+          <>
+            <button
+              className="hero-arrow left"
+              onClick={(e) => {
+                e.stopPropagation();
+                select((idx - 1 + items.length) % items.length);
+              }}
+              aria-label="前へ"
+            >
+              ‹
+            </button>
+            <button
+              className="hero-arrow right"
+              onClick={(e) => {
+                e.stopPropagation();
+                select((idx + 1) % items.length);
+              }}
+              aria-label="次へ"
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+
+      {items.length > 1 && (
+        <div className="hero-side">
+          {items.map((it, i) => (
+            <button
+              key={it.id}
+              className={`hero-thumb ${i === idx ? "active" : ""}`}
+              onClick={() => select(i)}
+              onDoubleClick={() => onOpen(it)}
+              title={it.title}
+            >
+              <span className="hero-thumb-img">
+                {it.coverUrl ? <img src={it.coverUrl} alt="" loading="lazy" /> : "◆"}
+              </span>
+              <span className="hero-thumb-meta">
+                <span className="hero-thumb-title">{it.title}</span>
+                <span className="hero-thumb-price">
+                  {formatPriceJpy(it.priceJpy)}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== ホーム: 横スクロールのストリップ ===== */
+
+function Strip({
+  icon,
+  title,
+  items,
+  purchased,
+  onOpen,
+  onMore,
+}: {
+  icon: string;
+  title: string;
+  items: StoreItem[];
+  purchased: Set<string>;
+  onOpen: (item: StoreItem) => void;
+  onMore?: () => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="strip">
+      <div className="strip-head">
+        <h3>
+          {icon} {title}
+        </h3>
+        {onMore && (
+          <button className="strip-more" onClick={onMore}>
+            すべて見る →
+          </button>
+        )}
+      </div>
+      <div className="strip-row">
+        {items.map((it) => (
+          <button
+            key={it.id}
+            className="strip-card"
+            onClick={() => onOpen(it)}
+            title={it.title}
+          >
+            <span className="strip-cover">
+              {it.coverUrl ? (
+                <img src={it.coverUrl} alt="" loading="lazy" />
+              ) : (
+                <span className="store-noimg">No Image</span>
+              )}
+              {purchased.has(it.id) && (
+                <span className="store-owned-chip">✓ 購入済み</span>
+              )}
+            </span>
+            <span className="strip-title">{it.title}</span>
+            <span className="strip-foot">
+              <span className="store-price small">{formatPriceJpy(it.priceJpy)}</span>
+              <ReviewBadge review={it.review} />
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ===== 本体 ===== */
+
+type ViewMode = "home" | "browse";
+
 export function StorePanel({
   initialCategory = null,
   onGoLibrary,
@@ -61,6 +246,15 @@ export function StorePanel({
   onGoLibrary?: () => void;
 }) {
   const { session } = useAuth();
+
+  // ジャンル指定で開かれたら最初から一覧、それ以外はホーム。
+  const [view, setView] = useState<ViewMode>(initialCategory ? "browse" : "home");
+
+  // ホーム。
+  const [home, setHome] = useState<StoreHome | null>(null);
+  const [homeLoading, setHomeLoading] = useState(false);
+
+  // 一覧(ブラウズ)の条件。
   const [category, setCategory] = useState<RemoteProductType | null>(
     initialCategory,
   );
@@ -68,21 +262,32 @@ export function StorePanel({
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<StoreSort>("published");
   const [page, setPage] = useState(1);
-
   const [items, setItems] = useState<StoreItem[] | null>(null);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
+  const [error, setError] = useState<string | null>(null);
   const [purchased, setPurchased] = useState<Set<string>>(new Set());
 
-  // 詳細ビュー(null なら一覧)。
+  // 詳細(どのビューの上にも被せられる)。
   const [detail, setDetail] = useState<StoreDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [mainImage, setMainImage] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  // ホームの読み込み(初回のみ。再訪はキャッシュ)。
+  useEffect(() => {
+    if (view !== "home" || home || homeLoading) return;
+    setHomeLoading(true);
+    setError(null);
+    fetchStoreHome()
+      .then(setHome)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setHomeLoading(false));
+  }, [view, home, homeLoading]);
+
+  // 一覧の読み込み。
+  const loadBrowse = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -98,8 +303,8 @@ export function StorePanel({
   }, [category, q, sort, page]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (view === "browse") void loadBrowse();
+  }, [view, loadBrowse]);
 
   // 購入済み集合(ログイン中のみ)。
   useEffect(() => {
@@ -129,9 +334,22 @@ export function StorePanel({
     }
   }
 
-  function search() {
+  function browseWith(opts: {
+    category?: RemoteProductType | null;
+    q?: string;
+    sort?: StoreSort;
+  }) {
+    setDetail(null);
+    setCategory(opts.category ?? null);
+    setQ(opts.q ?? "");
+    setQInput(opts.q ?? "");
+    if (opts.sort) setSort(opts.sort);
     setPage(1);
-    setQ(qInput);
+    setView("browse");
+  }
+
+  function search() {
+    browseWith({ category, q: qInput, sort });
   }
 
   if (!supabaseConfigured) {
@@ -185,11 +403,9 @@ export function StorePanel({
                 </div>
               )}
 
-              {/* 説明 */}
               <h3 className="store-sec">作品について</h3>
               <p className="store-desc">{detail.description || "（説明なし）"}</p>
 
-              {/* レビュー */}
               <h3 className="store-sec">
                 レビュー <ReviewBadge review={detail.review} />
               </h3>
@@ -318,12 +534,7 @@ export function StorePanel({
                         key={t}
                         className="store-tag"
                         title={`タグ「${t}」で検索`}
-                        onClick={() => {
-                          setDetail(null);
-                          setQInput(t);
-                          setQ(t);
-                          setPage(1);
-                        }}
+                        onClick={() => browseWith({ q: t })}
                       >
                         #{t}
                       </button>
@@ -338,23 +549,32 @@ export function StorePanel({
     );
   }
 
-  /* ===== 一覧ビュー ===== */
-  return (
-    <div className="store">
-      <div className="store-head">
-        <h2 className="store-title">🛒 ストア</h2>
-        <div className="store-search">
-          <input
-            className="input"
-            value={qInput}
-            onChange={(e) => setQInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && search()}
-            placeholder="タイトル / 作者 / タグで検索"
-          />
-          <button className="btn mini" onClick={search}>
-            検索
-          </button>
-        </div>
+  /* ===== 共通ヘッダー(検索) ===== */
+  const header = (
+    <div className="store-head">
+      <h2
+        className="store-title clickable"
+        onClick={() => {
+          setView("home");
+          setDetail(null);
+        }}
+        title="ストアのホームへ"
+      >
+        🛒 ストア
+      </h2>
+      <div className="store-search">
+        <input
+          className="input"
+          value={qInput}
+          onChange={(e) => setQInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && search()}
+          placeholder="タイトル / 作者 / タグで検索"
+        />
+        <button className="btn mini" onClick={search}>
+          検索
+        </button>
+      </div>
+      {view === "browse" && (
         <select
           className="input store-sort"
           value={sort}
@@ -366,9 +586,108 @@ export function StorePanel({
           <option value="published">新着順</option>
           <option value="rating">好評順</option>
         </select>
-      </div>
+      )}
+    </div>
+  );
 
+  /* ===== ホームビュー(Steam フロントページ) ===== */
+  if (view === "home") {
+    return (
+      <div className="store">
+        {header}
+        {/* ジャンルナビ */}
+        <div className="store-cats">
+          {CATEGORIES.filter((c) => c.key).map((c) => (
+            <button
+              key={c.label}
+              className="store-cat"
+              onClick={() => browseWith({ category: c.key })}
+            >
+              {c.key ? `${CATEGORY_ICON[c.key]} ` : ""}
+              {c.label}
+            </button>
+          ))}
+          <button className="store-cat" onClick={() => browseWith({})}>
+            すべての作品 →
+          </button>
+        </div>
+
+        {error && (
+          <p className="tag fail" style={{ margin: "4px 16px" }}>
+            {error}
+          </p>
+        )}
+
+        <div className="store-body">
+          {homeLoading && !home && (
+            <p className="muted" style={{ padding: 24 }}>
+              読み込み中…
+            </p>
+          )}
+
+          {home && home.featured.length === 0 && (
+            <p className="muted" style={{ padding: 24 }}>
+              まだ公開されている作品がありません。
+            </p>
+          )}
+
+          {home && home.featured.length > 0 && (
+            <div className="shome" aria-busy={detailLoading}>
+              <HeroCarousel
+                items={home.featured}
+                purchased={purchased}
+                onOpen={(it) => void openDetail(it)}
+              />
+
+              <Strip
+                icon="🔥"
+                title="急上昇"
+                items={home.trending}
+                purchased={purchased}
+                onOpen={(it) => void openDetail(it)}
+              />
+              <Strip
+                icon="✨"
+                title="新着"
+                items={home.recent}
+                purchased={purchased}
+                onOpen={(it) => void openDetail(it)}
+                onMore={() => browseWith({ sort: "published" })}
+              />
+              <Strip
+                icon="👍"
+                title="好評な作品"
+                items={home.topRated}
+                purchased={purchased}
+                onOpen={(it) => void openDetail(it)}
+                onMore={() => browseWith({ sort: "rating" })}
+              />
+              {home.byCategory.map(({ category: cat, items: catItems }) => (
+                <Strip
+                  key={cat}
+                  icon={CATEGORY_ICON[cat]}
+                  title={PRODUCT_TYPE_LABEL[cat] ?? cat}
+                  items={catItems}
+                  purchased={purchased}
+                  onOpen={(it) => void openDetail(it)}
+                  onMore={() => browseWith({ category: cat })}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ===== 一覧(ブラウズ)ビュー ===== */
+  return (
+    <div className="store">
+      {header}
       <div className="store-cats">
+        <button className="store-cat" onClick={() => setView("home")}>
+          ← ホーム
+        </button>
         {CATEGORIES.map((c) => (
           <button
             key={c.label}
@@ -396,9 +715,7 @@ export function StorePanel({
             </button>
           </span>
         )}
-        <span className="store-count muted">
-          {items ? `${total} 件` : ""}
-        </span>
+        <span className="store-count muted">{items ? `${total} 件` : ""}</span>
       </div>
 
       {error && (

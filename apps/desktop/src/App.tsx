@@ -44,7 +44,8 @@ type Session = { scene: PlayScene; path: string | null };
  * 右ペインはシート編集。将来ここにビルド / PLAY のルートを足す。
  */
 export function App() {
-  const [tab, setTab] = useState<SidebarTab>("characters");
+  // Steam ライクに、起動直後はストアをフロントに出す。
+  const [tab, setTab] = useState<SidebarTab>("store");
   const [library, setLibrary] = useState<LibraryEntry[]>(() => getLibrary());
   const [active, setActive] = useState<{ sheet: Sheet | null; key: string }>(
     () => ({ sheet: null, key: "new-0" }),
@@ -61,11 +62,12 @@ export function App() {
   const [joining, setJoining] = useState<{ code: string; name: string } | null>(
     null,
   );
-  // ストア(メインペインで開く)。category はサイドバーのジャンルから。
+  // ストア(メインペインで開く)。起動直後はストアがフロント(Steam 風)。
+  // category はサイドバーのジャンルショートカットから。
   const [store, setStore] = useState<{
     open: boolean;
     category: RemoteProductType | null;
-  }>({ open: false, category: null });
+  }>({ open: true, category: null });
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState(
     () => localStorage.getItem("trpg.net.name.v1") ?? "",
@@ -90,7 +92,6 @@ export function App() {
     });
     setSession({ scene, path: null });
     setJoining(null);
-    setStore((s) => ({ ...s, open: false }));
     setDrawerOpen(false);
     setError(null);
   }
@@ -119,7 +120,6 @@ export function App() {
     }
     setSession(null);
     setJoining({ code, name });
-    setStore((s) => ({ ...s, open: false }));
     setDrawerOpen(false);
     setError(null);
   }
@@ -133,7 +133,6 @@ export function App() {
       const scene = await readPlayFromPath(entry.path);
       setSession({ scene, path: entry.path });
       setJoining(null);
-      setStore((s) => ({ ...s, open: false }));
       setDrawerOpen(false);
       setError(null);
     } catch (e) {
@@ -379,7 +378,7 @@ export function App() {
             <button
               className="btn btn-primary"
               style={{ width: "100%", marginBottom: 10 }}
-              onClick={() => openStore(store.category)}
+              onClick={() => openStore(null)}
             >
               🛒 ストアを開く
             </button>

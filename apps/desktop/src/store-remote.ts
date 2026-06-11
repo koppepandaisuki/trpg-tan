@@ -491,6 +491,162 @@ async function fetchReviews(productId: string): Promise<StoreReview[]> {
   }));
 }
 
+/* ===== ホーム(Steam ライクなフロントページ)用フェッチャ ===== */
+
+/** 新着(published_at 降順)。 */
+async function fetchRecentItems(limit: number): Promise<StoreItem[]> {
+  const { data, error } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .order("published_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return toStoreItems((data ?? []) as ListRow[]);
+}
+
+/**
+ * 売上上位。purchases は RLS で「自分の購入」しか見えないため、
+ * 取れた範囲で集計し、0 件なら空(呼び出し側が新着等で補完)。
+ */
+async function fetchTopSellingItems(limit: number): Promise<StoreItem[]> {
+  const { data, error } = await supabase
+    .from("purchases")
+    .select("product_id")
+    .eq("status", "paid")
+    .limit(5000);
+  if (error || !data || data.length === 0) return [];
+
+  const counts = new Map<string, number>();
+  for (const p of data) counts.set(p.product_id, (counts.get(p.product_id) ?? 0) + 1);
+  const topIds = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
+
+  const { data: rows, error: rowErr } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .in("id", topIds);
+  if (rowErr) return [];
+  const byId = new Map(((rows ?? []) as ListRow[]).map((r) => [r.id, r] as const));
+  const ordered = topIds.map((id) => byId.get(id)).filter((r): r is ListRow => !!r);
+  return toStoreItems(ordered);
+}
+
+/** 好評上位。評価が 1 件もなければ空(セクション非表示用)。 */
+export async function fetchTopRatedItems(limit: number): Promise<StoreItem[]> {
+  const res = await fetchByRating({
+    page: 1,
+    pageSize: limit,
+    category: null,
+    searchIds: null,
+  });
+  const hasRating = res.items.some((it) => it.review && it.review.total > 0);
+  return hasRating ? res.items : [];
+}
+
+/**
+ * 急上昇 = 直近 30 日のレビュー数が多い順(レビューは公開データなので
+ * 匿名でも集計できる)。0 件ならセクション非表示。
+ */
+async function fetchTrendingItems(limit: number): Promise<StoreItem[]> {
+  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("product_reviews")
+    .select("product_id, created_at")
+    .gte("created_at", since)
+    .limit(5000);
+  if (error || !data || data.length === 0) return [];
+
+  const counts = new Map<string, number>();
+  for (const r of data) counts.set(r.product_id, (counts.get(r.product_id) ?? 0) + 1);
+  const topIds = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
+
+  const { data: rows, error: rowErr } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .in("id", topIds);
+  if (rowErr) return [];
+  const byId = new Map(((rows ?? []) as ListRow[]).map((r) => [r.id, r] as const));
+  const ordered = topIds.map((id) => byId.get(id)).filter((r): r is ListRow => !!r);
+  return toStoreItems(ordered);
+}
+
+/**
+ * フィーチャー(カルーセル用): 売上上位 + 好評上位を merge し、足りない分は
+ * 新着で補完(Web の listFeaturedProducts と同じ規約)。
+ */
+async function fetchFeaturedItems(limit: number): Promise<StoreItem[]> {
+  const [selling, rated] = await Promise.all([
+    fetchTopSellingItems(limit),
+    fetchTopRatedItems(limit),
+  ]);
+  const seen = new Set<string>();
+  const merged: StoreItem[] = [];
+  for (const it of [...selling, ...rated]) {
+    if (seen.has(it.id)) continue;
+    seen.add(it.id);
+    merged.push(it);
+    if (merged.length >= limit) return merged;
+  }
+  const recent = await fetchRecentItems(limit * 2);
+  for (const it of recent) {
+    if (seen.has(it.id)) continue;
+    seen.add(it.id);
+    merged.push(it);
+    if (merged.length >= limit) break;
+  }
+  return merged;
+}
+
+const HOME_CATEGORIES: RemoteProductType[] = [
+  "scenario",
+  "rulebook",
+  "character_art",
+  "map",
+  "bgm_audio",
+];
+
+export interface StoreHome {
+  featured: StoreItem[];
+  trending: StoreItem[];
+  recent: StoreItem[];
+  topRated: StoreItem[];
+  byCategory: { category: RemoteProductType; items: StoreItem[] }[];
+}
+
+/** ホーム一式をまとめて取得(α 規模なので並列に投げるだけ)。 */
+export async function fetchStoreHome(): Promise<StoreHome> {
+  const [featured, trending, recent, topRated, ...cats] = await Promise.all([
+    fetchFeaturedItems(6),
+    fetchTrendingItems(12),
+    fetchRecentItems(12),
+    fetchTopRatedItems(12),
+    ...HOME_CATEGORIES.map((c) =>
+      fetchByRating({ page: 1, pageSize: 8, category: c, searchIds: null }).then(
+        (r) => r.items,
+      ),
+    ),
+  ]);
+  return {
+    featured,
+    trending,
+    recent,
+    topRated,
+    byCategory: HOME_CATEGORIES.map((category, i) => ({
+      category,
+      items: cats[i] ?? [],
+    })).filter((c) => c.items.length > 0),
+  };
+}
+
 /** 自分の paid 購入の product_id 集合(購入済みバッジ用)。 */
 export async function fetchMyPurchasedIds(userId: string): Promise<Set<string>> {
   const { data } = await supabase
