@@ -127,6 +127,8 @@ export interface PlayScene {
   textStock?: string;
   /** カットイン画像(演出)。 */
   cutins?: CutIn[];
+  /** 共有メモ(卓の全員と共有する想定。.play に保存)。 */
+  sharedMemo?: string;
   log: PlayEvent[];
   meta: { createdAt: string; updatedAt: string };
 }
@@ -140,10 +142,11 @@ interface BaseEvent {
   actor: string;
 }
 
-/** 発言。 */
+/** 発言。channel 未設定はメイン。個別チャットはパネル id を channel に持つ。 */
 export interface ChatEvent extends BaseEvent {
   kind: "chat";
   text: string;
+  channel?: string;
 }
 
 /** ダイス(技能/能力判定 or フリーダイス)。結果は生成時に確定済み。 */
@@ -167,6 +170,8 @@ export interface RollEvent extends BaseEvent {
   secret?: boolean;
   /** 秘匿時に出目を見せる相手(パネル id / 将来のプレイヤー id)。空=GMのみ。 */
   visibleTo?: string[];
+  /** 個別チャット内で振った場合のチャンネル(未設定=メイン)。 */
+  channel?: string;
 }
 
 /** リソース(HP/SAN/MP…)の増減。 */
