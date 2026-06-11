@@ -3730,6 +3730,94 @@ select.cutin-snd {
   font-size: 13px;
 }
 
+/* 差分(立ち絵切替)セクション */
+.ctx-variants {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ctx-vhead {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+.ctx-vlist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.ctx-vchip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 62px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 4px 4px 3px;
+  cursor: pointer;
+  user-select: none;
+}
+.ctx-vchip:hover {
+  border-color: var(--border-strong);
+}
+.ctx-vchip.active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.ctx-vchip img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  pointer-events: none;
+}
+.ctx-vlabel {
+  font-size: 10px;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ctx-vdel {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-faint);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctx-vdel:hover {
+  color: #b91c1c;
+  border-color: #e0796b;
+}
+.ctx-vadd {
+  display: flex;
+  gap: 6px;
+}
+.ctx-vadd .input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 12.5px;
+}
+
 /* ===== 参加者ビュー(没入モード): 盤面フル + 格納式ドロワー ===== */
 .ptable-title-ro {
   font-size: 15px;

@@ -7,6 +7,7 @@ export {
   type SceneInfo,
   type CutIn,
   type Panel,
+  type PanelVariant,
   type PanelStat,
   type PanelResource,
   type PanelSource,

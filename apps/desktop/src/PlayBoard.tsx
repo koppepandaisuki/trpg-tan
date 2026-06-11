@@ -51,7 +51,15 @@ export function PlayBoard({
     patch: Partial<
       Pick<
         Panel,
-        "name" | "note" | "hidden" | "size" | "sceneId" | "layer" | "locked"
+        | "name"
+        | "note"
+        | "hidden"
+        | "size"
+        | "sceneId"
+        | "layer"
+        | "locked"
+        | "portrait"
+        | "variants"
       >
     >,
   ) => void;
@@ -362,14 +370,22 @@ function ObjectMenu({
   x: number;
   y: number;
   activeSceneId?: string;
-  /** 参加者ビュー: 名前とメモだけ(GM 専用の行は隠す)。 */
+  /** 参加者ビュー: 名前とメモと差分だけ(GM 専用の行は隠す)。 */
   playerMode?: boolean;
   onUpdate: (
     panelId: string,
     patch: Partial<
       Pick<
         Panel,
-        "name" | "note" | "hidden" | "size" | "sceneId" | "layer" | "locked"
+        | "name"
+        | "note"
+        | "hidden"
+        | "size"
+        | "sceneId"
+        | "layer"
+        | "locked"
+        | "portrait"
+        | "variants"
       >
     >,
   ) => void;
@@ -378,6 +394,35 @@ function ObjectMenu({
 }) {
   const [name, setName] = useState(panel.name);
   const [note, setNote] = useState(panel.note ?? "");
+  // 差分追加用のラベル入力。
+  const [vLabel, setVLabel] = useState("");
+  const isChar = panel.stats.length > 0 || panel.resources.length > 0;
+
+  /** 差分画像を追加。初回は現在の立ち絵を「基本」として自動登録する。 */
+  function addVariant(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") return;
+      const base =
+        panel.variants ??
+        (panel.portrait
+          ? [{ id: crypto.randomUUID(), label: "基本", image: panel.portrait }]
+          : []);
+      const label =
+        vLabel.trim() || file.name.replace(/\.[^.]+$/, "") || `差分${base.length + 1}`;
+      onUpdate(panel.id, {
+        variants: [
+          ...base,
+          { id: crypto.randomUUID(), label, image: reader.result },
+        ],
+      });
+      setVLabel("");
+    };
+    reader.readAsDataURL(file);
+  }
   // メニュー実寸を測ってから画面内に収める(画面下/右の駒でも埋もれない)。
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: x, top: y });
@@ -433,6 +478,62 @@ function ObjectMenu({
           placeholder="このオブジェクトの情報"
         />
       </label>
+
+      {/* 差分(立ち絵/表情の切替)。キャラ駒のみ。参加者も使える。 */}
+      {isChar && (
+        <div className="ctx-variants">
+          <div className="ctx-vhead">
+            差分 <span className="muted">（ダブルクリックで切替）</span>
+          </div>
+          {(panel.variants ?? []).length > 0 && (
+            <div className="ctx-vlist">
+              {(panel.variants ?? []).map((v) => (
+                <div
+                  key={v.id}
+                  className={`ctx-vchip ${panel.portrait === v.image ? "active" : ""}`}
+                  onDoubleClick={() => onUpdate(panel.id, { portrait: v.image })}
+                  title={`「${v.label}」 — ダブルクリックで切替 / チャットで @${v.label}`}
+                >
+                  <img src={v.image} alt="" draggable={false} />
+                  <span className="ctx-vlabel">{v.label}</span>
+                  <button
+                    className="ctx-vdel"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdate(panel.id, {
+                        variants: (panel.variants ?? []).filter(
+                          (x) => x.id !== v.id,
+                        ),
+                      });
+                    }}
+                    title="この差分を削除"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="ctx-vadd">
+            <input
+              className="input"
+              value={vLabel}
+              onChange={(e) => setVLabel(e.target.value)}
+              placeholder="ラベル（例: 笑顔）"
+              maxLength={20}
+            />
+            <label className="btn mini board-file">
+              ＋画像
+              <input
+                type="file"
+                accept="image/*"
+                onChange={addVariant}
+                style={{ display: "none" }}
+              />
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* ここから下は GM 専用(参加者は名前とメモのみ)。 */}
       {!playerMode && (
