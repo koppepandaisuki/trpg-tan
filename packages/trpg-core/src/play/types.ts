@@ -106,6 +106,9 @@ export interface CutIn {
   name: string;
   /** data URL。 */
   image: string;
+  /** 同時に鳴らす効果音(ローカル音声ファイルのパス)。未設定なら無音。 */
+  soundPath?: string;
+  soundName?: string;
 }
 
 /** セッション卓(シーン)の全状態。 */

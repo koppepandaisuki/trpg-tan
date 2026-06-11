@@ -48,6 +48,20 @@ describe("parseDiceCommand", () => {
     expect(parseDiceCommand("ccb70")).toMatchObject({ kind: "coc", target: 70 });
   });
 
+  it("choice[a,b,c] は選択コマンド", () => {
+    expect(parseDiceCommand("choice[赤,青,黄]")).toEqual({
+      kind: "choice",
+      options: ["赤", "青", "黄"],
+      label: "choice[赤,青,黄]",
+    });
+    // 読点区切りも許容。選択肢 1 つは choice 扱いしない。
+    expect(parseDiceCommand("choice[逃げる、戦う]")).toMatchObject({
+      kind: "choice",
+      options: ["逃げる", "戦う"],
+    });
+    expect(parseDiceCommand("choice[ひとつ]")).toEqual({ kind: "none" });
+  });
+
   it("一般の比較は compare", () => {
     expect(parseDiceCommand("2d6>=8")).toEqual({
       kind: "compare",

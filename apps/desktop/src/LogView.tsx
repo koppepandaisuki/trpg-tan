@@ -36,6 +36,7 @@ export function LogView({
   onSecretChange,
   onVisibleToChange,
   onSubmit,
+  onExport,
   inputRef,
 }: {
   log: PlayEvent[];
@@ -52,6 +53,8 @@ export function LogView({
   onSecretChange: (v: boolean) => void;
   onVisibleToChange: (names: string[]) => void;
   onSubmit: () => void;
+  /** チャットログをファイルへ書き出す(リプレイ保存)。 */
+  onExport?: () => void;
   inputRef?: Ref<HTMLInputElement>;
 }) {
   const [filter, setFilter] = useState<LogFilter>("all");
@@ -154,6 +157,15 @@ export function LogView({
         >
           {newestFirst ? "↑ 新しい順" : "↓ 古い順"}
         </button>
+        {onExport && (
+          <button
+            className="plog-sort"
+            onClick={onExport}
+            title="ログをテキストファイルへ書き出し"
+          >
+            💾
+          </button>
+        )}
       </div>
 
       <div className="plog" ref={logRef}>
