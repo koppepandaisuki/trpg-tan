@@ -17,6 +17,7 @@ import { SystemBuilder } from "./SystemBuilder";
 import { GenericSheetEditor } from "./GenericSheetEditor";
 import { findSystem } from "./systems-store";
 import { SoundSettings } from "./SoundSettings";
+import { Toasts } from "./Toasts";
 import { initDeepLinkAuth } from "./auth";
 import type { RemoteLibraryItem } from "./library-remote";
 import type { DownloadedEntry } from "./downloaded";
@@ -95,11 +96,11 @@ export function App() {
   // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
   const [storeHomeSig, setStoreHomeSig] = useState(0);
   // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。
+  // PLAY(卓 / ネット参加)中は没入のため常にダーク(CCFOLIA/Steam 流)。
   const [theme, setTheme] = useState(
     () => localStorage.getItem("trpg.theme.v1") ?? "light",
   );
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
     try {
       localStorage.setItem("trpg.theme.v1", theme);
     } catch {
@@ -111,6 +112,12 @@ export function App() {
   useEffect(() => {
     if (isTauri()) void initDeepLinkAuth();
   }, []);
+
+  // テーマ適用。PLAY 中はユーザー設定に関わらずダークへ。
+  const inPlay = !!(session || joining);
+  useEffect(() => {
+    document.documentElement.dataset.theme = inPlay ? "dark" : theme;
+  }, [theme, inPlay]);
 
   /** ページ遷移(セッション/参加を畳む)。ストアは常にホームから。 */
   function goTo(p: Page) {
@@ -387,6 +394,7 @@ export function App() {
           />
         )}
         {showSettings && <SoundSettings onClose={() => setShowSettings(false)} />}
+        <Toasts />
       </div>
     );
   }
@@ -573,6 +581,7 @@ export function App() {
       )}
 
       {showSettings && <SoundSettings onClose={() => setShowSettings(false)} />}
+      <Toasts />
     </div>
   );
 }

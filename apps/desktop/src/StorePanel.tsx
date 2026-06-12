@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
+import { SkelGrid, SkelStoreHome } from "./Skeleton";
 import { PRODUCT_TYPE_LABEL, FILE_FORMAT_LABEL } from "./library-remote";
 import type { RemoteProductType } from "./library-remote";
 import {
@@ -735,11 +736,7 @@ export function StorePanel({
               公開作品を持つクリエイターの一覧。「人」から作品に出会う入口。
             </p>
           </div>
-          {creatorsLoading && !creators && (
-            <p className="muted" style={{ padding: 24 }}>
-              読み込み中…
-            </p>
-          )}
+          {creatorsLoading && !creators && <SkelGrid count={6} />}
           {creators && creators.length === 0 && (
             <p className="muted" style={{ padding: 24 }}>
               公開作品を持つクリエイターはまだいません。
@@ -807,11 +804,7 @@ export function StorePanel({
         )}
 
         <div className="store-body">
-          {homeLoading && !home && (
-            <p className="muted" style={{ padding: 24 }}>
-              読み込み中…
-            </p>
-          )}
+          {homeLoading && !home && <SkelStoreHome />}
 
           {home && home.featured.length === 0 && (
             <p className="muted" style={{ padding: 24 }}>
@@ -985,11 +978,7 @@ export function StorePanel({
       )}
 
       <div className="store-body">
-        {loading && items === null && (
-          <p className="muted" style={{ padding: 24 }}>
-            読み込み中…
-          </p>
-        )}
+        {loading && items === null && <SkelGrid count={10} />}
 
         {items && items.length === 0 && (
           <p className="muted" style={{ padding: 24 }}>

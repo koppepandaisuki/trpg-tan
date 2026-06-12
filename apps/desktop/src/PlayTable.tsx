@@ -60,6 +60,7 @@ import {
 } from "./net";
 import { getLibrary, systemLabel } from "./library";
 import { readSheetFromPath, isGenericSheet } from "./storage";
+import { toast } from "./Toasts";
 import { savePlayAs, savePlayToPath } from "./play-storage";
 
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
@@ -700,6 +701,7 @@ export function PlayTable({
       r.onPresence(setMembers);
       setRoom(r);
       setSharePop(true);
+      toast(`🌐 共有を開始しました（コード ${r.code}）`);
     } catch (e) {
       setError(`共有を開始できませんでした: ${String(e)}`);
     } finally {
@@ -766,6 +768,7 @@ export function PlayTable({
       }
       onPersist(scene, p);
       setDirty(false);
+      toast("✓ 卓を保存しました");
     } catch (e) {
       setError(`保存に失敗しました: ${String(e)}`);
     }
@@ -883,7 +886,10 @@ export function PlayTable({
             <code className="share-code">{room.code}</code>
             <button
               className="btn mini"
-              onClick={() => void navigator.clipboard.writeText(room.code)}
+              onClick={() => {
+                void navigator.clipboard.writeText(room.code);
+                toast("📋 参加コードをコピーしました");
+              }}
               title="コードをコピー"
             >
               コピー

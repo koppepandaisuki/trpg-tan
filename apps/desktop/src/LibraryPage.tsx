@@ -17,6 +17,8 @@ import {
   FILE_FORMAT_LABEL,
   AVAILABILITY_LABEL,
 } from "./library-remote";
+import { toast } from "./Toasts";
+import { SkelStrip } from "./Skeleton";
 
 /**
  * ライブラリ(Steam のライブラリ画面風)。
@@ -109,6 +111,7 @@ export function LibraryPage({
       };
       markDownloaded(entry);
       setDownloaded((d) => ({ ...d, [it.productId]: entry }));
+      toast(`⬇ 「${it.title}」をダウンロードしました`);
     } catch (e) {
       setDlError((er) => ({
         ...er,
@@ -376,9 +379,10 @@ export function LibraryPage({
           /* --- ホーム(シェルフ) --- */
           <div className="libhome">
             {loading && items === null && (
-              <p className="muted" style={{ padding: 24 }}>
-                読み込み中…
-              </p>
+              <>
+                <SkelStrip count={5} />
+                <SkelStrip count={5} />
+              </>
             )}
 
             {items && items.length === 0 && (
