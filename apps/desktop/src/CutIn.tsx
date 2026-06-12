@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { BgmTrack, CutIn } from "@trpg/core";
 import { audioUrl, baseName } from "./audio-url";
@@ -7,9 +7,26 @@ import { audioUrl, baseName } from "./audio-url";
  * カットイン演出。登録した画像をクリックで画面に走らせる(非ブロッキング)。
  * 画像は data URL で .play に保存し、卓と一緒に持ち運べる。
  * ♪ で効果音(ローカル音声ファイル)を任意で添付でき、発火時に一緒に鳴る。
+ * 帯の背景色はカットインごとに変更できる(ネットワーク同期にも乗る)。
  */
 
 const CUTIN_MS = 2400;
+/** カットイン効果音の音量(端末ごと)。 */
+const CUTIN_VOL_KEY = "trpg.cutin.volume.v1";
+const DEFAULT_BG = "#10314a";
+
+function cutinVolume(): number {
+  const v = Number(localStorage.getItem(CUTIN_VOL_KEY));
+  return Number.isFinite(v) && v >= 0 && v <= 1 ? v : 0.85;
+}
+
+/** hex(#rrggbb) → rgba。帯は少し透過させて盤面が透けるように。 */
+function hexToRgba(hex: string, alpha: number): string {
+  const m = hex.match(/^#?([0-9a-f]{6})$/i);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
 
 /** サイドバーの管理パネル(追加 / 一覧 / 発火 / 削除 / 効果音)。 */
 export function CutInPanel({
@@ -19,6 +36,7 @@ export function CutInPanel({
   onRemove,
   onFire,
   onSetSound,
+  onSetBg,
 }: {
   cutins: CutIn[];
   /** SE パネルに登録済みの音源(添付の選択肢)。 */
@@ -28,8 +46,16 @@ export function CutInPanel({
   onFire: (cutin: CutIn) => void;
   /** 効果音の添付(null で解除)。 */
   onSetSound: (id: string, sound: { path: string; name: string } | null) => void;
+  /** 帯の背景色(null で既定に戻す)。 */
+  onSetBg: (id: string, bg: string | null) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  // 効果音の音量(端末ごと。発火時に CutInOverlay が読む)。
+  const [volume, setVolume] = useState(() => cutinVolume());
+  function changeVolume(v: number) {
+    setVolume(v);
+    localStorage.setItem(CUTIN_VOL_KEY, String(v));
+  }
 
   async function pickSound(id: string) {
     const sel = await open({
@@ -107,6 +133,15 @@ export function CutInPanel({
                 ))}
                 <option value="__file__">ファイルから…</option>
               </select>
+              {/* 帯の背景色。ダブルクリックで既定に戻す。 */}
+              <input
+                type="color"
+                className="cutin-bg"
+                value={c.bg ?? DEFAULT_BG}
+                onChange={(e) => onSetBg(c.id, e.target.value)}
+                onDoubleClick={() => onSetBg(c.id, null)}
+                title="帯の背景色（ダブルクリックで既定に戻す）"
+              />
               <button
                 className="cutin-del"
                 onClick={() => onRemove(c.id)}
@@ -119,6 +154,24 @@ export function CutInPanel({
           ))}
         </div>
       )}
+      {/* 効果音の音量(この端末での再生音量)。 */}
+      <div className="se-vol-row">
+        <span title="カットイン効果音の音量">♪🔊</span>
+        <input
+          className="bgm-vol"
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={volume}
+          onChange={(e) => changeVolume(Number(e.target.value))}
+          title="カットイン効果音の音量"
+        />
+        <span className="muted" style={{ fontSize: 11, width: 32 }}>
+          {Math.round(volume * 100)}%
+        </span>
+      </div>
+
       <button
         className="btn mini"
         style={{ width: "100%" }}
@@ -152,7 +205,7 @@ export function CutInOverlay({
       void audioUrl(cutin.soundPath)
         .then((url) => {
           audio = new Audio(url);
-          audio.volume = 0.85;
+          audio.volume = cutinVolume();
           return audio.play();
         })
         .catch(() => {
@@ -167,7 +220,12 @@ export function CutInOverlay({
 
   return (
     <div className="cutin-overlay" aria-hidden>
-      <div className="cutin-band" />
+      <div
+        className="cutin-band"
+        style={
+          cutin.bg ? { background: hexToRgba(cutin.bg, 0.82) } : undefined
+        }
+      />
       <img className="cutin-image" src={cutin.image} alt="" />
     </div>
   );
