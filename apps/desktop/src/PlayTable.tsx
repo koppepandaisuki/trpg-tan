@@ -7,6 +7,7 @@ import {
   checkEvent,
   freeRollEvent,
   compareRollEvent,
+  diceBotRollEvent,
   chatEvent,
   parseDiceCommand,
   resourceEvent,
@@ -166,6 +167,18 @@ export function PlayTable({
   }
 
   const sceneEdition: CoCEdition = scene.systemId === "coc6" ? "6" : "7";
+
+  // 卓のダイスボット(未設定は systemId から既定)。
+  const diceBot =
+    scene.diceBot ??
+    (scene.systemId === "coc6" || scene.systemId === "coc7"
+      ? "coc"
+      : "generic");
+
+  function setDiceBot(id: string) {
+    setScene((s) => ({ ...s, diceBot: id }));
+    setDirty(true);
+  }
 
   function rollStat(panel: Panel, stat: PanelStat) {
     const edition = panel.edition ?? sceneEdition;
@@ -374,13 +387,15 @@ export function PlayTable({
       if (ev.kind === "chat") {
         lines.push(`[${time}][${nameOf(ev.channel)}] ${ev.actor}: ${ev.text}`);
       } else if (ev.kind === "roll") {
-        const res = ev.check
-          ? `${ev.check.isSuccess ? "成功" : "失敗"}(${ev.check.level})`
-          : ev.success !== undefined
-            ? ev.success
-              ? "成功"
-              : "失敗"
-            : "";
+        const res = ev.detail
+          ? ev.detail
+          : ev.check
+            ? `${ev.check.isSuccess ? "成功" : "失敗"}(${ev.check.level})`
+            : ev.success !== undefined
+              ? ev.success
+                ? "成功"
+                : "失敗"
+              : "";
         lines.push(
           `[${time}][${nameOf(ev.channel)}] ${ev.actor}: 🎲 ${ev.label} [${ev.dice.join(",")}] = ${ev.total}${res ? ` ${res}` : ""}${ev.secret ? "（シークレット）" : ""}`,
         );
@@ -427,6 +442,11 @@ export function PlayTable({
           ...(size ? { size } : {}),
         }),
       );
+      // システム付きキャラを取り込んだら、卓のダイスボットも自動で合わせる
+      // (手動で選んでいた場合は上書きしない)。
+      if (isGenericSheet(sheet) && sheet.diceBot && !scene.diceBot) {
+        setDiceBot(sheet.diceBot);
+      }
       setPickId("");
     } catch (e) {
       setError(`キャラを読み込めませんでした: ${String(e)}`);
@@ -470,6 +490,18 @@ export function PlayTable({
       if (suffix && switchVariant(speakerId, suffix[2])) {
         raw = suffix[1];
       }
+    }
+
+    // システム固有コマンド(ダイスボット)を先に解釈。非該当は汎用へ。
+    const botEv = diceBotRollEvent(newCtx(), name, raw, diceBot);
+    if (botEv) {
+      let ev: RollEvent = botEv;
+      if (isSecret) ev = { ...ev, secret: true, visibleTo: [...viewers] };
+      if (ch) ev = { ...ev, channel: ch };
+      dispatch(ev);
+      setMotion(ev);
+      setError(null);
+      return;
     }
 
     const cmd = parseDiceCommand(raw);
@@ -943,6 +975,8 @@ export function PlayTable({
                       onVisibleToChange={setVisibleTo}
                       onSubmit={submitCompose}
                       onExport={() => void exportLog()}
+                      diceBot={diceBot}
+                      onDiceBotChange={setDiceBot}
                       inputRef={inputRef}
                     />
                   </div>
@@ -1072,6 +1106,7 @@ export function PlayTable({
                           onVisibleToChange={setVisibleTo}
                           onSubmit={submitCompose}
                           maskSecret
+                          diceBot={diceBot}
                           inputRef={inputRef}
                         />
                       </div>

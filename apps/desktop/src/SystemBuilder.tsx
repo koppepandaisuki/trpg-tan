@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SYSTEM_PRESETS, type SystemDef } from "@trpg/core";
+import { DICE_BOTS, SYSTEM_PRESETS, type SystemDef } from "@trpg/core";
 import {
   getCustomSystems,
   upsertCustomSystem,
@@ -204,6 +204,21 @@ export function SystemBuilder({
               {/* 判定とダイス */}
               <section className="sysb-sec">
                 <h3>🎲 判定</h3>
+                <label className="sysb-label">
+                  ダイスボット（システム別のダイス処理）
+                  <select
+                    className="input"
+                    value={draft.diceBot ?? "generic"}
+                    onChange={(e) => patch({ diceBot: e.target.value })}
+                    disabled={isPreset}
+                  >
+                    {DICE_BOTS.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}（例: {b.help}）
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="sysb-label">
                   判定コマンド雛形（能力値/技能クリック時）
                   <input

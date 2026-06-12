@@ -4000,6 +4000,14 @@ select.cutin-snd {
 .pside-log .pinput-row .pspeaker {
   max-width: 110px;
 }
+/* ダイスボット選択(チャット入力 1 段目) */
+.pinput-row .pbot {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 6px 6px;
+  color: var(--primary-deep);
+}
 .pside-log .pinput-row .btn.mini {
   font-size: 14px;
   padding: 8px 14px;
