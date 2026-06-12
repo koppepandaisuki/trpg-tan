@@ -152,6 +152,8 @@ export interface PlayScene {
   cutins?: CutIn[];
   /** 共有メモ(卓の全員と共有する想定。.play に保存)。 */
   sharedMemo?: string;
+  /** ダイスボット(システム別ダイス処理)。未設定は systemId から既定。 */
+  diceBot?: string;
   log: PlayEvent[];
   meta: { createdAt: string; updatedAt: string };
 }
@@ -189,6 +191,8 @@ export interface RollEvent extends BaseEvent {
   success?: boolean;
   /** 比較付きロールの比較条件(表示用)。 */
   compare?: { op: CompareOp; target: number };
+  /** ダイスボットの判定詳細("スペシャル！" / "成功数2" 等)。 */
+  detail?: string;
   /** シークレットダイス(他プレイヤーには出目を伏せる)。 */
   secret?: boolean;
   /** 秘匿時に出目を見せる相手(パネル id / 将来のプレイヤー id)。空=GMのみ。 */

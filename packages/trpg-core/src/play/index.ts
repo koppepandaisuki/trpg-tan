@@ -39,6 +39,7 @@ export {
   checkEvent,
   freeRollEvent,
   compareRollEvent,
+  diceBotRollEvent,
   panelAddEvent,
   panelRemoveEvent,
   panelMoveEvent,

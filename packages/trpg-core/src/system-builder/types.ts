@@ -50,6 +50,8 @@ export interface SystemDef {
   checkTemplate?: string;
   /** よく使う基本ダイス(例 "2d6")。パレット生成の補助。 */
   defaultRoll?: string;
+  /** ダイスボット id(dice/dicebot.ts)。卓に取り込むと自動で切り替わる。 */
+  diceBot?: string;
   attributes: SystemAttrDef[];
   skills: SystemSkillDef[];
   resources: SystemResourceDef[];
@@ -82,6 +84,8 @@ export interface GenericSheet {
   memo?: string;
   /** 判定コマンド雛形(SystemDef からコピー。シート単位で調整可)。 */
   checkTemplate?: string;
+  /** ダイスボット id(SystemDef からコピー。卓へ取り込むと反映)。 */
+  diceBot?: string;
   /** チャットパレット(値置換済みの実体)。 */
   palette?: string;
 }
@@ -110,6 +114,7 @@ export function newGenericSheet(def: SystemDef, id: string): GenericSheet {
     })),
     memo: "",
     checkTemplate: def.checkTemplate,
+    ...(def.diceBot ? { diceBot: def.diceBot } : {}),
   };
   sheet.palette = renderPaletteTemplate(def.palette ?? [], sheet);
   return sheet;

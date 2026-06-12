@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Ref } from "react";
+import { DICE_BOTS, getDiceBot } from "@trpg/core";
 import type { PlayEvent, CoCCheckResult } from "@trpg/core";
 
 /** 発言者の選択肢(GM + 卓上の駒)。 */
@@ -39,6 +40,8 @@ export function LogView({
   onExport,
   maskSecret = false,
   viewerName,
+  diceBot,
+  onDiceBotChange,
   inputRef,
 }: {
   log: PlayEvent[];
@@ -61,6 +64,10 @@ export function LogView({
   maskSecret?: boolean;
   /** 自分の表示名。visibleTo に含まれるシークレットは伏せずに見せる。 */
   viewerName?: string;
+  /** 卓のダイスボット id(システム別ダイス処理)。 */
+  diceBot?: string;
+  /** ダイスボット切替(GM のみ。未指定ならセレクタ非表示)。 */
+  onDiceBotChange?: (id: string) => void;
   inputRef?: Ref<HTMLInputElement>;
 }) {
   const [filter, setFilter] = useState<LogFilter>("all");
@@ -236,6 +243,20 @@ export function LogView({
               </option>
             ))}
           </select>
+          {onDiceBotChange && (
+            <select
+              className="input pbot"
+              value={diceBot ?? "generic"}
+              onChange={(e) => onDiceBotChange(e.target.value)}
+              title={`ダイスボット（システム別のダイス処理）\n例: ${getDiceBot(diceBot).help}`}
+            >
+              {DICE_BOTS.map((b) => (
+                <option key={b.id} value={b.id}>
+                  🎲 {b.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             className={`btn mini psecret ${secret ? "on" : ""}`}
             onClick={() => onSecretChange(!secret)}
@@ -252,7 +273,7 @@ export function LogView({
             value={text}
             onChange={(e) => onTextChange(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSubmit()}
-            placeholder="発言 / CC<=70 目星 / 2d6+1…"
+            placeholder={`発言 / ${getDiceBot(diceBot).help.split("（")[0]} / 2d6+1…`}
           />
           <button className="btn mini btn-primary psend" onClick={onSubmit}>
             送信
@@ -317,11 +338,24 @@ export function LogRow({
           {ev.check && (
             <span className={`log-level ${tone}`}> {levelLabel(ev.check)}</span>
           )}
-          {ev.check === undefined && ev.success !== undefined && (
-            <span className={`log-level ${ev.success ? "ok" : "fail"}`}>
+          {/* ダイスボットの判定詳細(スペシャル/成功数 等)。あれば優先表示 */}
+          {ev.detail ? (
+            <span
+              className={`log-level ${
+                ev.success === undefined ? "" : ev.success ? "ok" : "fail"
+              }`}
+            >
               {" "}
-              {ev.success ? "成功" : "失敗"}
+              {ev.detail}
             </span>
+          ) : (
+            ev.check === undefined &&
+            ev.success !== undefined && (
+              <span className={`log-level ${ev.success ? "ok" : "fail"}`}>
+                {" "}
+                {ev.success ? "成功" : "失敗"}
+              </span>
+            )
           )}
           {ev.secret && (
             <span className="log-secret-note">

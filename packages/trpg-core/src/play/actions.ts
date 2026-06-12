@@ -2,6 +2,7 @@ import { type RandomFn, defaultRandom } from "../dice/random.js";
 import { rollNotation } from "../dice/notation.js";
 import { rollCoCCheck, type CoCEdition } from "../dice/coc-check.js";
 import { compareRoll, type CompareOp } from "../dice/command.js";
+import { runDiceBot } from "../dice/dicebot.js";
 import type {
   Panel,
   PanelVariant,
@@ -95,6 +96,32 @@ export function freeRollEvent(
     notation,
     dice: r.rolls,
     total: r.total,
+  };
+}
+
+/**
+ * ダイスボット(システム固有コマンド)のロール。非該当コマンドは null を
+ * 返すので、呼び出し側は汎用コマンド解釈へフォールバックする。
+ */
+export function diceBotRollEvent(
+  ctx: EventCtx,
+  actor: string,
+  command: string,
+  botId: string | undefined,
+): RollEvent | null {
+  const r = runDiceBot(botId, command, ctx.rng ?? defaultRandom);
+  if (!r) return null;
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor,
+    kind: "roll",
+    label: r.label,
+    notation: r.notation,
+    dice: r.dice,
+    total: r.total,
+    ...(r.success !== undefined ? { success: r.success } : {}),
+    ...(r.detail ? { detail: r.detail } : {}),
   };
 }
 

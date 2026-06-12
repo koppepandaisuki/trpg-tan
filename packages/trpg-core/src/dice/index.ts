@@ -19,3 +19,10 @@ export {
   parseDiceCommand,
   compareRoll,
 } from "./command.js";
+export {
+  type DiceBot,
+  type DiceBotResult,
+  DICE_BOTS,
+  getDiceBot,
+  runDiceBot,
+} from "./dicebot.js";
