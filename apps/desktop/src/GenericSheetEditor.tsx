@@ -6,6 +6,7 @@ import {
   type SystemDef,
 } from "@trpg/core";
 import { saveGenericSheet, isTauri } from "./storage";
+import { toast } from "./Toasts";
 
 /**
  * 汎用キャラクターシート・エディタ(カスタムシステム用)。
@@ -55,6 +56,7 @@ export function GenericSheetEditor({
       onSaved(sheet, path);
       setSavedFlash(true);
       window.setTimeout(() => setSavedFlash(false), 1600);
+      toast("✓ キャラを保存しました");
     } catch (e) {
       setError(`保存に失敗しました: ${String(e)}`);
     }
