@@ -21,6 +21,7 @@ import type {
   SceneSelectEvent,
   SceneRenameEvent,
   SceneRemoveEvent,
+  TurnSetEvent,
 } from "./types.js";
 import { clampResource } from "./reduce.js";
 
@@ -285,6 +286,24 @@ export function sceneRemoveEvent(
     actor: "GM",
     kind: "scene-remove",
     sceneId,
+  };
+}
+
+/** ターン管理の更新(GM 操作)。round 0 + null でリセット。 */
+export function turnSetEvent(
+  ctx: EventCtx,
+  round: number,
+  activePanelId: string | null,
+  label: string,
+): TurnSetEvent {
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor: "GM",
+    kind: "turn-set",
+    round,
+    activePanelId,
+    label,
   };
 }
 

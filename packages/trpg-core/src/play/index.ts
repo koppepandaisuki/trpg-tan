@@ -26,6 +26,7 @@ export {
   type SceneSelectEvent,
   type SceneRenameEvent,
   type SceneRemoveEvent,
+  type TurnSetEvent,
 } from "./types.js";
 export {
   createScene,
@@ -51,6 +52,7 @@ export {
   sceneRenameEvent,
   sceneRemoveEvent,
   resourceEvent,
+  turnSetEvent,
 } from "./actions.js";
 export {
   panelColor,

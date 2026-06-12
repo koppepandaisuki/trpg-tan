@@ -87,6 +87,27 @@ export function PlayBoard({
   // 仮想ステージのスケール(利用可能領域にフィット)。
   const viewportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  // ズーム/パン(この画面だけのローカル表示。他の参加者には影響しない)。
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panRef = useRef<{ sx: number; sy: number; bx: number; by: number } | null>(
+    null,
+  );
+  const effScale = scale * zoom;
+
+  function resetView() {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }
+
+  function onWheel(e: React.WheelEvent) {
+    const next = Math.max(
+      1,
+      Math.min(4, zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12)),
+    );
+    setZoom(next);
+    if (next === 1) setPan({ x: 0, y: 0 });
+  }
   useLayoutEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
@@ -145,9 +166,17 @@ export function PlayBoard({
   function startDrag(e: React.PointerEvent, p: Panel, i: number) {
     if (e.button !== 0 || p.locked) return;
     e.preventDefault();
+    e.stopPropagation(); // 背景パンを起動しない
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const s = posOf(p, i);
     setDrag({ id: p.id, x: s.x, y: s.y });
+  }
+
+  /** 盤面の背景ドラッグでパン(ズーム中のみ。駒の上では発火しない)。 */
+  function startPan(e: React.PointerEvent) {
+    if (e.button !== 0 || zoom <= 1) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    panRef.current = { sx: e.clientX, sy: e.clientY, bx: pan.x, by: pan.y };
   }
 
   function startResize(e: React.PointerEvent, p: Panel) {
@@ -160,11 +189,20 @@ export function PlayBoard({
   }
 
   function onPointerMove(e: React.PointerEvent) {
+    if (panRef.current) {
+      const p = panRef.current;
+      const limit = STAGE_W * effScale;
+      setPan({
+        x: Math.max(-limit, Math.min(limit, p.bx + (e.clientX - p.sx))),
+        y: Math.max(-limit, Math.min(limit, p.by + (e.clientY - p.sy))),
+      });
+      return;
+    }
     if (resize) {
       // 画面ピクセル → 仮想ステージ座標(スケールで割る)。
       const d =
         Math.max(e.clientX - resize.startX, e.clientY - resize.startY) /
-        (scale || 1);
+        (effScale || 1);
       const size = Math.max(24, Math.min(1600, Math.round(resize.startSize + d)));
       setResize({ ...resize, size });
       return;
@@ -175,6 +213,10 @@ export function PlayBoard({
     }
   }
   function onPointerUp() {
+    if (panRef.current) {
+      panRef.current = null;
+      return;
+    }
     if (resize) {
       onUpdate(resize.id, { size: resize.size });
       setResize(null);
@@ -299,6 +341,7 @@ export function PlayBoard({
       <div
         ref={viewportRef}
         className={`board-viewport ${dropActive ? "drop-active" : ""}`}
+        onWheel={onWheel}
         onDragOver={(e) => {
           e.preventDefault();
           setDropActive(true);
@@ -306,20 +349,35 @@ export function PlayBoard({
         onDragLeave={() => setDropActive(false)}
         onDrop={onDrop}
       >
+        {/* ズーム表示 / フィットに戻す(ローカル表示のみ)。 */}
+        {zoom > 1 && (
+          <button
+            className="board-zoom-badge"
+            onClick={resetView}
+            title="全体表示に戻す（ホイールでズーム / ドラッグでパン）"
+          >
+            ⊡ {Math.round(zoom * 100)}%
+          </button>
+        )}
         <div
           className="board-scalebox"
-          style={{ width: STAGE_W * scale, height: STAGE_H * scale }}
+          style={{
+            width: STAGE_W * effScale,
+            height: STAGE_H * effScale,
+            transform: `translate(${pan.x}px, ${pan.y}px)`,
+          }}
         >
       <div
         ref={ref}
-        className="board"
+        className={`board ${zoom > 1 ? "pannable" : ""}`}
         style={{
           width: STAGE_W,
           height: STAGE_H,
-          transform: `scale(${scale})`,
+          transform: `scale(${effScale})`,
           transformOrigin: "top left",
           ...(image ? { backgroundImage: `url(${image})` } : {}),
         }}
+        onPointerDown={startPan}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
