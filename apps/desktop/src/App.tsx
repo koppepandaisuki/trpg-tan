@@ -6,7 +6,7 @@ import {
 } from "@trpg/core";
 import { CharacterSheet } from "./CharacterSheet";
 import { AuthControl } from "./AuthControl";
-import { LibraryPanel } from "./LibraryPanel";
+import { LibraryPage } from "./LibraryPage";
 import { Viewer } from "./Viewer";
 import { PlayTable } from "./PlayTable";
 import { PlayClient } from "./PlayClient";
@@ -378,14 +378,7 @@ export function App() {
         )}
 
         {page === "library" && (
-          <div className="page">
-            <div className="page-wrap">
-              <h2 className="page-title">📚 ライブラリ（購入した作品）</h2>
-              <LibraryPanel
-                onView={(item, entry) => setViewing({ item, entry })}
-              />
-            </div>
-          </div>
+          <LibraryPage onView={(item, entry) => setViewing({ item, entry })} />
         )}
 
         {page === "play" && (
