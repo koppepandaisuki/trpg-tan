@@ -4299,6 +4299,49 @@ select.cutin-snd {
   border-radius: var(--radius-md);
 }
 
+/* ===== アイコン(lucide)整列ユーティリティ ===== */
+.ibtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ibtn svg {
+  flex-shrink: 0;
+}
+.spin {
+  animation: spin-rot 1s linear infinite;
+}
+@keyframes spin-rot {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* カードホバーのスクショ巡回ドット */
+.hov-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.hov-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+}
+.hov-dots i.on {
+  background: #fff;
+}
+.store-cover img,
+.strip-cover img {
+  transition: opacity 0.18s ease;
+}
+
 /* ===== トースト通知 ===== */
 .toasts {
   position: fixed;

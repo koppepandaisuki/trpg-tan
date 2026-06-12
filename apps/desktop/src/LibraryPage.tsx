@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Home, Play, Download, FolderOpen, RefreshCw } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
@@ -203,30 +204,34 @@ export function LibraryPage({
         {entry ? (
           <>
             <button
-              className="btn btn-primary"
+              className="btn btn-primary ibtn"
               onClick={() => onView?.(it, entry)}
             >
-              ▶ 開く
-            </button>
-            <button className="btn" onClick={() => void handleReveal(it.productId)}>
-              場所を開く
+              <Play size={15} /> 開く
             </button>
             <button
-              className="btn"
+              className="btn ibtn"
+              onClick={() => void handleReveal(it.productId)}
+            >
+              <FolderOpen size={15} /> 場所を開く
+            </button>
+            <button
+              className="btn ibtn"
               disabled={busy[it.productId]}
               onClick={() => void handleDownload(it)}
               title="もう一度ダウンロードして上書き"
             >
-              {busy[it.productId] ? "DL中…" : "再DL"}
+              <RefreshCw size={14} /> {busy[it.productId] ? "DL中…" : "再DL"}
             </button>
           </>
         ) : (
           <button
-            className="btn btn-primary"
+            className="btn btn-primary ibtn"
             disabled={busy[it.productId]}
             onClick={() => void handleDownload(it)}
           >
-            {busy[it.productId] ? "ダウンロード中…" : "⬇ ダウンロード"}
+            <Download size={15} />{" "}
+            {busy[it.productId] ? "ダウンロード中…" : "ダウンロード"}
           </button>
         )}
       </div>
@@ -250,19 +255,19 @@ export function LibraryPage({
             placeholder="🔍 作品・作者を検索"
           />
           <button
-            className="btn mini"
+            className="btn mini ibtn"
             onClick={() => void load()}
             disabled={loading}
             title="購入情報を再取得"
           >
-            {loading ? "…" : "⟳"}
+            <RefreshCw size={13} className={loading ? "spin" : ""} />
           </button>
         </div>
         <button
-          className={`libside-home ${selected ? "" : "active"}`}
+          className={`libside-home ibtn ${selected ? "" : "active"}`}
           onClick={() => setSelectedId(null)}
         >
-          🏠 ホーム
+          <Home size={14} /> ホーム
         </button>
 
         <div className="libside-list">
