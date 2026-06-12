@@ -8,6 +8,7 @@ import {
   fetchStore,
   fetchStoreDetail,
   fetchStoreHome,
+  fetchStoreCreators,
   fetchMyPurchasedIds,
   formatPriceJpy,
   webProductUrl,
@@ -17,6 +18,7 @@ import {
   type StoreSort,
   type StoreReviewSummary,
   type FeaturedItem,
+  type StoreCreator,
 } from "./store-remote";
 
 /**
@@ -43,6 +45,21 @@ const CATEGORY_ICON: Record<RemoteProductType, string> = {
   map: "🗺",
   bgm_audio: "♪",
 };
+
+/** 「カテゴリで探す」カード(Web ホームと同じラベル / 説明 / 配色)。 */
+const CAT_CARDS: {
+  key: RemoteProductType;
+  icon: string;
+  label: string;
+  sub: string;
+  tone: string;
+}[] = [
+  { key: "scenario", icon: "📄", label: "シナリオ", sub: "ストーリーと舞台設定", tone: "blue" },
+  { key: "rulebook", icon: "📖", label: "ルールブック", sub: "ハウスルール・追加システム", tone: "green" },
+  { key: "map", icon: "🗺", label: "マップ・バトルマップ", sub: "戦闘マップ・地図", tone: "gold" },
+  { key: "character_art", icon: "🎨", label: "アートワーク", sub: "立ち絵・アートワーク", tone: "rose" },
+  { key: "bgm_audio", icon: "🎵", label: "BGM・効果音", sub: "BGM・効果音", tone: "violet" },
+];
 
 function reviewTone(label: string): string {
   if (label.includes("好評")) return "ok";
@@ -285,13 +302,16 @@ function Strip({
 
 /* ===== 本体 ===== */
 
-type ViewMode = "home" | "browse";
+type ViewMode = "home" | "browse" | "creators";
 
 export function StorePanel({
   initialCategory = null,
+  homeSignal = 0,
   onGoLibrary,
 }: {
   initialCategory?: RemoteProductType | null;
+  /** インクリメントされるとホーム画面へ巻き戻す(ロゴ / ストアタブ)。 */
+  homeSignal?: number;
   /** 「購入タブで開く」押下時(App がタブを切替える)。 */
   onGoLibrary?: () => void;
 }) {
@@ -304,12 +324,20 @@ export function StorePanel({
   const [home, setHome] = useState<StoreHome | null>(null);
   const [homeLoading, setHomeLoading] = useState(false);
 
+  // クリエイター一覧(「クリエイターを探す」)。
+  const [creators, setCreators] = useState<StoreCreator[] | null>(null);
+  const [creatorsLoading, setCreatorsLoading] = useState(false);
+
   // 一覧(ブラウズ)の条件。
   const [category, setCategory] = useState<RemoteProductType | null>(
     initialCategory,
   );
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
+  const [creatorFilter, setCreatorFilter] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [sort, setSort] = useState<StoreSort>("published");
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<StoreItem[] | null>(null);
@@ -325,6 +353,14 @@ export function StorePanel({
   const [detailLoading, setDetailLoading] = useState(false);
   const [mainImage, setMainImage] = useState<string | null>(null);
 
+  // ロゴ / ストアタブのクリックでホームへ巻き戻す。
+  useEffect(() => {
+    if (homeSignal > 0) {
+      setDetail(null);
+      setView("home");
+    }
+  }, [homeSignal]);
+
   // ホームの読み込み(初回のみ。再訪はキャッシュ)。
   useEffect(() => {
     if (view !== "home" || home || homeLoading) return;
@@ -336,12 +372,29 @@ export function StorePanel({
       .finally(() => setHomeLoading(false));
   }, [view, home, homeLoading]);
 
+  // クリエイター一覧の読み込み(初回のみ)。
+  useEffect(() => {
+    if (view !== "creators" || creators || creatorsLoading) return;
+    setCreatorsLoading(true);
+    setError(null);
+    fetchStoreCreators()
+      .then(setCreators)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setCreatorsLoading(false));
+  }, [view, creators, creatorsLoading]);
+
   // 一覧の読み込み。
   const loadBrowse = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchStore({ category, q, sort, page });
+      const res = await fetchStore({
+        category,
+        q,
+        creatorId: creatorFilter?.id ?? null,
+        sort,
+        page,
+      });
       setItems(res.items);
       setTotal(res.total);
       setTotalPages(res.totalPages);
@@ -350,7 +403,7 @@ export function StorePanel({
     } finally {
       setLoading(false);
     }
-  }, [category, q, sort, page]);
+  }, [category, q, creatorFilter, sort, page]);
 
   useEffect(() => {
     if (view === "browse") void loadBrowse();
@@ -387,19 +440,21 @@ export function StorePanel({
   function browseWith(opts: {
     category?: RemoteProductType | null;
     q?: string;
+    creator?: { id: string; name: string } | null;
     sort?: StoreSort;
   }) {
     setDetail(null);
     setCategory(opts.category ?? null);
     setQ(opts.q ?? "");
     setQInput(opts.q ?? "");
+    setCreatorFilter(opts.creator ?? null);
     if (opts.sort) setSort(opts.sort);
     setPage(1);
     setView("browse");
   }
 
   function search() {
-    browseWith({ category, q: qInput, sort });
+    browseWith({ category, q: qInput, creator: creatorFilter, sort });
   }
 
   if (!supabaseConfigured) {
@@ -533,7 +588,20 @@ export function StorePanel({
                     <span className="store-avatar-ph">👤</span>
                   )}
                   <div>
-                    <b>{detail.creator.displayName || "（無名）"}</b>
+                    <button
+                      className="store-creator-link"
+                      title="このクリエイターの作品を見る"
+                      onClick={() =>
+                        browseWith({
+                          creator: {
+                            id: detail.creator.id,
+                            name: detail.creator.displayName || "（無名）",
+                          },
+                        })
+                      }
+                    >
+                      {detail.creator.displayName || "（無名）"}
+                    </button>
                     {detail.creatorBio && (
                       <p className="muted store-bio">{detail.creatorBio}</p>
                     )}
@@ -640,6 +708,76 @@ export function StorePanel({
     </div>
   );
 
+  /* ===== クリエイター一覧ビュー ===== */
+  if (view === "creators") {
+    return (
+      <div className="store">
+        {header}
+        <div className="store-cats">
+          <button className="store-cat" onClick={() => setView("home")}>
+            ← ホーム
+          </button>
+          <span className="store-count muted">
+            {creators ? `${creators.length} 人` : ""}
+          </span>
+        </div>
+
+        {error && (
+          <p className="tag fail" style={{ margin: "4px 16px" }}>
+            {error}
+          </p>
+        )}
+
+        <div className="store-body">
+          <div className="creators-head">
+            <h3>👥 クリエイターを探す</h3>
+            <p className="muted">
+              公開作品を持つクリエイターの一覧。「人」から作品に出会う入口。
+            </p>
+          </div>
+          {creatorsLoading && !creators && (
+            <p className="muted" style={{ padding: 24 }}>
+              読み込み中…
+            </p>
+          )}
+          {creators && creators.length === 0 && (
+            <p className="muted" style={{ padding: 24 }}>
+              公開作品を持つクリエイターはまだいません。
+            </p>
+          )}
+          {creators && creators.length > 0 && (
+            <div className="creators-grid">
+              {creators.map((c) => (
+                <button
+                  key={c.id}
+                  className="creator-card"
+                  onClick={() =>
+                    browseWith({
+                      creator: { id: c.id, name: c.displayName || "（無名）" },
+                    })
+                  }
+                  title={`${c.displayName || "（無名）"} の作品を見る`}
+                >
+                  {c.avatarUrl ? (
+                    <img className="creator-avatar" src={c.avatarUrl} alt="" />
+                  ) : (
+                    <span className="store-avatar-ph">👤</span>
+                  )}
+                  <span className="creator-meta">
+                    <b className="creator-name">{c.displayName || "（無名）"}</b>
+                    {c.bio && <span className="creator-bio muted">{c.bio}</span>}
+                    <span className="creator-count">作品 {c.workCount} 件</span>
+                  </span>
+                  <span className="catcard-arrow">→</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   /* ===== ホームビュー(Steam フロントページ) ===== */
   if (view === "home") {
     return (
@@ -702,6 +840,50 @@ export function StorePanel({
                 purchased={purchased}
                 onOpen={(it) => void openDetail(it)}
               />
+
+              {/* カテゴリで探す(Web ホームと同じカード) */}
+              <section className="catsec">
+                <div className="strip-head">
+                  <h3>🗂 カテゴリで探す</h3>
+                </div>
+                <p className="catsec-sub muted">
+                  ジャンルから作品を絞り込んで探せます
+                </p>
+                <div className="catcards">
+                  {CAT_CARDS.map((c) => (
+                    <button
+                      key={c.key}
+                      className={`catcard tone-${c.tone}`}
+                      onClick={() => browseWith({ category: c.key })}
+                    >
+                      <span className="catcard-icon">{c.icon}</span>
+                      <span className="catcard-label">
+                        {c.label}
+                        <span className="catcard-arrow">→</span>
+                      </span>
+                      <span className="catcard-sub">{c.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* クリエイターを探す */}
+              <button
+                className="creators-banner"
+                onClick={() => {
+                  setDetail(null);
+                  setView("creators");
+                }}
+              >
+                <span className="creators-banner-icon">👥</span>
+                <span className="creators-banner-copy">
+                  <strong>クリエイターを探す</strong>
+                  <span className="muted">
+                    公開作品を持つクリエイターを一覧表示。「人」から作品に出会う入口。
+                  </span>
+                </span>
+                <span className="strip-more">すべて見る →</span>
+              </button>
 
               <Strip
                 icon="🔥"
@@ -774,6 +956,20 @@ export function StorePanel({
                 setPage(1);
               }}
               title="検索を解除"
+            >
+              ×
+            </button>
+          </span>
+        )}
+        {creatorFilter && (
+          <span className="store-qchip">
+            👤 {creatorFilter.name} の作品
+            <button
+              onClick={() => {
+                setCreatorFilter(null);
+                setPage(1);
+              }}
+              title="作者の絞り込みを解除"
             >
               ×
             </button>
