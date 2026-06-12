@@ -232,10 +232,11 @@ async function resolveSearchIds(q: string): Promise<string[]> {
   return Array.from(ids);
 }
 
-/** ストア一覧(カテゴリ / 検索 / 並び順 / ページ)。 */
+/** ストア一覧(カテゴリ / 検索 / 作者 / 並び順 / ページ)。 */
 export async function fetchStore(opts: {
   category?: RemoteProductType | null;
   q?: string | null;
+  creatorId?: string | null;
   sort?: StoreSort;
   page?: number;
 }): Promise<StoreListResult> {
@@ -253,7 +254,13 @@ export async function fetchStore(opts: {
   }
 
   if (sort === "rating") {
-    return fetchByRating({ page, pageSize, category: opts.category ?? null, searchIds });
+    return fetchByRating({
+      page,
+      pageSize,
+      category: opts.category ?? null,
+      searchIds,
+      creatorId: opts.creatorId ?? null,
+    });
   }
 
   const from = (page - 1) * pageSize;
@@ -265,6 +272,7 @@ export async function fetchStore(opts: {
     .order("created_at", { ascending: false })
     .range(from, from + pageSize - 1);
   if (opts.category) query = query.eq("product_type", opts.category);
+  if (opts.creatorId) query = query.eq("creator_id", opts.creatorId);
   if (searchIds !== null) query = query.in("id", searchIds);
 
   const { data: rows, count, error } = await query;
@@ -285,6 +293,7 @@ async function fetchByRating(args: {
   pageSize: number;
   category: RemoteProductType | null;
   searchIds: string[] | null;
+  creatorId?: string | null;
 }): Promise<StoreListResult> {
   const { page, pageSize, category, searchIds } = args;
 
@@ -294,6 +303,7 @@ async function fetchByRating(args: {
     .eq("status", "published")
     .limit(5000);
   if (category) idQuery = idQuery.eq("product_type", category);
+  if (args.creatorId) idQuery = idQuery.eq("creator_id", args.creatorId);
   if (searchIds !== null) idQuery = idQuery.in("id", searchIds);
 
   const { data: idRows, error } = await idQuery;
@@ -668,6 +678,44 @@ export async function fetchStoreHome(): Promise<StoreHome> {
       items: cats[i] ?? [],
     })).filter((c) => c.items.length > 0),
   };
+}
+
+/* ===== クリエイター一覧(「クリエイターを探す」) ===== */
+
+export interface StoreCreator {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  bio: string;
+  workCount: number;
+}
+
+/** 公開作品を持つクリエイターを作品数の多い順に返す。 */
+export async function fetchStoreCreators(): Promise<StoreCreator[]> {
+  const { data, error } = await supabase
+    .from("products")
+    .select("creator_id")
+    .eq("status", "published")
+    .limit(5000);
+  if (error) throw new Error(error.message);
+
+  const counts = new Map<string, number>();
+  for (const r of data ?? []) {
+    counts.set(r.creator_id, (counts.get(r.creator_id) ?? 0) + 1);
+  }
+  const ids = Array.from(counts.keys());
+  if (ids.length === 0) return [];
+
+  const profiles = await fetchProfiles(ids);
+  return ids
+    .map((id) => ({
+      id,
+      displayName: profiles.get(id)?.displayName ?? "",
+      avatarUrl: profiles.get(id)?.avatarUrl ?? null,
+      bio: profiles.get(id)?.bio ?? "",
+      workCount: counts.get(id) ?? 0,
+    }))
+    .sort((a, b) => b.workCount - a.workCount);
 }
 
 /** 自分の paid 購入の product_id 集合(購入済みバッジ用)。 */

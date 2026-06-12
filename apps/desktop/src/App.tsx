@@ -31,6 +31,7 @@ import {
   type PlayIndexEntry,
 } from "./play-storage";
 import { readSheetFromPath, isTauri } from "./storage";
+import brandIcon from "./assets/brand-icon.png";
 
 type Page = "store" | "library" | "play" | "characters";
 type Viewing = { item: RemoteLibraryItem; entry: DownloadedEntry };
@@ -77,17 +78,20 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   // PLAY 中のドロワー(☰)。卓を抜けずにナビへアクセスする。
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
+  const [storeHomeSig, setStoreHomeSig] = useState(0);
 
   // deep-link(paradice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
   useEffect(() => {
     if (isTauri()) void initDeepLinkAuth();
   }, []);
 
-  /** ページ遷移(セッション/参加を畳む)。 */
+  /** ページ遷移(セッション/参加を畳む)。ストアは常にホームから。 */
   function goTo(p: Page) {
     setSession(null);
     setJoining(null);
     setPage(p);
+    if (p === "store") setStoreHomeSig((n) => n + 1);
     setDrawerOpen(false);
     setError(null);
   }
@@ -343,8 +347,17 @@ export function App() {
     <div className="app-shell">
       {/* 上部ナビ */}
       <header className="topbar">
-        <span className="topbar-brand" onClick={() => goTo("store")}>
-          🎲 パラDa-iCE
+        <span
+          className="topbar-brand"
+          onClick={() => goTo("store")}
+          title="ストアのトップへ"
+        >
+          <img src={brandIcon} alt="" className="topbar-brand-icon" />
+          <span className="topbar-brand-text">
+            <span className="b-para">パラ</span>
+            <span className="b-daice">Da-iCE</span>
+          </span>
+          <span className="topbar-brand-sub">TRPGサイト</span>
         </span>
         <nav className="topnav" role="tablist">
           {PAGES.map((p) => (
@@ -374,7 +387,10 @@ export function App() {
       {/* ページ本体 */}
       <main className="app-main">
         {page === "store" && (
-          <StorePanel onGoLibrary={() => setPage("library")} />
+          <StorePanel
+            homeSignal={storeHomeSig}
+            onGoLibrary={() => setPage("library")}
+          />
         )}
 
         {page === "library" && (
