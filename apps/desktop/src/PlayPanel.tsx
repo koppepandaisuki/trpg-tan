@@ -10,10 +10,15 @@ function resourceIcon(key: string): string {
   return "◆";
 }
 
-/** 技能/能力の判定コマンド(CCFOLIA 風)。CC<=目標値 ＋ ラベル。
+/** 技能/能力の判定コマンド(CCFOLIA 風)。
+ *  カスタムシステムは駒の checkTemplate({value} 置換)、CoC は CC<=目標値。
  *  能力値は英語表記(STR 等)で統一し、技能は日本語ラベルのまま。 */
-function cmdFor(s: PanelStat): string {
-  return `CC<=${s.target} ${s.kind === "characteristic" ? s.key : s.label}`;
+function cmdFor(s: PanelStat, template?: string): string {
+  const label = s.kind === "characteristic" ? s.key : s.label;
+  if (template) {
+    return `${template.replace(/\{value\}/g, String(s.target))} ${label}`;
+  }
+  return `CC<=${s.target} ${label}`;
 }
 
 /**
@@ -70,9 +75,8 @@ export function PlayPanel({
           <span className="ppanel-sys">
             {panel.source === "token"
               ? "トークン"
-              : panel.systemId === "coc6"
-                ? "CoC 6版"
-                : "CoC 7版"}
+              : (panel.systemName ??
+                (panel.systemId === "coc6" ? "CoC 6版" : "CoC 7版"))}
           </span>
         </div>
         {!playerMode && (
@@ -178,9 +182,9 @@ export function PlayPanel({
             <button
               key={s.key}
               className="pstat"
-              onClick={() => onFill(cmdFor(s))}
-              onDoubleClick={() => onSend(cmdFor(s))}
-              title={`${s.label} ─ クリック: 入力欄に / ダブルクリック: 即ロール（CC<=${s.target}）`}
+              onClick={() => onFill(cmdFor(s, panel.checkTemplate))}
+              onDoubleClick={() => onSend(cmdFor(s, panel.checkTemplate))}
+              title={`${s.label} ─ クリック: 入力欄に / ダブルクリック: 即ロール（${cmdFor(s, panel.checkTemplate)}）`}
             >
               {/* 能力値は英語表記で統一(日本語ラベルは title で補足)。 */}
               <span className="pstat-label">{s.key}</span>
@@ -196,9 +200,9 @@ export function PlayPanel({
             <button
               key={s.key}
               className="pskill"
-              onClick={() => onFill(cmdFor(s))}
-              onDoubleClick={() => onSend(cmdFor(s))}
-              title={`クリック: 入力欄に / ダブルクリック: 即ロール（${s.target}）`}
+              onClick={() => onFill(cmdFor(s, panel.checkTemplate))}
+              onDoubleClick={() => onSend(cmdFor(s, panel.checkTemplate))}
+              title={`クリック: 入力欄に / ダブルクリック: 即ロール（${cmdFor(s, panel.checkTemplate)}）`}
             >
               {s.label} <b>{s.target}</b>
             </button>

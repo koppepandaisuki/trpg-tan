@@ -56,6 +56,13 @@ export interface Panel {
   systemId?: string;
   edition?: CoCEdition;
   sheetId?: string;
+  /** カスタムシステムの表示名(CoC 以外のとき)。 */
+  systemName?: string;
+  /**
+   * 能力値/技能クリック時の判定コマンド雛形({value} が値に置換され、
+   * 末尾にラベルが付く)。未設定は CoC の "CC<=値"。
+   */
+  checkTemplate?: string;
   stats: PanelStat[];
   resources: PanelResource[];
   /** 盤面上の位置(0..1 正規化。盤面サイズに依らず保存できる)。未配置は undefined。 */

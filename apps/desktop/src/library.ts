@@ -1,4 +1,4 @@
-import type { CharacterSheet } from "@trpg/core";
+import type { CharacterSheet, GenericSheet } from "@trpg/core";
 
 /**
  * キャラクター・ライブラリ(一覧管理)。
@@ -17,6 +17,8 @@ export interface LibraryEntry {
   id: string;
   name: string;
   systemId: string;
+  /** カスタムシステムの表示名(CoC は未設定)。 */
+  systemName?: string;
   /** .ccsheet の絶対パス(ここから再読込する)*/
   path: string;
   /** 一覧表示用の小さなサムネ(ポートレートの data URL、無ければ null)*/
@@ -79,4 +81,27 @@ export function buildEntry(
     thumbnail: sheet.image ?? null,
     updatedAt: new Date().toISOString(),
   };
+}
+
+/** 汎用シート(カスタムシステム)用の索引エントリ。*/
+export function buildGenericEntry(
+  sheet: GenericSheet,
+  path: string,
+): LibraryEntry {
+  return {
+    id: sheet.id,
+    name: sheet.name || "(名称未設定)",
+    systemId: sheet.systemId,
+    systemName: sheet.systemName,
+    path,
+    thumbnail: sheet.image ?? null,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/** 一覧カードのシステム表記。*/
+export function systemLabel(e: LibraryEntry): string {
+  if (e.systemId === "coc6") return "CoC 6版";
+  if (e.systemId === "coc7") return "CoC 7版";
+  return e.systemName ?? "カスタム";
 }
