@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   reduce,
   panelFromSheet,
+  panelFromGeneric,
   makeTokenPanel,
   checkEvent,
   freeRollEvent,
@@ -53,8 +54,8 @@ import {
   type NetMsg,
   type Room,
 } from "./net";
-import { getLibrary } from "./library";
-import { readSheetFromPath } from "./storage";
+import { getLibrary, systemLabel } from "./library";
+import { readSheetFromPath, isGenericSheet } from "./storage";
 import { savePlayAs, savePlayToPath } from "./play-storage";
 
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
@@ -413,7 +414,10 @@ export function PlayTable({
     setError(null);
     try {
       const sheet = await readSheetFromPath(entry.path);
-      const base = panelFromSheet({ id: crypto.randomUUID(), sheet });
+      // カスタムシステムのキャラは汎用パネル(判定雛形 + パレット持ち)へ。
+      const base = isGenericSheet(sheet)
+        ? panelFromGeneric({ id: crypto.randomUUID(), sheet })
+        : panelFromSheet({ id: crypto.randomUUID(), sheet });
       // ポートレートがあれば実寸(自然な幅)で配置。
       const size = base.portrait ? await probeImageWidth(base.portrait) : undefined;
       dispatch(
@@ -657,7 +661,7 @@ export function PlayTable({
                 <option value="">キャラを選択…</option>
                 {characters.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}（{c.systemId === "coc6" ? "6版" : "7版"}）
+                    {c.name}（{systemLabel(c)}）
                   </option>
                 ))}
               </select>

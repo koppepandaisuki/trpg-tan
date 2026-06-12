@@ -3,6 +3,8 @@ import {
   createScene,
   type CharacterSheet as Sheet,
   type PlayScene,
+  type SystemDef,
+  type GenericSheet,
 } from "@trpg/core";
 import { CharacterSheet } from "./CharacterSheet";
 import { AuthControl } from "./AuthControl";
@@ -11,6 +13,9 @@ import { Viewer } from "./Viewer";
 import { PlayTable } from "./PlayTable";
 import { PlayClient } from "./PlayClient";
 import { StorePanel } from "./StorePanel";
+import { SystemBuilder } from "./SystemBuilder";
+import { GenericSheetEditor } from "./GenericSheetEditor";
+import { findSystem } from "./systems-store";
 import { SoundSettings } from "./SoundSettings";
 import { initDeepLinkAuth } from "./auth";
 import type { RemoteLibraryItem } from "./library-remote";
@@ -20,6 +25,8 @@ import {
   upsertEntry,
   removeEntry,
   buildEntry,
+  buildGenericEntry,
+  systemLabel,
   type LibraryEntry,
 } from "./library";
 import {
@@ -30,10 +37,10 @@ import {
   readPlayFromPath,
   type PlayIndexEntry,
 } from "./play-storage";
-import { readSheetFromPath, isTauri } from "./storage";
-import brandIcon from "./assets/brand-icon.png";
+import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
+import brandLogo from "./assets/logo.png";
 
-type Page = "store" | "library" | "play" | "characters";
+type Page = "store" | "library" | "play" | "characters" | "builder";
 type Viewing = { item: RemoteLibraryItem; entry: DownloadedEntry };
 type Session = { scene: PlayScene; path: string | null };
 
@@ -42,6 +49,7 @@ const PAGES: { key: Page; label: string }[] = [
   { key: "library", label: "ライブラリ" },
   { key: "play", label: "卓" },
   { key: "characters", label: "キャラクター" },
+  { key: "builder", label: "ビルダー" },
 ];
 
 /**
@@ -58,6 +66,12 @@ export function App() {
   const [active, setActive] = useState<{ sheet: Sheet | null; key: string }>(
     () => ({ sheet: null, key: "new-0" }),
   );
+  // カスタムシステムの汎用シート編集(非 null のとき CoC エディタの代わりに表示)。
+  const [activeGeneric, setActiveGeneric] = useState<{
+    def: SystemDef | null;
+    sheet: GenericSheet | null;
+    key: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   // アプリ内ビューア(購入物の閲覧)。null のとき非表示。
   const [viewing, setViewing] = useState<Viewing | null>(null);
@@ -157,7 +171,18 @@ export function App() {
     setJoining(null);
     setPage("characters");
     setDrawerOpen(false);
+    setActiveGeneric(null);
     setActive({ sheet: null, key: `new-${Date.now()}` });
+    setError(null);
+  }
+
+  /** ビルダーから「このシステムでキャラ作成」。 */
+  function newGenericCharacter(def: SystemDef) {
+    setSession(null);
+    setJoining(null);
+    setPage("characters");
+    setDrawerOpen(false);
+    setActiveGeneric({ def, sheet: null, key: `gnew-${Date.now()}` });
     setError(null);
   }
 
@@ -172,7 +197,17 @@ export function App() {
       setJoining(null);
       setPage("characters");
       setDrawerOpen(false);
-      setActive({ sheet, key: `${entry.id}-${Date.now()}` });
+      if (isGenericSheet(sheet)) {
+        // カスタムシステムのキャラ → 汎用エディタで開く。
+        setActiveGeneric({
+          def: findSystem(sheet.systemId),
+          sheet,
+          key: `${entry.id}-${Date.now()}`,
+        });
+      } else {
+        setActiveGeneric(null);
+        setActive({ sheet, key: `${entry.id}-${Date.now()}` });
+      }
       setError(null);
     } catch (e) {
       setError(`開けませんでした(移動/削除された可能性): ${String(e)}`);
@@ -181,6 +216,10 @@ export function App() {
 
   function handleSaved(sheet: Sheet, path: string) {
     setLibrary((lib) => upsertEntry(lib, buildEntry(sheet, path)));
+  }
+
+  function handleGenericSaved(sheet: GenericSheet, path: string) {
+    setLibrary((lib) => upsertEntry(lib, buildGenericEntry(sheet, path)));
   }
 
   function handleRemove(id: string) {
@@ -202,9 +241,7 @@ export function App() {
           </div>
           <div className="lib-meta">
             <span className="lib-name">{e.name}</span>
-            <span className="lib-sys">
-              {e.systemId === "coc6" ? "CoC 6版" : "CoC 7版"}
-            </span>
+            <span className="lib-sys">{systemLabel(e)}</span>
           </div>
           <button
             className="lib-del"
@@ -352,12 +389,7 @@ export function App() {
           onClick={() => goTo("store")}
           title="ストアのトップへ"
         >
-          <img src={brandIcon} alt="" className="topbar-brand-icon" />
-          <span className="topbar-brand-text">
-            <span className="b-para">パラ</span>
-            <span className="b-daice">Da-iCE</span>
-          </span>
-          <span className="topbar-brand-sub">TRPGサイト</span>
+          <img src={brandLogo} alt="パラDa-iCE" className="topbar-logo" />
         </span>
         <nav className="topnav" role="tablist">
           {PAGES.map((p) => (
@@ -473,13 +505,26 @@ export function App() {
               )}
             </aside>
             <section className="chars-editor">
-              <CharacterSheet
-                key={active.key}
-                initialSheet={active.sheet}
-                onSaved={handleSaved}
-              />
+              {activeGeneric ? (
+                <GenericSheetEditor
+                  key={activeGeneric.key}
+                  def={activeGeneric.def}
+                  initial={activeGeneric.sheet}
+                  onSaved={handleGenericSaved}
+                />
+              ) : (
+                <CharacterSheet
+                  key={active.key}
+                  initialSheet={active.sheet}
+                  onSaved={handleSaved}
+                />
+              )}
             </section>
           </div>
+        )}
+
+        {page === "builder" && (
+          <SystemBuilder onCreateCharacter={newGenericCharacter} />
         )}
       </main>
 
