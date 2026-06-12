@@ -30,6 +30,7 @@ import {
   type BgmTrack,
   type SceneInfo,
   type CutIn,
+  type AssetItem,
   type CoCEdition,
 } from "@trpg/core";
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -44,6 +45,7 @@ import { BoardStatusBar } from "./BoardStatusBar";
 import { TextStockPanel, TelopOverlay } from "./TextStock";
 import { CutInPanel, CutInOverlay } from "./CutIn";
 import { SideStack } from "./SideStack";
+import { AssetsPanel } from "./AssetsPanel";
 import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
@@ -317,6 +319,74 @@ export function PlayTable({
     if (!p || !v) return false;
     dispatch(panelUpdateEvent(newCtx(), panelId, { portrait: v.image }));
     return true;
+  }
+
+  /* ===== アセット(画像素材庫) / シーン BGM(GM ローカル編集) ===== */
+
+  function addAssets(items: AssetItem[]) {
+    setScene((s) => ({ ...s, assets: [...(s.assets ?? []), ...items] }));
+    setDirty(true);
+  }
+
+  function removeAsset(id: string) {
+    setScene((s) => ({
+      ...s,
+      assets: (s.assets ?? []).filter((a) => a.id !== id),
+    }));
+    setDirty(true);
+  }
+
+  /** アセットを盤面中央に配置(実寸プローブ、700px 上限)。 */
+  async function placeAsset(asset: AssetItem) {
+    const size = await probeImageWidth(asset.image, 700);
+    addImageObject(asset.name, asset.image, { x: 0.5, y: 0.5 }, size);
+  }
+
+  /** 現在のシーンに BGM を紐付け(null で解除)。切替時に自動再生される。 */
+  function bindSceneBgm(trackId: string | null) {
+    const activeId = scene.activeSceneId;
+    if (!activeId) return;
+    setScene((s) => ({
+      ...s,
+      scenes: (s.scenes ?? []).map((sc) =>
+        sc.id === activeId
+          ? { ...sc, bgmId: trackId ?? undefined }
+          : sc,
+      ),
+    }));
+    setDirty(true);
+  }
+
+  const sceneBgmId =
+    (scene.scenes ?? []).find((sc) => sc.id === scene.activeSceneId)?.bgmId ??
+    null;
+
+  /* ===== PLAY 画面全体への画像ドロップ(盤面の外でも反映) ===== */
+
+  function onTableDragOver(e: React.DragEvent) {
+    if ((e.target as HTMLElement).closest(".board")) return; // 盤面は自前処理
+    if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+  }
+
+  function onTableDrop(e: React.DragEvent) {
+    if ((e.target as HTMLElement).closest(".board")) return; // 盤面側で位置付き配置
+    const file = Array.from(e.dataTransfer.files).find((f) =>
+      f.type.startsWith("image/"),
+    );
+    if (!file) return;
+    e.preventDefault();
+    const reader = new FileReader();
+    reader.onload = async () => {
+      if (typeof reader.result !== "string") return;
+      const size = await probeImageWidth(reader.result, 700);
+      addImageObject(
+        file.name.replace(/\.[^.]+$/, ""),
+        reader.result,
+        { x: 0.5, y: 0.5 },
+        size,
+      );
+    };
+    reader.readAsDataURL(file);
   }
 
   /* ===== シナリオテキストストック / カットイン(GM ローカル編集) ===== */
@@ -667,7 +737,11 @@ export function PlayTable({
   }
 
   return (
-    <div className="ptable">
+    <div
+      className="ptable"
+      onDragOver={onTableDragOver}
+      onDrop={onTableDrop}
+    >
       <header className="ptable-head">
         {playerMode ? (
           <span className="ptable-title-ro">{scene.title || "卓"}</span>
@@ -808,6 +882,21 @@ export function PlayTable({
             storageKey={`trpg.play.stack-left.v1::${scene.id}`}
             sections={[
               {
+                id: "assets",
+                title: "アセット",
+                icon: "🖼",
+                defaultOpen: false,
+                body: (
+                  <AssetsPanel
+                    assets={scene.assets ?? []}
+                    onAdd={addAssets}
+                    onRemove={removeAsset}
+                    onPlace={(a) => void placeAsset(a)}
+                    onSetBackground={(a) => setBoardImage(a.image)}
+                  />
+                ),
+              },
+              {
                 id: "chars",
                 title: "キャラクター",
                 icon: "🎭",
@@ -893,6 +982,8 @@ export function PlayTable({
                     tracks={scene.bgm?.tracks ?? []}
                     onAddTracks={addBgmTracks}
                     onRemoveTrack={removeBgmTrack}
+                    sceneBgmId={sceneBgmId}
+                    onBindScene={bindSceneBgm}
                   />
                 ),
               },

@@ -69,13 +69,16 @@ export function SideStack({
     }
   }, [storageKey, state]);
 
-  // 保存済みの順序に従い、未知の id(新ブロック)は定義順で後ろに足す。
-  const ordered = [
-    ...state.order
-      .map((id) => sections.find((s) => s.id === id))
-      .filter((s): s is SideSection => !!s),
-    ...sections.filter((s) => !state.order.includes(s.id)),
-  ];
+  // 保存済みの順序に従い、未知の id(新ブロック)は定義上の位置へ挿入する
+  // (末尾に足すと「一番上に追加」した新機能が既存卓で下に埋もれるため)。
+  const ordered = state.order
+    .map((id) => sections.find((s) => s.id === id))
+    .filter((s): s is SideSection => !!s);
+  for (const s of sections) {
+    if (!ordered.includes(s)) {
+      ordered.splice(Math.min(sections.indexOf(s), ordered.length), 0, s);
+    }
+  }
 
   function isOpen(s: SideSection): boolean {
     return state.open[s.id] ?? s.defaultOpen ?? true;

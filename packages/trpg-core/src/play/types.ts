@@ -116,6 +116,16 @@ export interface SceneInfo {
   id: string;
   name: string;
   board: PlayBoard;
+  /** このシーンに紐づく BGM(BgmTrack.id)。切替時に自動再生する。 */
+  bgmId?: string;
+}
+
+/** アセット(卓に登録した画像素材。盤面へドラッグ/配置して使う)。 */
+export interface AssetItem {
+  id: string;
+  name: string;
+  /** data URL。 */
+  image: string;
 }
 
 /** カットイン(演出用の画像。クリックで画面に流す)。 */
@@ -150,6 +160,8 @@ export interface PlayScene {
   textStock?: string;
   /** カットイン画像(演出)。 */
   cutins?: CutIn[];
+  /** アセット(画像素材庫)。盤面へドラッグ / 配置して使う。 */
+  assets?: AssetItem[];
   /** 共有メモ(卓の全員と共有する想定。.play に保存)。 */
   sharedMemo?: string;
   /** ダイスボット(システム別ダイス処理)。未設定は systemId から既定。 */

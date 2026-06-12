@@ -3717,6 +3717,145 @@ select.cutin-snd {
   vertical-align: middle;
 }
 
+/* ===== アセット(画像素材庫) ===== */
+.assets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-radius: var(--radius-sm);
+}
+.assets.drop-active {
+  outline: 2px dashed var(--primary);
+  outline-offset: -4px;
+  background: var(--primary-soft);
+}
+.assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 8px;
+}
+.asset-tile {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+  cursor: grab;
+}
+.asset-tile:active {
+  cursor: grabbing;
+}
+.asset-tile img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.asset-name {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 3px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-acts {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.asset-tile:hover .asset-acts {
+  opacity: 1;
+}
+.asset-act {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.asset-act:hover {
+  border-color: var(--primary);
+}
+.asset-act.del:hover {
+  color: #b91c1c;
+  border-color: #e0796b;
+}
+
+/* BGM: シーン紐付け / リピート切替 */
+.bgm-scene {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.35;
+  padding: 0 2px;
+}
+.bgm-scene:hover {
+  opacity: 0.8;
+}
+.bgm-scene.on {
+  opacity: 1;
+  filter: drop-shadow(0 0 3px rgba(55, 172, 232, 0.8));
+}
+.bgm-btn.bgm-repeat {
+  width: auto;
+  padding: 0 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* 右クリックメニュー: 鍵(位置固定) / サイズ調整 */
+.ctx-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ctx-lock {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 7px;
+  font-size: 13px;
+  width: 26px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctx-lock:hover {
+  border-color: var(--primary);
+}
+.ctx-lock.on {
+  background: var(--gold-soft);
+  border-color: var(--gold);
+}
+.ctx-size-range {
+  flex: 1;
+  min-width: 0;
+}
+.ctx-size-num {
+  flex: 0 0 64px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
 /* 右クリックメニューは画面に収め、長い場合は中でスクロール */
 .ctx-menu {
   max-height: calc(100vh - 24px);

@@ -6,6 +6,7 @@ export {
   type BgmTrack,
   type SceneInfo,
   type CutIn,
+  type AssetItem,
   type Panel,
   type PanelVariant,
   type PanelStat,
