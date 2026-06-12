@@ -425,6 +425,17 @@ export function PlayTable({
     setDirty(true);
   }
 
+  /** カットインの帯背景色(null で既定に戻す)。 */
+  function setCutinBg(id: string, bg: string | null) {
+    setScene((s) => ({
+      ...s,
+      cutins: (s.cutins ?? []).map((c) =>
+        c.id === id ? { ...c, bg: bg ?? undefined } : c,
+      ),
+    }));
+    setDirty(true);
+  }
+
   function setCutinSound(
     id: string,
     sound: { path: string; name: string } | null,
@@ -969,6 +980,7 @@ export function PlayTable({
                     onRemove={removeCutin}
                     onFire={fireCutin}
                     onSetSound={setCutinSound}
+                    onSetBg={setCutinBg}
                   />
                 ),
               },

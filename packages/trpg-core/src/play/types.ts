@@ -134,6 +134,8 @@ export interface CutIn {
   name: string;
   /** data URL。 */
   image: string;
+  /** 帯の背景色(hex)。未設定は既定の紺。 */
+  bg?: string;
   /** 同時に鳴らす効果音(ローカル音声ファイルのパス)。未設定なら無音。 */
   soundPath?: string;
   soundName?: string;

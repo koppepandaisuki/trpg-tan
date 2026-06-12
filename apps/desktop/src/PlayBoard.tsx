@@ -20,6 +20,15 @@ function isImageObject(p: Panel): boolean {
   return !!p.portrait;
 }
 
+/**
+ * 仮想ステージの固定サイズ(16:9)。盤面は常にこの座標系で描き、
+ * 利用可能な領域に合わせて均一スケールで縮小/拡大して表示する。
+ * → GM ビューはプレイヤービューの「縮小版」になり、どの画面サイズでも
+ *   全員がまったく同じ構図を見る(背景の見切れ問題の根治)。
+ */
+const STAGE_W = 1280;
+const STAGE_H = 720;
+
 export function PlayBoard({
   board,
   panels,
@@ -75,6 +84,23 @@ export function PlayBoard({
     .filter((p) => !playerMode || !p.hidden)
     .sort((a, b) => (a.layer ?? 0) - (b.layer ?? 0));
   const ref = useRef<HTMLDivElement>(null);
+  // 仮想ステージのスケール(利用可能領域にフィット)。
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        setScale(Math.min(r.width / STAGE_W, r.height / STAGE_H));
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [resize, setResize] = useState<{
     id: string;
@@ -135,8 +161,11 @@ export function PlayBoard({
 
   function onPointerMove(e: React.PointerEvent) {
     if (resize) {
-      const d = Math.max(e.clientX - resize.startX, e.clientY - resize.startY);
-      const size = Math.max(24, Math.min(1200, Math.round(resize.startSize + d)));
+      // 画面ピクセル → 仮想ステージ座標(スケールで割る)。
+      const d =
+        Math.max(e.clientX - resize.startX, e.clientY - resize.startY) /
+        (scale || 1);
+      const size = Math.max(24, Math.min(1600, Math.round(resize.startSize + d)));
       setResize({ ...resize, size });
       return;
     }
@@ -153,15 +182,12 @@ export function PlayBoard({
     }
     if (drag) {
       let { x, y } = drag;
-      // 吸着: 40px グリッドのセル中心へスナップ(グリッド表示時のみ)。
+      // 吸着: 仮想ステージ上の 40px グリッドのセル中心へスナップ。
       if (snap && grid) {
-        const r = ref.current?.getBoundingClientRect();
-        if (r) {
-          const sx = Math.floor((x * r.width) / 40) * 40 + 20;
-          const sy = Math.floor((y * r.height) / 40) * 40 + 20;
-          x = Math.max(0, Math.min(1, sx / r.width));
-          y = Math.max(0, Math.min(1, sy / r.height));
-        }
+        const sx = Math.floor((x * STAGE_W) / 40) * 40 + 20;
+        const sy = Math.floor((y * STAGE_H) / 40) * 40 + 20;
+        x = Math.max(0, Math.min(1, sx / STAGE_W));
+        y = Math.max(0, Math.min(1, sy / STAGE_H));
       }
       onMove(drag.id, x, y);
       setDrag(null);
@@ -176,10 +202,9 @@ export function PlayBoard({
   ) {
     const probe = new Image();
     probe.onload = () => {
-      const boardW = ref.current?.clientWidth ?? 800;
       const size = Math.min(
         probe.naturalWidth || 160,
-        Math.round(boardW * 0.8),
+        Math.round(STAGE_W * 0.8),
         700,
       );
       onAddImage(name, dataUrl, pos, size);
@@ -269,18 +294,34 @@ export function PlayBoard({
       </div>
       )}
 
+      {/* 仮想ステージ(1280x720 固定)を領域にフィットさせて表示。
+          GM もプレイヤーも同じ構図(縮尺だけ違う)を見る。 */}
       <div
-        ref={ref}
-        className={`board ${dropActive ? "drop-active" : ""}`}
-        style={image ? { backgroundImage: `url(${image})` } : undefined}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
+        ref={viewportRef}
+        className={`board-viewport ${dropActive ? "drop-active" : ""}`}
         onDragOver={(e) => {
           e.preventDefault();
           setDropActive(true);
         }}
         onDragLeave={() => setDropActive(false)}
         onDrop={onDrop}
+      >
+        <div
+          className="board-scalebox"
+          style={{ width: STAGE_W * scale, height: STAGE_H * scale }}
+        >
+      <div
+        ref={ref}
+        className="board"
+        style={{
+          width: STAGE_W,
+          height: STAGE_H,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          ...(image ? { backgroundImage: `url(${image})` } : {}),
+        }}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
       >
         {grid && <div className="board-grid" />}
 
@@ -353,6 +394,8 @@ export function PlayBoard({
             </div>
           );
         })}
+      </div>
+        </div>
       </div>
 
       {menu && menuPanel && (
