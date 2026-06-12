@@ -10,19 +10,33 @@ import { audioUrl, baseName } from "./audio-url";
  */
 const VOL_KEY = "trpg.bgm.volume.v1";
 
+/** リピートの種類: 1曲(既定) / プレイリスト全体 / なし。 */
+type RepeatMode = "one" | "all" | "off";
+const REPEAT_LABEL: Record<RepeatMode, string> = {
+  one: "🔂 1曲",
+  all: "🔁 全曲",
+  off: "➡ なし",
+};
+
 export function BgmPlayer({
   tracks,
   onAddTracks,
   onRemoveTrack,
+  sceneBgmId,
+  onBindScene,
 }: {
   tracks: BgmTrack[];
   onAddTracks: (tracks: BgmTrack[]) => void;
   onRemoveTrack: (id: string) => void;
+  /** 現在のシーンに紐づく BGM(切替で自動再生)。 */
+  sceneBgmId?: string | null;
+  /** 現在のシーンへの紐付け切替(null で解除)。 */
+  onBindScene?: (trackId: string | null) => void;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [loop, setLoop] = useState(true);
+  const [repeat, setRepeat] = useState<RepeatMode>("one");
   const [error, setError] = useState<string | null>(null);
   const [volume, setVolume] = useState<number>(() => {
     const v = Number(localStorage.getItem(VOL_KEY));
@@ -34,6 +48,11 @@ export function BgmPlayer({
     localStorage.setItem(VOL_KEY, String(volume));
   }, [volume]);
 
+  // 1曲リピートは audio.loop で実現(ended が発火しない)。
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.loop = repeat === "one";
+  }, [repeat]);
+
   async function playTrack(id: string) {
     const track = tracks.find((t) => t.id === id);
     const audio = audioRef.current;
@@ -43,6 +62,7 @@ export function BgmPlayer({
       const url = await audioUrl(track.path);
       audio.src = url;
       audio.volume = volume;
+      audio.loop = repeat === "one";
       await audio.play();
       setCurrentId(id);
       setPlaying(true);
@@ -50,6 +70,15 @@ export function BgmPlayer({
       setError(`再生できませんでした: ${String(e)}`);
     }
   }
+
+  // シーン切替: 紐づいた BGM があれば自動で再生(同じ曲なら継続)。
+  useEffect(() => {
+    if (sceneBgmId && sceneBgmId !== currentId) {
+      void playTrack(sceneBgmId);
+    }
+    // playTrack/currentId は意図的に依存から外す(シーン変更時のみ反応)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sceneBgmId]);
 
   function togglePlay() {
     const audio = audioRef.current;
@@ -75,10 +104,11 @@ export function BgmPlayer({
   }
 
   function onEnded() {
+    // repeat === "one" は audio.loop が処理(ここには来ない)。
     if (tracks.length === 0) return;
     const i = tracks.findIndex((t) => t.id === currentId);
     const isLast = i === tracks.length - 1;
-    if (isLast && !loop) {
+    if (isLast && repeat !== "all") {
       setPlaying(false);
       return;
     }
@@ -140,6 +170,22 @@ export function BgmPlayer({
                 {currentId === t.id && playing ? "▶" : "♪"}
               </span>
               <span className="bgm-name">{t.name}</span>
+              {onBindScene && (
+                <button
+                  className={`bgm-scene ${sceneBgmId === t.id ? "on" : ""}`}
+                  title={
+                    sceneBgmId === t.id
+                      ? "このシーンの BGM（クリックで解除）"
+                      : "このシーンの BGM にする（シーン切替で自動再生）"
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBindScene(sceneBgmId === t.id ? null : t.id);
+                  }}
+                >
+                  🎬
+                </button>
+              )}
               <button
                 className="bgm-del"
                 title="一覧から外す"
@@ -170,11 +216,13 @@ export function BgmPlayer({
           ⏭
         </button>
         <button
-          className={`bgm-btn ${loop ? "on" : ""}`}
-          onClick={() => setLoop((v) => !v)}
-          title="リピート"
+          className={`bgm-btn bgm-repeat ${repeat !== "off" ? "on" : ""}`}
+          onClick={() =>
+            setRepeat((m) => (m === "one" ? "all" : m === "all" ? "off" : "one"))
+          }
+          title={`リピート: ${REPEAT_LABEL[repeat]}（クリックで切替）`}
         >
-          🔁
+          {REPEAT_LABEL[repeat]}
         </button>
         <input
           className="bgm-vol"

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Panel, PlayBoard as BoardState } from "@trpg/core";
+import { ASSET_MIME } from "./AssetsPanel";
 
 /**
  * 盤面(ココフォリア風)。背景マップ + グリッド + キャラ駒/画像オブジェクト。
@@ -167,36 +168,57 @@ export function PlayBoard({
     }
   }
 
-  /** 画像ファイルを実寸(幅)で配置。盤面幅の 80% / 700px を上限にクランプ。 */
+  /** data URL を実寸(幅)で配置。盤面幅の 80% / 700px を上限にクランプ。 */
+  function addImageDataUrl(
+    name: string,
+    dataUrl: string,
+    pos: { x: number; y: number },
+  ) {
+    const probe = new Image();
+    probe.onload = () => {
+      const boardW = ref.current?.clientWidth ?? 800;
+      const size = Math.min(
+        probe.naturalWidth || 160,
+        Math.round(boardW * 0.8),
+        700,
+      );
+      onAddImage(name, dataUrl, pos, size);
+    };
+    probe.onerror = () => onAddImage(name, dataUrl, pos, 160);
+    probe.src = dataUrl;
+  }
+
+  /** 画像ファイルを読み込んで配置。 */
   function addImageFile(file: File, pos: { x: number; y: number }) {
     if (!file.type.startsWith("image/")) return;
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result !== "string") return;
-      const dataUrl = reader.result;
-      const probe = new Image();
-      probe.onload = () => {
-        const boardW = ref.current?.clientWidth ?? 800;
-        const size = Math.min(
-          probe.naturalWidth || 160,
-          Math.round(boardW * 0.8),
-          700,
-        );
-        onAddImage(stripExt(file.name), dataUrl, pos, size);
-      };
-      probe.onerror = () => onAddImage(stripExt(file.name), dataUrl, pos, 160);
-      probe.src = dataUrl;
+      addImageDataUrl(stripExt(file.name), reader.result, pos);
     };
     reader.readAsDataURL(file);
   }
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
+    e.stopPropagation();
     setDropActive(false);
+    const pos = clientToNorm(e.clientX, e.clientY);
+    // アセット(素材庫)からのドラッグ。
+    const assetJson = e.dataTransfer.getData(ASSET_MIME);
+    if (assetJson) {
+      try {
+        const a = JSON.parse(assetJson) as { name: string; image: string };
+        if (a.image) addImageDataUrl(a.name || "アセット", a.image, pos);
+        return;
+      } catch {
+        // 壊れたデータは無視してファイル処理へ
+      }
+    }
     const file = Array.from(e.dataTransfer.files).find((f) =>
       f.type.startsWith("image/"),
     );
-    if (file) addImageFile(file, clientToNorm(e.clientX, e.clientY));
+    if (file) addImageFile(file, pos);
   }
 
   function pickAddImage(e: React.ChangeEvent<HTMLInputElement>) {
@@ -262,7 +284,7 @@ export function PlayBoard({
       >
         {grid && <div className="board-grid" />}
 
-        {visible.length === 0 && (
+        {visible.length === 0 && !image && (
           <div className="board-empty muted">
             画像をドロップ、または「画像を追加 / ＋キャラ」で駒を置けます。
             ドラッグで移動、右下のハンドルでサイズ変更、右クリックでメニュー。
@@ -396,6 +418,15 @@ function ObjectMenu({
   const [note, setNote] = useState(panel.note ?? "");
   // 差分追加用のラベル入力。
   const [vLabel, setVLabel] = useState("");
+  // サイズ(右下ハンドルに触れない巨大画像向けの代替手段)。確定時のみ反映。
+  const [size, setSize] = useState(
+    panel.size ?? (panel.portrait ? 140 : 56),
+  );
+  function commitSize(v: number) {
+    const s = Math.max(24, Math.min(4000, Math.round(v) || 24));
+    setSize(s);
+    if (s !== panel.size) onUpdate(panel.id, { size: s });
+  }
   const isChar = panel.stats.length > 0 || panel.resources.length > 0;
 
   /** 差分画像を追加。初回は現在の立ち絵を「基本」として自動登録する。 */
@@ -450,6 +481,20 @@ function ObjectMenu({
     >
       <div className="ctx-head">
         {panel.source === "sheet" ? "キャラ駒" : "オブジェクト"}
+        {!playerMode && (
+          <button
+            className={`ctx-lock ${panel.locked ? "on" : ""}`}
+            onClick={() => onUpdate(panel.id, { locked: !panel.locked })}
+            title={
+              panel.locked
+                ? "位置を固定中（クリックで解除）"
+                : "位置を固定する（移動・リサイズ禁止）"
+            }
+            aria-pressed={!!panel.locked}
+          >
+            {panel.locked ? "🔒" : "🔓"}
+          </button>
+        )}
       </div>
 
       <label className="ctx-field">
@@ -550,18 +595,32 @@ function ObjectMenu({
         </span>
       </button>
 
-      {/* 位置固定: ドラッグ移動・リサイズを禁止(誤操作防止)。 */}
-      <button
-        className="ctx-row"
-        onClick={() => onUpdate(panel.id, { locked: !panel.locked })}
-      >
-        <span className="ctx-icon">{panel.locked ? "📌" : "📍"}</span>
-        <span>
-          {panel.locked
-            ? "位置を固定中（クリックで解除）"
-            : "位置を固定する（移動・リサイズ禁止）"}
-        </span>
-      </button>
+      {/* サイズ変更: 大きい画像でハンドルに触れないときの代替手段。 */}
+      <div className="ctx-layer">
+        <span className="ctx-icon">📐</span>
+        <span>サイズ</span>
+        <input
+          className="ctx-size-range"
+          type="range"
+          min={24}
+          max={1600}
+          value={size}
+          onChange={(e) => setSize(Number(e.target.value))}
+          onPointerUp={() => commitSize(size)}
+          title="ドラッグでサイズ変更（離すと確定）"
+        />
+        <input
+          className="input ctx-size-num"
+          type="number"
+          min={24}
+          max={4000}
+          value={size}
+          onChange={(e) => setSize(Number(e.target.value))}
+          onBlur={() => commitSize(size)}
+          onKeyDown={(e) => e.key === "Enter" && commitSize(size)}
+          title="px 指定"
+        />
+      </div>
 
       {/* シーン引き継ぎ: 未帰属=全シーン共通 / 帰属=このシーン専用。 */}
       <button
