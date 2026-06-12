@@ -1,4 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  Store,
+  Search,
+  FileText,
+  BookOpen,
+  Map as MapIcon,
+  Palette,
+  Music,
+  Flame,
+  Sparkles,
+  ThumbsUp,
+  Users,
+  ShoppingCart,
+  LibraryBig,
+  LayoutGrid,
+} from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
@@ -10,6 +32,7 @@ import {
   fetchStoreDetail,
   fetchStoreHome,
   fetchStoreCreators,
+  fetchScreenshotUrls,
   fetchMyPurchasedIds,
   formatPriceJpy,
   webProductUrl,
@@ -39,27 +62,28 @@ const CATEGORIES: { key: RemoteProductType | null; label: string }[] = [
   { key: "bgm_audio", label: "BGM/音声" },
 ];
 
-const CATEGORY_ICON: Record<RemoteProductType, string> = {
-  scenario: "📜",
-  rulebook: "📕",
-  character_art: "🎭",
-  map: "🗺",
-  bgm_audio: "♪",
+/** ジャンルのアイコン(lucide。Web 側と同じ語彙)。 */
+const CATEGORY_ICON: Record<RemoteProductType, ReactNode> = {
+  scenario: <FileText size={14} />,
+  rulebook: <BookOpen size={14} />,
+  character_art: <Palette size={14} />,
+  map: <MapIcon size={14} />,
+  bgm_audio: <Music size={14} />,
 };
 
 /** 「カテゴリで探す」カード(Web ホームと同じラベル / 説明 / 配色)。 */
 const CAT_CARDS: {
   key: RemoteProductType;
-  icon: string;
+  icon: ReactNode;
   label: string;
   sub: string;
   tone: string;
 }[] = [
-  { key: "scenario", icon: "📄", label: "シナリオ", sub: "ストーリーと舞台設定", tone: "blue" },
-  { key: "rulebook", icon: "📖", label: "ルールブック", sub: "ハウスルール・追加システム", tone: "green" },
-  { key: "map", icon: "🗺", label: "マップ・バトルマップ", sub: "戦闘マップ・地図", tone: "gold" },
-  { key: "character_art", icon: "🎨", label: "アートワーク", sub: "立ち絵・アートワーク", tone: "rose" },
-  { key: "bgm_audio", icon: "🎵", label: "BGM・効果音", sub: "BGM・効果音", tone: "violet" },
+  { key: "scenario", icon: <FileText size={17} />, label: "シナリオ", sub: "ストーリーと舞台設定", tone: "blue" },
+  { key: "rulebook", icon: <BookOpen size={17} />, label: "ルールブック", sub: "ハウスルール・追加システム", tone: "green" },
+  { key: "map", icon: <MapIcon size={17} />, label: "マップ・バトルマップ", sub: "戦闘マップ・地図", tone: "gold" },
+  { key: "character_art", icon: <Palette size={17} />, label: "アートワーク", sub: "立ち絵・アートワーク", tone: "rose" },
+  { key: "bgm_audio", icon: <Music size={17} />, label: "BGM・効果音", sub: "BGM・効果音", tone: "violet" },
 ];
 
 function reviewTone(label: string): string {
@@ -241,6 +265,67 @@ function HeroCarousel({
   );
 }
 
+/* ===== カバー画像(ホバーでスクリーンショットを巡回) ===== */
+
+function HoverCover({
+  item,
+  owned,
+  className,
+}: {
+  item: StoreItem;
+  owned: boolean;
+  className: string;
+}) {
+  // スクショは初ホバー時に遅延取得してキャッシュ。
+  const [shots, setShots] = useState<string[] | null>(null);
+  const [hover, setHover] = useState(false);
+  const [idx, setIdx] = useState(0);
+
+  function enter() {
+    setHover(true);
+    if (shots === null) {
+      fetchScreenshotUrls(item.id)
+        .then(setShots)
+        .catch(() => setShots([]));
+    }
+  }
+  function leave() {
+    setHover(false);
+    setIdx(0);
+  }
+
+  const cycling = hover && !!shots && shots.length > 0;
+  useEffect(() => {
+    if (!cycling) return;
+    const t = window.setInterval(() => setIdx((i) => i + 1), 900);
+    return () => window.clearInterval(t);
+  }, [cycling]);
+
+  const src = cycling ? shots![idx % shots!.length] : item.coverUrl;
+
+  return (
+    <span
+      className={className}
+      onMouseEnter={enter}
+      onMouseLeave={leave}
+    >
+      {src ? (
+        <img key={src} src={src} alt="" loading="lazy" />
+      ) : (
+        <span className="store-noimg">No Image</span>
+      )}
+      {owned && <span className="store-owned-chip">✓ 購入済み</span>}
+      {cycling && shots!.length > 1 && (
+        <span className="hov-dots">
+          {shots!.map((_, i) => (
+            <i key={i} className={i === idx % shots!.length ? "on" : ""} />
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /* ===== ホーム: 横スクロールのストリップ ===== */
 
 function Strip({
@@ -251,7 +336,7 @@ function Strip({
   onOpen,
   onMore,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   items: StoreItem[];
   purchased: Set<string>;
@@ -262,7 +347,7 @@ function Strip({
   return (
     <section className="strip">
       <div className="strip-head">
-        <h3>
+        <h3 className="ibtn">
           {icon} {title}
         </h3>
         {onMore && (
@@ -279,16 +364,11 @@ function Strip({
             onClick={() => onOpen(it)}
             title={it.title}
           >
-            <span className="strip-cover">
-              {it.coverUrl ? (
-                <img src={it.coverUrl} alt="" loading="lazy" />
-              ) : (
-                <span className="store-noimg">No Image</span>
-              )}
-              {purchased.has(it.id) && (
-                <span className="store-owned-chip">✓ 購入済み</span>
-              )}
-            </span>
+            <HoverCover
+              item={it}
+              owned={purchased.has(it.id)}
+              className="strip-cover"
+            />
             <span className="strip-title">{it.title}</span>
             <span className="strip-foot">
               <span className="store-price small">{formatPriceJpy(it.priceJpy)}</span>
@@ -559,19 +639,19 @@ export function StorePanel({
                   <>
                     <span className="work-badge done store-owned">✓ 購入済み</span>
                     <button
-                      className="btn btn-primary"
+                      className="btn btn-primary ibtn"
                       onClick={() => onGoLibrary?.()}
                     >
-                      📚 購入タブで開く
+                      <LibraryBig size={15} /> ライブラリで開く
                     </button>
                   </>
                 ) : (
                   <>
                     <button
-                      className="btn btn-primary"
+                      className="btn btn-primary ibtn"
                       onClick={() => void openUrl(webProductUrl(detail.slug))}
                     >
-                      🛒 Webストアで購入
+                      <ShoppingCart size={15} /> Webストアで購入
                     </button>
                     <p className="store-buynote">
                       決済はブラウザ(Web版)で行います。購入後、アプリの
@@ -679,7 +759,7 @@ export function StorePanel({
         }}
         title="ストアのホームへ"
       >
-        🛒 ストア
+        <Store size={19} /> ストア
       </h2>
       <div className="store-search">
         <input
@@ -689,8 +769,8 @@ export function StorePanel({
           onKeyDown={(e) => e.key === "Enter" && search()}
           placeholder="タイトル / 作者 / タグで検索"
         />
-        <button className="btn mini" onClick={search}>
-          検索
+        <button className="btn mini ibtn" onClick={search}>
+          <Search size={14} /> 検索
         </button>
       </div>
       {view === "browse" && (
@@ -731,7 +811,9 @@ export function StorePanel({
 
         <div className="store-body">
           <div className="creators-head">
-            <h3>👥 クリエイターを探す</h3>
+            <h3 className="ibtn">
+              <Users size={17} /> クリエイターを探す
+            </h3>
             <p className="muted">
               公開作品を持つクリエイターの一覧。「人」から作品に出会う入口。
             </p>
@@ -785,10 +867,10 @@ export function StorePanel({
           {CATEGORIES.filter((c) => c.key).map((c) => (
             <button
               key={c.label}
-              className="store-cat"
+              className="store-cat ibtn"
               onClick={() => browseWith({ category: c.key })}
             >
-              {c.key ? `${CATEGORY_ICON[c.key]} ` : ""}
+              {c.key && CATEGORY_ICON[c.key]}
               {c.label}
             </button>
           ))}
@@ -837,7 +919,9 @@ export function StorePanel({
               {/* カテゴリで探す(Web ホームと同じカード) */}
               <section className="catsec">
                 <div className="strip-head">
-                  <h3>🗂 カテゴリで探す</h3>
+                  <h3 className="ibtn">
+                    <LayoutGrid size={16} /> カテゴリで探す
+                  </h3>
                 </div>
                 <p className="catsec-sub muted">
                   ジャンルから作品を絞り込んで探せます
@@ -868,7 +952,9 @@ export function StorePanel({
                   setView("creators");
                 }}
               >
-                <span className="creators-banner-icon">👥</span>
+                <span className="creators-banner-icon">
+                  <Users size={20} />
+                </span>
                 <span className="creators-banner-copy">
                   <strong>クリエイターを探す</strong>
                   <span className="muted">
@@ -879,14 +965,14 @@ export function StorePanel({
               </button>
 
               <Strip
-                icon="🔥"
+                icon={<Flame size={16} />}
                 title="急上昇"
                 items={home.trending}
                 purchased={purchased}
                 onOpen={(it) => void openDetail(it)}
               />
               <Strip
-                icon="✨"
+                icon={<Sparkles size={16} />}
                 title="新着"
                 items={home.recent}
                 purchased={purchased}
@@ -894,7 +980,7 @@ export function StorePanel({
                 onMore={() => browseWith({ sort: "published" })}
               />
               <Strip
-                icon="👍"
+                icon={<ThumbsUp size={16} />}
                 title="好評な作品"
                 items={home.topRated}
                 purchased={purchased}
@@ -996,16 +1082,11 @@ export function StorePanel({
                 disabled={detailLoading}
                 title={it.title}
               >
-                <div className="store-cover">
-                  {it.coverUrl ? (
-                    <img src={it.coverUrl} alt="" loading="lazy" />
-                  ) : (
-                    <span className="store-noimg">No Image</span>
-                  )}
-                  {purchased.has(it.id) && (
-                    <span className="store-owned-chip">✓ 購入済み</span>
-                  )}
-                </div>
+                <HoverCover
+                  item={it}
+                  owned={purchased.has(it.id)}
+                  className="store-cover"
+                />
                 <div className="store-card-body">
                   <span className="store-card-title">{it.title}</span>
                   <span className="store-card-creator">

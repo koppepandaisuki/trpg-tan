@@ -6,6 +6,7 @@ import {
   type SystemDef,
   type GenericSheet,
 } from "@trpg/core";
+import { Moon, Sun, Settings, Plus, FolderDown } from "lucide-react";
 import { CharacterSheet } from "./CharacterSheet";
 import { AuthControl } from "./AuthControl";
 import { LibraryPage } from "./LibraryPage";
@@ -426,18 +427,18 @@ export function App() {
         </nav>
         <div className="topbar-right">
           <button
-            className="btn mini"
+            className="btn mini ibtn"
             onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
             title={theme === "dark" ? "ライトテーマに切替" : "ダークテーマに切替"}
           >
-            {theme === "dark" ? "☀" : "🌙"}
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </button>
           <button
-            className="btn mini"
+            className="btn mini ibtn"
             onClick={() => setShowSettings(true)}
             title="設定"
           >
-            ⚙
+            <Settings size={15} />
           </button>
           <AuthControl />
         </div>
@@ -557,17 +558,17 @@ export function App() {
 
       {/* 下部バー(Steam 風) */}
       <footer className="bottombar">
-        <button className="bottombar-btn" onClick={newSession}>
-          ＋ 新しい卓
+        <button className="bottombar-btn ibtn" onClick={newSession}>
+          <Plus size={14} /> 新しい卓
         </button>
-        <button className="bottombar-btn" onClick={() => goTo("library")}>
-          📚 ダウンロードの管理
+        <button className="bottombar-btn ibtn" onClick={() => goTo("library")}>
+          <FolderDown size={14} /> ダウンロードの管理
         </button>
         <button
-          className="bottombar-btn"
+          className="bottombar-btn ibtn"
           onClick={() => setShowSettings(true)}
         >
-          ⚙ 設定
+          <Settings size={14} /> 設定
         </button>
       </footer>
 

@@ -680,6 +680,18 @@ export async function fetchStoreHome(): Promise<StoreHome> {
   };
 }
 
+/** カードホバー用: 商品のスクリーンショット URL(最大 5 枚)。 */
+export async function fetchScreenshotUrls(productId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("product_screenshots")
+    .select("path, order_index")
+    .eq("product_id", productId)
+    .order("order_index", { ascending: true })
+    .limit(5);
+  if (error || !data) return [];
+  return data.map((r) => screenshotUrl(r.path));
+}
+
 /* ===== クリエイター一覧(「クリエイターを探す」) ===== */
 
 export interface StoreCreator {
