@@ -4164,6 +4164,143 @@ select.cutin-snd {
     opacity: 0;
   }
 }
+/* ===== ターン管理(盤面左上) ===== */
+.bstatus-turnbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+}
+.bstatus-round {
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.bstatus-next {
+  font-size: 11.5px;
+}
+.bstatus-row.active {
+  background: var(--primary-soft);
+  box-shadow: inset 3px 0 0 var(--primary);
+  border-radius: 8px;
+}
+
+/* ターン行のログ表示 */
+.log-turn {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+}
+
+/* ズーム表示 / リセット(盤面右下) */
+.board-zoom-badge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 5;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 12px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.board-zoom-badge:hover {
+  border-color: var(--primary);
+}
+.board.pannable {
+  cursor: grab;
+}
+
+/* ===== ダークテーマ(<html data-theme="dark">) =====
+ * 変数の差し替えが基本。白系のグラデーションを使う部品だけ個別に上書き。
+ */
+[data-theme="dark"] {
+  --bg: #0d1a26;
+  --surface: #15273a;
+  --surface-2: #112030;
+  --surface-3: #1c3349;
+  --border: rgba(120, 180, 230, 0.16);
+  --border-strong: rgba(120, 180, 230, 0.34);
+
+  --text: #e6f1fa;
+  --text-muted: #9fb8cc;
+  --text-faint: #71899f;
+
+  --primary: #37ace8;
+  --primary-hover: #54b9ef;
+  --primary-soft: rgba(55, 172, 232, 0.16);
+  --primary-deep: #6cc4f5;
+
+  --mint-soft: rgba(125, 228, 211, 0.14);
+  --mint-deep: #7de4d3;
+  --gold-soft: rgba(244, 201, 74, 0.14);
+  --gold-deep: #f4c94a;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 3px 10px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 14px rgba(0, 0, 0, 0.35), 0 18px 38px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.45), 0 34px 64px rgba(0, 0, 0, 0.5);
+}
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .bottombar {
+  background: linear-gradient(180deg, rgba(21, 39, 58, 0.96), rgba(13, 26, 38, 0.96));
+}
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .libside,
+[data-theme="dark"] .chars-list,
+[data-theme="dark"] .sysb-side {
+  background: linear-gradient(180deg, rgba(21, 39, 58, 0.92), rgba(13, 26, 38, 0.95));
+}
+[data-theme="dark"] .asset-act,
+[data-theme="dark"] .board-zoom-badge {
+  background: rgba(21, 39, 58, 0.92);
+  color: var(--text);
+}
+[data-theme="dark"] .catcard.tone-blue {
+  background: linear-gradient(135deg, #14304a, #0f2538);
+}
+[data-theme="dark"] .catcard.tone-green {
+  background: linear-gradient(135deg, #123a30, #0e2b24);
+}
+[data-theme="dark"] .catcard.tone-gold {
+  background: linear-gradient(135deg, #3a3115, #2b2410);
+}
+[data-theme="dark"] .catcard.tone-rose {
+  background: linear-gradient(135deg, #3a1c22, #2b151a);
+}
+[data-theme="dark"] .catcard.tone-violet {
+  background: linear-gradient(135deg, #2a2342, #1f1a31);
+}
+[data-theme="dark"] .creators-banner {
+  background: linear-gradient(120deg, var(--surface), #2b1a20);
+}
+[data-theme="dark"] .store-rev.bad {
+  color: #ff9d8f;
+  background: rgba(240, 135, 107, 0.16);
+}
+[data-theme="dark"] .btn.mini.share-stop {
+  color: #ff9d8f;
+  border-color: rgba(240, 135, 107, 0.45);
+}
+[data-theme="dark"] .btn.mini.share-stop:hover {
+  background: rgba(240, 135, 107, 0.14);
+}
+[data-theme="dark"] .ctx-vdel:hover,
+[data-theme="dark"] .asset-act.del:hover {
+  color: #ff9d8f;
+  border-color: rgba(240, 135, 107, 0.5);
+}
+
 .pside-log .pinput-row .input {
   font-size: 14px;
   padding: 8px 10px;

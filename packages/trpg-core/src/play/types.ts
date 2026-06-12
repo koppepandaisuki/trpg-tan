@@ -168,6 +168,8 @@ export interface PlayScene {
   sharedMemo?: string;
   /** ダイスボット(システム別ダイス処理)。未設定は systemId から既定。 */
   diceBot?: string;
+  /** ターン管理(ラウンド数 + 手番の駒)。round 0 = 未開始。 */
+  turn?: { round: number; activePanelId: string | null };
   log: PlayEvent[];
   meta: { createdAt: string; updatedAt: string };
 }
@@ -305,6 +307,14 @@ export interface SceneRemoveEvent extends BaseEvent {
   sceneId: string;
 }
 
+/** ターン管理(ラウンド / 手番)の更新。label は表示用の一文。 */
+export interface TurnSetEvent extends BaseEvent {
+  kind: "turn-set";
+  round: number;
+  activePanelId: string | null;
+  label: string;
+}
+
 export type PlayEvent =
   | ChatEvent
   | RollEvent
@@ -318,4 +328,5 @@ export type PlayEvent =
   | SceneAddEvent
   | SceneSelectEvent
   | SceneRenameEvent
-  | SceneRemoveEvent;
+  | SceneRemoveEvent
+  | TurnSetEvent;

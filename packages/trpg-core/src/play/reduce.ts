@@ -130,6 +130,14 @@ export function reduce(scene: PlayScene, event: PlayEvent): PlayScene {
       }
       return { ...scene, scenes: next, activeSceneId, board, log, meta };
     }
+    case "turn-set": {
+      return {
+        ...scene,
+        turn: { round: event.round, activePanelId: event.activePanelId },
+        log,
+        meta,
+      };
+    }
     case "chat":
     case "roll":
     case "system":

@@ -20,6 +20,7 @@ import {
   sceneSelectEvent,
   sceneRenameEvent,
   sceneRemoveEvent,
+  turnSetEvent,
   type PlayScene,
   type PlayEvent,
   type RollEvent,
@@ -226,6 +227,29 @@ export function PlayTable({
 
   function renameScene(id: string, name: string) {
     dispatch(sceneRenameEvent(newCtx(), id, name));
+  }
+
+  /** 次の手番へ(速さ順で巡回。一巡したらラウンド +1)。 */
+  function nextTurn() {
+    if (cards.length === 0) return;
+    const cur = scene.turn?.activePanelId ?? null;
+    const round = scene.turn?.round ?? 0;
+    const i = cards.findIndex((p) => p.id === cur);
+    const wrap = i >= 0 && i + 1 >= cards.length;
+    const next = round === 0 || i < 0 ? cards[0] : cards[wrap ? 0 : i + 1];
+    const nextRound = round === 0 ? 1 : wrap ? round + 1 : round;
+    dispatch(
+      turnSetEvent(
+        newCtx(),
+        nextRound,
+        next.id,
+        `⏱ ラウンド${nextRound} — ${next.name} の手番`,
+      ),
+    );
+  }
+
+  function resetTurn() {
+    dispatch(turnSetEvent(newCtx(), 0, null, "⏱ ターン管理をリセット"));
   }
 
   async function removeScene(id: string) {
@@ -1039,7 +1063,12 @@ export function PlayTable({
               onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
             />
             {/* 盤面左上のステータス一覧(速さ順・サイドバーと同順)。 */}
-            <BoardStatusBar cards={cards} />
+            <BoardStatusBar
+              cards={cards}
+              turn={scene.turn}
+              onNextTurn={nextTurn}
+              onResetTurn={resetTurn}
+            />
           </div>
         </main>
 
@@ -1129,7 +1158,7 @@ export function PlayTable({
                 onUpdate={updatePanel}
                 onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
               />
-              <BoardStatusBar cards={playerCards} />
+              <BoardStatusBar cards={playerCards} turn={scene.turn} />
             </div>
           </main>
 

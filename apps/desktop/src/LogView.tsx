@@ -377,6 +377,12 @@ export function LogRow({
         </span>
       </p>
     );
+  if (ev.kind === "turn-set")
+    return (
+      <p className="logrow log-turn">
+        <span>{ev.label}</span>
+      </p>
+    );
   if (ev.kind === "panel-add")
     return (
       <p className="logrow muted">

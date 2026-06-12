@@ -273,7 +273,7 @@ export function PlayClient({
               onUpdate={updatePanel}
               onRemove={() => {}}
             />
-            <BoardStatusBar cards={playerCards} />
+            <BoardStatusBar cards={playerCards} turn={scene.turn} />
           </div>
         </main>
 

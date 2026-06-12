@@ -94,6 +94,18 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
   const [storeHomeSig, setStoreHomeSig] = useState(0);
+  // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("trpg.theme.v1") ?? "light",
+  );
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("trpg.theme.v1", theme);
+    } catch {
+      // 保存失敗は無視
+    }
+  }, [theme]);
 
   // deep-link(paradice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
   useEffect(() => {
@@ -405,6 +417,13 @@ export function App() {
           ))}
         </nav>
         <div className="topbar-right">
+          <button
+            className="btn mini"
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            title={theme === "dark" ? "ライトテーマに切替" : "ダークテーマに切替"}
+          >
+            {theme === "dark" ? "☀" : "🌙"}
+          </button>
           <button
             className="btn mini"
             onClick={() => setShowSettings(true)}
