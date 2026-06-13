@@ -59,6 +59,7 @@ import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
 import { BgmPlayer } from "./BgmPanel";
 import { BoardStatusBar } from "./BoardStatusBar";
+import { PortraitLayer } from "./PortraitLayer";
 import { TextStockPanel, TelopOverlay } from "./TextStock";
 import { CutInPanel, CutInOverlay } from "./CutIn";
 import { SideStack } from "./SideStack";
@@ -1086,6 +1087,8 @@ export function PlayTable({
               onUpdate={updatePanel}
               onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
             />
+            {/* 立ち絵(直近の発言キャラ)。表示はこの端末ローカルで切替可。 */}
+            <PortraitLayer log={scene.log} panels={scene.panels} />
             {/* 盤面左上のステータス一覧(速さ順・サイドバーと同順)。 */}
             <BoardStatusBar
               cards={cards}
@@ -1182,6 +1185,7 @@ export function PlayTable({
                 onUpdate={updatePanel}
                 onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
               />
+              <PortraitLayer log={scene.log} panels={scene.panels} />
               <BoardStatusBar cards={playerCards} turn={scene.turn} />
             </div>
           </main>

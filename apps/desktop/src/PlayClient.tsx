@@ -13,6 +13,7 @@ import { PlayBoard } from "./PlayBoard";
 import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
 import { BoardStatusBar } from "./BoardStatusBar";
+import { PortraitLayer } from "./PortraitLayer";
 import { MemoPanel } from "./MemoPanel";
 import { SideStack } from "./SideStack";
 import { CutInOverlay } from "./CutIn";
@@ -274,6 +275,7 @@ export function PlayClient({
               onUpdate={updatePanel}
               onRemove={() => {}}
             />
+            <PortraitLayer log={scene.log} panels={scene.panels} />
             <BoardStatusBar cards={playerCards} turn={scene.turn} />
           </div>
         </main>
