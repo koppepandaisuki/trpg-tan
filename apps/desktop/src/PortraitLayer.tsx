@@ -68,7 +68,7 @@ export function PortraitLayer({
           {speakers.map((p, i) => (
             <img
               key={`${p.id}-${p.portrait}`}
-              className={`portrait p${i}`}
+              className={`stage-portrait p${i}`}
               src={p.portrait ?? ""}
               alt=""
               draggable={false}

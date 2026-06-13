@@ -4472,7 +4472,7 @@ button:disabled {
   overflow: hidden;
   z-index: 1;
 }
-.portrait {
+.stage-portrait {
   position: absolute;
   bottom: 0;
   max-width: 38%;
@@ -4481,19 +4481,19 @@ button:disabled {
   filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.35));
   animation: portrait-in var(--dur-3) var(--ease-out);
 }
-.portrait.p0 {
+.stage-portrait.p0 {
   right: 2%;
   height: 62%;
   z-index: 3;
 }
-.portrait.p1 {
+.stage-portrait.p1 {
   right: 24%;
   height: 50%;
   z-index: 2;
   opacity: 0.62;
   filter: grayscale(0.25) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
 }
-.portrait.p2 {
+.stage-portrait.p2 {
   right: 42%;
   height: 42%;
   z-index: 1;
@@ -4654,14 +4654,20 @@ button:disabled {
 
 /* ===== ページ遷移(フェードイン) ===== */
 .page-fade {
+  /* app-main(flex:1 の確定高)に対して 100% を取り、子の height:100% 連鎖を
+     維持する。height を明示しないと、ネストした flex item のストレッチ高は
+     パーセント解決の基準にならず store / chars-page 等が崩れる。 */
+  height: 100%;
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   animation: page-in var(--dur-3) var(--ease-out);
 }
 .page-fade > * {
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 @keyframes page-in {
   from {
