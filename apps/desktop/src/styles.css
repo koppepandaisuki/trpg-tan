@@ -4399,6 +4399,194 @@ button:disabled {
   }
 }
 
+/* ===== 立ち絵レイヤー(直近の発言キャラを盤面下端に) ===== */
+.portraits {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+.portrait {
+  position: absolute;
+  bottom: 0;
+  max-width: 38%;
+  object-fit: contain;
+  object-position: bottom;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.35));
+  animation: portrait-in var(--dur-3) var(--ease-out);
+}
+.portrait.p0 {
+  right: 2%;
+  height: 62%;
+  z-index: 3;
+}
+.portrait.p1 {
+  right: 24%;
+  height: 50%;
+  z-index: 2;
+  opacity: 0.62;
+  filter: grayscale(0.25) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+}
+.portrait.p2 {
+  right: 42%;
+  height: 42%;
+  z-index: 1;
+  opacity: 0.4;
+  filter: grayscale(0.45);
+}
+@keyframes portrait-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.portraits-toggle {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+.portraits-toggle:hover {
+  opacity: 1;
+  border-color: var(--primary);
+}
+.portraits-toggle.on {
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+}
+
+/* ===== フレンド(下部バー右端のポップ) ===== */
+.bottombar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.friends-count {
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 1px 7px;
+  background: var(--surface-3);
+  color: var(--text-faint);
+}
+.friends-count.on {
+  background: var(--mint-soft);
+  color: var(--mint-deep);
+}
+.friends-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-pop) - 1);
+}
+.friends-pop {
+  position: fixed;
+  right: 12px;
+  bottom: 44px;
+  z-index: var(--z-pop);
+  width: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  animation: page-in var(--dur-2) var(--ease-out);
+}
+.friends-head {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--primary-deep);
+}
+.friends-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.friends-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.friend-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+}
+.friend-row:hover {
+  background: var(--surface-2);
+}
+.friend-avatar {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.friend-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.friend-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  border: 2px solid var(--surface);
+}
+.friend-dot.on {
+  background: #34c98e;
+}
+.friend-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.friend-meta b {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friend-meta span {
+  font-size: 10.5px;
+}
+.friend-on {
+  color: #1e9e6e;
+  font-weight: 700;
+}
+
 /* ===== ページ遷移(フェードイン) ===== */
 .page-fade {
   flex: 1;

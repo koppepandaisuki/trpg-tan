@@ -20,6 +20,7 @@ import { findSystem } from "./systems-store";
 import { SoundSettings } from "./SoundSettings";
 import { Toasts } from "./Toasts";
 import { EmptyState } from "./EmptyState";
+import { FriendsButton } from "./FriendsPanel";
 import { initDeepLinkAuth } from "./auth";
 import type { RemoteLibraryItem } from "./library-remote";
 import type { DownloadedEntry } from "./downloaded";
@@ -572,12 +573,15 @@ export function App() {
         <button className="bottombar-btn ibtn" onClick={() => goTo("library")}>
           <FolderDown size={14} /> ダウンロードの管理
         </button>
-        <button
-          className="bottombar-btn ibtn"
-          onClick={() => setShowSettings(true)}
-        >
-          <Settings size={14} /> 設定
-        </button>
+        <span className="bottombar-right">
+          <button
+            className="bottombar-btn ibtn"
+            onClick={() => setShowSettings(true)}
+          >
+            <Settings size={14} /> 設定
+          </button>
+          <FriendsButton />
+        </span>
       </footer>
 
       {/* アプリ内ビューア(購入物の閲覧)。上に重ねる。*/}
