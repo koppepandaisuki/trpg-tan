@@ -25,6 +25,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { SkelGrid, SkelStoreHome } from "./Skeleton";
+import { EmptyState } from "./EmptyState";
 import { PRODUCT_TYPE_LABEL, FILE_FORMAT_LABEL } from "./library-remote";
 import type { RemoteProductType } from "./library-remote";
 import {
@@ -540,7 +541,7 @@ export function StorePanel({
 
   if (!supabaseConfigured) {
     return (
-      <div className="store">
+      <div className="store page-fade">
         <p className="muted" style={{ padding: 24 }}>
           ストアを使うには接続設定(VITE_SUPABASE_URL / ANON_KEY)が必要です。
         </p>
@@ -556,7 +557,7 @@ export function StorePanel({
       ...detail.screenshotUrls,
     ];
     return (
-      <div className="store">
+      <div className="store page-fade">
         <div className="store-head">
           <button className="btn mini" onClick={() => setDetail(null)}>
             ← ストアに戻る
@@ -792,7 +793,7 @@ export function StorePanel({
   /* ===== クリエイター一覧ビュー ===== */
   if (view === "creators") {
     return (
-      <div className="store">
+      <div className="store page-fade">
         {header}
         <div className="store-cats">
           <button className="store-cat" onClick={() => setView("home")}>
@@ -820,9 +821,10 @@ export function StorePanel({
           </div>
           {creatorsLoading && !creators && <SkelGrid count={6} />}
           {creators && creators.length === 0 && (
-            <p className="muted" style={{ padding: 24 }}>
-              公開作品を持つクリエイターはまだいません。
-            </p>
+            <EmptyState
+              title="クリエイターはまだいません"
+              hint="公開作品を持つクリエイターがここに並びます。"
+            />
           )}
           {creators && creators.length > 0 && (
             <div className="creators-grid">
@@ -860,7 +862,7 @@ export function StorePanel({
   /* ===== ホームビュー(Steam フロントページ) ===== */
   if (view === "home") {
     return (
-      <div className="store">
+      <div className="store page-fade">
         {header}
         {/* ジャンルナビ */}
         <div className="store-cats">
@@ -889,9 +891,10 @@ export function StorePanel({
           {homeLoading && !home && <SkelStoreHome />}
 
           {home && home.featured.length === 0 && (
-            <p className="muted" style={{ padding: 24 }}>
-              まだ公開されている作品がありません。
-            </p>
+            <EmptyState
+              title="まだ公開作品がありません"
+              hint="クリエイターの最初の作品が並ぶのをお楽しみに。"
+            />
           )}
 
           {home && home.featured.length > 0 && (
@@ -1067,9 +1070,11 @@ export function StorePanel({
         {loading && items === null && <SkelGrid count={10} />}
 
         {items && items.length === 0 && (
-          <p className="muted" style={{ padding: 24 }}>
-            該当する作品がありません。
-          </p>
+          <EmptyState
+            title="該当する作品がありません"
+            hint="検索条件やカテゴリを変えて探してみてください。"
+            action={{ label: "条件をクリア", onClick: () => browseWith({}) }}
+          />
         )}
 
         {items && items.length > 0 && (

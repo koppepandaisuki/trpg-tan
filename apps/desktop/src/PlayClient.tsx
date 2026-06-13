@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Users, MessageSquare, StickyNote, Globe } from "lucide-react";
 import {
   reduce,
   type PlayScene,
@@ -248,8 +249,8 @@ export function PlayClient({
       <header className="ptable-head">
         <span className="ptable-title-ro">{scene.title || "卓"}</span>
         <div className="ptable-tools">
-          <span className="pclient-net" title={`参加コード ${code}`}>
-            🌐 {code}・{members.length}人
+          <span className="pclient-net ibtn" title={`参加コード ${code}`}>
+            <Globe size={13} /> {code}・{members.length}人
           </span>
           <span className="ptable-spacer" />
           <button className="btn mini" onClick={onClose}>
@@ -279,7 +280,7 @@ export function PlayClient({
 
         {/* 左ドロワー: キャラクター */}
         <aside className={`pdrawer left ${leftOpen ? "open" : ""}`}>
-          <div className="pdrawer-head">🎭 キャラクター</div>
+          <div className="pdrawer-head ibtn"><Users size={14} /> キャラクター</div>
           <div className="pdrawer-body ss-chars">
             {playerCards.length === 0 ? (
               <p className="pside-empty muted">
@@ -320,7 +321,7 @@ export function PlayClient({
                 {
                   id: "chat",
                   title: "チャット / ログ",
-                  icon: "💬",
+                  icon: <MessageSquare size={14} />,
                   defaultHeight: 460,
                   body: (
                     <div className="pside-log">
@@ -358,7 +359,7 @@ export function PlayClient({
                 {
                   id: "memo",
                   title: "メモ",
-                  icon: "📝",
+                  icon: <StickyNote size={14} />,
                   defaultOpen: false,
                   body: (
                     <MemoPanel

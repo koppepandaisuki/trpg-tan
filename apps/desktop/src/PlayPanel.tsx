@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
+import { Heart, Droplet, Brain, Diamond } from "lucide-react";
 import type { Panel, PanelResource, PanelStat } from "@trpg/core";
 
-/** HP/MP/SAN 等のリソースに添えるアイコン。 */
-function resourceIcon(key: string): string {
+/** HP/MP/SAN 等のリソースに添えるアイコン(色は CSS の .res-* で)。 */
+function resourceIcon(key: string) {
   const k = key.toLowerCase();
-  if (k === "hp") return "❤️";
-  if (k === "mp") return "🔷";
-  if (k === "san") return "🧠";
-  return "◆";
+  if (k === "hp") return <Heart size={12} className="res-hp" />;
+  if (k === "mp") return <Droplet size={12} className="res-mp" />;
+  if (k === "san") return <Brain size={12} className="res-san" />;
+  return <Diamond size={12} className="res-etc" />;
 }
 
 /** 技能/能力の判定コマンド(CCFOLIA 風)。

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Users, Lock } from "lucide-react";
 
 /**
  * メモ(共有 / 個人)。
@@ -41,7 +42,7 @@ export function MemoPanel({
           className={`plog-tab ${tab === "shared" ? "active" : ""}`}
           onClick={() => setTab("shared")}
         >
-          🤝 共有
+          <Users size={13} /> 共有
         </button>
         <button
           role="tab"
@@ -49,7 +50,7 @@ export function MemoPanel({
           className={`plog-tab ${tab === "personal" ? "active" : ""}`}
           onClick={() => setTab("personal")}
         >
-          🔏 個人
+          <Lock size={13} /> 個人
         </button>
       </div>
 

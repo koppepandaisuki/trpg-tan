@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Play, Image as ImageIcon } from "lucide-react";
 import type { AssetItem } from "@trpg/core";
 
 /** 盤面ドロップで使う dataTransfer の MIME(中身は {name, image} JSON)。 */
@@ -96,14 +97,14 @@ export function AssetsPanel({
                   onClick={() => onPlace(a)}
                   title="盤面中央に配置"
                 >
-                  ▶
+                  <Play size={12} />
                 </button>
                 <button
                   className="asset-act"
                   onClick={() => onSetBackground(a)}
                   title="背景に設定"
                 >
-                  🖼
+                  <ImageIcon size={12} />
                 </button>
                 <button
                   className="asset-act del"

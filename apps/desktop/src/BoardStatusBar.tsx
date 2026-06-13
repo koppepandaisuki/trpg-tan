@@ -1,3 +1,4 @@
+import { Heart, Droplet, Brain, Diamond, Play, RotateCcw } from "lucide-react";
 import type { Panel } from "@trpg/core";
 
 /**
@@ -34,7 +35,7 @@ export function BoardStatusBar({
               onClick={onNextTurn}
               title={started ? "次の手番へ" : "ターン管理を開始（速さ順）"}
             >
-              {started ? "▶ 次の手番" : "▶ ターン開始"}
+              <Play size={12} /> {started ? "次の手番" : "ターン開始"}
             </button>
           )}
           {onResetTurn && started && (
@@ -43,7 +44,7 @@ export function BoardStatusBar({
               onClick={onResetTurn}
               title="ターン管理をリセット"
             >
-              ⟲
+              <RotateCcw size={12} />
             </button>
           )}
         </div>
@@ -81,7 +82,16 @@ export function BoardStatusBar({
 
 function ResIcon({ k }: { k: string }) {
   const key = k.toLowerCase();
-  const icon = key === "hp" ? "❤️" : key === "mp" ? "🔷" : key === "san" ? "🧠" : "◆";
+  const icon =
+    key === "hp" ? (
+      <Heart size={11} className="res-hp" />
+    ) : key === "mp" ? (
+      <Droplet size={11} className="res-mp" />
+    ) : key === "san" ? (
+      <Brain size={11} className="res-san" />
+    ) : (
+      <Diamond size={11} className="res-etc" />
+    );
   return (
     <span className="bstatus-ic" aria-hidden>
       {icon}

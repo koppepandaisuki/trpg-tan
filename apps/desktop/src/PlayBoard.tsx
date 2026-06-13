@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Panel, PlayBoard as BoardState } from "@trpg/core";
+import { Eye, EyeOff, Pin, Repeat, Layers, Trash2, Ruler } from "lucide-react";
 import { ASSET_MIME } from "./AssetsPanel";
 
 /**
@@ -438,8 +439,8 @@ export function PlayBoard({
                 </div>
               )}
 
-              {p.hidden && <span className="token-eye">🚫</span>}
-              {p.locked && <span className="token-pin">📌</span>}
+              {p.hidden && (<span className="token-eye"><EyeOff size={12} /></span>)}
+              {p.locked && (<span className="token-pin"><Pin size={12} /></span>)}
               {!img && <span className="token-name">{p.name}</span>}
 
               {!p.locked && !playerMode && (
@@ -688,7 +689,7 @@ function ObjectMenu({
         className="ctx-row"
         onClick={() => onUpdate(panel.id, { hidden: !panel.hidden })}
       >
-        <span className="ctx-icon">{panel.hidden ? "🚫" : "👁"}</span>
+        <span className="ctx-icon">{panel.hidden ? <EyeOff size={14} /> : <Eye size={14} />}</span>
         <span>
           {panel.hidden
             ? "プレイヤーに秘匿中（クリックで公開）"
@@ -698,7 +699,7 @@ function ObjectMenu({
 
       {/* サイズ変更: 大きい画像でハンドルに触れないときの代替手段。 */}
       <div className="ctx-layer">
-        <span className="ctx-icon">📐</span>
+        <span className="ctx-icon"><Ruler size={14} /></span>
         <span>サイズ</span>
         <input
           className="ctx-size-range"
@@ -733,7 +734,7 @@ function ObjectMenu({
         }
         disabled={!activeSceneId && !panel.sceneId}
       >
-        <span className="ctx-icon">{panel.sceneId ? "📌" : "🔁"}</span>
+        <span className="ctx-icon">{panel.sceneId ? <Pin size={14} /> : <Repeat size={14} />}</span>
         <span>
           {panel.sceneId
             ? "このシーン専用（クリックで引き継ぐ）"
@@ -743,7 +744,7 @@ function ObjectMenu({
 
       {/* 重なり順(レイヤー)。 */}
       <div className="ctx-layer">
-        <span className="ctx-icon">🗂</span>
+        <span className="ctx-icon"><Layers size={14} /></span>
         <span>重なり順</span>
         <span style={{ flex: 1 }} />
         <button
@@ -763,7 +764,7 @@ function ObjectMenu({
       </div>
 
       <button className="ctx-row danger" onClick={onDelete}>
-        <span className="ctx-icon">🗑</span>
+        <span className="ctx-icon"><Trash2 size={14} /></span>
         <span>盤面から削除</span>
       </button>
         </>

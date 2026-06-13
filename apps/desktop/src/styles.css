@@ -4399,6 +4399,75 @@ button:disabled {
   }
 }
 
+/* ===== ページ遷移(フェードイン) ===== */
+.page-fade {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  animation: page-in var(--dur-3) var(--ease-out);
+}
+.page-fade > * {
+  flex: 1;
+  min-width: 0;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== 空状態(イラスト + 見出し + CTA) ===== */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 24px;
+  text-align: center;
+}
+.empty-art {
+  width: 96px;
+  height: 96px;
+  color: var(--primary);
+  opacity: 0.85;
+}
+.empty-title {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.empty-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  max-width: 360px;
+}
+
+/* リソースアイコンの色(PLAY のキャラ/ステータス共通) */
+.res-hp {
+  color: #e0566b;
+}
+.res-mp {
+  color: var(--primary);
+}
+.res-san {
+  color: #a78bfa;
+}
+.res-etc {
+  color: var(--text-faint);
+}
+.pmini-chip svg,
+.pres-ic svg,
+.bstatus-ic svg {
+  vertical-align: -1px;
+}
+
 /* ===== アイコン(lucide)整列ユーティリティ ===== */
 .ibtn {
   display: inline-flex;

@@ -19,6 +19,7 @@ import { GenericSheetEditor } from "./GenericSheetEditor";
 import { findSystem } from "./systems-store";
 import { SoundSettings } from "./SoundSettings";
 import { Toasts } from "./Toasts";
+import { EmptyState } from "./EmptyState";
 import { initDeepLinkAuth } from "./auth";
 import type { RemoteLibraryItem } from "./library-remote";
 import type { DownloadedEntry } from "./downloaded";
@@ -444,8 +445,9 @@ export function App() {
         </div>
       </header>
 
-      {/* ページ本体 */}
+      {/* ページ本体(切替時にフェードイン)。 */}
       <main className="app-main">
+        <div className="page-fade" key={page}>
         {page === "store" && (
           <StorePanel
             homeSignal={storeHomeSig}
@@ -454,7 +456,10 @@ export function App() {
         )}
 
         {page === "library" && (
-          <LibraryPage onView={(item, entry) => setViewing({ item, entry })} />
+          <LibraryPage
+            onView={(item, entry) => setViewing({ item, entry })}
+            onGoStore={() => goTo("store")}
+          />
         )}
 
         {page === "play" && (
@@ -495,9 +500,11 @@ export function App() {
 
               <h3 className="page-sub">保存済みの卓</h3>
               {playIndex.length === 0 ? (
-                <p className="muted">
-                  作った卓がここに並びます。「＋新しい卓を作る」で始めましょう。
-                </p>
+                <EmptyState
+                  title="まだ卓がありません"
+                  hint="卓を作って、キャラを呼んで、ダイスを振りましょう。"
+                  action={{ label: "＋ 新しい卓を作る", onClick: newSession }}
+                />
               ) : (
                 tableList
               )}
@@ -554,6 +561,7 @@ export function App() {
         {page === "builder" && (
           <SystemBuilder onCreateCharacter={newGenericCharacter} />
         )}
+        </div>
       </main>
 
       {/* 下部バー(Steam 風) */}
