@@ -11,7 +11,7 @@
 
   --text: #16324a;
   --text-muted: #5d7890;
-  --text-faint: #89a2b7;
+  --text-faint: #6f8aa0; /* 旧 #89a2b7。白地でのコントラスト確保のため一段濃く */
 
   --primary: #37ace8;
   --primary-hover: #2198d6;
@@ -43,6 +43,27 @@
 
   --radius-sm: 10px;
   --radius-md: 14px;
+
+  /* ===== モーション(全 UI 共通。値はこの 3 つ + 1 イージングのみ) =====
+   *  --dur-1: マイクロ(色・不透明度のホバー)
+   *  --dur-2: 標準(カードの浮き、フェード、チップ)
+   *  --dur-3: 大きい面(ドロワー、トースト、画像の差し替え)
+   */
+  --dur-1: 0.12s;
+  --dur-2: 0.18s;
+  --dur-3: 0.26s;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ===== 重なり順(z-index は必ずこのスケールから使う) ===== */
+  --z-fx: 58; /* テロップ / カットイン */
+  --z-dice: 60; /* ダイス演出 */
+  --z-menu: 64; /* 右クリックメニュー */
+  --z-pop: 70; /* ポップオーバー(共有 等) */
+  --z-drawer: 80; /* サイドドロワー(☰) */
+  --z-viewer: 85; /* アプリ内ビューア */
+  --z-modal: 90; /* 設定などのモーダル */
+  --z-toast: 95; /* トースト通知 */
+  --z-max: 100; /* 最前面(スプラッシュ等) */
   --radius-lg: 18px;
 
   font-family: "Noto Sans JP", system-ui, "Segoe UI", "Yu Gothic UI", sans-serif;
@@ -285,9 +306,9 @@ body {
   border-radius: 9px;
   cursor: pointer;
   transition:
-    color 0.14s ease,
-    background 0.14s ease,
-    box-shadow 0.14s ease;
+    color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
 }
 
 .tab:hover {
@@ -371,7 +392,7 @@ body {
 .viewer-overlay {
   position: fixed;
   inset: 0;
-  z-index: 85;
+  z-index: var(--z-viewer);
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -547,9 +568,9 @@ body {
   border: 1px solid var(--border);
   opacity: 0.75;
   transition:
-    opacity 0.12s ease,
-    background 0.12s ease,
-    color 0.12s ease;
+    opacity var(--dur-1) var(--ease-out),
+    background var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
 }
 .infotip.compact .infotip-badge {
   width: 14px;
@@ -585,8 +606,8 @@ body {
   pointer-events: none;
   z-index: 40;
   transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
+    opacity var(--dur-2) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
 }
 /* 吹き出しの三角 */
 .infotip-bubble::before {
@@ -905,12 +926,12 @@ body {
 .ctx-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 64;
+  z-index: var(--z-menu);
 }
 
 .ctx-menu {
   position: fixed;
-  z-index: 65;
+  z-index: calc(var(--z-menu) + 1);
   width: 234px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -920,7 +941,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  animation: modal-pop 0.14s ease;
+  animation: modal-pop var(--dur-2) var(--ease-out);
 }
 
 .ctx-head {
@@ -1469,7 +1490,7 @@ body {
   background: var(--surface);
   border-radius: 999px;
   overflow: hidden;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
 }
 .wdock-chip:hover {
   border-color: var(--border-strong);
@@ -1546,7 +1567,7 @@ body {
   color: var(--text);
   font-size: 13px;
   cursor: pointer;
-  transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease;
+  transition: transform 0.08s ease, box-shadow var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
 }
 .scene-tab:hover {
   background: var(--surface-2);
@@ -1604,7 +1625,7 @@ body {
   color: var(--primary-deep);
   font-size: 16px;
   cursor: pointer;
-  transition: background 0.12s ease, transform 0.08s ease;
+  transition: background var(--dur-1) var(--ease-out), transform 0.08s ease;
 }
 .scene-add:hover {
   background: var(--primary-soft);
@@ -1986,7 +2007,7 @@ body {
 .dm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--z-dice);
   background: transparent;
   pointer-events: none;
   overflow: hidden;
@@ -2085,7 +2106,7 @@ body {
   left: 50%;
   top: 56%;
   transform: translateX(-50%);
-  z-index: 62;
+  z-index: calc(var(--z-dice) + 2);
   min-width: 240px;
   padding: 12px 26px 10px;
   text-align: center;
@@ -2178,7 +2199,7 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2375,8 +2396,8 @@ body {
   box-shadow: var(--shadow-sm);
   margin-top: 16px;
   transition:
-    box-shadow 0.18s ease,
-    border-color 0.18s ease;
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
 }
 .card:hover {
   box-shadow: var(--shadow-md);
@@ -2423,11 +2444,11 @@ body {
   cursor: pointer;
   box-shadow: var(--shadow-xs);
   transition:
-    transform 0.1s ease,
-    box-shadow 0.14s ease,
-    border-color 0.14s ease,
-    background 0.14s ease,
-    color 0.14s ease;
+    transform var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out);
 }
 
 .btn:hover {
@@ -2476,8 +2497,8 @@ body {
   background: linear-gradient(180deg, #ffffff, var(--surface-2));
   box-shadow: var(--shadow-xs);
   transition:
-    border-color 0.14s ease,
-    box-shadow 0.14s ease;
+    border-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
 }
 .stat:hover {
   border-color: var(--border-strong);
@@ -2634,13 +2655,13 @@ body {
 .dice-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-max);
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(22, 50, 74, 0.32);
   backdrop-filter: blur(3px);
-  animation: overlay-in 0.18s ease;
+  animation: overlay-in var(--dur-2) var(--ease-out);
   cursor: pointer;
 }
 
@@ -3314,7 +3335,7 @@ body {
 .cutin-overlay {
   position: fixed;
   inset: 0;
-  z-index: 58;
+  z-index: var(--z-fx);
   pointer-events: none;
   overflow: hidden;
   display: flex;
@@ -3621,7 +3642,7 @@ body {
 .telop-overlay {
   position: fixed;
   inset: 0;
-  z-index: 58;
+  z-index: var(--z-fx);
   pointer-events: none;
   display: flex;
   align-items: center;
@@ -3802,7 +3823,7 @@ select.cutin-snd {
   display: flex;
   gap: 3px;
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--dur-1) var(--ease-out);
 }
 .asset-tile:hover .asset-acts {
   opacity: 1;
@@ -4012,7 +4033,7 @@ select.cutin-snd {
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--dur-3) var(--ease-out);
 }
 .pdrawer.left {
   left: 0;
@@ -4086,7 +4107,7 @@ select.cutin-snd {
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: var(--z-drawer);
   background: rgba(16, 49, 74, 0.35);
   backdrop-filter: blur(2px);
 }
@@ -4098,7 +4119,7 @@ select.cutin-snd {
   width: 290px;
   display: flex;
   box-shadow: var(--shadow-lg);
-  animation: drawer-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: drawer-in var(--dur-3) var(--ease-out);
 }
 .drawer .sidebar {
   width: 100%;
@@ -4299,6 +4320,85 @@ select.cutin-snd {
   border-radius: var(--radius-md);
 }
 
+/* ===== 共通挙動レイヤー(全コンポーネントが同じ振る舞いをする) =====
+ * 「いつも一定だから迷わない」ための土台。個別 CSS でこれを上書きしない。
+ */
+
+/* フォーカスリング: キーボード操作時のみ、全要素同じリング。 */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--radius-sm);
+}
+
+/* テキスト選択色: ブランドブルー。 */
+::selection {
+  background: rgba(55, 172, 232, 0.3);
+}
+
+/* スクロールバー: 細く・丸く・ブランド色(全画面共通)。 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(55, 172, 232, 0.28);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(55, 172, 232, 0.5);
+  background-clip: content-box;
+  border: 2px solid transparent;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(108, 196, 245, 0.25);
+  background-clip: content-box;
+  border: 2px solid transparent;
+}
+
+/* 無効状態: 全ボタン共通。 */
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* カード(作品/クリエイター/カテゴリ/ライブラリ)は全て同じ浮き方をする。 */
+.store-card,
+.strip-card,
+.libshelf-card,
+.creator-card,
+.catcard,
+.lib-card {
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+.store-card:active,
+.strip-card:active,
+.libshelf-card:active,
+.creator-card:active,
+.catcard:active,
+.lib-card:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* OS の「視差効果を減らす」設定を尊重(アクセシビリティ)。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ===== アイコン(lucide)整列ユーティリティ ===== */
 .ibtn {
   display: inline-flex;
@@ -4339,7 +4439,7 @@ select.cutin-snd {
 }
 .store-cover img,
 .strip-cover img {
-  transition: opacity 0.18s ease;
+  transition: opacity var(--dur-2) var(--ease-out);
 }
 
 /* ===== トースト通知 ===== */
@@ -4348,7 +4448,7 @@ select.cutin-snd {
   left: 50%;
   bottom: 52px;
   transform: translateX(-50%);
-  z-index: 95;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4363,7 +4463,7 @@ select.cutin-snd {
   border-radius: 999px;
   padding: 9px 20px;
   box-shadow: var(--shadow-md);
-  animation: toast-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: toast-in var(--dur-3) var(--ease-out);
   white-space: nowrap;
   max-width: 80vw;
   overflow: hidden;
@@ -4518,7 +4618,7 @@ select.cutin-snd {
   position: fixed;
   top: 56px;
   right: 12px;
-  z-index: 70;
+  z-index: var(--z-pop);
   width: 300px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -4957,9 +5057,9 @@ select.cutin-snd {
   text-align: left;
   box-shadow: var(--shadow-xs);
   transition:
-    transform 0.14s ease,
-    box-shadow 0.14s ease,
-    border-color 0.14s ease;
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
 }
 .libshelf-card:hover {
   transform: translateY(-2px);
@@ -5434,9 +5534,9 @@ select.cutin-snd {
   padding: 0;
   box-shadow: var(--shadow-xs);
   transition:
-    transform 0.14s ease,
-    box-shadow 0.14s ease,
-    border-color 0.14s ease;
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
 }
 .store-card:hover {
   transform: translateY(-2px);
@@ -5876,7 +5976,7 @@ select.cutin-snd {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  animation: hero-in 0.35s ease;
+  animation: hero-in var(--dur-3) var(--ease-out);
 }
 @keyframes hero-in {
   from {
@@ -5968,7 +6068,7 @@ select.cutin-snd {
   height: 100%;
   object-fit: cover;
   opacity: 0.45;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--dur-2) var(--ease-out);
 }
 .feat-peek:hover img {
   opacity: 0.75;
@@ -6099,9 +6199,9 @@ select.cutin-snd {
   box-shadow: var(--shadow-xs);
   scroll-snap-align: start;
   transition:
-    transform 0.14s ease,
-    box-shadow 0.14s ease,
-    border-color 0.14s ease;
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
 }
 .strip-card:hover {
   transform: translateY(-2px);
@@ -6184,8 +6284,8 @@ select.cutin-snd {
   text-align: left;
   box-shadow: var(--shadow-xs);
   transition:
-    transform 0.14s ease,
-    box-shadow 0.14s ease;
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
 }
 .catcard:hover {
   transform: translateY(-2px);
@@ -6253,8 +6353,8 @@ select.cutin-snd {
   text-align: left;
   box-shadow: var(--shadow-xs);
   transition:
-    transform 0.14s ease,
-    box-shadow 0.14s ease;
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
 }
 .creators-banner:hover {
   transform: translateY(-2px);
@@ -6319,9 +6419,9 @@ select.cutin-snd {
   text-align: left;
   box-shadow: var(--shadow-xs);
   transition:
-    transform 0.14s ease,
-    box-shadow 0.14s ease,
-    border-color 0.14s ease;
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
 }
 .creator-card:hover {
   transform: translateY(-2px);
