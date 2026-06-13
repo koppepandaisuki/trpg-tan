@@ -107,6 +107,24 @@ describe("6版は能力値×5 が目標値", () => {
     const str = panel.stats.find((s) => s.key === "STR");
     expect(str?.target).toBe(65); // 13 * 5
   });
+
+  it("6版キャラの駒は edition='6' を持ち、判定が 6 版の段階で解決される", () => {
+    const sheet = { ...sampleSheet(), systemId: "coc6", characteristics: { STR: 13 } };
+    const panel = panelFromSheet({ id: "p6", sheet });
+    expect(panel.edition).toBe("6");
+
+    // 目標 65、出目 13(=65/5) は 6 版ではスペシャル(インペイル)。
+    const seq = () => (13 - 1) / 100 + 1e-9; // rollDie(100) が 13 を返す
+    const ev = checkEvent(
+      { id: "e", ts: NOW, rng: seq },
+      "探索者",
+      "目星",
+      65,
+      panel.edition ?? "7",
+    );
+    expect(ev.check?.level).toBe("special");
+    expect(ev.check?.isSuccess).toBe(true);
+  });
 });
 
 describe("reduce", () => {
