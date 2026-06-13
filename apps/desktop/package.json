@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
     "@fontsource/noto-sans-jp": "^5.2.9",
     "@supabase/supabase-js": "^2.45.0",
     "@tauri-apps/api": "^2",
