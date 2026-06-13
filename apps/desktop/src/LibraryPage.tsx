@@ -20,6 +20,7 @@ import {
 } from "./library-remote";
 import { toast } from "./Toasts";
 import { SkelStrip } from "./Skeleton";
+import { EmptyState } from "./EmptyState";
 
 /**
  * ライブラリ(Steam のライブラリ画面風)。
@@ -54,8 +55,11 @@ function relDay(iso: string): string {
 
 export function LibraryPage({
   onView,
+  onGoStore,
 }: {
   onView?: (item: RemoteLibraryItem, entry: DownloadedEntry) => void;
+  /** 空状態の「ストアを見る」(App がページ遷移)。 */
+  onGoStore?: () => void;
 }) {
   const { session, ready } = useAuth();
   const [items, setItems] = useState<RemoteLibraryItem[] | null>(null);
@@ -391,12 +395,15 @@ export function LibraryPage({
             )}
 
             {items && items.length === 0 && (
-              <div className="pclient-card" style={{ margin: "40px auto" }}>
-                <p>まだ購入した作品はありません。</p>
-                <p className="muted" style={{ fontSize: 12 }}>
-                  ストアで購入すると、ここに並びます。
-                </p>
-              </div>
+              <EmptyState
+                title="まだ購入した作品はありません"
+                hint="ストアで購入すると、ここに並んですぐ遊べます。"
+                action={
+                  onGoStore
+                    ? { label: "ストアを見る", onClick: onGoStore }
+                    : undefined
+                }
+              />
             )}
 
             {recent.length > 0 && (

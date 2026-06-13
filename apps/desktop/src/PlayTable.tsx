@@ -34,6 +34,22 @@ import {
   type AssetItem,
   type CoCEdition,
 } from "@trpg/core";
+import {
+  Dices,
+  Wrench,
+  Globe,
+  Menu,
+  Image as ImageIcon,
+  Users,
+  BookOpen,
+  ScrollText,
+  Clapperboard,
+  Music,
+  Bell,
+  MessageSquare,
+  StickyNote,
+  BookMarked,
+} from "lucide-react";
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { DiceMotion } from "./DiceMotion";
@@ -820,7 +836,7 @@ export function PlayTable({
           )}
           <span className="ptable-spacer" />
           <button
-            className={`btn mini ${playerMode ? "btn-primary" : ""}`}
+            className={`btn mini ibtn ${playerMode ? "btn-primary" : ""}`}
             onClick={() => setPlayerMode((v) => !v)}
             title={
               playerMode
@@ -828,12 +844,13 @@ export function PlayTable({
                 : "参加者ビュー（没入モード。GM ツールを隠し、[ ] でサイドバー開閉）"
             }
           >
-            {playerMode ? "🛠 GMビュー" : "🎲 プレイヤービュー"}
+            {playerMode ? <Wrench size={14} /> : <Dices size={14} />}
+            {playerMode ? "GMビュー" : "プレイヤービュー"}
           </button>
           {!playerMode && (
             <>
               <button
-                className={`btn mini ${room ? "btn-primary" : ""}`}
+                className={`btn mini ibtn ${room ? "btn-primary" : ""}`}
                 onClick={() => void startShare()}
                 disabled={netBusy}
                 title={
@@ -842,20 +859,21 @@ export function PlayTable({
                     : "ネットワーク共有を開始（参加コードを発行）"
                 }
               >
+                <Globe size={14} />
                 {netBusy
-                  ? "🌐 接続中…"
+                  ? "接続中…"
                   : room
-                    ? `🌐 ${room.code}・${Math.max(0, members.filter((n) => n !== "GM").length)}人`
-                    : "🌐 共有"}
+                    ? `${room.code}・${Math.max(0, members.filter((n) => n !== "GM").length)}人`
+                    : "共有"}
               </button>
               {onMenu && (
                 <button
-                  className="btn mini"
+                  className="btn mini ibtn"
                   onClick={onMenu}
                   title="メニュー（キャラ / 購入 / 卓）"
                   aria-label="メニューを開く"
                 >
-                  ☰
+                  <Menu size={15} />
                 </button>
               )}
               <button
@@ -925,7 +943,7 @@ export function PlayTable({
               {
                 id: "assets",
                 title: "アセット",
-                icon: "🖼",
+                icon: <ImageIcon size={14} />,
                 defaultOpen: false,
                 body: (
                   <AssetsPanel
@@ -940,7 +958,7 @@ export function PlayTable({
               {
                 id: "chars",
                 title: "キャラクター",
-                icon: "🎭",
+                icon: <Users size={14} />,
                 body: (
                   <div className="ss-chars">
                     {cards.length === 0 ? (
@@ -972,7 +990,7 @@ export function PlayTable({
               {
                 id: "stock",
                 title: "テキスト",
-                icon: "📖",
+                icon: <BookOpen size={14} />,
                 defaultOpen: false,
                 body: (
                   <TextStockPanel
@@ -993,14 +1011,14 @@ export function PlayTable({
               {
                 id: "scenario",
                 title: "シナリオ",
-                icon: "📜",
+                icon: <ScrollText size={14} />,
                 defaultOpen: false,
                 body: <ScenarioViewer playId={scene.id} />,
               },
               {
                 id: "cutin",
                 title: "カットイン",
-                icon: "🎬",
+                icon: <Clapperboard size={14} />,
                 defaultOpen: false,
                 body: (
                   <CutInPanel
@@ -1017,7 +1035,7 @@ export function PlayTable({
               {
                 id: "bgm",
                 title: "BGM",
-                icon: "♪",
+                icon: <Music size={14} />,
                 defaultOpen: false,
                 body: (
                   <BgmPlayer
@@ -1032,7 +1050,7 @@ export function PlayTable({
               {
                 id: "se",
                 title: "SE（効果音）",
-                icon: "🔔",
+                icon: <Bell size={14} />,
                 defaultOpen: false,
                 body: (
                   <SePanel
@@ -1086,7 +1104,7 @@ export function PlayTable({
               {
                 id: "chat",
                 title: "チャット / ログ",
-                icon: "💬",
+                icon: <MessageSquare size={14} />,
                 defaultHeight: 480,
                 body: (
                   <div className="pside-log">
@@ -1123,7 +1141,7 @@ export function PlayTable({
               {
                 id: "memo",
                 title: "メモ",
-                icon: "📝",
+                icon: <StickyNote size={14} />,
                 defaultOpen: false,
                 body: (
                   <MemoPanel
@@ -1136,7 +1154,7 @@ export function PlayTable({
               {
                 id: "rulebook",
                 title: "ルールブック Q&A",
-                icon: "📕",
+                icon: <BookMarked size={14} />,
                 defaultOpen: false,
                 body: <RulebookQA playId={scene.id} />,
               },
@@ -1170,7 +1188,7 @@ export function PlayTable({
 
           {/* 左ドロワー: キャラクター */}
           <aside className={`pdrawer left ${leftOpen ? "open" : ""}`}>
-            <div className="pdrawer-head">🎭 キャラクター</div>
+            <div className="pdrawer-head ibtn"><Users size={14} /> キャラクター</div>
             <div className="pdrawer-body ss-chars">
               {playerCards.length === 0 ? (
                 <p className="pside-empty muted">
@@ -1215,7 +1233,7 @@ export function PlayTable({
                   {
                     id: "chat",
                     title: "チャット / ログ",
-                    icon: "💬",
+                    icon: <MessageSquare size={14} />,
                     defaultHeight: 460,
                     body: (
                       <div className="pside-log">
@@ -1253,7 +1271,7 @@ export function PlayTable({
                   {
                     id: "memo",
                     title: "メモ",
-                    icon: "📝",
+                    icon: <StickyNote size={14} />,
                     defaultOpen: false,
                     body: (
                       <MemoPanel

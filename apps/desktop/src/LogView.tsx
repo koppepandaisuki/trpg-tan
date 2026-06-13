@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type Ref } from "react";
 import { DICE_BOTS, getDiceBot } from "@trpg/core";
+import { CircleHelp, MessageSquare, Dices, Save, MessageCircle } from "lucide-react";
 import type { PlayEvent, CoCCheckResult } from "@trpg/core";
 
 /** 発言者の選択肢(GM + 卓上の駒)。 */
@@ -135,7 +136,7 @@ export function LogView({
               onClick={() => onChannelChange(s.id)}
               title={`${s.name} との個別チャット`}
             >
-              🗨 {s.name}
+              <MessageCircle size={12} /> {s.name}
             </button>
           ))}
       </div>
@@ -149,8 +150,8 @@ export function LogView({
         {(
           [
             ["all", "すべて"],
-            ["chat", "💬 チャット"],
-            ["dice", "🎲 ダイス"],
+            ["chat", "チャット"],
+            ["dice", "ダイス"],
           ] as [LogFilter, string][]
         ).map(([key, label]) => (
           <button
@@ -176,7 +177,7 @@ export function LogView({
             onClick={onExport}
             title="ログをテキストファイルへ書き出し"
           >
-            💾
+            <Save size={14} />
           </button>
         )}
       </div>
@@ -208,7 +209,9 @@ export function LogView({
       <div className="pinput">
         {secret && (
           <div className="pinput-secret">
-            <span className="pinput-secret-label">❓ 出目を見せる相手:</span>
+            <span className="pinput-secret-label ibtn">
+              <CircleHelp size={13} /> 出目を見せる相手:
+            </span>
             {speakers
               .filter((s) => s.id !== "GM")
               .map((s) => (
@@ -252,7 +255,7 @@ export function LogView({
             >
               {DICE_BOTS.map((b) => (
                 <option key={b.id} value={b.id}>
-                  🎲 {b.name}
+                  {b.name}
                 </option>
               ))}
             </select>
@@ -263,7 +266,7 @@ export function LogView({
             title="シークレットダイス(出目を伏せる)"
             aria-pressed={secret}
           >
-            ❓ シークレット
+            <CircleHelp size={14} /> シークレット
           </button>
         </div>
         <div className="pinput-row">
@@ -312,7 +315,7 @@ export function LogRow({
         <p className="logrow log-secret">
           <b className="log-actor">{ev.actor}</b>
           <span className="log-roll">
-            ❓ シークレットダイス（出目は非公開）
+            <CircleHelp size={12} /> シークレットダイス（出目は非公開）
           </span>
         </p>
       );
@@ -331,7 +334,7 @@ export function LogRow({
                   : "GM のみ"
               }
             >
-              ❓
+              <CircleHelp size={11} />
             </span>
           )}
           {ev.label} → 🎲 [{ev.dice.join(", ")}] = <b>{ev.total}</b>

@@ -11,7 +11,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 export interface SideSection {
   id: string;
   title: string;
-  icon?: string;
+  /** 見出しアイコン(lucide 要素 or 絵文字文字列)。 */
+  icon?: ReactNode;
   /** 初期の開閉(既定 true=開)。 */
   defaultOpen?: boolean;
   /** 初期高さ(px)。未指定は内容なり(auto)。 */
