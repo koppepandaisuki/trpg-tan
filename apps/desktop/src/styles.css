@@ -79,6 +79,10 @@ body {
   min-height: 100vh;
   font-size: 15px;
   line-height: 1.55;
+  /* テキスト色の既定をテーマ変数に。これを置かないと未指定要素が UA 既定の黒に
+     なり、ダークモードで黒文字が見えなくなる(button は color を継承しないので
+     下の button ルールで明示的に inherit させる)。 */
+  color: var(--text);
   /* ドット・テクスチャ + ミント/スカイのメッシュ光で奥行きを出す。
      最上層のドットは極薄。カードが上に乗るので内容には干渉しない。 */
   background:
@@ -4435,6 +4439,14 @@ select.cutin-snd {
   border: 2px solid transparent;
 }
 
+/* 全ボタン共通: 色とフォントを継承させる。button 要素は既定では color を継承せず
+   UA 既定(黒)を使うため、これが無いと色未指定のボタン(定型文 .palette-line や
+   カットイン .cutin-fire など)がダークモードで黒文字になり見えなくなる。
+   明示的に color を指定しているボタン(.btn など)はそちらが優先されるので無害。 */
+button {
+  color: inherit;
+  font-family: inherit;
+}
 /* 無効状態: 全ボタン共通。 */
 button:disabled {
   opacity: 0.55;
