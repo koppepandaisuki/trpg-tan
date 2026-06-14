@@ -85,6 +85,34 @@ describe("dicebot: nechronica / paranoia", () => {
   });
 });
 
+describe("dicebot: 末尾ラベル付きでも判定が出る", () => {
+  it("emoklore: 3DM<=4 観察眼 はラベルを保ったまま成功数を出す", () => {
+    const r = runDiceBot("emoklore", "3DM<=4 観察眼", seq(10, 1, 4, 10))!;
+    expect(r.total).toBe(2);
+    expect(r.detail).toContain("成功数2");
+    expect(r.label).toBe("3DM<=4 観察眼");
+  });
+  it("emoklore: 目標値なし 1DM 自我 もラベルを保つ", () => {
+    const r = runDiceBot("emoklore", "1DM 〈自我〉", seq(10, 7))!;
+    expect(r.label).toBe("1DM 〈自我〉");
+  });
+  it("sw25: 2d6+5>=10 命中 もラベル付きで判定", () => {
+    const r = runDiceBot("sw25", "2d6+5>=10 命中", seq(6, 3, 4))!;
+    expect(r.success).toBe(true);
+    expect(r.label).toBe("2d6+5>=10 命中");
+  });
+  it("dx3: 1DX@10 全力 もラベル付き", () => {
+    const r = runDiceBot("dx3", "1DX@10 全力", seq(10, 10, 7))!;
+    expect(r.total).toBe(17);
+    expect(r.label).toBe("1DX@10 全力");
+  });
+  it("paranoia: 1d20<=8 尋問 もラベル付き", () => {
+    const r = runDiceBot("paranoia", "1d20<=8 尋問", seq(20, 5))!;
+    expect(r.success).toBe(true);
+    expect(r.label).toBe("1d20<=8 尋問");
+  });
+});
+
 describe("diceBotRollEvent", () => {
   it("RollEvent として刻まれる(notation/detail 付き)", () => {
     const ev = diceBotRollEvent(
