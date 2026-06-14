@@ -1,5 +1,5 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import type { PlayEvent, PlayScene, CutIn } from "@trpg/core";
+import type { PlayEvent, PlayScene, CutIn, Panel } from "@trpg/core";
 import { supabase } from "./supabase";
 
 /**
@@ -40,6 +40,8 @@ export type NetIntent =
   | { kind: "resource"; panelId: string; resourceKey: string; delta: number }
   | { kind: "move"; panelId: string; x: number; y: number }
   | { kind: "memo"; text: string }
+  /** 参加者が自分のキャラを登場させる(GM が owner を刻んで panel-add)。 */
+  | { kind: "add-char"; panel: Panel }
   | {
       kind: "panel-update";
       panelId: string;
