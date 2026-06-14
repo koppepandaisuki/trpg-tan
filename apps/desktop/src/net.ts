@@ -98,8 +98,16 @@ export function makeRoomCode(): string {
 export async function connectRoom(
   code: string,
   displayName: string,
+  opts?: {
+    /**
+     * 送信直前にメッセージを変換する(GM がメディアを Storage の URL に差し替える
+     * のに使う)。変換は送信キュー内で行うので逐次・確実。
+     */
+    transform?: (msg: NetMsg) => Promise<NetMsg>;
+  },
 ): Promise<Room> {
   const topic = `play_${code}`;
+  const transform = opts?.transform;
 
   // 再接続 / 再試行 / 再マウントで同名チャンネルが残っていると、supabase.channel()
   // は同 topic の既存チャンネルを“再利用”する。それが既に subscribe 済み
@@ -127,13 +135,21 @@ export async function connectRoom(
   let onMsg: (msg: NetMsg) => void = () => {};
   let onPres: (names: string[]) => void = () => {};
   let onProg: (p: { received: number; total: number } | null) => void = () => {};
-  const buffers = new Map<string, { parts: string[]; got: number; n: number }>();
+  const buffers = new Map<
+    string,
+    { parts: string[]; got: number; n: number; t0: number }
+  >();
 
   channel.on("broadcast", { event: "chunk" }, ({ payload }) => {
     const c = payload as ChunkPayload;
     let buf = buffers.get(c.mid);
     if (!buf) {
-      buf = { parts: new Array<string>(c.n).fill(""), got: 0, n: c.n };
+      buf = {
+        parts: new Array<string>(c.n).fill(""),
+        got: 0,
+        n: c.n,
+        t0: performance.now(),
+      };
       buffers.set(c.mid, buf);
     }
     if (buf.parts[c.i] === "") {
@@ -145,8 +161,19 @@ export async function connectRoom(
     if (buf.got === buf.n) {
       buffers.delete(c.mid);
       if (buf.n > 1) onProg(null); // 完了
+      const text = buf.parts.join("");
+      // 計測: 大きい受信(卓データ等)の所要時間 / サイズ / チャンク数。
+      if (buf.n > 1) {
+        const dt = performance.now() - buf.t0;
+        const kb = Math.round(text.length / 1024);
+        console.info(
+          `[net.recv] ${kb}KB / ${buf.n}chunks / ${Math.round(dt)}ms / ${Math.round(
+            kb / (dt / 1000),
+          )}KB/s`,
+        );
+      }
       try {
-        onMsg(JSON.parse(buf.parts.join("")) as NetMsg);
+        onMsg(JSON.parse(text) as NetMsg);
       } catch {
         // 壊れたメッセージは無視
       }
@@ -167,10 +194,15 @@ export async function connectRoom(
   // channel.send() はサーバ確認まで待つ = 1 チャンクずつ確実に流れる。
   let sendQueue: Promise<void> = Promise.resolve();
   function send(msg: NetMsg): Promise<void> {
-    const json = JSON.stringify(msg);
     const mid = crypto.randomUUID();
-    const n = Math.max(1, Math.ceil(json.length / CHUNK));
+    const tEnqueue = performance.now();
     const task = sendQueue.then(async () => {
+      const tStart = performance.now();
+      // 送信直前に変換(メディア → Storage URL 化)。キュー内なので逐次。
+      const m = transform ? await transform(msg) : msg;
+      const tPrepped = performance.now();
+      const json = JSON.stringify(m);
+      const n = Math.max(1, Math.ceil(json.length / CHUNK));
       for (let i = 0; i < n; i++) {
         const payload: ChunkPayload = {
           mid,
@@ -195,6 +227,22 @@ export async function connectRoom(
         }
         if (!ok) return; // 数回試して駄目ならこのメッセージは諦める(後続は続行)
       }
+      // 計測: 大きい送信(卓データ/音声)や複数チャンクの所要時間を出す。
+      // send=実送信時間, wait=キュー待ち, /chunk はほぼ ack 往復(RTT)の目安。
+      if (n > 1 || msg.type === "snapshot" || msg.type === "audio") {
+        const tEnd = performance.now();
+        const prepMs = tPrepped - tStart; // 変換(メディアの Storage アップ含む)
+        const sendMs = tEnd - tPrepped; // チャンク送信(ack 直列)
+        const waitMs = tStart - tEnqueue;
+        const kb = Math.round(json.length / 1024);
+        console.info(
+          `[net.send] ${msg.type} ${kb}KB / ${n}chunks / prep ${Math.round(
+            prepMs,
+          )}ms / send ${Math.round(sendMs)}ms (${Math.round(
+            sendMs / n,
+          )}ms/chunk) / wait ${Math.round(waitMs)}ms`,
+        );
+      }
     });
     // 次メッセージは前メッセージ完了後に流す。呼び出し側は task を await して
     // 「送り終わるまで次を積まない」集約ができる(スナップショット連投の防止)。
@@ -206,6 +254,18 @@ export async function connectRoom(
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
         void channel.track({ name: displayName });
+        // 計測: 接続先プロジェクト + ack 往復(≒ネットワーク遅延=リージョンの近さ)。
+        // ~50ms=近い(Tokyo 等) / ~200ms=遠い。大きいほど直列送信が遅くなる。
+        console.info(`[net.project] ${import.meta.env.VITE_SUPABASE_URL ?? "(env未設定)"}`);
+        void (async () => {
+          const t0 = performance.now();
+          try {
+            await channel.send({ type: "broadcast", event: "ping", payload: {} });
+            console.info(`[net.rtt] ack ~${Math.round(performance.now() - t0)}ms`);
+          } catch {
+            // 無視
+          }
+        })();
         resolve({
           code,
           selfId,

@@ -69,7 +69,7 @@ import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
 import { SePanel, playSeFile } from "./SePanel";
-import { audioDataUrl } from "./audio-url";
+import { uploadAudioPath, sanitizeForNet } from "./play-media";
 import {
   connectRoom,
   makeRoomCode,
@@ -899,7 +899,10 @@ export function PlayTable({
     setNetBusy(true);
     setError(null);
     try {
-      const r = await connectRoom(makeRoomCode(), "GM");
+      // transform: 送信直前にメディアを Storage の URL へ逃がす(Realtime を軽く)。
+      const r = await connectRoom(makeRoomCode(), "GM", {
+        transform: sanitizeForNet,
+      });
       r.onMessage((m) => netMsgRef.current(m));
       r.onPresence(setMembers);
       setRoom(r);
@@ -945,7 +948,8 @@ export function PlayTable({
       return;
     }
     try {
-      const src = await audioDataUrl(path);
+      // Storage にアップして URL を配信(未ログイン等は base64 にフォールバック)。
+      const src = await uploadAudioPath(path);
       void r.send({ type: "audio", channel, src, loop });
     } catch {
       // 読み込み失敗(ファイル移動など)は無視。GM のローカル再生には影響しない。
