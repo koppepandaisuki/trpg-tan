@@ -102,7 +102,12 @@ export async function connectRoom(
 
   const selfId = crypto.randomUUID();
   const channel: RealtimeChannel = supabase.channel(topic, {
-    config: { broadcast: { self: false }, presence: { key: selfId } },
+    // ack: true が重要。これが無いと channel.send() はサーバ応答を待たず即
+    // 'ok' を返すため、await しても実際には待たず、スナップショット(画像入りで
+    // 数 MB → 多数のチャンク)を一気にバースト送信してサーバ側で取りこぼされ、
+    // 参加者が「卓データ待ち」のまま固まる。ack でチャンク毎に確認 → 自然に
+    // ペーシングされ、確実に届く。
+    config: { broadcast: { self: false, ack: true }, presence: { key: selfId } },
   });
 
   let onMsg: (msg: NetMsg) => void = () => {};
@@ -140,7 +145,8 @@ export async function connectRoom(
   });
 
   // 送信は 1 本のキューで逐次化する。スナップショット(画像入りで数 MB に
-  // なり得る)のチャンクを一気に投げるとレート制限に当たるため。
+  // なり得る)のチャンクを一気に投げるとレート制限に当たるため。ack:true なので
+  // channel.send() はサーバ確認まで待つ = 1 チャンクずつ確実に流れる。
   let sendQueue: Promise<void> = Promise.resolve();
   function send(msg: NetMsg) {
     const json = JSON.stringify(msg);
@@ -154,12 +160,22 @@ export async function connectRoom(
           n,
           data: json.slice(i * CHUNK, (i + 1) * CHUNK),
         };
-        try {
-          await channel.send({ type: "broadcast", event: "chunk", payload });
-        } catch {
-          // 切断中などの送信失敗はメッセージ単位で諦める(後続は続行)。
-          return;
+        // 取りこぼし対策で数回まで再送(ack の戻りが 'ok' 以外なら失敗扱い)。
+        let ok = false;
+        for (let attempt = 0; attempt < 4 && !ok; attempt++) {
+          try {
+            const res = await channel.send({
+              type: "broadcast",
+              event: "chunk",
+              payload,
+            });
+            ok = res === "ok";
+          } catch {
+            ok = false;
+          }
+          if (!ok) await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
         }
+        if (!ok) return; // 数回試して駄目ならこのメッセージは諦める(後続は続行)
       }
     });
   }

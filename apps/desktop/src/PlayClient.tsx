@@ -64,6 +64,8 @@ export function PlayClient({
   useEffect(() => {
     let alive = true;
     let r: Room | null = null;
+    let got = false; // スナップショット受領済みか
+    let helloTimer: number | undefined;
     void (async () => {
       try {
         r = await connectRoom(code, name);
@@ -76,6 +78,8 @@ export function PlayClient({
         r.onMessage((msg) => {
           if (!alive) return;
           if (msg.type === "snapshot") {
+            got = true;
+            if (helloTimer) window.clearInterval(helloTimer);
             setScene(msg.scene);
             setPhase("ready");
           } else if (msg.type === "event") {
@@ -93,6 +97,18 @@ export function PlayClient({
         });
         r.send({ type: "hello", from: r.selfId, name });
         setPhase("waiting");
+        // snapshot が来るまで hello を再送する。GM が後から共有を開始した場合や、
+        // 最初の hello が取りこぼされた場合に「卓データ待ち」で固まらないため。
+        // ~2.5s 間隔 × 最大 ~30s。
+        let tries = 0;
+        helloTimer = window.setInterval(() => {
+          if (got || !alive || tries >= 12) {
+            window.clearInterval(helloTimer);
+            return;
+          }
+          tries += 1;
+          roomRef.current?.send({ type: "hello", from: r!.selfId, name });
+        }, 2500);
       } catch (e) {
         if (alive) {
           setNetError(String(e));
@@ -102,6 +118,7 @@ export function PlayClient({
     })();
     return () => {
       alive = false;
+      if (helloTimer) window.clearInterval(helloTimer);
       roomRef.current?.close();
       roomRef.current = null;
       r?.close();
