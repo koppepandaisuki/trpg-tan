@@ -54,3 +54,22 @@ export function isAlphaCreatorEmail(
   if (set.size === 0) return false;
   return set.has(email.trim().toLowerCase());
 }
+
+/**
+ * 指定メアドが α admin whitelist に含まれているかを判定する。
+ * creator 版(`isAlphaCreatorEmail`)と同じ仕組み・同じ正規化で、env は
+ * `ALPHA_AUTO_ADMIN_EMAILS`(カンマ区切り)。env 未設定なら常に false。
+ *
+ * 用途: α テスター/運営アカウントに admin 権限(`profiles.is_admin`)を手動 SQL
+ * 無しで付与する。`lib/session/get-user.ts` が初回ログイン時に
+ * `autoGrantAdminIfWhitelisted` を呼ぶ。env を消せば機能オフ。
+ */
+export function isAlphaAdminEmail(
+  email: string,
+  envValue: string | undefined = process.env.ALPHA_AUTO_ADMIN_EMAILS,
+): boolean {
+  if (!email) return false;
+  const set = parseAlphaCreatorEmails(envValue);
+  if (set.size === 0) return false;
+  return set.has(email.trim().toLowerCase());
+}

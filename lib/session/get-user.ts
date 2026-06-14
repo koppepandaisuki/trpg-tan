@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { autoGrantCreatorIfWhitelisted } from "@/lib/mutations/alpha-creator";
+import { autoGrantAdminIfWhitelisted } from "@/lib/mutations/alpha-admin";
 
 /**
  * Minimal current-user shape used across the app.
@@ -73,12 +74,22 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     }
   }
 
+  // α auto-grant: env `ALPHA_AUTO_ADMIN_EMAILS` に列挙されたメアドなら admin 化。
+  // creator と同じ冪等・1リクエスト1回の前提。env 未設定なら常に no-op。
+  let isAdmin = profile?.is_admin ?? false;
+  if (!isAdmin && user.email) {
+    const granted = await autoGrantAdminIfWhitelisted(user.id, user.email);
+    if (granted) {
+      isAdmin = true;
+    }
+  }
+
   return {
     id: user.id,
     email: user.email ?? "",
     displayName: profile?.display_name ?? "",
     isCreator,
-    isAdmin: profile?.is_admin ?? false,
+    isAdmin,
     stripeChargesEnabled: profile?.stripe_charges_enabled ?? false,
   };
 });
