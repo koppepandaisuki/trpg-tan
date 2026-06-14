@@ -41,6 +41,18 @@ function roll(n: number, faces: number, rng: RandomFn): number[] {
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
+/**
+ * 各ボットの正規表現に付ける「末尾ラベル」部分。コマンドの後ろに自由テキスト
+ * (技能名・メモ等)を書いても判定が出るようにする。例: "3DM<=9 観察眼"。
+ */
+const LABEL = "(?:\\s+(.+?))?\\s*$";
+
+/** コマンド表示にラベルを付ける(後でログを見直すときに残る)。 */
+function withLabel(base: string, label: string | undefined): string {
+  const l = label?.trim();
+  return l ? `${base} ${l}` : base;
+}
+
 /* ===== 汎用 / CoC(固有処理なし。CC<= は共通コマンドとして既存処理) ===== */
 
 const genericBot: DiceBot = {
@@ -64,7 +76,7 @@ const sw25Bot: DiceBot = {
   name: "ソード・ワールド2.5",
   help: "2d6+5>=10（出目66=自動成功 / 出目11=自動失敗）",
   run(command, rng) {
-    const m = command.match(/^2d6\s*([+-]\d+)?\s*(?:>=\s*(\d+))?$/i);
+    const m = command.match(new RegExp(`^2d6\\s*([+-]\\d+)?\\s*(?:>=\\s*(\\d+))?${LABEL}`, "i"));
     if (!m) return null;
     const mod = m[1] ? parseInt(m[1], 10) : 0;
     const target = m[2] ? parseInt(m[2], 10) : null;
@@ -86,7 +98,10 @@ const sw25Bot: DiceBot = {
       detail = success ? "成功" : "失敗";
     }
     return {
-      label: `2d6${mod ? (mod > 0 ? `+${mod}` : mod) : ""}${target !== null ? `>=${target}` : ""}`,
+      label: withLabel(
+        `2d6${mod ? (mod > 0 ? `+${mod}` : mod) : ""}${target !== null ? `>=${target}` : ""}`,
+        m[3],
+      ),
       notation: "2d6",
       dice,
       total,
@@ -103,7 +118,7 @@ const shinobigamiBot: DiceBot = {
   name: "シノビガミ",
   help: "2d6>=5（出目12=スペシャル / 出目2=ファンブル）",
   run(command, rng) {
-    const m = command.match(/^2d6\s*(?:>=\s*(\d+))?$/i);
+    const m = command.match(new RegExp(`^2d6\\s*(?:>=\\s*(\\d+))?${LABEL}`, "i"));
     if (!m) return null;
     const target = m[1] ? parseInt(m[1], 10) : null;
     const dice = roll(2, 6, rng);
@@ -122,7 +137,7 @@ const shinobigamiBot: DiceBot = {
       detail = success ? "成功" : "失敗";
     }
     return {
-      label: `2d6${target !== null ? `>=${target}` : ""}`,
+      label: withLabel(`2d6${target !== null ? `>=${target}` : ""}`, m[2]),
       notation: "2d6",
       dice,
       total,
@@ -140,7 +155,10 @@ const dx3Bot: DiceBot = {
   help: "5DX@10+3>=15（10以上で振り足し、達成値を自動計算）",
   run(command, rng) {
     const m = command.match(
-      /^(\d+)dx\s*(?:@(\d+))?\s*([+-]\d+)?\s*(?:>=\s*(\d+))?$/i,
+      new RegExp(
+        `^(\\d+)dx\\s*(?:@(\\d+))?\\s*([+-]\\d+)?\\s*(?:>=\\s*(\\d+))?${LABEL}`,
+        "i",
+      ),
     );
     if (!m) return null;
     const n = Math.min(100, Math.max(1, parseInt(m[1], 10)));
@@ -178,7 +196,10 @@ const dx3Bot: DiceBot = {
       success = false;
     }
     return {
-      label: `${n}DX@${crit}${mod ? (mod > 0 ? `+${mod}` : mod) : ""}${target !== null ? `>=${target}` : ""}`,
+      label: withLabel(
+        `${n}DX@${crit}${mod ? (mod > 0 ? `+${mod}` : mod) : ""}${target !== null ? `>=${target}` : ""}`,
+        m[5],
+      ),
       notation: `${allDice.length}d10`,
       dice: allDice,
       total,
@@ -195,15 +216,16 @@ const emokloreBot: DiceBot = {
   name: "エモクロアTRPG",
   help: "3DM<=4（成功数を自動カウント。1=ダブル / 10=ファンブル）",
   run(command, rng) {
-    const m = command.match(/^(\d+)dm\s*(?:<=\s*(\d+))?$/i);
+    const m = command.match(new RegExp(`^(\\d+)dm\\s*(?:<=\\s*(\\d+))?${LABEL}`, "i"));
     if (!m) return null;
     const n = Math.min(100, Math.max(1, parseInt(m[1], 10)));
     const target = m[2] ? parseInt(m[2], 10) : null;
+    const label = m[3];
     const dice = roll(n, 10, rng);
 
     if (target === null) {
       return {
-        label: `${n}DM`,
+        label: withLabel(`${n}DM`, label),
         notation: `${n}d10`,
         dice,
         total: sum(dice),
@@ -218,7 +240,7 @@ const emokloreBot: DiceBot = {
     if (crits > 0) parts.push(`クリティカル×${crits}`);
     if (fumbles > 0) parts.push(`ファンブル×${fumbles}`);
     return {
-      label: `${n}DM<=${target}`,
+      label: withLabel(`${n}DM<=${target}`, label),
       notation: `${n}d10`,
       dice,
       total: successes,
@@ -235,9 +257,10 @@ const nechronicaBot: DiceBot = {
   name: "永い後日談のネクロニカ",
   help: "NC+1（6以上=成功 / 11以上=大成功 / 出目1=ファンブル）",
   run(command, rng) {
-    const m = command.match(/^nc\s*([+-]\d+)?$/i);
+    const m = command.match(new RegExp(`^nc\\s*([+-]\\d+)?${LABEL}`, "i"));
     if (!m) return null;
     const mod = m[1] ? parseInt(m[1], 10) : 0;
+    const label = m[2];
     const dice = roll(1, 10, rng);
     const total = dice[0] + mod;
 
@@ -257,7 +280,7 @@ const nechronicaBot: DiceBot = {
       detail = "失敗";
     }
     return {
-      label: `NC${mod ? (mod > 0 ? `+${mod}` : mod) : ""}`,
+      label: withLabel(`NC${mod ? (mod > 0 ? `+${mod}` : mod) : ""}`, label),
       notation: "1d10",
       dice,
       total,
@@ -274,7 +297,7 @@ const paranoiaBot: DiceBot = {
   name: "パラノイア",
   help: "1d20<=8（出目1=クリティカル / 出目20=ファンブル）",
   run(command, rng) {
-    const m = command.match(/^1d20\s*<=\s*(\d+)$/i);
+    const m = command.match(new RegExp(`^1d20\\s*<=\\s*(\\d+)${LABEL}`, "i"));
     if (!m) return null;
     const target = parseInt(m[1], 10);
     const dice = roll(1, 20, rng);
@@ -293,7 +316,7 @@ const paranoiaBot: DiceBot = {
       detail = success ? "成功" : "失敗";
     }
     return {
-      label: `1d20<=${target}`,
+      label: withLabel(`1d20<=${target}`, m[2]),
       notation: "1d20",
       dice,
       total: v,
