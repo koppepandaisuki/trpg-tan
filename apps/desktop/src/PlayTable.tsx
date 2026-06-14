@@ -155,6 +155,13 @@ export function PlayTable({
   roomRef.current = room;
   // 受信処理は毎レンダー最新のクロージャに差し替える(古い scene を見ない)。
   const netMsgRef = useRef<(msg: NetMsg) => void>(() => {});
+  // 最新の scene を常に参照できるように(集約スナップショット送信が読む)。
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
+  // スナップショット送信の集約状態。参加者の hello 再送で何度も呼ばれても、
+  // 同時に 1 本だけ送り、送信中なら 1 本だけ予約する(連投によるメモリ膨張=
+  // ホストの Out of Memory を防ぐ)。
+  const snapRef = useRef({ sending: false, queued: false });
 
   const characters = useMemo(() => getLibrary(), []);
 
@@ -778,12 +785,37 @@ export function PlayTable({
     }
   }
 
+  /**
+   * 参加者へ現在の卓全体(スナップショット)を送る。集約版。
+   * 参加者は hello を再送してくるため何度も呼ばれ得るが、同時に走るのは 1 本だけ。
+   * 送信中に来た要求は queued にまとめ、完了後にもう 1 本だけ送る(途中で入室した
+   * 人もカバーしつつ、連投でメモリが膨張してホストが落ちるのを防ぐ)。
+   */
+  async function sendSnapshotCoalesced() {
+    const st = snapRef.current;
+    if (st.sending) {
+      st.queued = true;
+      return;
+    }
+    st.sending = true;
+    try {
+      do {
+        st.queued = false;
+        const r = roomRef.current;
+        if (!r) break;
+        await r.send({ type: "snapshot", scene: sceneRef.current });
+      } while (st.queued);
+    } finally {
+      st.sending = false;
+    }
+  }
+
   // 受信ハンドラは毎レンダー最新化(古い scene を掴んだままにしない)。
   useEffect(() => {
     netMsgRef.current = (msg: NetMsg) => {
       if (msg.type === "hello") {
-        // 新規参加者へ現在の卓全体を送る(チャンクで分割される)。
-        roomRef.current?.send({ type: "snapshot", scene });
+        // 新規参加者へ現在の卓全体を送る(集約。hello 連投でも 1 本ずつ)。
+        void sendSnapshotCoalesced();
       } else if (msg.type === "intent") {
         applyIntent(msg.intent);
       }

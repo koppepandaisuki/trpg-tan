@@ -64,9 +64,15 @@ export interface Room {
   code: string;
   /** 自分の participant id。 */
   selfId: string;
-  send: (msg: NetMsg) => void;
+  /** メッセージ送信。全チャンクの送信完了で resolve(集約・逐次化に使える)。 */
+  send: (msg: NetMsg) => Promise<void>;
   onMessage: (cb: (msg: NetMsg) => void) => void;
   onPresence: (cb: (names: string[]) => void) => void;
+  /**
+   * 複数チャンクに分かれた受信(スナップショット等)の進捗。received/total は
+   * チャンク数。組み立て完了 or 受信が無いときは null。
+   */
+  onProgress: (cb: (p: { received: number; total: number } | null) => void) => void;
   close: () => void;
 }
 
@@ -112,6 +118,7 @@ export async function connectRoom(
 
   let onMsg: (msg: NetMsg) => void = () => {};
   let onPres: (names: string[]) => void = () => {};
+  let onProg: (p: { received: number; total: number } | null) => void = () => {};
   const buffers = new Map<string, { parts: string[]; got: number; n: number }>();
 
   channel.on("broadcast", { event: "chunk" }, ({ payload }) => {
@@ -125,8 +132,11 @@ export async function connectRoom(
       buf.parts[c.i] = c.data;
       buf.got += 1;
     }
+    // 複数チャンクの大きい受信(スナップショット等)は進捗を通知する。
+    if (buf.n > 1) onProg({ received: buf.got, total: buf.n });
     if (buf.got === buf.n) {
       buffers.delete(c.mid);
+      if (buf.n > 1) onProg(null); // 完了
       try {
         onMsg(JSON.parse(buf.parts.join("")) as NetMsg);
       } catch {
@@ -148,11 +158,11 @@ export async function connectRoom(
   // なり得る)のチャンクを一気に投げるとレート制限に当たるため。ack:true なので
   // channel.send() はサーバ確認まで待つ = 1 チャンクずつ確実に流れる。
   let sendQueue: Promise<void> = Promise.resolve();
-  function send(msg: NetMsg) {
+  function send(msg: NetMsg): Promise<void> {
     const json = JSON.stringify(msg);
     const mid = crypto.randomUUID();
     const n = Math.max(1, Math.ceil(json.length / CHUNK));
-    sendQueue = sendQueue.then(async () => {
+    const task = sendQueue.then(async () => {
       for (let i = 0; i < n; i++) {
         const payload: ChunkPayload = {
           mid,
@@ -178,9 +188,13 @@ export async function connectRoom(
         if (!ok) return; // 数回試して駄目ならこのメッセージは諦める(後続は続行)
       }
     });
+    // 次メッセージは前メッセージ完了後に流す。呼び出し側は task を await して
+    // 「送り終わるまで次を積まない」集約ができる(スナップショット連投の防止)。
+    sendQueue = task.catch(() => {});
+    return task;
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise<Room>((resolve, reject) => {
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
         void channel.track({ name: displayName });
@@ -193,6 +207,9 @@ export async function connectRoom(
           },
           onPresence: (cb) => {
             onPres = cb;
+          },
+          onProgress: (cb) => {
+            onProg = cb;
           },
           close: () => {
             // 送信キューを掃いてから切断("closed" 通知の取りこぼし防止)。

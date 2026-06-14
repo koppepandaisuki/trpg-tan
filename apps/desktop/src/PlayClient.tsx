@@ -40,6 +40,10 @@ export function PlayClient({
 }) {
   const [phase, setPhase] = useState<Phase>("connecting");
   const [netError, setNetError] = useState<string | null>(null);
+  // 卓データ(スナップショット)の受信進捗。null=まだ届いていない / 受信中=チャンク数。
+  const [progress, setProgress] = useState<{ received: number; total: number } | null>(
+    null,
+  );
   const [scene, setScene] = useState<PlayScene | null>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [motion, setMotion] = useState<RollEvent | null>(null);
@@ -75,6 +79,7 @@ export function PlayClient({
         }
         roomRef.current = r;
         r.onPresence((names) => alive && setMembers(names));
+        r.onProgress((p) => alive && setProgress(p));
         r.onMessage((msg) => {
           if (!alive) return;
           if (msg.type === "snapshot") {
@@ -244,9 +249,38 @@ export function PlayClient({
       <div className="ptable pclient-status">
         <div className="pclient-card">
           {phase === "connecting" && <p>🌐 接続しています…</p>}
-          {phase === "waiting" && (
-            <p>🪑 入室しました。GM からの卓データを待っています…</p>
-          )}
+          {phase === "waiting" &&
+            (progress ? (
+              <div className="pclient-wait">
+                <p>
+                  📦 卓データを受信中…{" "}
+                  <b>{Math.round((progress.received / progress.total) * 100)}%</b>
+                </p>
+                <div className="pclient-bar">
+                  <div
+                    className="pclient-bar-fill"
+                    style={{
+                      width: `${Math.round(
+                        (progress.received / progress.total) * 100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <p className="muted" style={{ fontSize: 11 }}>
+                  {progress.received} / {progress.total} ブロック
+                </p>
+              </div>
+            ) : (
+              <div className="pclient-wait">
+                <p>🪑 入室しました。GM の卓データを待っています…</p>
+                <div className="pclient-bar indet">
+                  <div className="pclient-bar-fill" />
+                </div>
+                <p className="muted" style={{ fontSize: 11 }}>
+                  GM が「共有」を開始すると自動で受信を始めます。
+                </p>
+              </div>
+            ))}
           {phase === "closed" && <p>👋 GM が共有を終了しました。</p>}
           {phase === "error" && (
             <p className="tag fail">接続できませんでした: {netError}</p>

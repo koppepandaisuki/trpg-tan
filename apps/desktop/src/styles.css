@@ -7087,6 +7087,41 @@ button:disabled {
   box-shadow: var(--shadow-lg);
   font-size: 14.5px;
 }
+/* 卓データ受信の進捗(参加者の待機画面)。 */
+.pclient-wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.pclient-bar {
+  width: 240px;
+  max-width: 60vw;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.pclient-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--mint-deep));
+  transition: width 0.2s var(--ease-out);
+}
+/* 受信前(GM 待ち)はゲージ位置不明なので左右に流れる不定アニメ。 */
+.pclient-bar.indet .pclient-bar-fill {
+  width: 38%;
+  animation: pclient-indet 1.15s ease-in-out infinite;
+}
+@keyframes pclient-indet {
+  0% {
+    margin-left: -40%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
 .pclient-net {
   font-size: 12.5px;
   font-weight: 700;
