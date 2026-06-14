@@ -425,10 +425,14 @@ export function PlayTable({
           if (a.image) setBoardImage(a.image);
           break;
         case "place-image":
-          if (a.image) await placeImage(a.image, a.label || asset.name);
+          // 同じ画像が既に盤面に出ていれば重複配置しない(アセットは再利用前提)。
+          if (a.image && !scene.panels.some((p) => p.portrait === a.image)) {
+            await placeImage(a.image, a.label || asset.name);
+          }
           break;
         case "spawn-char":
-          if (a.charId) await spawnCharacter(a.charId);
+          // 既に居るキャラは重複させず切り替える(アセット優先)。
+          if (a.charId) await spawnCharacter(a.charId, { dedup: true });
           break;
         case "cutin": {
           const c = (scene.cutins ?? []).find((x) => x.id === a.cutinId);
@@ -610,13 +614,25 @@ export function PlayTable({
     return { x: 0.3 + Math.random() * 0.4, y: 0.3 + Math.random() * 0.3 };
   }
 
-  /** 保存済みキャラ(ライブラリ)を盤面に登場させる。アセットからも呼ぶ。 */
-  async function spawnCharacter(charId: string) {
+  /**
+   * 保存済みキャラ(ライブラリ)を盤面に登場させる。アセットからも呼ぶ。
+   * opts.dedup: 既に同じキャラが卓に居れば重複させず、隠れていれば表示に戻す
+   * (アセット実行時に二重登場しないようにする)。
+   */
+  async function spawnCharacter(charId: string, opts?: { dedup?: boolean }) {
     const entry = characters.find((c) => c.id === charId);
     if (!entry) return;
     setError(null);
     try {
       const sheet = await readSheetFromPath(entry.path);
+      if (opts?.dedup) {
+        const existing = scene.panels.find((p) => p.sheetId === sheet.id);
+        if (existing) {
+          // 既に登場済み: 重複させない。隠れていたら出し直す。
+          if (existing.hidden) updatePanel(existing.id, { hidden: false });
+          return;
+        }
+      }
       // カスタムシステムのキャラは汎用パネル(判定雛形 + パレット持ち)へ。
       const base = isGenericSheet(sheet)
         ? panelFromGeneric({ id: crypto.randomUUID(), sheet })
