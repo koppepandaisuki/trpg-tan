@@ -25,6 +25,12 @@ export type NetMsg =
   | { type: "cutin"; cutin: CutIn }
   | { type: "telop"; text: string }
   | { type: "memo"; text: string }
+  /**
+   * 音声(GM のローカル音源を data URL で配信)。
+   *   - channel "bgm": ループ再生。src=null で停止。
+   *   - channel "se": 単発再生(効果音 / カットイン音)。
+   */
+  | { type: "audio"; channel: "bgm" | "se"; src: string | null; loop?: boolean }
   | { type: "closed" };
 
 /** 参加者 → GM の操作意図。GM が検証して正規イベント化する。 */

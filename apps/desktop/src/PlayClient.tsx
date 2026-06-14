@@ -66,6 +66,17 @@ export function PlayClient({
   const [channel, setChannel] = useState("main");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 音声(GM から配信される BGM/SE)。BGM は 1 本のループ要素、SE は単発。
+  const bgmElRef = useRef<HTMLAudioElement | null>(null);
+  const [audioVol, setAudioVol] = useState<number>(() => {
+    const v = Number(localStorage.getItem("trpg.client.vol.v1"));
+    return Number.isFinite(v) && v >= 0 && v <= 1 ? v : 0.6;
+  });
+  const audioVolRef = useRef(audioVol);
+  audioVolRef.current = audioVol;
+  // 自動再生がブラウザにブロックされたら true(クリックで解除する)。
+  const [audioBlocked, setAudioBlocked] = useState(false);
+
   const roomRef = useRef<Room | null>(null);
 
   // 接続 → hello → snapshot 待ち。アンマウントで切断。
@@ -100,6 +111,8 @@ export function PlayClient({
             setTelop(msg.text);
           } else if (msg.type === "memo") {
             setScene((s) => (s ? { ...s, sharedMemo: msg.text } : s));
+          } else if (msg.type === "audio") {
+            handleAudio(msg.channel, msg.src);
           } else if (msg.type === "closed") {
             setPhase("closed");
           }
@@ -158,6 +171,50 @@ export function PlayClient({
   function sendIntent(intent: NetIntent) {
     const r = roomRef.current;
     if (r) r.send({ type: "intent", from: r.selfId, intent });
+  }
+
+  /** GM から配信された音声を再生する(BGM=ループ / SE=単発)。 */
+  function handleAudio(channel: "bgm" | "se", src: string | null) {
+    if (channel === "bgm") {
+      let a = bgmElRef.current;
+      if (!a) {
+        a = new Audio();
+        a.loop = true;
+        bgmElRef.current = a;
+      }
+      if (!src) {
+        a.pause();
+        return;
+      }
+      a.src = src;
+      a.loop = true;
+      a.volume = audioVolRef.current;
+      a.play().catch(() => setAudioBlocked(true));
+    } else {
+      if (!src) return;
+      const a = new Audio(src);
+      a.volume = audioVolRef.current;
+      a.play().catch(() => setAudioBlocked(true));
+    }
+  }
+
+  // 音量変更を再生中の BGM にも反映し、端末に保存。
+  useEffect(() => {
+    if (bgmElRef.current) bgmElRef.current.volume = audioVol;
+    localStorage.setItem("trpg.client.vol.v1", String(audioVol));
+  }, [audioVol]);
+
+  // 退室/アンマウントで BGM を止める。
+  useEffect(() => {
+    return () => {
+      bgmElRef.current?.pause();
+    };
+  }, []);
+
+  /** 自動再生がブロックされたときの解除(ユーザー操作で再生を試みる)。 */
+  function unblockAudio() {
+    setAudioBlocked(false);
+    bgmElRef.current?.play().catch(() => setAudioBlocked(true));
   }
 
   const cards = useMemo(
@@ -341,6 +398,26 @@ export function PlayClient({
         <div className="ptable-tools">
           <span className="pclient-net ibtn" title={`参加コード ${code}`}>
             <Globe size={13} /> {code}・{members.length}人
+          </span>
+          {audioBlocked && (
+            <button
+              className="btn mini pclient-audio-on"
+              onClick={unblockAudio}
+              title="自動再生がブロックされました。クリックで音声を有効化します"
+            >
+              🔊 音声を有効化
+            </button>
+          )}
+          <span className="pclient-vol" title="音量（BGM / 効果音）">
+            🔊
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={audioVol}
+              onChange={(e) => setAudioVol(Number(e.target.value))}
+            />
           </span>
           <span className="ptable-spacer" />
           <button className="btn mini" onClick={onClose}>

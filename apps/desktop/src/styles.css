@@ -7087,6 +7087,26 @@ button:disabled {
   box-shadow: var(--shadow-lg);
   font-size: 14.5px;
 }
+/* 参加者: 音量コントロール + 自動再生ブロック解除ボタン。 */
+.pclient-vol {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+.pclient-vol input[type="range"] {
+  width: 84px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.pclient-audio-on {
+  background: var(--gold-deep);
+  color: #3a2b00;
+  border-color: var(--gold-deep);
+  font-weight: 800;
+  animation: page-in var(--dur-2) var(--ease-out);
+}
+
 /* 参加者: 自分のキャラを追加するピッカー。 */
 .pclient-addchar {
   display: flex;

@@ -69,6 +69,7 @@ import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
 import { SePanel, playSeFile } from "./SePanel";
+import { audioDataUrl } from "./audio-url";
 import {
   connectRoom,
   makeRoomCode,
@@ -369,7 +370,10 @@ export function PlayTable({
   function playSeByName(name?: string) {
     if (!name) return;
     const t = (scene.se?.tracks ?? []).find((x) => x.name === name);
-    if (t) void playSeFile(t.path);
+    if (t) {
+      void playSeFile(t.path); // GM ローカル再生
+      void broadcastAudio("se", t.path); // 参加者へ配信
+    }
   }
 
   function addImageObject(
@@ -925,9 +929,37 @@ export function PlayTable({
   }, []);
 
   /** カットイン/テロップは演出メッセージとして参加者にも飛ばす。 */
+  /**
+   * GM のローカル音源を参加者へ配信する。path をその場で data URL 化して送る。
+   * channel "bgm"=ループ / "se"=単発。path=null は BGM 停止。
+   */
+  async function broadcastAudio(
+    channel: "bgm" | "se",
+    path: string | null,
+    loop = false,
+  ) {
+    const r = roomRef.current;
+    if (!r) return;
+    if (!path) {
+      void r.send({ type: "audio", channel, src: null });
+      return;
+    }
+    try {
+      const src = await audioDataUrl(path);
+      void r.send({ type: "audio", channel, src, loop });
+    } catch {
+      // 読み込み失敗(ファイル移動など)は無視。GM のローカル再生には影響しない。
+    }
+  }
+
   function fireCutin(c: CutIn) {
     setCutin(c);
-    roomRef.current?.send({ type: "cutin", cutin: c });
+    // 参加者にはローカルパスの soundPath は無意味なので外し、音は audio で配信。
+    roomRef.current?.send({
+      type: "cutin",
+      cutin: { ...c, soundPath: undefined, soundName: undefined },
+    });
+    if (c.soundPath) void broadcastAudio("se", c.soundPath);
   }
   function fireTelop(text: string) {
     setTelop(text);
@@ -1237,6 +1269,9 @@ export function PlayTable({
                     sceneBgmId={sceneBgmId}
                     onBindScene={bindSceneBgm}
                     playSignal={bgmSignal ?? undefined}
+                    onPlay={(track) =>
+                      void broadcastAudio("bgm", track?.path ?? null, true)
+                    }
                   />
                 ),
               },
