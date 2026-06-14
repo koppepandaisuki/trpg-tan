@@ -333,7 +333,6 @@ export function PlayBoard({
             吸着: {snap ? "ON" : "OFF"}
           </button>
         )}
-        <span className="board-hint muted">画像をここにドロップでも追加</span>
       </div>
       )}
 
