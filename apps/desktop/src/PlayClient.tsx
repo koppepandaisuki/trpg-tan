@@ -275,7 +275,7 @@ export function PlayClient({
               onUpdate={updatePanel}
               onRemove={() => {}}
             />
-            <PortraitLayer log={scene.log} panels={scene.panels} />
+            <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />
             <BoardStatusBar cards={playerCards} turn={scene.turn} />
           </div>
         </main>

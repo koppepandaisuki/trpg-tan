@@ -4478,36 +4478,64 @@ button:disabled {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  overflow: hidden;
-  z-index: 1;
+  overflow: visible;
+  z-index: 4;
 }
+/* 立ち絵 1 枚(ドラッグで移動 / 角ハンドルで拡大縮小)。位置・高さは inline。 */
 .stage-portrait {
   position: absolute;
-  bottom: 0;
-  max-width: 38%;
-  object-fit: contain;
-  object-position: bottom;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  cursor: grab;
   filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.35));
   animation: portrait-in var(--dur-3) var(--ease-out);
+  touch-action: none;
+}
+.stage-portrait:active {
+  cursor: grabbing;
+}
+.stage-portrait img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  object-position: bottom;
+  display: block;
+  pointer-events: none;
 }
 .stage-portrait.p0 {
-  right: 2%;
-  height: 62%;
   z-index: 3;
 }
 .stage-portrait.p1 {
-  right: 24%;
-  height: 50%;
   z-index: 2;
-  opacity: 0.62;
-  filter: grayscale(0.25) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+  opacity: 0.68;
 }
 .stage-portrait.p2 {
-  right: 42%;
-  height: 42%;
   z-index: 1;
-  opacity: 0.4;
-  filter: grayscale(0.45);
+  opacity: 0.45;
+}
+/* マウスを乗せた立ち絵だけ枠を出して操作可能と分かるように。 */
+.stage-portrait:hover {
+  outline: 2px dashed rgba(55, 172, 232, 0.6);
+  outline-offset: 2px;
+  opacity: 1;
+}
+/* 右上の拡大縮小ハンドル。 */
+.stage-portrait-resize {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-sm);
+  cursor: nwse-resize;
+  opacity: 0;
+  touch-action: none;
+}
+.stage-portrait:hover .stage-portrait-resize {
+  opacity: 1;
 }
 @keyframes portrait-in {
   from {
