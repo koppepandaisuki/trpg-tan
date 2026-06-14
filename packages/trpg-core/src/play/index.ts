@@ -7,6 +7,7 @@ export {
   type SceneInfo,
   type CutIn,
   type AssetItem,
+  type AssetAction,
   type Panel,
   type PanelVariant,
   type PanelStat,

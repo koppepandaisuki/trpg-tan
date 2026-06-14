@@ -32,6 +32,7 @@ import {
   type SceneInfo,
   type CutIn,
   type AssetItem,
+  type AssetAction,
   type CoCEdition,
 } from "@trpg/core";
 import {
@@ -134,6 +135,11 @@ export function PlayTable({
   // 再生中のカットイン / テロップ(定型文の画面表示)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const [telop, setTelop] = useState<string | null>(null);
+  // BGM への外部再生指示(アセットのマクロから)。nonce 変化で BgmPlayer が反応。
+  const [bgmSignal, setBgmSignal] = useState<{
+    id: string | null;
+    nonce: number;
+  } | null>(null);
   // 参加者ビュー(没入モード): 盤面フルスクリーン + 格納式ドロワー。
   const [playerMode, setPlayerMode] = useState(false);
   const [leftOpen, setLeftOpen] = useState(false);
@@ -370,6 +376,21 @@ export function PlayTable({
     setDirty(true);
   }
 
+  /** アセットの新規追加 / 既存更新(id 一致で差し替え)。 */
+  function saveAsset(asset: AssetItem) {
+    setScene((s) => {
+      const list = s.assets ?? [];
+      const exists = list.some((a) => a.id === asset.id);
+      return {
+        ...s,
+        assets: exists
+          ? list.map((a) => (a.id === asset.id ? asset : a))
+          : [...list, asset],
+      };
+    });
+    setDirty(true);
+  }
+
   function removeAsset(id: string) {
     setScene((s) => ({
       ...s,
@@ -378,10 +399,57 @@ export function PlayTable({
     setDirty(true);
   }
 
-  /** アセットを盤面中央に配置(実寸プローブ、700px 上限)。 */
-  async function placeAsset(asset: AssetItem) {
-    const size = await probeImageWidth(asset.image, 700);
-    addImageObject(asset.name, asset.image, { x: 0.5, y: 0.5 }, size);
+  /** 画像を盤面中央に配置(実寸プローブ、700px 上限)。 */
+  async function placeImage(image: string, name: string) {
+    const size = await probeImageWidth(image, 700);
+    addImageObject(name, image, { x: 0.5, y: 0.5 }, size);
+  }
+
+  /**
+   * アセット(マクロ)を実行。actions を上から順に適用して「ひとつの演出」にする。
+   * actions が無い旧アセットは image を配置する単体素材として扱う(後方互換)。
+   */
+  async function runAsset(asset: AssetItem) {
+    const actions: AssetAction[] =
+      asset.actions && asset.actions.length > 0
+        ? asset.actions
+        : asset.image
+          ? [{ kind: "place-image", image: asset.image, label: asset.name }]
+          : [];
+    for (const a of actions) {
+      switch (a.kind) {
+        case "scene":
+          if (a.sceneId) selectScene(a.sceneId);
+          break;
+        case "board-bg":
+          if (a.image) setBoardImage(a.image);
+          break;
+        case "place-image":
+          // 同じ画像が既に盤面に出ていれば重複配置しない(アセットは再利用前提)。
+          if (a.image && !scene.panels.some((p) => p.portrait === a.image)) {
+            await placeImage(a.image, a.label || asset.name);
+          }
+          break;
+        case "spawn-char":
+          // 既に居るキャラは重複させず切り替える(アセット優先)。
+          if (a.charId) await spawnCharacter(a.charId, { dedup: true });
+          break;
+        case "cutin": {
+          const c = (scene.cutins ?? []).find((x) => x.id === a.cutinId);
+          if (c) fireCutin(c);
+          break;
+        }
+        case "telop":
+          if (a.text) fireTelop(a.text);
+          break;
+        case "bgm":
+          setBgmSignal({ id: a.bgmId ?? null, nonce: Date.now() });
+          break;
+        case "se":
+          playSeByName(a.seName);
+          break;
+      }
+    }
   }
 
   /** 現在のシーンに BGM を紐付け(null で解除)。切替時に自動再生される。 */
@@ -546,12 +614,25 @@ export function PlayTable({
     return { x: 0.3 + Math.random() * 0.4, y: 0.3 + Math.random() * 0.3 };
   }
 
-  async function addFromCharacter() {
-    const entry = characters.find((c) => c.id === pickId);
+  /**
+   * 保存済みキャラ(ライブラリ)を盤面に登場させる。アセットからも呼ぶ。
+   * opts.dedup: 既に同じキャラが卓に居れば重複させず、隠れていれば表示に戻す
+   * (アセット実行時に二重登場しないようにする)。
+   */
+  async function spawnCharacter(charId: string, opts?: { dedup?: boolean }) {
+    const entry = characters.find((c) => c.id === charId);
     if (!entry) return;
     setError(null);
     try {
       const sheet = await readSheetFromPath(entry.path);
+      if (opts?.dedup) {
+        const existing = scene.panels.find((p) => p.sheetId === sheet.id);
+        if (existing) {
+          // 既に登場済み: 重複させない。隠れていたら出し直す。
+          if (existing.hidden) updatePanel(existing.id, { hidden: false });
+          return;
+        }
+      }
       // カスタムシステムのキャラは汎用パネル(判定雛形 + パレット持ち)へ。
       const base = isGenericSheet(sheet)
         ? panelFromGeneric({ id: crypto.randomUUID(), sheet })
@@ -570,10 +651,15 @@ export function PlayTable({
       if (isGenericSheet(sheet) && sheet.diceBot && !scene.diceBot) {
         setDiceBot(sheet.diceBot);
       }
-      setPickId("");
     } catch (e) {
       setError(`キャラを読み込めませんでした: ${String(e)}`);
     }
+  }
+
+  async function addFromCharacter() {
+    if (!pickId) return;
+    await spawnCharacter(pickId);
+    setPickId("");
   }
 
   /** 発言者 id → 表示名 + 版(CoC 判定の閾値に使う)。 */
@@ -949,10 +1035,19 @@ export function PlayTable({
                 body: (
                   <AssetsPanel
                     assets={scene.assets ?? []}
+                    scenes={scene.scenes ?? []}
+                    cutins={scene.cutins ?? []}
+                    bgmTracks={scene.bgm?.tracks ?? []}
+                    seTracks={scene.se?.tracks ?? []}
+                    characters={characters.map((c) => ({
+                      id: c.id,
+                      name: c.name,
+                      thumbnail: c.thumbnail,
+                    }))}
                     onAdd={addAssets}
+                    onSave={saveAsset}
                     onRemove={removeAsset}
-                    onPlace={(a) => void placeAsset(a)}
-                    onSetBackground={(a) => setBoardImage(a.image)}
+                    onRun={(a) => void runAsset(a)}
                   />
                 ),
               },
@@ -1045,6 +1140,7 @@ export function PlayTable({
                     onRemoveTrack={removeBgmTrack}
                     sceneBgmId={sceneBgmId}
                     onBindScene={bindSceneBgm}
+                    playSignal={bgmSignal ?? undefined}
                   />
                 ),
               },

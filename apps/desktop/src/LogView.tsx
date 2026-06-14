@@ -18,6 +18,21 @@ function channelOf(ev: PlayEvent): string {
 }
 
 /**
+ * ログ(チャット欄)に残さない“運用イベント”。駒の移動・リサイズ・盤面/シーンの
+ * 切替などは状態同期のためにイベント列には乗るが、会話ログとしては不要なので
+ * 表示から除外する(空行が流れる / 移動のたびに更新されるのを防ぐ)。
+ */
+const LOG_HIDDEN_KINDS = new Set<PlayEvent["kind"]>([
+  "panel-move",
+  "panel-update",
+  "board-set",
+  "scene-select",
+  "scene-add",
+  "scene-rename",
+  "scene-remove",
+]);
+
+/**
  * ログ + 入力欄。入力は親(PlayTable)が保持する制御コンポーネント。
  *  - チャンネル(メイン / キャラごとの個別チャット)を切替
  *  - タブで「すべて / チャット / ダイス」を切替、並び順も昇降切替
@@ -76,7 +91,9 @@ export function LogView({
   const logRef = useRef<HTMLDivElement>(null);
 
   const shown = useMemo(() => {
-    const inChannel = log.filter((ev) => channelOf(ev) === channel);
+    const inChannel = log.filter(
+      (ev) => !LOG_HIDDEN_KINDS.has(ev.kind) && channelOf(ev) === channel,
+    );
     const filtered =
       filter === "all"
         ? inChannel
@@ -93,12 +110,13 @@ export function LogView({
     }
   }, [speakers, channel, onChannelChange]);
 
-  // ログが増えたら末尾へ自動スクロール(古い順表示のときだけ)。
+  // 表示行が増えたら末尾へ自動スクロール(古い順表示のときだけ)。
+  // log.length ではなく表示後の件数を見る(駒の移動など非表示イベントでは動かさない)。
   useEffect(() => {
     if (newestFirst) return;
     const el = logRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [log.length, filter, newestFirst]);
+  }, [shown.length, filter, channel, newestFirst]);
 
   // 選択中の発言者が居なくなったら GM に戻す。
   useEffect(() => {

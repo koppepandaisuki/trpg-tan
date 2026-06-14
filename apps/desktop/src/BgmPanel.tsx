@@ -24,6 +24,7 @@ export function BgmPlayer({
   onRemoveTrack,
   sceneBgmId,
   onBindScene,
+  playSignal,
 }: {
   tracks: BgmTrack[];
   onAddTracks: (tracks: BgmTrack[]) => void;
@@ -32,6 +33,11 @@ export function BgmPlayer({
   sceneBgmId?: string | null;
   /** 現在のシーンへの紐付け切替(null で解除)。 */
   onBindScene?: (trackId: string | null) => void;
+  /**
+   * 外部(アセットのマクロ等)からの再生指示。nonce が変わるたびに反応し、
+   * id のトラックを再生する(id が null/空なら停止)。
+   */
+  playSignal?: { id: string | null; nonce: number };
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -79,6 +85,21 @@ export function BgmPlayer({
     // playTrack/currentId は意図的に依存から外す(シーン変更時のみ反応)。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sceneBgmId]);
+
+  // 外部(アセットのマクロ)からの再生/停止指示。nonce 変化のたびに反応。
+  useEffect(() => {
+    if (!playSignal) return;
+    const id = playSignal.id;
+    if (!id) {
+      audioRef.current?.pause();
+      setPlaying(false);
+      return;
+    }
+    if (id === currentId && playing) return; // 同じ曲が鳴っていれば継続
+    void playTrack(id);
+    // nonce のみをトリガにする(id/currentId を依存に入れると多重発火する)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playSignal?.nonce]);
 
   function togglePlay() {
     const audio = audioRef.current;
