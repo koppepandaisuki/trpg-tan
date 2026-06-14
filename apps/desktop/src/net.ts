@@ -98,8 +98,16 @@ export function makeRoomCode(): string {
 export async function connectRoom(
   code: string,
   displayName: string,
+  opts?: {
+    /**
+     * 送信直前にメッセージを変換する(GM がメディアを Storage の URL に差し替える
+     * のに使う)。変換は送信キュー内で行うので逐次・確実。
+     */
+    transform?: (msg: NetMsg) => Promise<NetMsg>;
+  },
 ): Promise<Room> {
   const topic = `play_${code}`;
+  const transform = opts?.transform;
 
   // 再接続 / 再試行 / 再マウントで同名チャンネルが残っていると、supabase.channel()
   // は同 topic の既存チャンネルを“再利用”する。それが既に subscribe 済み
@@ -186,12 +194,15 @@ export async function connectRoom(
   // channel.send() はサーバ確認まで待つ = 1 チャンクずつ確実に流れる。
   let sendQueue: Promise<void> = Promise.resolve();
   function send(msg: NetMsg): Promise<void> {
-    const json = JSON.stringify(msg);
     const mid = crypto.randomUUID();
-    const n = Math.max(1, Math.ceil(json.length / CHUNK));
     const tEnqueue = performance.now();
     const task = sendQueue.then(async () => {
       const tStart = performance.now();
+      // 送信直前に変換(メディア → Storage URL 化)。キュー内なので逐次。
+      const m = transform ? await transform(msg) : msg;
+      const tPrepped = performance.now();
+      const json = JSON.stringify(m);
+      const n = Math.max(1, Math.ceil(json.length / CHUNK));
       for (let i = 0; i < n; i++) {
         const payload: ChunkPayload = {
           mid,
@@ -220,13 +231,16 @@ export async function connectRoom(
       // send=実送信時間, wait=キュー待ち, /chunk はほぼ ack 往復(RTT)の目安。
       if (n > 1 || msg.type === "snapshot" || msg.type === "audio") {
         const tEnd = performance.now();
-        const sendMs = tEnd - tStart;
+        const prepMs = tPrepped - tStart; // 変換(メディアの Storage アップ含む)
+        const sendMs = tEnd - tPrepped; // チャンク送信(ack 直列)
         const waitMs = tStart - tEnqueue;
         const kb = Math.round(json.length / 1024);
         console.info(
-          `[net.send] ${msg.type} ${kb}KB / ${n}chunks / send ${Math.round(
-            sendMs,
-          )}ms (${Math.round(sendMs / n)}ms/chunk) / wait ${Math.round(waitMs)}ms`,
+          `[net.send] ${msg.type} ${kb}KB / ${n}chunks / prep ${Math.round(
+            prepMs,
+          )}ms / send ${Math.round(sendMs)}ms (${Math.round(
+            sendMs / n,
+          )}ms/chunk) / wait ${Math.round(waitMs)}ms`,
         );
       }
     });
