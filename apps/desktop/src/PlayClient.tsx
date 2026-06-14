@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Users, MessageSquare, StickyNote, Globe } from "lucide-react";
+import { Users, MessageSquare, StickyNote, Globe, UserPlus } from "lucide-react";
 import {
   reduce,
+  panelFromSheet,
+  panelFromGeneric,
   type PlayScene,
   type Panel,
   type PanelResource,
   type RollEvent,
   type CutIn,
 } from "@trpg/core";
+import { getLibrary } from "./library";
+import { readSheetFromPath, isGenericSheet } from "./storage";
 import { DiceMotion } from "./DiceMotion";
 import { PlayBoard } from "./PlayBoard";
 import { PlayPanel } from "./PlayPanel";
@@ -164,6 +168,40 @@ export function PlayClient({
     [scene],
   );
   const playerCards = cards.filter((p) => !p.hidden);
+  // 自分が追加したキャラ(owner=自分の表示名)。サイドバーで操作できるのはこれだけ。
+  const myCards = playerCards.filter((p) => p.owner === name);
+
+  // 自分のローカルライブラリ(この端末に保存したキャラ)。
+  const [lib] = useState(() => getLibrary());
+  const [picking, setPicking] = useState(false);
+  const [addErr, setAddErr] = useState<string | null>(null);
+
+  /** 自分のキャラを登場させる(GM へ intent を送り、GM が owner を刻んで配信)。 */
+  async function addMyCharacter(charId: string) {
+    const entry = lib.find((c) => c.id === charId);
+    if (!entry) return;
+    setAddErr(null);
+    try {
+      const sheet = await readSheetFromPath(entry.path);
+      const base = isGenericSheet(sheet)
+        ? panelFromGeneric({ id: crypto.randomUUID(), sheet })
+        : panelFromSheet({ id: crypto.randomUUID(), sheet });
+      sendIntent({ kind: "add-char", panel: base });
+      setPicking(false);
+    } catch (e) {
+      setAddErr(`キャラを読み込めませんでした: ${String(e)}`);
+    }
+  }
+
+  // 発言者は自分のキャラに限定。未選択/無効なら先頭の自キャラに合わせる。
+  const myIds = myCards.map((p) => p.id).join(",");
+  useEffect(() => {
+    if (myCards.length > 0 && !myCards.some((p) => p.id === compose.speakerId)) {
+      setCompose((c) => ({ ...c, speakerId: myCards[0].id }));
+    }
+    // myIds で myCards の変化を検知(配列参照は毎回変わるため)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myIds, compose.speakerId]);
 
   /* ===== 操作 → intent ===== */
 
@@ -331,16 +369,59 @@ export function PlayClient({
           </div>
         </main>
 
-        {/* 左ドロワー: キャラクター */}
+        {/* 左ドロワー: 自分のキャラクター(操作できるのは自分が追加した分だけ) */}
         <aside className={`pdrawer left ${leftOpen ? "open" : ""}`}>
-          <div className="pdrawer-head ibtn"><Users size={14} /> キャラクター</div>
+          <div className="pdrawer-head ibtn"><Users size={14} /> マイキャラクター</div>
           <div className="pdrawer-body ss-chars">
-            {playerCards.length === 0 ? (
+            {/* 自分のキャラを登場させる(この端末のライブラリから) */}
+            {picking ? (
+              <div className="pclient-addchar">
+                {lib.length === 0 ? (
+                  <p className="pside-empty muted">
+                    この端末に保存されたキャラがありません。先にキャラシを作成/保存して
+                    ください。
+                  </p>
+                ) : (
+                  <select
+                    className="input"
+                    defaultValue=""
+                    onChange={(e) => e.target.value && void addMyCharacter(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      キャラを選んで登場…
+                    </option>
+                    {lib.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {addErr && (
+                  <p className="tag fail" style={{ fontSize: 11 }}>
+                    {addErr}
+                  </p>
+                )}
+                <button className="btn mini" onClick={() => setPicking(false)}>
+                  閉じる
+                </button>
+              </div>
+            ) : (
+              <button
+                className="btn mini btn-primary ibtn"
+                style={{ width: "100%" }}
+                onClick={() => setPicking(true)}
+              >
+                <UserPlus size={14} /> 自分のキャラを追加
+              </button>
+            )}
+            {myCards.length === 0 ? (
               <p className="pside-empty muted">
-                表示できるキャラクターがいません。
+                まだ自分のキャラがいません。「自分のキャラを追加」から登場させると、
+                ここからダイスやチャットパレットを操作できます。
               </p>
             ) : (
-              playerCards.map((p) => (
+              myCards.map((p) => (
                 <PlayPanel
                   key={p.id}
                   panel={p}
@@ -380,13 +461,10 @@ export function PlayClient({
                     <div className="pside-log">
                       <LogView
                         log={scene.log}
-                        speakers={[
-                          { id: "GM", name: "GM" },
-                          ...playerCards.map((p) => ({
-                            id: p.id,
-                            name: p.name,
-                          })),
-                        ]}
+                        speakers={myCards.map((p) => ({
+                          id: p.id,
+                          name: p.name,
+                        }))}
                         speakerId={compose.speakerId}
                         text={compose.text}
                         secret={secret}

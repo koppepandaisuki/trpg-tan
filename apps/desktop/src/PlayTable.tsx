@@ -162,6 +162,8 @@ export function PlayTable({
   // 同時に 1 本だけ送り、送信中なら 1 本だけ予約する(連投によるメモリ膨張=
   // ホストの Out of Memory を防ぐ)。
   const snapRef = useRef({ sending: false, queued: false });
+  // 参加者 selfId → 表示名。hello で記録し、intent の所有権チェックに使う。
+  const memberNames = useRef<Map<string, string>>(new Map());
 
   const characters = useMemo(() => getLibrary(), []);
 
@@ -194,10 +196,48 @@ export function PlayTable({
   const playerCards = cards.filter((p) => !p.hidden);
 
   function dispatch(event: PlayEvent) {
+    const prev = scene;
     setScene((s) => reduce(s, event));
     setDirty(true);
-    // 共有中は確定イベントをそのまま配信(参加者は reduce で追随)。
-    roomRef.current?.send({ type: "event", ev: event });
+    // 共有中は配信。ただし秘匿(hidden)キャラの情報は参加者へ漏らさないよう取捨選択。
+    broadcastForNet(event, prev, reduce(prev, event));
+  }
+
+  /**
+   * 確定イベントをネットへ配信。GM が「閲覧制限(秘匿)」にしたキャラの情報は
+   * 参加者へ送らない:
+   *   - 秘匿キャラの追加 / 移動 / リソース / 発言・ロールは配信しない
+   *   - 公開→秘匿に切替: 参加者から消すため panel-remove を配信
+   *   - 秘匿→公開に切替: 参加者は未所持なのでフル情報を panel-add で配信
+   * GM 自身の画面はローカルの scene をそのまま見るので、全キャラを閲覧できる。
+   */
+  function broadcastForNet(event: PlayEvent, prev: PlayScene, next: PlayScene) {
+    const r = roomRef.current;
+    if (!r) return;
+    const hiddenById = (id?: string) =>
+      !!id && !!next.panels.find((p) => p.id === id)?.hidden;
+
+    if (event.kind === "panel-add") {
+      if (event.panel.hidden) return;
+    } else if (event.kind === "panel-update") {
+      const wasHidden = !!prev.panels.find((p) => p.id === event.panelId)?.hidden;
+      const after = next.panels.find((p) => p.id === event.panelId);
+      const nowHidden = !!after?.hidden;
+      if (wasHidden && !nowHidden && after) {
+        r.send({ type: "event", ev: panelAddEvent(newCtx(), after) });
+        return;
+      }
+      if (!wasHidden && nowHidden) {
+        r.send({ type: "event", ev: panelRemoveEvent(newCtx(), event.panelId) });
+        return;
+      }
+      if (nowHidden) return;
+    } else if (event.kind === "panel-move" || event.kind === "resource") {
+      if (hiddenById(event.panelId)) return;
+    } else if (event.kind === "chat" || event.kind === "roll") {
+      if (next.panels.find((p) => p.name === event.actor)?.hidden) return;
+    }
+    r.send({ type: "event", ev: event });
   }
 
   const sceneEdition: CoCEdition = scene.systemId === "coc6" ? "6" : "7";
@@ -765,21 +805,40 @@ export function PlayTable({
   /* ===== ネットワーク共有(GM がホスト)===== */
 
   /** 参加者からの操作意図を GM 権限で検証し、正規イベント化する。 */
-  function applyIntent(intent: NetIntent) {
+  /** 参加者(from=selfId)がそのパネルを操作してよいか(所有者一致)。 */
+  function ownsPanel(from: string, panelId: string): boolean {
+    const owner = scene.panels.find((x) => x.id === panelId)?.owner;
+    return !!owner && owner === memberNames.current.get(from);
+  }
+
+  function applyIntent(intent: NetIntent, from: string) {
     if (intent.kind === "send") {
+      // 参加者は自分の所有キャラとしてのみ発言/ロールできる(GM 発言は不可)。
+      if (intent.speakerId !== "GM" && !ownsPanel(from, intent.speakerId)) return;
+      if (intent.speakerId === "GM") return;
       handleSend(intent.speakerId, intent.raw, {
         channel: intent.channel,
         secret: intent.secret,
         visibleTo: intent.visibleTo,
       });
     } else if (intent.kind === "resource") {
+      if (!ownsPanel(from, intent.panelId)) return;
       const p = scene.panels.find((x) => x.id === intent.panelId);
       const r = p?.resources.find((x) => x.key === intent.resourceKey);
       if (p && r) changeResource(p, r, intent.delta);
     } else if (intent.kind === "move") {
+      if (!ownsPanel(from, intent.panelId)) return;
       movePanel(intent.panelId, intent.x, intent.y);
     } else if (intent.kind === "panel-update") {
+      if (!ownsPanel(from, intent.panelId)) return;
       updatePanel(intent.panelId, intent.patch);
+    } else if (intent.kind === "add-char") {
+      // 参加者が自分のキャラを登場。owner を送信者の名前で刻む(なりすまし防止)。
+      const owner = memberNames.current.get(from);
+      if (!owner) return;
+      dispatch(
+        panelAddEvent(newCtx(), { ...intent.panel, owner, pos: spawnPos() }),
+      );
     } else if (intent.kind === "memo") {
       setSharedMemo(intent.text);
     }
@@ -803,7 +862,10 @@ export function PlayTable({
         st.queued = false;
         const r = roomRef.current;
         if (!r) break;
-        await r.send({ type: "snapshot", scene: sceneRef.current });
+        // 秘匿キャラは参加者へ送らない(閲覧制限)。GM のローカルには残る。
+        const s = sceneRef.current;
+        const forNet = { ...s, panels: s.panels.filter((p) => !p.hidden) };
+        await r.send({ type: "snapshot", scene: forNet });
       } while (st.queued);
     } finally {
       st.sending = false;
@@ -814,10 +876,12 @@ export function PlayTable({
   useEffect(() => {
     netMsgRef.current = (msg: NetMsg) => {
       if (msg.type === "hello") {
+        // 参加者名を記録(intent の所有権判定に使う)。
+        memberNames.current.set(msg.from, msg.name);
         // 新規参加者へ現在の卓全体を送る(集約。hello 連投でも 1 本ずつ)。
         void sendSnapshotCoalesced();
       } else if (msg.type === "intent") {
-        applyIntent(msg.intent);
+        applyIntent(msg.intent, msg.from);
       }
     };
   });

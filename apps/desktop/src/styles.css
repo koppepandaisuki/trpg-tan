@@ -7087,6 +7087,17 @@ button:disabled {
   box-shadow: var(--shadow-lg);
   font-size: 14.5px;
 }
+/* 参加者: 自分のキャラを追加するピッカー。 */
+.pclient-addchar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
 /* 卓データ受信の進捗(参加者の待機画面)。 */
 .pclient-wait {
   display: flex;

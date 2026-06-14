@@ -88,6 +88,12 @@ export interface Panel {
   locked?: boolean;
   /** 差分(立ち絵/表情)。切替は panel-update の portrait で行う。 */
   variants?: PanelVariant[];
+  /**
+   * 操作権の持ち主。マルチで参加者が自分で追加したキャラはその参加者の表示名が
+   * 入り、本人だけがダイス/パレット/リソースを操作できる。未設定/"GM" は GM 所有
+   * (参加者は操作不可・GM は全操作可)。
+   */
+  owner?: string;
 }
 
 /** 盤面(背景マップ + グリッド)。 */
