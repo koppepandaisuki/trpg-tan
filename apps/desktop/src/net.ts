@@ -81,9 +81,27 @@ export function makeRoomCode(): string {
 }
 
 /** ルームに接続する(GM/参加者 共通)。subscribe 完了で resolve。 */
-export function connectRoom(code: string, displayName: string): Promise<Room> {
+export async function connectRoom(
+  code: string,
+  displayName: string,
+): Promise<Room> {
+  const topic = `play_${code}`;
+
+  // 再接続 / 再試行 / 再マウントで同名チャンネルが残っていると、supabase.channel()
+  // は同 topic の既存チャンネルを“再利用”する。それが既に subscribe 済み
+  // (joined/joining)だと、続く channel.on("presence", …) が
+  //   「cannot add `presence` callbacks … after `subscribe()`.」
+  // を投げて接続に失敗する。先に同 topic の古いチャンネルを確実に撤去してから
+  // 作り直す(unsubscribe → close で内部リストからも外れる)。
+  const stale = supabase
+    .getChannels()
+    .filter((ch) => ch.topic === `realtime:${topic}`);
+  if (stale.length > 0) {
+    await Promise.all(stale.map((ch) => supabase.removeChannel(ch)));
+  }
+
   const selfId = crypto.randomUUID();
-  const channel: RealtimeChannel = supabase.channel(`play_${code}`, {
+  const channel: RealtimeChannel = supabase.channel(topic, {
     config: { broadcast: { self: false }, presence: { key: selfId } },
   });
 
@@ -166,6 +184,8 @@ export function connectRoom(code: string, displayName: string): Promise<Room> {
           },
         });
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        // 失敗チャンネルを残すと次の接続で再利用され同じ不具合を招く。撤去する。
+        void supabase.removeChannel(channel);
         reject(new Error(`接続できませんでした(${status})`));
       }
     });
