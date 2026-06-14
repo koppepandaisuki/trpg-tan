@@ -541,7 +541,7 @@ export function StorePanel({
 
   if (!supabaseConfigured) {
     return (
-      <div className="store page-fade">
+      <div className="store">
         <p className="muted" style={{ padding: 24 }}>
           ストアを使うには接続設定(VITE_SUPABASE_URL / ANON_KEY)が必要です。
         </p>
@@ -557,7 +557,7 @@ export function StorePanel({
       ...detail.screenshotUrls,
     ];
     return (
-      <div className="store page-fade">
+      <div className="store">
         <div className="store-head">
           <button className="btn mini" onClick={() => setDetail(null)}>
             ← ストアに戻る
@@ -793,7 +793,7 @@ export function StorePanel({
   /* ===== クリエイター一覧ビュー ===== */
   if (view === "creators") {
     return (
-      <div className="store page-fade">
+      <div className="store">
         {header}
         <div className="store-cats">
           <button className="store-cat" onClick={() => setView("home")}>
@@ -862,7 +862,7 @@ export function StorePanel({
   /* ===== ホームビュー(Steam フロントページ) ===== */
   if (view === "home") {
     return (
-      <div className="store page-fade">
+      <div className="store">
         {header}
         {/* ジャンルナビ */}
         <div className="store-cats">
