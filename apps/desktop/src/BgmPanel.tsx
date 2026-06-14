@@ -25,6 +25,7 @@ export function BgmPlayer({
   sceneBgmId,
   onBindScene,
   playSignal,
+  onPlay,
 }: {
   tracks: BgmTrack[];
   onAddTracks: (tracks: BgmTrack[]) => void;
@@ -38,6 +39,11 @@ export function BgmPlayer({
    * id のトラックを再生する(id が null/空なら停止)。
    */
   playSignal?: { id: string | null; nonce: number };
+  /**
+   * 再生状態が変わったときに呼ばれる(マルチで参加者へ音源を配信するため)。
+   * track=再生開始したトラック / null=停止。
+   */
+  onPlay?: (track: BgmTrack | null) => void;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -72,6 +78,7 @@ export function BgmPlayer({
       await audio.play();
       setCurrentId(id);
       setPlaying(true);
+      onPlay?.(track);
     } catch (e) {
       setError(`再生できませんでした: ${String(e)}`);
     }
@@ -111,9 +118,11 @@ export function BgmPlayer({
     if (audio.paused) {
       void audio.play();
       setPlaying(true);
+      onPlay?.(tracks.find((t) => t.id === currentId) ?? null);
     } else {
       audio.pause();
       setPlaying(false);
+      onPlay?.(null);
     }
   }
 
@@ -131,6 +140,7 @@ export function BgmPlayer({
     const isLast = i === tracks.length - 1;
     if (isLast && repeat !== "all") {
       setPlaying(false);
+      onPlay?.(null);
       return;
     }
     step(1);
@@ -141,6 +151,7 @@ export function BgmPlayer({
       audioRef.current?.pause();
       setPlaying(false);
       setCurrentId(null);
+      onPlay?.(null);
     }
     onRemoveTrack(id);
   }

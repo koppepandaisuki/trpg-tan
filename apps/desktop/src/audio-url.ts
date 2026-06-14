@@ -39,6 +39,31 @@ export async function audioUrl(path: string): Promise<string> {
   return url;
 }
 
+/** Uint8Array → base64(大きいファイルでもスタック超過しないよう分割)。 */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+const dataCache = new Map<string, string>();
+
+/**
+ * ローカル音声ファイルを data URL(base64)で返す(パス単位でキャッシュ)。
+ * blob URL はこの端末でしか使えないので、ネット配信(参加者の再生)にはこちらを使う。
+ */
+export async function audioDataUrl(path: string): Promise<string> {
+  const hit = dataCache.get(path);
+  if (hit) return hit;
+  const bytes = await readFile(path);
+  const url = `data:${mimeOf(path)};base64,${bytesToBase64(bytes as Uint8Array)}`;
+  dataCache.set(path, url);
+  return url;
+}
+
 /** ファイルパスから拡張子を除いた表示名。 */
 export function baseName(path: string): string {
   const file = path.split(/[\\/]/).pop() ?? path;
