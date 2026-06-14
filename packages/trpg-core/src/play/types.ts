@@ -120,12 +120,52 @@ export interface SceneInfo {
   bgmId?: string;
 }
 
-/** アセット(卓に登録した画像素材。盤面へドラッグ/配置して使う)。 */
+/**
+ * アセットの 1 アクション(マクロの 1 ステップ)。kind ごとに使うフィールドが
+ * 異なる。クリック時に actions を上から順に実行して「ひとつの演出」にする。
+ */
+export interface AssetAction {
+  kind:
+    | "scene" // シーン切替(紐づく BGM も自動再生)
+    | "board-bg" // 盤面の背景に設定
+    | "place-image" // 盤面の中央に画像を配置
+    | "spawn-char" // 保存済みキャラを登場させる
+    | "cutin" // カットインを再生
+    | "telop" // テロップ(定型文)を画面に表示
+    | "bgm" // BGM を再生 / 停止
+    | "se"; // SE(効果音)を鳴らす
+  /** board-bg / place-image: 画像(data URL)。 */
+  image?: string;
+  /** place-image / board-bg のラベル(駒名)。 */
+  label?: string;
+  /** scene: シーン id。 */
+  sceneId?: string;
+  /** spawn-char: ライブラリのキャラ id。 */
+  charId?: string;
+  /** cutin: カットイン id。 */
+  cutinId?: string;
+  /** bgm: BGM トラック id(null/空 = 停止)。 */
+  bgmId?: string | null;
+  /** se: SE トラック名。 */
+  seName?: string;
+  /** telop: 表示テキスト。 */
+  text?: string;
+}
+
+/**
+ * アセット(卓の「ワンクリック演出」)。複数アクションをまとめてボタン化したもの。
+ * 旧データ互換: image だけ持つ単体画像アセットは「盤面に配置」する素材として扱う。
+ */
 export interface AssetItem {
   id: string;
   name: string;
-  /** data URL。 */
-  image: string;
+  /** 旧データ互換 & サムネ表示用: 単体画像(data URL)。 */
+  image?: string;
+  /**
+   * マクロ本体(順に実行)。未設定/空なら image を「配置」する単体素材として
+   * 振る舞う(後方互換)。
+   */
+  actions?: AssetAction[];
 }
 
 /** カットイン(演出用の画像。クリックで画面に流す)。 */
