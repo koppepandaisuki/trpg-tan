@@ -69,6 +69,11 @@ export interface Panel {
   pos?: { x: number; y: number };
   /** 盤面上の表示サイズ(px)。円形駒は直径、画像オブジェクトは幅。未指定は既定。 */
   size?: number;
+  /**
+   * 画像オブジェクトの高さ(px)。未指定なら元画像の縦横比で自動。指定すると
+   * 縦横を独立に伸縮(自由変形)できる。円形駒(キャラ)では使わない。
+   */
+  height?: number;
   /** 情報/メモ(右クリックメニューで編集)。 */
   note?: string;
   /** プレイヤーに秘匿するか(GM 視点では薄く表示。将来の同期で非送信)。 */
@@ -308,6 +313,7 @@ export interface PanelUpdateEvent extends BaseEvent {
     note?: string;
     hidden?: boolean;
     size?: number;
+    height?: number;
     palette?: string;
     speed?: number;
     sceneId?: string | null;
@@ -361,6 +367,11 @@ export interface TurnSetEvent extends BaseEvent {
   label: string;
 }
 
+/** チャット/ログ履歴の全消去(駒・盤面・シーン等の状態には影響しない)。 */
+export interface LogClearEvent extends BaseEvent {
+  kind: "log-clear";
+}
+
 export type PlayEvent =
   | ChatEvent
   | RollEvent
@@ -375,4 +386,5 @@ export type PlayEvent =
   | SceneSelectEvent
   | SceneRenameEvent
   | SceneRemoveEvent
-  | TurnSetEvent;
+  | TurnSetEvent
+  | LogClearEvent;

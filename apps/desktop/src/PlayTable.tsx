@@ -21,6 +21,7 @@ import {
   sceneRenameEvent,
   sceneRemoveEvent,
   turnSetEvent,
+  logClearEvent,
   type PlayScene,
   type PlayEvent,
   type RollEvent,
@@ -399,6 +400,7 @@ export function PlayTable({
       note?: string;
       hidden?: boolean;
       size?: number;
+      height?: number;
       palette?: string;
       speed?: number;
       sceneId?: string | null;
@@ -614,6 +616,15 @@ export function PlayTable({
       ),
     }));
     setDirty(true);
+  }
+
+  /** チャット/ログ履歴を全消去(駒/盤面/シーンは残る)。参加者へも反映。 */
+  async function clearLog() {
+    const ok = await ask(
+      "チャット/ログの履歴を全消去しますか？\n（駒・盤面・シーン・立ち絵の状態はそのまま残ります）",
+      { title: "ログの消去", kind: "warning" },
+    );
+    if (ok) dispatch(logClearEvent(newCtx()));
   }
 
   /** チャットログをテキストファイルへ書き出す(リプレイ保存)。 */
@@ -1365,6 +1376,7 @@ export function PlayTable({
                       onVisibleToChange={setVisibleTo}
                       onSubmit={submitCompose}
                       onExport={() => void exportLog()}
+                      onClearLog={() => void clearLog()}
                       diceBot={diceBot}
                       onDiceBotChange={setDiceBot}
                       inputRef={inputRef}
