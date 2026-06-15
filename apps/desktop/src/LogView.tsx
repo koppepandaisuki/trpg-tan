@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type Ref } from "react";
 import { DICE_BOTS, getDiceBot } from "@trpg/core";
-import { CircleHelp, MessageSquare, Dices, Save, MessageCircle } from "lucide-react";
+import {
+  CircleHelp,
+  MessageSquare,
+  Dices,
+  Save,
+  MessageCircle,
+  Trash2,
+} from "lucide-react";
 import type { PlayEvent, CoCCheckResult } from "@trpg/core";
 
 /** 発言者の選択肢(GM + 卓上の駒)。 */
@@ -54,6 +61,7 @@ export function LogView({
   onVisibleToChange,
   onSubmit,
   onExport,
+  onClearLog,
   maskSecret = false,
   viewerName,
   diceBot,
@@ -76,6 +84,8 @@ export function LogView({
   onSubmit: () => void;
   /** チャットログをファイルへ書き出す(リプレイ保存)。 */
   onExport?: () => void;
+  /** チャット/ログ履歴を全消去(GM のみ。未指定ならボタン非表示)。 */
+  onClearLog?: () => void;
   /** 参加者ビュー: シークレットダイスの出目を伏せて表示する。 */
   maskSecret?: boolean;
   /** 自分の表示名。visibleTo に含まれるシークレットは伏せずに見せる。 */
@@ -196,6 +206,15 @@ export function LogView({
             title="ログをテキストファイルへ書き出し"
           >
             <Save size={14} />
+          </button>
+        )}
+        {onClearLog && (
+          <button
+            className="plog-sort"
+            onClick={onClearLog}
+            title="チャット/ログ履歴を全消去（駒・盤面は残る）"
+          >
+            <Trash2 size={14} />
           </button>
         )}
       </div>

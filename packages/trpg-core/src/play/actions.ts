@@ -22,6 +22,7 @@ import type {
   SceneRenameEvent,
   SceneRemoveEvent,
   TurnSetEvent,
+  LogClearEvent,
 } from "./types.js";
 import { clampResource } from "./reduce.js";
 
@@ -305,6 +306,11 @@ export function turnSetEvent(
     activePanelId,
     label,
   };
+}
+
+/** チャット/ログ履歴の全消去イベント。 */
+export function logClearEvent(ctx: EventCtx): LogClearEvent {
+  return { id: ctx.id, ts: ctx.ts, actor: "GM", kind: "log-clear" };
 }
 
 /**

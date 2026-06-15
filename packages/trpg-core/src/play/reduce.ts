@@ -142,6 +142,9 @@ export function reduce(scene: PlayScene, event: PlayEvent): PlayScene {
     case "roll":
     case "system":
       return { ...scene, log, meta };
+    case "log-clear":
+      // 履歴を空に。駒/盤面/シーン等の状態フィールドはそのまま(別管理なので無傷)。
+      return { ...scene, log: [], meta };
     default: {
       // 未知イベントは無視(前方互換)。網羅性は型で担保。
       const _exhaustive: never = event;

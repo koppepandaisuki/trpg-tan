@@ -880,6 +880,40 @@ body {
   pointer-events: none;
 }
 
+/* 画像の表示/非表示トグル(GM のみ。ホバーで出現、非表示中は金色で常時表示)。 */
+.token-eyebtn {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease-out);
+  z-index: 4;
+  box-shadow: var(--shadow-xs);
+}
+.token:hover .token-eyebtn {
+  opacity: 1;
+}
+.token-eyebtn.off {
+  opacity: 1;
+  background: var(--gold-soft);
+  color: var(--gold-deep);
+  border-color: var(--gold-deep);
+}
+.token-eyebtn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 /* 画像オブジェクト(実寸・比率そのまま。クロップ無し・名前無し) */
 .token.img-object {
   line-height: 0;

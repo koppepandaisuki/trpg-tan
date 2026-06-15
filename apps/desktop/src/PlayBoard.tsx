@@ -66,6 +66,7 @@ export function PlayBoard({
         | "note"
         | "hidden"
         | "size"
+        | "height"
         | "sceneId"
         | "layer"
         | "locked"
@@ -128,8 +129,12 @@ export function PlayBoard({
     id: string;
     startX: number;
     startY: number;
-    startSize: number;
-    size: number;
+    startW: number;
+    startH: number;
+    w: number;
+    h: number;
+    /** 画像オブジェクト(縦横を独立に伸縮できる)。円形駒は常に正方。 */
+    img: boolean;
   } | null>(null);
   const [dropActive, setDropActive] = useState(false);
   const [menu, setMenu] = useState<{ panelId: string; x: number; y: number } | null>(null);
@@ -151,8 +156,13 @@ export function PlayBoard({
     return p.pos ?? { x: 0.12 + (i % 6) * 0.13, y: 0.16 + Math.floor(i / 6) * 0.2 };
   }
   function sizeOf(p: Panel): number {
-    if (resize && resize.id === p.id) return resize.size;
+    if (resize && resize.id === p.id) return resize.w;
     return p.size ?? (isImageObject(p) ? 140 : 56);
+  }
+  /** 画像の高さ(px)。リサイズ中はその値、未指定なら undefined(縦横比で自動)。 */
+  function heightOf(p: Panel): number | undefined {
+    if (resize && resize.id === p.id) return resize.h;
+    return p.height;
   }
 
   function clientToNorm(clientX: number, clientY: number) {
@@ -185,8 +195,29 @@ export function PlayBoard({
     e.stopPropagation();
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const s = sizeOf(p);
-    setResize({ id: p.id, startX: e.clientX, startY: e.clientY, startSize: s, size: s });
+    const img = isImageObject(p);
+    const w = sizeOf(p);
+    let h = p.height ?? 0;
+    if (img && !h) {
+      // 高さ未設定の画像は、表示中の img の自然比から現在の高さ(ステージpx)を割り出す。
+      const el = (e.currentTarget as HTMLElement)
+        .closest(".token")
+        ?.querySelector("img");
+      if (el && el.naturalWidth) {
+        h = Math.round((w * el.naturalHeight) / el.naturalWidth);
+      }
+    }
+    if (!h) h = w; // 円形駒(正方)など
+    setResize({
+      id: p.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: w,
+      startH: h,
+      w,
+      h,
+      img,
+    });
   }
 
   function onPointerMove(e: React.PointerEvent) {
@@ -201,11 +232,18 @@ export function PlayBoard({
     }
     if (resize) {
       // 画面ピクセル → 仮想ステージ座標(スケールで割る)。
-      const d =
-        Math.max(e.clientX - resize.startX, e.clientY - resize.startY) /
-        (effScale || 1);
-      const size = Math.max(24, Math.min(1600, Math.round(resize.startSize + d)));
-      setResize({ ...resize, size });
+      const dx = (e.clientX - resize.startX) / (effScale || 1);
+      const dy = (e.clientY - resize.startY) / (effScale || 1);
+      const clamp = (v: number) => Math.max(24, Math.min(2400, Math.round(v)));
+      if (resize.img && !e.shiftKey) {
+        // 画像は縦横を独立に伸縮(自由変形)。Shift で等倍。
+        setResize({ ...resize, w: clamp(resize.startW + dx), h: clamp(resize.startH + dy) });
+      } else {
+        // 等倍: 幅の変化に合わせて高さも比率維持。
+        const w = clamp(resize.startW + Math.max(dx, dy));
+        const h = clamp(resize.startH * (w / resize.startW));
+        setResize({ ...resize, w, h });
+      }
       return;
     }
     if (drag) {
@@ -219,7 +257,11 @@ export function PlayBoard({
       return;
     }
     if (resize) {
-      onUpdate(resize.id, { size: resize.size });
+      // 画像は幅+高さを保存(自由変形)。円形駒は幅(=直径)のみ。
+      onUpdate(
+        resize.id,
+        resize.img ? { size: resize.w, height: resize.h } : { size: resize.w },
+      );
       setResize(null);
       return;
     }
@@ -393,6 +435,7 @@ export function PlayBoard({
         {visible.map((p, i) => {
           const pos = posOf(p, i);
           const size = sizeOf(p);
+          const h = heightOf(p);
           const img = isImageObject(p);
           return (
             <div
@@ -418,7 +461,11 @@ export function PlayBoard({
                   src={p.portrait ?? ""}
                   alt=""
                   draggable={false}
-                  style={{ width: size }}
+                  style={
+                    h
+                      ? { width: size, height: h, objectFit: "fill" }
+                      : { width: size }
+                  }
                 />
               ) : (
                 <div
@@ -438,7 +485,30 @@ export function PlayBoard({
                 </div>
               )}
 
-              {p.hidden && (<span className="token-eye"><EyeOff size={12} /></span>)}
+              {!playerMode && img ? (
+                // 画像オブジェクト: ワンクリックで表示/非表示(位置・大きさは保持)。
+                <button
+                  className={`token-eyebtn ${p.hidden ? "off" : ""}`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdate(p.id, { hidden: !p.hidden });
+                  }}
+                  title={
+                    p.hidden
+                      ? "非表示中（クリックで表示）"
+                      : "クリックで非表示にする（位置・大きさは保持）"
+                  }
+                >
+                  {p.hidden ? <EyeOff size={12} /> : <Eye size={12} />}
+                </button>
+              ) : (
+                p.hidden && (
+                  <span className="token-eye">
+                    <EyeOff size={12} />
+                  </span>
+                )
+              )}
               {p.locked && (<span className="token-pin"><Pin size={12} /></span>)}
               {!img && <span className="token-name">{p.name}</span>}
 
@@ -504,6 +574,7 @@ function ObjectMenu({
         | "note"
         | "hidden"
         | "size"
+        | "height"
         | "sceneId"
         | "layer"
         | "locked"
