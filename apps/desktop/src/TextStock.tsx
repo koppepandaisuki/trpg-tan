@@ -1,10 +1,65 @@
 import { useEffect, useState } from "react";
 
+interface StockEntry {
+  text: string;
+  comment: boolean;
+  seName: string | undefined;
+}
+
+/** 1 ブロック → 本文エントリ([SE:名前] を抽出し、改行は保持)。 */
+function toEntry(block: string): StockEntry {
+  const m = block.match(/\[SE:([^\]]+)\]/i);
+  const text = block
+    .replace(/\[SE:[^\]]+\]/gi, "") // SE タグだけ除去(改行は残す)
+    .split(/\r?\n/)
+    .map((l) => l.replace(/[ \t]+$/g, "")) // 行末の空白だけ落とす
+    .join("\n")
+    .replace(/^\n+|\n+$/g, "");
+  return { text, comment: false, seName: m?.[1]?.trim() };
+}
+
+/**
+ * 定型文のパース。
+ *   - 空行(空白だけの行も可)でエントリを区切る = 1 エントリ内で自由に改行できる。
+ *   - 後方互換: 空行が 1 つも無いストックは従来どおり「1 行 1 エントリ」。
+ *   - 行頭 `#` / `//` は見出し。見出し直後は空行が無くても本文と分けて扱う。
+ */
+function parseStock(stock: string): StockEntry[] {
+  const hasBlank = /\r?\n[ \t]*\r?\n/.test(stock);
+  const rawBlocks = hasBlank
+    ? stock.split(/\r?\n[ \t]*\r?\n+/)
+    : stock.split(/\r?\n/);
+  return rawBlocks
+    .map((b) =>
+      b
+        .split(/\r?\n/)
+        .map((l) => l.replace(/[ \t]+$/g, ""))
+        .join("\n")
+        .replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ""),
+    )
+    .filter((b) => b.length > 0)
+    .flatMap((b): StockEntry[] => {
+      const nl = b.indexOf("\n");
+      const first = (nl >= 0 ? b.slice(0, nl) : b).trim();
+      if (first.startsWith("#") || first.startsWith("//")) {
+        const heading: StockEntry = {
+          text: first.replace(/^#+\s*|^\/\/\s*/, ""),
+          comment: true,
+          seName: undefined,
+        };
+        const rest = nl >= 0 ? b.slice(nl + 1).replace(/^\n+/, "") : "";
+        return rest.trim() ? [heading, toEntry(rest)] : [heading];
+      }
+      return [toEntry(b)];
+    });
+}
+
 /**
  * シナリオテキストストック。シナリオの定型文(描写・導入・NPC セリフ等)を
- * 1 行 1 テキストで保持し、チャパレと同じ操作感で使う:
+ * 保持し、チャパレと同じ操作感で使う:
  *   クリック = 入力欄へ展開 / ダブルクリック or 💬 = チャットへ送信 /
  *   📢 = 画面中央にどーんとテロップ表示(チャットには流さない)。
+ * 空行でエントリを区切り、区切り内は自由に改行できる(長文を読みやすく)。
  * `#` / `//` 行は見出し。本文は .play(卓データ)に保存される。
  */
 export function TextStockPanel({
@@ -29,26 +84,7 @@ export function TextStockPanel({
     if (!editing) setDraft(stock);
   }, [stock, editing]);
 
-  const lines = stock
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => {
-      if (l.startsWith("#") || l.startsWith("//")) {
-        return {
-          text: l.replace(/^#+\s*|^\/\/\s*/, ""),
-          comment: true,
-          seName: undefined as string | undefined,
-        };
-      }
-      // 行内の [SE:名前] は効果音の指定(表示/送信テキストからは取り除く)。
-      const m = l.match(/\[SE:([^\]]+)\]/i);
-      return {
-        text: l.replace(/\s*\[SE:[^\]]+\]\s*/gi, " ").trim(),
-        comment: false,
-        seName: m?.[1].trim(),
-      };
-    });
+  const lines = parseStock(stock);
 
   function save() {
     onEdit(draft);
@@ -68,13 +104,16 @@ export function TextStockPanel({
         <div className="palette-editor">
           <textarea
             className="input"
-            rows={7}
+            rows={8}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={
-              "1 行 1 テキスト\n# 導入\n古びた洋館の扉が軋む—— [SE:軋み]\n「ようこそ、お待ちしておりました」\n※ [SE:名前] で SE パネルの効果音を一緒に鳴らせます"
+              "空行でテキストを区切ります（区切りの中は自由に改行OK）。\n\n# 導入\n古びた洋館の扉が軋む—— [SE:軋み]\n\n「ようこそ。\n長い口上もこのように\n複数行で読みやすく置けます」\n\n※ [SE:名前] で SE パネルの効果音を一緒に鳴らせます"
             }
           />
+          <p className="muted" style={{ fontSize: 11, margin: "2px 2px 0" }}>
+            空行でテキストを区切ります。区切りの中は改行して長文を読みやすく置けます。
+          </p>
           <div className="palette-editor-actions">
             <span style={{ flex: 1 }} />
             <button
