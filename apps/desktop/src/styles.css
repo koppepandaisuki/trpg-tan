@@ -1717,6 +1717,12 @@ body {
   display: flex;
   gap: 6px;
 }
+/* 本文(チャット等)は改行を保持して表示(定型文の複数行をそのまま流せる)。 */
+.logrow > span {
+  min-width: 0;
+  white-space: pre-line;
+  word-break: break-word;
+}
 
 .log-actor {
   color: var(--primary-deep);
@@ -3733,6 +3739,12 @@ body {
 .tstock-line .palette-line {
   flex: 1;
   min-width: 0;
+  /* 定型文は 1 エントリ内で改行できる(長文を読みやすく)。省略表示を解除。 */
+  white-space: pre-line;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.5;
 }
 .tstock-act {
   flex: 0 0 auto;
