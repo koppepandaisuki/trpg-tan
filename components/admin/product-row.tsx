@@ -13,6 +13,10 @@ import { categoryLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
 import { statusBadgeVariant, statusLabel } from "@/lib/format/status";
 import type { ProductStatus } from "@/lib/format/status";
+import {
+  AI_VERDICT_LABEL,
+  aiVerdictBadgeVariant,
+} from "@/lib/moderation/verdict";
 import type { AdminProductRow } from "@/lib/queries/admin";
 
 interface ProductRowProps {
@@ -63,6 +67,11 @@ export function AdminProductRowCard({ product }: ProductRowProps) {
               {statusLabel(product.status)}
             </Badge>
             <Badge variant="muted">{categoryLabel(product.productType)}</Badge>
+            {product.status === "pending" && product.aiVerdict && (
+              <Badge variant={aiVerdictBadgeVariant(product.aiVerdict)}>
+                {AI_VERDICT_LABEL[product.aiVerdict]}
+              </Badge>
+            )}
           </div>
           <p className="mt-1 truncate text-sm font-medium">
             <Link
@@ -82,6 +91,13 @@ export function AdminProductRowCard({ product }: ProductRowProps) {
               前回の却下理由: {product.reviewNote}
             </p>
           )}
+          {product.status === "pending" &&
+            product.aiReason &&
+            (product.aiVerdict === "flag" || product.aiVerdict === "block") && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                AI: {product.aiReason}
+              </p>
+            )}
           {error && (
             <p role="alert" className="mt-1 text-xs text-destructive">
               {error}

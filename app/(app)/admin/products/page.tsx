@@ -10,6 +10,7 @@ import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { requireAdmin } from "@/lib/session/require";
 import { listProductsForAdmin, countPendingProducts } from "@/lib/queries/admin";
 import type { ProductStatus } from "@/lib/format/status";
+import { aiVerdictPriority } from "@/lib/moderation/verdict";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "作品管理 | admin" };
@@ -32,10 +33,20 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
   const search = searchParams.q ?? "";
   const status = parseStatus(searchParams.status);
 
-  const [{ items, total, totalPages }, pendingCount] = await Promise.all([
+  const [result, pendingCount] = await Promise.all([
     listProductsForAdmin({ page, search, status }),
     countPendingProducts(),
   ]);
+  const { total, totalPages } = result;
+  // 審査待ち表示では AI が懸念ありとしたもの(block→flag→error)を上に出す。
+  const items =
+    status === "pending"
+      ? [...result.items].sort(
+          (a, b) =>
+            aiVerdictPriority(b.aiVerdict ?? "skipped") -
+            aiVerdictPriority(a.aiVerdict ?? "skipped"),
+        )
+      : result.items;
 
   return (
     <div className="space-y-6">
