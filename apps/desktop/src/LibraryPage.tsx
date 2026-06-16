@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Home, Play, Download, FolderOpen, RefreshCw } from "lucide-react";
+import {
+  Home,
+  Play,
+  Download,
+  FolderOpen,
+  RefreshCw,
+  Package,
+} from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { importPackFromFile } from "./pack";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { isTauri } from "./storage";
@@ -75,6 +83,29 @@ export function LibraryPage({
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  /** .paradice パッケージを取り込む(システム/シナリオ/キャラをローカル展開)。 */
+  async function handleImportPack() {
+    setImporting(true);
+    try {
+      const res = await importPackFromFile();
+      if (res) {
+        const parts = [
+          res.system ? "システム" : "",
+          res.scenarios ? `シナリオ${res.scenarios}` : "",
+          res.sheets ? `キャラ${res.sheets}` : "",
+        ]
+          .filter(Boolean)
+          .join(" / ");
+        toast(`📦 「${res.name}」を取り込みました（${parts || "メタのみ"}）`);
+      }
+    } catch (e) {
+      toast(`取り込みに失敗: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const userId = session?.user.id ?? null;
   const canUseDownload = isTauri();
@@ -266,6 +297,16 @@ export function LibraryPage({
           >
             <RefreshCw size={13} className={loading ? "spin" : ""} />
           </button>
+          {canUseDownload && (
+            <button
+              className="btn mini ibtn"
+              onClick={() => void handleImportPack()}
+              disabled={importing}
+              title="パッケージ(.paradice)を取り込む（システム/シナリオ/キャラを展開）"
+            >
+              <Package size={13} /> {importing ? "取込中…" : "取り込み"}
+            </button>
+          )}
         </div>
         <button
           className={`libside-home ibtn ${selected ? "" : "active"}`}
