@@ -101,14 +101,19 @@ export async function importPack(pack: TrpgPack): Promise<ImportResult> {
   return { name: pack.name, system: !!pack.system, scenarios, sheets };
 }
 
+/** 既知のパスの .paradice を取り込む(購入物の「開く」などから)。 */
+export async function importPackFromPath(path: string): Promise<ImportResult> {
+  const text = await readTextFile(path);
+  const r = parsePack(text);
+  if (!r.ok) throw new Error(r.error);
+  return importPack(r.pack);
+}
+
 /** .paradice ファイルを開いて取り込む(キャンセルは null)。 */
 export async function importPackFromFile(): Promise<ImportResult | null> {
   const selected = await open({ multiple: false, filters: PACK_FILTERS });
   if (!selected || typeof selected !== "string") return null;
-  const text = await readTextFile(selected);
-  const r = parsePack(text);
-  if (!r.ok) throw new Error(r.error);
-  return importPack(r.pack);
+  return importPackFromPath(selected);
 }
 
 /** パッケージを .paradice ファイルへ書き出す(キャンセルは null)。 */

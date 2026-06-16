@@ -8,7 +8,7 @@ import {
   Package,
 } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { importPackFromFile } from "./pack";
+import { importPackFromFile, importPackFromPath } from "./pack";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { isTauri } from "./storage";
@@ -158,6 +158,34 @@ export function LibraryPage({
     }
   }
 
+  /** ダウンロード物がパッケージ(.paradice)か。 */
+  const isPackEntry = (e: DownloadedEntry) =>
+    e.ext?.toLowerCase() === "paradice" ||
+    e.path.toLowerCase().endsWith(".paradice");
+
+  /** 「開く」: パッケージなら取り込み(セットアップ無し)、その他は viewer へ。 */
+  async function openItem(it: RemoteLibraryItem, entry: DownloadedEntry) {
+    if (isPackEntry(entry)) {
+      try {
+        const res = await importPackFromPath(entry.path);
+        const parts = [
+          res.system ? "システム" : "",
+          res.scenarios ? `シナリオ${res.scenarios}` : "",
+          res.sheets ? `キャラ${res.sheets}` : "",
+        ]
+          .filter(Boolean)
+          .join(" / ");
+        toast(
+          `📦 「${res.name}」を取り込みました（${parts || "メタのみ"}）。上部メニューの「PLAY / ビルダー」で使えます`,
+        );
+      } catch (e) {
+        toast(`取り込みに失敗: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      return;
+    }
+    onView?.(it, entry);
+  }
+
   async function handleReveal(productId: string) {
     const entry = downloaded[productId];
     if (!entry) return;
@@ -240,9 +268,17 @@ export function LibraryPage({
           <>
             <button
               className="btn btn-primary ibtn"
-              onClick={() => onView?.(it, entry)}
+              onClick={() => void openItem(it, entry)}
             >
-              <Play size={15} /> 開く
+              {isPackEntry(entry) ? (
+                <>
+                  <Package size={15} /> 取り込んで使う
+                </>
+              ) : (
+                <>
+                  <Play size={15} /> 開く
+                </>
+              )}
             </button>
             <button
               className="btn ibtn"
@@ -488,7 +524,7 @@ export function LibraryPage({
                       className="libshelf-card"
                       onClick={() => {
                         const entry = downloaded[it.productId];
-                        if (entry) onView?.(it, entry);
+                        if (entry) void openItem(it, entry);
                         else setSelectedId(it.purchaseId);
                       }}
                       title={`${it.title} を開く`}
