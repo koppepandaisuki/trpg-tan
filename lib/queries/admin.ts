@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ProductType } from "./types";
 import type { ProductStatus } from "@/lib/format/status";
 import type { ReportCategory, ReportStatus } from "@/lib/validators/report";
+import { isAiVerdict, type AiVerdict } from "@/lib/moderation/verdict";
 
 /**
  * Admin-scoped read queries.
@@ -94,6 +95,8 @@ export type AdminProductRow = {
   priceJpy: number;
   updatedAt: string;
   reviewNote: string | null;
+  aiVerdict: AiVerdict | null;
+  aiReason: string | null;
 };
 
 export async function listProductsForAdmin(opts?: {
@@ -110,7 +113,7 @@ export async function listProductsForAdmin(opts?: {
   let query = supabase
     .from("products")
     .select(
-      "id, title, creator_id, status, product_type, price_jpy, updated_at, review_note",
+      "id, title, creator_id, status, product_type, price_jpy, updated_at, review_note, ai_verdict, ai_reason",
       { count: "exact" },
     )
     .order("updated_at", { ascending: false })
@@ -146,6 +149,11 @@ export async function listProductsForAdmin(opts?: {
     priceJpy: r.price_jpy,
     updatedAt: r.updated_at,
     reviewNote: (r as { review_note?: string | null }).review_note ?? null,
+    aiVerdict: ((): AiVerdict | null => {
+      const v = (r as { ai_verdict?: unknown }).ai_verdict;
+      return isAiVerdict(v) ? v : null;
+    })(),
+    aiReason: (r as { ai_reason?: string | null }).ai_reason ?? null,
   }));
 
   return buildResult(items, count ?? 0, page, pageSize);

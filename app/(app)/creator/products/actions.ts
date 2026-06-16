@@ -9,6 +9,7 @@ import {
   createMyProduct,
   updateMyProduct,
 } from "@/lib/mutations/creator-products";
+import { runAiScreening } from "@/lib/mutations/moderation";
 import { getMyConnectStatus } from "@/lib/queries/creator-connect";
 import {
   decidePublishGate,
@@ -101,6 +102,12 @@ export async function publishAction(
     } catch (e) {
       return handleMutationError(e);
     }
+    // AI 一次審査(admin の審査キューに助言を表示)。失敗しても続行。
+    await runAiScreening(productId, {
+      title: parsed.data.title,
+      description: parsed.data.description ?? "",
+      tags: parsed.data.tags,
+    });
     revalidatePath(`/creator/products/${productId}/edit`);
     revalidatePath("/creator/products");
     revalidatePath("/store");
@@ -109,6 +116,11 @@ export async function publishAction(
 
   const created = await safeCreate(user.id, parsed.data, "submit");
   if ("error" in created) return created;
+  await runAiScreening(created.productId, {
+    title: parsed.data.title,
+    description: parsed.data.description ?? "",
+    tags: parsed.data.tags,
+  });
   revalidatePath("/creator/products");
   revalidatePath("/store");
   redirect(`/creator/products/${created.productId}/edit?saved=1&submitted=1`);
