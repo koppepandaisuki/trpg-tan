@@ -19,7 +19,7 @@ export const metadata = { title: "作品を編集" };
 
 interface EditPageProps {
   params: { id: string };
-  searchParams: { saved?: string; published?: string };
+  searchParams: { saved?: string; submitted?: string };
 }
 
 export default async function EditProductPage({
@@ -101,6 +101,33 @@ export default async function EditProductPage({
             className="mt-4"
           />
         )}
+
+        {/* 審査ステータスの案内 */}
+        {product.status === "pending" && (
+          <div
+            role="status"
+            className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
+          >
+            <span className="font-medium">審査に提出済みです。</span>{" "}
+            運営の承認後にストアへ公開されます。内容を編集して再提出することもできます。
+          </div>
+        )}
+        {product.status === "draft" && product.reviewNote && (
+          <div
+            role="status"
+            className="mt-4 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm"
+          >
+            <p className="font-medium text-destructive">
+              審査で却下されました
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
+              理由: {product.reviewNote}
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              内容を修正して「審査に出す」で再申請できます。
+            </p>
+          </div>
+        )}
       </PageContainer>
 
       <BuilderForm
@@ -108,6 +135,7 @@ export default async function EditProductPage({
         productId={product.id}
         currentStatus={product.status}
         publishedAt={product.publishedAt}
+        reviewNote={product.reviewNote}
         initialValues={initialValues}
         savedJustNow={searchParams.saved === "1"}
         popularTags={popularTags}

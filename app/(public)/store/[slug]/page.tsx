@@ -34,6 +34,7 @@ import { ProductDetailRecorder } from "@/components/recent/product-detail-record
 import { RecentlyViewed } from "@/components/recent/recently-viewed";
 import { ReviewSection } from "@/components/review/review-section";
 import { ReviewBadge } from "@/components/review/review-badge";
+import { ReportButton } from "@/components/store/report-button";
 import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { getReviewSummary, type ReviewSummary } from "@/lib/queries/reviews";
 import { getProductSalesCount } from "@/lib/queries/sales";
@@ -294,6 +295,14 @@ export default async function ProductDetailPage({ params }: PageProps) {
         <section className="mt-12 border-t border-border pt-8">
           <RecentlyViewed excludeSlug={product.slug} />
         </section>
+
+        {/* 通報導線(自作品では非表示)。ストアの趣旨に合わない投稿を
+            利用者が運営に報告できる。 */}
+        {!isOwnProduct && (
+          <div className="mt-10 border-t border-border pt-5">
+            <ReportButton productId={product.id} loggedIn={!!user} />
+          </div>
+        )}
       </ThreeColumn>
     </>
   );

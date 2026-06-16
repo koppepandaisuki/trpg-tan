@@ -31,7 +31,7 @@ import {
   OTHER_SYSTEM_SENTINEL,
   isKnownSystem,
 } from "@/lib/format/system";
-import type { ProductStatus } from "@/lib/format/status";
+import { statusLabel, type ProductStatus } from "@/lib/format/status";
 import { BuilderToolbar } from "./toolbar";
 import { SectionNav, type SectionNavItem } from "./section-nav";
 import { SidebarInfo } from "./sidebar-info";
@@ -46,6 +46,8 @@ interface BuilderFormProps {
   productId?: string | null;
   currentStatus?: ProductStatus;
   publishedAt?: string | null;
+  /** 直近の却下理由(status=draft で却下されていれば表示)。 */
+  reviewNote?: string | null;
   initialValues: BuilderFormValues;
   /** If true, show "保存しました" right after mount (post-redirect). */
   savedJustNow?: boolean;
@@ -86,6 +88,7 @@ export function BuilderForm({
   productId = null,
   currentStatus = "draft",
   publishedAt = null,
+  reviewNote = null,
   initialValues,
   savedJustNow = false,
   popularTags,
@@ -133,7 +136,10 @@ export function BuilderForm({
     (watched.tags.length > 0 ? 0 : 1) +
     (watched.systemLabel?.trim() ? 0 : 1);
 
-  function applyResult(result: SaveResult | undefined): boolean {
+  function applyResult(
+    result: SaveResult | undefined,
+    successText = "保存しました",
+  ): boolean {
     if (!result) return false;
     if ("error" in result) {
       setTopMessage({ tone: "error", text: result.error });
@@ -145,7 +151,7 @@ export function BuilderForm({
       return false;
     }
     setSavedAt(new Date());
-    setTopMessage({ tone: "success", text: "保存しました" });
+    setTopMessage({ tone: "success", text: successText });
     return true;
   }
 
@@ -166,7 +172,10 @@ export function BuilderForm({
     await form.handleSubmit(async (values) => {
       try {
         const result = await publishAction(productId, values);
-        applyResult(result);
+        applyResult(
+          result,
+          "審査に提出しました。運営の承認後にストアへ公開されます。",
+        );
       } catch {
         // see above
       }
@@ -188,6 +197,7 @@ export function BuilderForm({
           <SidebarInfo
             status={currentStatus}
             publishedAt={publishedAt}
+            reviewNote={reviewNote}
             preview={watched}
             savedAt={savedAt}
             requiredMissingCount={requiredMissingCount}
@@ -409,14 +419,15 @@ export function BuilderForm({
           <Section
             id="publish"
             title="公開設定"
-            description="上部の「公開して保存」を押すと、入力が公開条件を満たしているかチェックされます。"
+            description="上部の「審査に出す」を押すと、入力が公開条件を満たしているかチェックされ、運営の審査に提出されます。承認されるとストアに公開されます。"
           >
             <Card className="border-border/70 bg-muted/40">
               <CardContent className="space-y-1.5 p-4 text-sm">
-                <p className="font-medium">現在のステータス: {labelStatus(currentStatus)}</p>
+                <p className="font-medium">現在のステータス: {statusLabel(currentStatus)}</p>
                 <p className="text-xs text-muted-foreground">
                   「下書き保存」では公開条件をチェックしません。
-                  「公開して保存」ではタイトル / 説明 / カテゴリ / 形式 / 価格 / タグ(1個以上)が必要です。
+                  「審査に出す」ではタイトル / 説明 / カテゴリ / 形式 / 価格 / タグ(1個以上)が必要です。
+                  提出後は運営の承認を経てストアに公開されます。
                 </p>
                 {currentStatus === "suspended" && (
                   <p className="text-xs text-destructive">
@@ -743,7 +754,7 @@ function PriceControl({
           <p>
             <strong className="text-foreground">有料</strong>:
             公開には <strong>Stripe 接続(受取口座設定)</strong>の完了が必要です。
-            未接続のまま「公開して保存」するとエラーになります。
+            未接続のまま「審査に出す」するとエラーになります。
             クリエイターメニュー → Stripe 接続 から手続きしてください。
           </p>
         )}
@@ -752,13 +763,3 @@ function PriceControl({
   );
 }
 
-function labelStatus(s: ProductStatus): string {
-  switch (s) {
-    case "draft":
-      return "下書き";
-    case "published":
-      return "公開中";
-    case "suspended":
-      return "停止中";
-  }
-}

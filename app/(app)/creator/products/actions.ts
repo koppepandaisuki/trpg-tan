@@ -19,7 +19,9 @@ import {
  * Two Server Actions:
  *
  *   saveDraftAction — lenient validation, persist as draft.
- *   publishAction   — strict validation, persist as published.
+ *   publishAction   — strict validation, submit for review (status=pending).
+ *                     An admin approves it to `published`; creators cannot
+ *                     self-publish (RLS + admin_review_product enforce this).
  *
  * Both accept productId = null for create or a uuid for update.
  *
@@ -88,14 +90,14 @@ export async function publishAction(
     return {
       error:
         gate.reason === "connect_required_for_paid"
-          ? "有料商品の公開には Stripe 接続(受取口座設定)の完了が必要です。価格を 0 円(無料)に下げるか、クリエイターメニュー → Stripe 接続 から手続きしてください"
-          : "公開には Stripe 接続(受取口座設定)の完了が必要です。クリエイターメニュー → Stripe 接続 から手続きしてください",
+          ? "有料商品の公開申請には Stripe 接続(受取口座設定)の完了が必要です。価格を 0 円(無料)に下げるか、クリエイターメニュー → Stripe 接続 から手続きしてください"
+          : "公開申請には Stripe 接続(受取口座設定)の完了が必要です。クリエイターメニュー → Stripe 接続 から手続きしてください",
     };
   }
 
   if (productId) {
     try {
-      await updateMyProduct(user.id, productId, parsed.data, "published");
+      await updateMyProduct(user.id, productId, parsed.data, "submit");
     } catch (e) {
       return handleMutationError(e);
     }
@@ -105,11 +107,11 @@ export async function publishAction(
     return { ok: true, productId };
   }
 
-  const created = await safeCreate(user.id, parsed.data, "published");
+  const created = await safeCreate(user.id, parsed.data, "submit");
   if ("error" in created) return created;
   revalidatePath("/creator/products");
   revalidatePath("/store");
-  redirect(`/creator/products/${created.productId}/edit?saved=1&published=1`);
+  redirect(`/creator/products/${created.productId}/edit?saved=1&submitted=1`);
 }
 
 // ---------------------------------------------------------------------
@@ -120,7 +122,7 @@ async function safeCreate(
   userId: string,
   // Use the most permissive shape — publish input is a strict superset of draft.
   input: Parameters<typeof createMyProduct>[1],
-  intent: "draft" | "published",
+  intent: "draft" | "submit",
 ): Promise<SaveOk | SaveErr> {
   try {
     const { id } = await createMyProduct(userId, input, intent);
@@ -161,7 +163,7 @@ export async function unpublishAllMyProductsAction(): Promise<
     .from("products")
     .update({ status: "draft" })
     .eq("creator_id", user.id)
-    .eq("status", "published")
+    .in("status", ["published", "pending"])
     .select("id");
 
   if (error) {

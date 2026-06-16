@@ -17,19 +17,30 @@ import { randomToken, slugify } from "@/lib/format/slug";
  * SQL function (RPC) for atomicity.
  */
 
-const PUBLISHED = "published" as const;
+const PENDING = "pending" as const;
 const DRAFT = "draft" as const;
+
+/**
+ * Creator publish intent.
+ *
+ *   "draft"  — save as a private draft.
+ *   "submit" — submit for review. The product becomes `pending`; an admin
+ *              approves it to `published` (see admin_review_product). RLS
+ *              forbids creators from setting `published` directly, so this is
+ *              the only path a creator can take toward going live.
+ */
+export type PublishIntent = "draft" | "submit";
 
 export async function createMyProduct(
   userId: string,
   input: ProductInput,
-  intent: "draft" | "published",
+  intent: PublishIntent,
 ): Promise<{ id: string }> {
   const supabase = createClient();
   const slug = await generateUniqueSlug(input.title);
 
   // RLS only allows INSERT with status='draft'. We honor that even when the
-  // caller intends to publish — we'll UPDATE to 'published' immediately after.
+  // caller intends to submit — we'll UPDATE to 'pending' immediately after.
   const { data: inserted, error } = await supabase
     .from("products")
     .insert({
@@ -57,16 +68,16 @@ export async function createMyProduct(
 
   await replaceTags(inserted.id, input.tags);
 
-  if (intent === "published") {
+  if (intent === "submit") {
     const { error: pubErr } = await supabase
       .from("products")
-      .update({ status: PUBLISHED, published_at: new Date().toISOString() })
+      .update({ status: PENDING })
       .eq("id", inserted.id)
       .eq("creator_id", userId);
     if (pubErr) {
-      // Leave the product as draft. The user can retry publish.
-      console.error("[createMyProduct] publish update failed", pubErr);
-      throw new Error(`[createMyProduct] publish failed: ${pubErr.message}`);
+      // Leave the product as draft. The user can retry the submission.
+      console.error("[createMyProduct] submit update failed", pubErr);
+      throw new Error(`[createMyProduct] submit failed: ${pubErr.message}`);
     }
   }
 
@@ -77,11 +88,11 @@ export async function updateMyProduct(
   userId: string,
   productId: string,
   input: ProductInput,
-  intent: "draft" | "published",
+  intent: PublishIntent,
 ): Promise<void> {
   const supabase = createClient();
 
-  // Read current row to (a) confirm ownership and (b) decide published_at policy.
+  // Read current row to confirm ownership.
   const { data: current, error: readErr } = await supabase
     .from("products")
     .select("id, creator_id, status, published_at")
@@ -108,12 +119,10 @@ export async function updateMyProduct(
     allow_redistribution: input.allowRedistribution,
   };
 
-  if (intent === "published") {
-    updates.status = PUBLISHED;
-    // Preserve the first-publication timestamp. Only stamp now() the first time.
-    if (!current.published_at) {
-      updates.published_at = new Date().toISOString();
-    }
+  if (intent === "submit") {
+    // 審査に出す → pending。admin が承認すると published になる(RLS で
+    // creator は published に直接遷移できない)。
+    updates.status = PENDING;
   } else {
     updates.status = DRAFT;
     // We deliberately keep published_at if it exists. DB CHECK allows draft

@@ -24,6 +24,8 @@ export type MyProductListItem = {
   coverPath: string | null;
   updatedAt: string;
   publishedAt: string | null;
+  /** 直近の却下理由(status=draft で却下されていれば表示)。 */
+  reviewNote: string | null;
   /** paid purchase の累計件数。集計失敗時は 0。 */
   salesCount: number;
   /** レビュー集計。0 件 / 集計失敗時は null で UI 側は非表示。 */
@@ -48,11 +50,12 @@ export type MyProductDetail = {
   allowRedistribution: boolean;
   publishedAt: string | null;
   updatedAt: string;
+  reviewNote: string | null;
   tags: string[];
 };
 
 const LIST_COLUMNS =
-  "id, slug, title, product_type, status, price_jpy, cover_path, updated_at, published_at";
+  "id, slug, title, product_type, status, price_jpy, cover_path, updated_at, published_at, review_note";
 
 const DETAIL_COLUMNS =
   // file_path is intentionally omitted — Phase 5 has no use for it.
@@ -74,6 +77,7 @@ const DETAIL_COLUMNS =
     "allow_redistribution",
     "published_at",
     "updated_at",
+    "review_note",
     "creator_id",
   ].join(", ");
 
@@ -101,6 +105,7 @@ type MyProductDetailRow = {
   allow_redistribution: boolean;
   published_at: string | null;
   updated_at: string;
+  review_note: string | null;
   creator_id: string;
 };
 
@@ -159,6 +164,7 @@ export async function listMyProducts(
     coverPath: r.cover_path,
     updatedAt: r.updated_at,
     publishedAt: r.published_at,
+    reviewNote: (r as { review_note?: string | null }).review_note ?? null,
     salesCount: salesByProduct.get(r.id) ?? 0,
     reviewSummary: reviewMap.get(r.id) ?? null,
   }));
@@ -218,6 +224,7 @@ export async function getMyProductById(
     allowRedistribution: row.allow_redistribution,
     publishedAt: row.published_at,
     updatedAt: row.updated_at,
+    reviewNote: row.review_note,
     tags: (tagRows ?? []).map((t) => t.tag),
   };
 }

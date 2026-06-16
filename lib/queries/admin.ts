@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { ProductType } from "./types";
 import type { ProductStatus } from "@/lib/format/status";
+import type { ReportCategory, ReportStatus } from "@/lib/validators/report";
 
 /**
  * Admin-scoped read queries.
@@ -15,6 +16,7 @@ import type { ProductStatus } from "@/lib/format/status";
 export const ADMIN_PAGE_SIZE_USERS = 30;
 export const ADMIN_PAGE_SIZE_PRODUCTS = 30;
 export const ADMIN_PAGE_SIZE_ORDERS = 30;
+export const ADMIN_PAGE_SIZE_REPORTS = 30;
 
 // =====================================================================
 // Users
@@ -91,6 +93,7 @@ export type AdminProductRow = {
   productType: ProductType;
   priceJpy: number;
   updatedAt: string;
+  reviewNote: string | null;
 };
 
 export async function listProductsForAdmin(opts?: {
@@ -107,7 +110,7 @@ export async function listProductsForAdmin(opts?: {
   let query = supabase
     .from("products")
     .select(
-      "id, title, creator_id, status, product_type, price_jpy, updated_at",
+      "id, title, creator_id, status, product_type, price_jpy, updated_at, review_note",
       { count: "exact" },
     )
     .order("updated_at", { ascending: false })
@@ -142,9 +145,27 @@ export async function listProductsForAdmin(opts?: {
     productType: r.product_type as ProductType,
     priceJpy: r.price_jpy,
     updatedAt: r.updated_at,
+    reviewNote: (r as { review_note?: string | null }).review_note ?? null,
   }));
 
   return buildResult(items, count ?? 0, page, pageSize);
+}
+
+/**
+ * 審査待ち(pending)件数。admin の作品ページに「審査キュー」の件数バッジを
+ * 出すために使う。RLS は admin に全件 SELECT を許すので通常クライアントで可。
+ */
+export async function countPendingProducts(): Promise<number> {
+  const supabase = createClient();
+  const { count, error } = await supabase
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  if (error) {
+    console.error("[countPendingProducts] failed", error);
+    return 0;
+  }
+  return count ?? 0;
 }
 
 // =====================================================================
@@ -212,6 +233,87 @@ export async function listOrdersForAdmin(opts?: {
   }));
 
   return buildResult(items, count ?? 0, page, pageSize);
+}
+
+// =====================================================================
+// Reports (product_reports)
+// =====================================================================
+
+export type AdminReportRow = {
+  id: string;
+  productId: string;
+  productTitle: string;
+  reporterLabel: string;
+  category: ReportCategory;
+  reason: string;
+  status: ReportStatus;
+  createdAt: string;
+};
+
+export async function listReportsForAdmin(opts?: {
+  status?: ReportStatus | "all";
+  page?: number;
+}): Promise<AdminListResult<AdminReportRow>> {
+  const supabase = createClient();
+  const page = Math.max(1, opts?.page ?? 1);
+  const pageSize = ADMIN_PAGE_SIZE_REPORTS;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from("product_reports")
+    .select(
+      "id, product_id, reporter_id, category, reason, status, created_at",
+      { count: "exact" },
+    )
+    // open を先に、その後新しい順。
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (opts?.status && opts.status !== "all") {
+    query = query.eq("status", opts.status);
+  }
+
+  const { data, count, error } = await query;
+  if (error) {
+    console.error("[listReportsForAdmin] failed", error);
+    return emptyResult(page, pageSize);
+  }
+
+  const productIds = Array.from(new Set((data ?? []).map((r) => r.product_id)));
+  const reporterIds = Array.from(new Set((data ?? []).map((r) => r.reporter_id)));
+  const [titleMap, nameMap] = await Promise.all([
+    fetchProductTitles(productIds),
+    fetchCreatorNames(reporterIds),
+  ]);
+
+  const items: AdminReportRow[] = (data ?? []).map((r) => ({
+    id: r.id,
+    productId: r.product_id,
+    productTitle: titleMap.get(r.product_id) ?? "(取得不可)",
+    reporterLabel:
+      nameMap.get(r.reporter_id) || `${r.reporter_id.slice(0, 8)}…`,
+    category: r.category as ReportCategory,
+    reason: r.reason,
+    status: r.status as ReportStatus,
+    createdAt: r.created_at,
+  }));
+
+  return buildResult(items, count ?? 0, page, pageSize);
+}
+
+/** 未対応(open)の通報件数。admin index / nav のバッジ用。 */
+export async function countOpenReports(): Promise<number> {
+  const supabase = createClient();
+  const { count, error } = await supabase
+    .from("product_reports")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open");
+  if (error) {
+    console.error("[countOpenReports] failed", error);
+    return 0;
+  }
+  return count ?? 0;
 }
 
 // =====================================================================

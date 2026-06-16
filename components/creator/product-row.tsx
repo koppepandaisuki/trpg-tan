@@ -66,6 +66,13 @@ export function ProductRow({ product }: ProductRowProps) {
           {formatPrice(product.priceJpy)} · 更新 {formatDate(product.updatedAt)}
         </p>
 
+        {/* 却下された下書きは理由を一行で添える(編集ページで詳細表示)。 */}
+        {product.status === "draft" && product.reviewNote && (
+          <p className="mt-1 truncate text-xs text-destructive">
+            審査で却下: {product.reviewNote}
+          </p>
+        )}
+
         {/* sales + reviews 集計(KKKK)。両方 0 のときは行ごと出さない */}
         {(product.salesCount > 0 ||
           (product.reviewSummary && product.reviewSummary.total > 0)) && (
