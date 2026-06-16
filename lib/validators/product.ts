@@ -43,6 +43,7 @@ const tagSchema = z
 // ---------------------------------------------------------------------
 
 export const productTypeEnum = z.enum([
+  "full_package",
   "scenario",
   "rulebook",
   "character_art",
@@ -50,7 +51,7 @@ export const productTypeEnum = z.enum([
   "bgm_audio",
 ]);
 
-export const fileFormatEnum = z.enum(["pdf", "image_zip", "audio"]);
+export const fileFormatEnum = z.enum(["pdf", "image_zip", "audio", "pack"]);
 
 // ---------------------------------------------------------------------
 // Schemas

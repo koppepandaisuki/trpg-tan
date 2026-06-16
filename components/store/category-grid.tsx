@@ -8,6 +8,7 @@ import {
   Music,
   LayoutGrid,
   ArrowRight,
+  Boxes,
 } from "lucide-react";
 import { STORE_CATEGORIES } from "@/lib/format/category";
 import type { ProductType } from "@/lib/queries/types";
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
  */
 
 const ICONS: Record<ProductType, React.ComponentType<{ className?: string }>> = {
+  full_package: Boxes,
   scenario: FileText,
   rulebook: BookOpen,
   map: Map,
@@ -49,6 +51,12 @@ const TONES: Record<
     iconColor: string;
   }
 > = {
+  full_package: {
+    gradient: "from-sky-500/20 to-emerald-500/10",
+    iconBg: "bg-sky-50",
+    iconBorder: "border-sky-300",
+    iconColor: "text-sky-700",
+  },
   scenario: {
     gradient: "from-sky-500/15 to-sky-500/5",
     iconBg: "bg-sky-50",
@@ -86,6 +94,7 @@ const TONES: Record<
  * カードの情報密度を上げる(Steam のカテゴリカードと同様の役割)。
  */
 const DESCRIPTIONS: Record<ProductType, string> = {
+  full_package: "買ってすぐ遊べる、完成品のゲーム一式",
   scenario: "ストーリーと舞台設定",
   rulebook: "ハウスルール・追加システム",
   map: "戦闘マップ・地図",
@@ -94,9 +103,12 @@ const DESCRIPTIONS: Record<ProductType, string> = {
 };
 
 export function CategoryGrid() {
-  const items = STORE_CATEGORIES.filter(
+  const all = STORE_CATEGORIES.filter(
     (c): c is { value: ProductType; label: string } => c.value !== null,
   );
+  // フルパッケージは“目玉”として大きく、ほかはサブのグリッドに。
+  const headline = all.find((c) => c.value === "full_package");
+  const items = all.filter((c) => c.value !== "full_package");
 
   return (
     <section className="space-y-4">
@@ -113,6 +125,36 @@ export function CategoryGrid() {
           </p>
         </div>
       </div>
+
+      {/* 目玉: フルパッケージ(完成品ゲーム)。サイトの強みなので大きく出す。 */}
+      {headline && (
+        <Link
+          href={`/store?category=${headline.value}` as Route}
+          className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-sky-300/60 bg-gradient-to-br from-sky-500/20 to-emerald-500/10 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-md"
+          aria-label="「フルパッケージ」カテゴリの作品一覧へ"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-sky-50 text-sky-700 transition-transform duration-300 group-hover:scale-110">
+            <Boxes className="h-6 w-6" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                目玉
+              </span>
+              <span className="text-base font-bold tracking-tight">
+                フルパッケージ
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              買ってすぐ遊べる、完成品のゲーム一式（システム＋シナリオ）。ダウンロードして取り込むだけ。
+            </p>
+          </div>
+          <ArrowRight
+            className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-foreground"
+            aria-hidden
+          />
+        </Link>
+      )}
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {items.map((cat) => {

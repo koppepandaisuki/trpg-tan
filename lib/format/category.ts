@@ -1,6 +1,7 @@
 import type { ProductType, FileFormat } from "@/lib/queries/types";
 
 export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
+  full_package: "フルパッケージ",
   scenario: "シナリオ",
   rulebook: "ルールブック",
   character_art: "キャラクターイラスト",
@@ -9,11 +10,18 @@ export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
 };
 
 /**
+ * このサイトの“目玉”商品タイプ。ビルダーで作ったゲーム一式(.paradice)を、
+ * 買って 1 クリックで遊べる完成品。ストアでは先頭に大きく出す。
+ */
+export const HEADLINE_PRODUCT_TYPE: ProductType = "full_package";
+
+/**
  * Categories shown in the store tabs. `null` represents "all categories".
- * Order matches the design reference (画像3 のタブ並び)。
+ * 目玉のフルパッケージを先頭に、ほかはサブとして続ける。
  */
 export const STORE_CATEGORIES: Array<{ value: ProductType | null; label: string }> = [
   { value: null, label: "すべて" },
+  { value: "full_package", label: "フルパッケージ" },
   { value: "scenario", label: "シナリオ" },
   { value: "rulebook", label: "ルールブック" },
   { value: "map", label: "マップ・バトルマップ" },
@@ -29,6 +37,7 @@ export const FILE_FORMAT_LABEL: Record<FileFormat, string> = {
   pdf: "PDF",
   image_zip: "画像ZIP",
   audio: "音声(MP3/WAV)",
+  pack: "フルパッケージ(.paradice)",
 };
 
 export function fileFormatLabel(format: FileFormat): string {

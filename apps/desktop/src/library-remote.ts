@@ -15,12 +15,13 @@ import { supabase } from "./supabase";
  */
 
 export type RemoteProductType =
+  | "full_package"
   | "scenario"
   | "rulebook"
   | "character_art"
   | "map"
   | "bgm_audio";
-export type RemoteFileFormat = "pdf" | "image_zip" | "audio";
+export type RemoteFileFormat = "pdf" | "image_zip" | "audio" | "pack";
 export type RemoteProductStatus = "draft" | "published" | "suspended" | string;
 export type LibraryAvailability =
   | "available"
@@ -149,6 +150,7 @@ export async function fetchMyLibrary(
 
 /** 種別ラベル(日本語)。 */
 export const PRODUCT_TYPE_LABEL: Record<string, string> = {
+  full_package: "フルパッケージ",
   scenario: "シナリオ",
   rulebook: "ルールブック",
   character_art: "キャラ素材",
@@ -161,6 +163,7 @@ export const FILE_FORMAT_LABEL: Record<string, string> = {
   pdf: "PDF",
   image_zip: "画像ZIP",
   audio: "音声",
+  pack: "フルパッケージ(.paradice)",
 };
 
 /** 配布状態の短いラベル(available 以外で表示)。 */

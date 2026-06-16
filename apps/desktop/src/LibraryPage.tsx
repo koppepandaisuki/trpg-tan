@@ -39,6 +39,7 @@ import { EmptyState } from "./EmptyState";
  */
 
 const GENRE_ORDER: RemoteProductType[] = [
+  "full_package",
   "scenario",
   "rulebook",
   "character_art",
