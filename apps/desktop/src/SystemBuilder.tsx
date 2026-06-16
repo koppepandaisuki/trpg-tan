@@ -1,10 +1,23 @@
 import { useState } from "react";
-import { DICE_BOTS, SYSTEM_PRESETS, type SystemDef } from "@trpg/core";
+import { Package } from "lucide-react";
+import {
+  DICE_BOTS,
+  SYSTEM_PRESETS,
+  buildPack,
+  type SystemDef,
+  type PlayScene,
+  type GenericSheet,
+} from "@trpg/core";
 import {
   getCustomSystems,
   upsertCustomSystem,
   removeCustomSystem,
 } from "./systems-store";
+import { exportPackToFile } from "./pack";
+import { getPlayIndex, readPlayFromPath } from "./play-storage";
+import { getLibrary } from "./library";
+import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
+import { toast } from "./Toasts";
 
 /**
  * システムビルダー(ノーコード)。
@@ -26,6 +39,53 @@ export function SystemBuilder({
   // 編集中の定義(null = 未選択)。プリセット選択時は読み取り専用表示。
   const [draft, setDraft] = useState<SystemDef | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  /**
+   * このシステム + 同システムの卓(シナリオ)・プリジェネを 1 つの .paradice に
+   * 固めて書き出す(配布パッケージ。ストアに上げて売れる)。
+   */
+  async function handleExport() {
+    if (!draft) return;
+    setExporting(true);
+    try {
+      const scenarios: PlayScene[] = [];
+      for (const e of getPlayIndex().filter((x) => x.systemId === draft.id)) {
+        try {
+          scenarios.push(await readPlayFromPath(e.path));
+        } catch {
+          // 欠損ファイルは飛ばす
+        }
+      }
+      const sheets: GenericSheet[] = [];
+      for (const e of getLibrary().filter((x) => x.systemId === draft.id)) {
+        try {
+          const s = await readSheetFromPath(e.path);
+          if (isGenericSheet(s)) sheets.push(s);
+        } catch {
+          // 飛ばす
+        }
+      }
+      const pack = buildPack({
+        id: crypto.randomUUID(),
+        name: draft.name.trim() || "無題のゲーム",
+        now: new Date().toISOString(),
+        system: draft,
+        scenarios,
+        sheets,
+      });
+      const path = await exportPackToFile(pack);
+      if (path) {
+        toast(
+          `📦 「${pack.name}」を書き出しました（シナリオ${scenarios.length} / プリジェネ${sheets.length}）`,
+        );
+      }
+    } catch (e) {
+      toast(`書き出しに失敗: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const isPreset = !!draft?.preset;
 
@@ -181,6 +241,17 @@ export function SystemBuilder({
                   >
                     削除
                   </button>
+                  {isTauri() && (
+                    <button
+                      className="btn mini ibtn"
+                      onClick={() => void handleExport()}
+                      disabled={exporting}
+                      title="このシステム＋同システムの卓・プリジェネを .paradice に書き出す（配布用）"
+                    >
+                      <Package size={14} />{" "}
+                      {exporting ? "書き出し中…" : "パッケージ書き出し"}
+                    </button>
+                  )}
                 </>
               )}
               <span className="ptable-spacer" />
