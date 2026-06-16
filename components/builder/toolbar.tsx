@@ -13,10 +13,11 @@ interface BuilderToolbarProps {
 /**
  * Top toolbar above the builder form.
  *
- * Buttons mirror the user-confirmed Phase 5 design:
- *   create mode: 主「下書き保存」 / 副「公開して保存」
- *   edit   mode: 主「変更を下書き保存」 / 副「公開して保存」
+ * Buttons:
+ *   create mode: 主「下書き保存」 / 副「審査に出す」
+ *   edit   mode: 主「変更を下書き保存」 / 副「審査に出す」
  *
+ * 公開は運営の承認制(審査キュー)。クリエイターはここから審査に申請する。
  * 「プレビュー」「公開設定」 are placeholders (disabled).
  */
 export function BuilderToolbar({
@@ -60,9 +61,10 @@ export function BuilderToolbar({
             size="sm"
             onClick={onPublish}
             disabled={isSubmitting}
+            title="運営の審査を経てストアに公開されます"
           >
             <Send className="h-4 w-4" />
-            <span className="hidden sm:inline">公開して保存</span>
+            <span className="hidden sm:inline">審査に出す</span>
           </Button>
         </div>
       </div>

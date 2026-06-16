@@ -44,6 +44,24 @@ export async function setProductStatus(
   if (error) throw classifyRpcError("set_product_status", error);
 }
 
+/**
+ * 審査キューの判定。approve=true で公開(published)、false で却下(draft に
+ * 戻し、note を作者向けの理由として記録)。admin_review_product RPC を呼ぶ。
+ */
+export async function reviewProduct(
+  productId: string,
+  approve: boolean,
+  note?: string,
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_review_product", {
+    product_id: productId,
+    approve,
+    note: note ?? null,
+  });
+  if (error) throw classifyRpcError("review_product", error);
+}
+
 // ---------------------------------------------------------------------
 // Error translation
 // ---------------------------------------------------------------------

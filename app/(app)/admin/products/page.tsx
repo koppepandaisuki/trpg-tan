@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Package, ShieldCheck } from "lucide-react";
+import { Package, ShieldCheck, ClipboardCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { AdminProductRowCard } from "@/components/admin/product-row";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { requireAdmin } from "@/lib/session/require";
-import { listProductsForAdmin } from "@/lib/queries/admin";
+import { listProductsForAdmin, countPendingProducts } from "@/lib/queries/admin";
 import type { ProductStatus } from "@/lib/format/status";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ export const metadata = { title: "作品管理 | admin" };
 
 const STATUS_FILTERS: Array<{ value: "all" | ProductStatus; label: string }> = [
   { value: "all", label: "すべて" },
+  { value: "pending", label: "審査待ち" },
   { value: "published", label: "公開中" },
   { value: "draft", label: "下書き" },
   { value: "suspended", label: "停止中" },
@@ -31,11 +32,10 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
   const search = searchParams.q ?? "";
   const status = parseStatus(searchParams.status);
 
-  const { items, total, totalPages } = await listProductsForAdmin({
-    page,
-    search,
-    status,
-  });
+  const [{ items, total, totalPages }, pendingCount] = await Promise.all([
+    listProductsForAdmin({ page, search, status }),
+    countPendingProducts(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -47,11 +47,24 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
       />
       <AdminPageHeader
         title="作品"
-        description="作品の停止・公開復帰・下書き化。停止/復帰の操作は監査ログに記録されます。"
+        description="審査待ちの承認・却下、作品の停止・公開復帰・下書き化。操作は監査ログに記録されます。"
         icon={Package}
         tone="indigo"
         count={total}
       />
+
+      {pendingCount > 0 && status !== "pending" && (
+        <Link
+          href={"/admin/products?status=pending" as Route}
+          className="flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm transition-colors hover:bg-amber-500/15"
+        >
+          <ClipboardCheck className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span className="font-medium text-foreground">
+            審査待ちの作品が {pendingCount} 件あります
+          </span>
+          <span className="ml-auto text-muted-foreground">確認する →</span>
+        </Link>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {STATUS_FILTERS.map((f) => {
@@ -114,7 +127,13 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
 
 function parseStatus(value: string | undefined): ProductStatus | "all" | undefined {
   if (!value) return undefined;
-  if (value === "all" || value === "draft" || value === "published" || value === "suspended") {
+  if (
+    value === "all" ||
+    value === "draft" ||
+    value === "pending" ||
+    value === "published" ||
+    value === "suspended"
+  ) {
     return value;
   }
   return undefined;

@@ -10,6 +10,7 @@ import type { BuilderFormValues } from "@/lib/validators/product";
 interface SidebarInfoProps {
   status: ProductStatus;
   publishedAt: string | null;
+  reviewNote?: string | null;
   preview: BuilderFormValues;
   savedAt: Date | null;
   requiredMissingCount: number;
@@ -25,6 +26,7 @@ interface SidebarInfoProps {
 export function SidebarInfo({
   status,
   publishedAt,
+  reviewNote,
   preview,
   savedAt,
   requiredMissingCount,
@@ -57,10 +59,22 @@ export function SidebarInfo({
               公開日: {formatDate(publishedAt)}
             </p>
           )}
-          {status === "draft" && (
+          {status === "pending" && (
             <p className="text-xs text-muted-foreground">
-              「公開して保存」でストアに掲載されます。
+              運営の審査中です。承認されるとストアに公開されます。
             </p>
+          )}
+          {status === "draft" && (
+            <>
+              <p className="text-xs text-muted-foreground">
+                「審査に出す」で運営の審査に申請します。承認後にストアへ公開されます。
+              </p>
+              {reviewNote && (
+                <p className="rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+                  却下理由: {reviewNote}
+                </p>
+              )}
+            </>
           )}
           {status === "suspended" && (
             <p className="text-xs text-muted-foreground">

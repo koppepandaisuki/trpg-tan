@@ -4,23 +4,33 @@ import {
   Users,
   Package,
   Receipt,
+  Flag,
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { requireAdmin } from "@/lib/session/require";
+import { countPendingProducts, countOpenReports } from "@/lib/queries/admin";
 import { cn } from "@/lib/utils";
 
 /**
- * admin index ページ。3 つの管理セクションへのナビゲーション集約。
+ * admin index ページ。管理セクションへのナビゲーション集約。
  *
  * 見た目はサイト全体の視覚言語(グラデ + アイコン)に統一しつつ、
  * 各 admin 機能ごとに違うトーンを当てて識別性を高める:
  *   - ユーザー → slate(中立)
- *   - 作品 → indigo(商品関連)
+ *   - 作品 → indigo(商品関連。審査待ち件数バッジ付き)
+ *   - 通報 → rose(モデレーション。未対応件数バッジ付き)
  *   - 取引 → emerald(金銭関連、success と同系)
  */
-export default function AdminTopPage() {
+export default async function AdminTopPage() {
+  await requireAdmin();
+  const [pendingCount, openReports] = await Promise.all([
+    countPendingProducts(),
+    countOpenReports(),
+  ]);
+
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <NavCard
         href="/admin/users"
         title="ユーザー"
@@ -31,9 +41,18 @@ export default function AdminTopPage() {
       <NavCard
         href="/admin/products"
         title="作品"
-        description="作品の停止・公開復帰・下書き化"
+        description="審査待ちの承認・却下、停止・公開復帰"
         icon={Package}
         tone="indigo"
+        badge={pendingCount > 0 ? `審査待ち ${pendingCount}` : undefined}
+      />
+      <NavCard
+        href={"/admin/reports" as Route}
+        title="通報"
+        description="利用者からの通報の確認・対応"
+        icon={Flag}
+        tone="rose"
+        badge={openReports > 0 ? `未対応 ${openReports}` : undefined}
       />
       <NavCard
         href="/admin/orders"
@@ -50,12 +69,14 @@ const TONE_GRADIENTS: Record<string, string> = {
   slate: "from-slate-500/10 via-transparent to-slate-500/5",
   indigo: "from-sky-500/10 via-transparent to-violet-500/5",
   emerald: "from-emerald-500/10 via-transparent to-emerald-500/5",
+  rose: "from-rose-500/10 via-transparent to-amber-500/5",
 };
 
 const TONE_BADGES: Record<string, string> = {
   slate: "border-slate-300 bg-slate-50 text-slate-700",
   indigo: "border-sky-300 bg-sky-50 text-sky-700",
   emerald: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  rose: "border-rose-300 bg-rose-50 text-rose-700",
 };
 
 function NavCard({
@@ -64,12 +85,14 @@ function NavCard({
   description,
   icon: Icon,
   tone,
+  badge,
 }: {
   href: Route;
   title: string;
   description: string;
   icon: LucideIcon;
   tone: keyof typeof TONE_GRADIENTS;
+  badge?: string;
 }) {
   return (
     <Link
@@ -93,6 +116,11 @@ function NavCard({
               <Icon className="h-5 w-5" aria-hidden />
             </div>
             <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+            {badge && (
+              <span className="ml-auto rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                {badge}
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">{description}</p>
         </CardContent>
