@@ -1,15 +1,21 @@
 import { appLocalDataDir, join } from "@tauri-apps/api/path";
 import { mkdir, writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { save, open } from "@tauri-apps/plugin-dialog";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import {
   parsePack,
   serializePack,
   collectPackMediaUrls,
   type TrpgPack,
 } from "@trpg/core";
+import { supabase } from "./supabase";
 import { upsertCustomSystem } from "./systems-store";
 import { getPlayIndex, upsertPlayIndex } from "./play-storage";
 import { getLibrary, upsertEntry, buildGenericEntry } from "./library";
+
+const WEB_BASE = (
+  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
 
 /**
  * 配布パッケージ(.paradice)の取り込み / 書き出し。
@@ -125,4 +131,64 @@ export async function exportPackToFile(pack: TrpgPack): Promise<string | null> {
   if (!path) return null;
   await writeTextFile(path, serializePack(pack));
   return path;
+}
+
+export interface PublishResult {
+  productId: string;
+  slug: string;
+}
+
+/**
+ * アプリ内出品。下書き(draft)の full_package 商品を作り、.paradice を Storage に
+ * アップロードする。公開(published)は作者がクリエイターページで確認のうえ行う。
+ */
+export async function publishPack(
+  pack: TrpgPack,
+  meta: { title: string; priceJpy: number; description?: string },
+): Promise<PublishResult> {
+  const { data: sess } = await supabase.auth.getSession();
+  const token = sess.session?.access_token;
+  if (!token) throw new Error("ログインが必要です");
+
+  // 1. 下書き商品を作成 + アップロード token 取得(Bearer。CORS 回避で tauri fetch)。
+  const res = await tauriFetch(`${WEB_BASE}/api/creator/pack/publish`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title: meta.title,
+      priceJpy: meta.priceJpy,
+      description: meta.description,
+      systemLabel: pack.system?.name,
+    }),
+  });
+  let info: {
+    ok?: boolean;
+    message?: string;
+    productId?: string;
+    slug?: string;
+    path?: string;
+    token?: string;
+  };
+  try {
+    info = (await res.json()) as typeof info;
+  } catch {
+    throw new Error(`サーバ応答が不正です (${res.status})`);
+  }
+  if (!res.ok || !info.ok || !info.path || !info.token || !info.productId) {
+    throw new Error(info.message ?? `出品に失敗しました (${res.status})`);
+  }
+
+  // 2. .paradice 本体を署名付き URL へアップロード。
+  const blob = new Blob([serializePack(pack)], { type: "application/json" });
+  const { error: upErr } = await supabase.storage
+    .from("product-files")
+    .uploadToSignedUrl(info.path, info.token, blob, {
+      contentType: "application/json",
+    });
+  if (upErr) throw new Error(`アップロードに失敗しました: ${upErr.message}`);
+
+  return { productId: info.productId, slug: info.slug ?? "" };
 }
