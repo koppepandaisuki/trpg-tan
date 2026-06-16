@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package } from "lucide-react";
+import { Package, Store } from "lucide-react";
 import {
   DICE_BOTS,
   SYSTEM_PRESETS,
@@ -13,11 +13,13 @@ import {
   upsertCustomSystem,
   removeCustomSystem,
 } from "./systems-store";
-import { exportPackToFile } from "./pack";
+import { exportPackToFile, publishPack } from "./pack";
 import { getPlayIndex, readPlayFromPath } from "./play-storage";
 import { getLibrary } from "./library";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { toast } from "./Toasts";
+import { supabaseConfigured } from "./supabase";
+import { useAuth } from "./useAuth";
 
 /**
  * システムビルダー(ノーコード)。
@@ -40,50 +42,85 @@ export function SystemBuilder({
   const [draft, setDraft] = useState<SystemDef | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [pubOpen, setPubOpen] = useState(false);
+  const [pubPrice, setPubPrice] = useState(0);
+  const [publishing, setPublishing] = useState(false);
+  const { session } = useAuth();
 
-  /**
-   * このシステム + 同システムの卓(シナリオ)・プリジェネを 1 つの .paradice に
-   * 固めて書き出す(配布パッケージ。ストアに上げて売れる)。
-   */
+  /** このシステム + 同システムの卓・プリジェネを集めてパッケージ化する。 */
+  async function gatherPack(): Promise<{
+    pack: ReturnType<typeof buildPack>;
+    scenarios: number;
+    sheets: number;
+  } | null> {
+    if (!draft) return null;
+    const scenarios: PlayScene[] = [];
+    for (const e of getPlayIndex().filter((x) => x.systemId === draft.id)) {
+      try {
+        scenarios.push(await readPlayFromPath(e.path));
+      } catch {
+        // 欠損ファイルは飛ばす
+      }
+    }
+    const sheets: GenericSheet[] = [];
+    for (const e of getLibrary().filter((x) => x.systemId === draft.id)) {
+      try {
+        const s = await readSheetFromPath(e.path);
+        if (isGenericSheet(s)) sheets.push(s);
+      } catch {
+        // 飛ばす
+      }
+    }
+    const pack = buildPack({
+      id: crypto.randomUUID(),
+      name: draft.name.trim() || "無題のゲーム",
+      now: new Date().toISOString(),
+      system: draft,
+      scenarios,
+      sheets,
+    });
+    return { pack, scenarios: scenarios.length, sheets: sheets.length };
+  }
+
+  /** .paradice ファイルに書き出す(ローカル配布用)。 */
   async function handleExport() {
     if (!draft) return;
     setExporting(true);
     try {
-      const scenarios: PlayScene[] = [];
-      for (const e of getPlayIndex().filter((x) => x.systemId === draft.id)) {
-        try {
-          scenarios.push(await readPlayFromPath(e.path));
-        } catch {
-          // 欠損ファイルは飛ばす
-        }
-      }
-      const sheets: GenericSheet[] = [];
-      for (const e of getLibrary().filter((x) => x.systemId === draft.id)) {
-        try {
-          const s = await readSheetFromPath(e.path);
-          if (isGenericSheet(s)) sheets.push(s);
-        } catch {
-          // 飛ばす
-        }
-      }
-      const pack = buildPack({
-        id: crypto.randomUUID(),
-        name: draft.name.trim() || "無題のゲーム",
-        now: new Date().toISOString(),
-        system: draft,
-        scenarios,
-        sheets,
-      });
-      const path = await exportPackToFile(pack);
+      const g = await gatherPack();
+      if (!g) return;
+      const path = await exportPackToFile(g.pack);
       if (path) {
         toast(
-          `📦 「${pack.name}」を書き出しました（シナリオ${scenarios.length} / プリジェネ${sheets.length}）`,
+          `📦 「${g.pack.name}」を書き出しました（シナリオ${g.scenarios} / プリジェネ${g.sheets}）`,
         );
       }
     } catch (e) {
       toast(`書き出しに失敗: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setExporting(false);
+    }
+  }
+
+  /** アプリ内で出品(下書き作成 + .paradice アップロード)。公開は web で確認後。 */
+  async function handlePublish() {
+    if (!draft) return;
+    setPublishing(true);
+    try {
+      const g = await gatherPack();
+      if (!g) return;
+      const r = await publishPack(g.pack, {
+        title: g.pack.name,
+        priceJpy: pubPrice,
+      });
+      setPubOpen(false);
+      toast(
+        `🛒 「${g.pack.name}」を下書きとして出品しました。クリエイターページ（web）で表紙・価格を確認して公開してください（商品 ${r.slug}）`,
+      );
+    } catch (e) {
+      toast(`出品に失敗: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -252,6 +289,15 @@ export function SystemBuilder({
                       {exporting ? "書き出し中…" : "パッケージ書き出し"}
                     </button>
                   )}
+                  {isTauri() && supabaseConfigured && session && (
+                    <button
+                      className="btn mini ibtn"
+                      onClick={() => setPubOpen((v) => !v)}
+                      title="このパッケージをストアに出品（下書き作成＋アップロード）"
+                    >
+                      <Store size={14} /> 出品
+                    </button>
+                  )}
                 </>
               )}
               <span className="ptable-spacer" />
@@ -262,6 +308,42 @@ export function SystemBuilder({
                 👤 このシステムでキャラ作成 →
               </button>
             </div>
+
+            {pubOpen && (
+              <div className="sysb-publish">
+                <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                  このシステム＋同システムの卓・プリジェネを{" "}
+                  <b>フルパッケージ</b>として<b>下書き出品</b>します。公開は web
+                  のクリエイターページで表紙・価格を確認してから行ってください。
+                </p>
+                <div className="sysb-publish-row">
+                  <label className="sysb-label" style={{ maxWidth: 220 }}>
+                    価格（円。0 = 無料）
+                    <input
+                      className="input num"
+                      type="number"
+                      min={0}
+                      value={pubPrice}
+                      onChange={(e) =>
+                        setPubPrice(Math.max(0, Number(e.target.value) || 0))
+                      }
+                    />
+                  </label>
+                  <span style={{ flex: 1 }} />
+                  <button className="btn mini" onClick={() => setPubOpen(false)}>
+                    キャンセル
+                  </button>
+                  <button
+                    className="btn mini btn-primary ibtn"
+                    onClick={() => void handlePublish()}
+                    disabled={publishing}
+                  >
+                    <Store size={14} />{" "}
+                    {publishing ? "出品中…" : "下書きとして出品"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {draft.note && <p className="sysb-note">📌 {draft.note}</p>}
             {isPreset && (
