@@ -20,6 +20,7 @@ import {
   ShoppingCart,
   LibraryBig,
   LayoutGrid,
+  Boxes,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "./useAuth";
@@ -56,6 +57,7 @@ import {
 
 const CATEGORIES: { key: RemoteProductType | null; label: string }[] = [
   { key: null, label: "すべて" },
+  { key: "full_package", label: "フルパッケージ" },
   { key: "scenario", label: "シナリオ" },
   { key: "rulebook", label: "ルールブック" },
   { key: "character_art", label: "キャラ素材" },
@@ -65,6 +67,7 @@ const CATEGORIES: { key: RemoteProductType | null; label: string }[] = [
 
 /** ジャンルのアイコン(lucide。Web 側と同じ語彙)。 */
 const CATEGORY_ICON: Record<RemoteProductType, ReactNode> = {
+  full_package: <Boxes size={14} />,
   scenario: <FileText size={14} />,
   rulebook: <BookOpen size={14} />,
   character_art: <Palette size={14} />,
@@ -80,7 +83,8 @@ const CAT_CARDS: {
   sub: string;
   tone: string;
 }[] = [
-  { key: "scenario", icon: <FileText size={17} />, label: "シナリオ", sub: "ストーリーと舞台設定", tone: "blue" },
+  { key: "full_package", icon: <Boxes size={17} />, label: "フルパッケージ", sub: "買ってすぐ遊べる完成品ゲーム", tone: "blue" },
+  { key: "scenario", icon: <FileText size={17} />, label: "シナリオ", sub: "ストーリーと舞台設定", tone: "green" },
   { key: "rulebook", icon: <BookOpen size={17} />, label: "ルールブック", sub: "ハウスルール・追加システム", tone: "green" },
   { key: "map", icon: <MapIcon size={17} />, label: "マップ・バトルマップ", sub: "戦闘マップ・地図", tone: "gold" },
   { key: "character_art", icon: <Palette size={17} />, label: "アートワーク", sub: "立ち絵・アートワーク", tone: "rose" },

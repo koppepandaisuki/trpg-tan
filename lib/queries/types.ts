@@ -11,13 +11,14 @@
  */
 
 export type ProductType =
+  | "full_package"
   | "scenario"
   | "rulebook"
   | "character_art"
   | "map"
   | "bgm_audio";
 
-export type FileFormat = "pdf" | "image_zip" | "audio";
+export type FileFormat = "pdf" | "image_zip" | "audio" | "pack";
 
 /**
  * 商品カード / hero に Steam 風の総合評価 Badge を表示するための

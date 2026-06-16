@@ -8,6 +8,7 @@ import {
 
 describe("categoryLabel", () => {
   it("returns Japanese labels for all known product types", () => {
+    expect(categoryLabel("full_package")).toBe("フルパッケージ");
     expect(categoryLabel("scenario")).toBe("シナリオ");
     expect(categoryLabel("rulebook")).toBe("ルールブック");
     expect(categoryLabel("character_art")).toBe("キャラクターイラスト");
@@ -21,6 +22,7 @@ describe("fileFormatLabel", () => {
     expect(fileFormatLabel("pdf")).toBe("PDF");
     expect(fileFormatLabel("image_zip")).toBe("画像ZIP");
     expect(fileFormatLabel("audio")).toBe("音声(MP3/WAV)");
+    expect(fileFormatLabel("pack")).toBe("フルパッケージ(.paradice)");
   });
 });
 
@@ -33,6 +35,7 @@ describe("parseCategoryParam", () => {
   });
 
   it("passes through valid product types", () => {
+    expect(parseCategoryParam("full_package")).toBe("full_package");
     expect(parseCategoryParam("scenario")).toBe("scenario");
     expect(parseCategoryParam("bgm_audio")).toBe("bgm_audio");
   });
@@ -43,7 +46,14 @@ describe("STORE_CATEGORIES", () => {
     expect(STORE_CATEGORIES[0]).toEqual({ value: null, label: "すべて" });
   });
 
-  it("contains exactly 5 product types plus 'all'", () => {
-    expect(STORE_CATEGORIES.length).toBe(6);
+  it("contains 6 product types plus 'all'", () => {
+    expect(STORE_CATEGORIES.length).toBe(7);
+  });
+
+  it("features フルパッケージ right after 'all'", () => {
+    expect(STORE_CATEGORIES[1]).toEqual({
+      value: "full_package",
+      label: "フルパッケージ",
+    });
   });
 });

@@ -123,6 +123,12 @@ const PRODUCT_FILE_MIME_TO_EXT: Readonly<
     "audio/mpeg": "mp3",
     "audio/wav": "wav",
   },
+  // フルパッケージ(.paradice = JSON)。拡張子が未知だとブラウザは
+  // application/json か application/octet-stream を送ってくる。
+  pack: {
+    "application/json": "paradice",
+    "application/octet-stream": "paradice",
+  },
 };
 
 /**

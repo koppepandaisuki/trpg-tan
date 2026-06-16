@@ -31,12 +31,14 @@ const ACCEPT_BY_FORMAT: Record<FileFormat, string> = {
   pdf: "application/pdf,.pdf",
   image_zip: "application/zip,.zip",
   audio: "audio/mpeg,audio/wav,.mp3,.wav",
+  pack: ".paradice,application/json",
 };
 
 const FORMAT_LABEL: Record<FileFormat, string> = {
   pdf: "PDF",
   image_zip: "画像 ZIP",
   audio: "音声 (MP3 / WAV)",
+  pack: "フルパッケージ (.paradice)",
 };
 
 export function UploadProductFile({
