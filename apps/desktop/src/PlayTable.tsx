@@ -877,6 +877,10 @@ export function PlayTable({
    * 人もカバーしつつ、連投でメモリが膨張してホストが落ちるのを防ぐ)。
    */
   async function sendSnapshotCoalesced() {
+    // 参加者へ送る履歴の上限。盤面・駒・ターンは scene に復元済みで、古いログは
+    // 状態復元に不要(表示用スクロールバックだけ)。長時間卓で log が肥大化すると
+    // join のたびに全部を直列送信して遅くなるため、末尾 N 件に絞って join を一定化。
+    const LOG_LIMIT = 300;
     const st = snapRef.current;
     if (st.sending) {
       st.queued = true;
@@ -890,7 +894,11 @@ export function PlayTable({
         if (!r) break;
         // 秘匿キャラは参加者へ送らない(閲覧制限)。GM のローカルには残る。
         const s = sceneRef.current;
-        const forNet = { ...s, panels: s.panels.filter((p) => !p.hidden) };
+        const forNet = {
+          ...s,
+          panels: s.panels.filter((p) => !p.hidden),
+          log: s.log.length > LOG_LIMIT ? s.log.slice(-LOG_LIMIT) : s.log,
+        };
         await r.send({ type: "snapshot", scene: forNet });
       } while (st.queued);
     } finally {
