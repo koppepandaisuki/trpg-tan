@@ -1259,6 +1259,9 @@ export function PlayTable({
                           onSpeed={(panel, speed) =>
                             updatePanel(panel.id, { speed })
                           }
+                          onToggleHidden={(panel) =>
+                            updatePanel(panel.id, { hidden: !panel.hidden })
+                          }
                         />
                       ))
                     )}

@@ -2013,6 +2013,42 @@ body {
   color: #b91c1c;
 }
 
+/* 表示/非表示(秘匿)トグル。非表示中はキャラ駒を薄く + 目印を出す。 */
+.ppanel-eye {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  line-height: 0;
+  padding: 0 2px;
+  display: inline-flex;
+  align-items: center;
+}
+.ppanel-eye:hover {
+  color: var(--primary-deep);
+}
+.ppanel-hidden {
+  opacity: 0.62;
+}
+.ppanel-hidden .ppanel-eye {
+  color: var(--gold-deep);
+}
+.ppanel-hidden .ppanel-portrait {
+  position: relative;
+  overflow: hidden;
+}
+.ppanel-hidden .ppanel-portrait::after {
+  content: "非表示";
+  position: absolute;
+  inset: auto 0 0 0;
+  font-size: 8px;
+  font-weight: 700;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  line-height: 1.4;
+}
+
 .ppanel-res {
   display: flex;
   flex-wrap: wrap;
