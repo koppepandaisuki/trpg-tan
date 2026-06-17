@@ -1375,6 +1375,7 @@ export function PlayTable({
                       onSecretChange={setSecret}
                       onVisibleToChange={setVisibleTo}
                       onSubmit={submitCompose}
+                      onQuickRoll={(expr) => handleSend(compose.speakerId, expr)}
                       onExport={() => void exportLog()}
                       onClearLog={() => void clearLog()}
                       diceBot={diceBot}
@@ -1508,6 +1509,7 @@ export function PlayTable({
                           onSecretChange={setSecret}
                           onVisibleToChange={setVisibleTo}
                           onSubmit={submitCompose}
+                          onQuickRoll={(expr) => handleSend(compose.speakerId, expr)}
                           maskSecret
                           diceBot={diceBot}
                           inputRef={inputRef}
