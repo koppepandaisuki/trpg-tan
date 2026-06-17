@@ -76,6 +76,11 @@ export function PlayClient({
   audioVolRef.current = audioVol;
   // 自動再生がブラウザにブロックされたら true(クリックで解除する)。
   const [audioBlocked, setAudioBlocked] = useState(false);
+  // 音声の解錠状態。WebView は最初のユーザー操作までメディア再生をブロックする
+  // ため、入室後の最初のクリック/キー操作で一度だけ解錠する。
+  const audioReadyRef = useRef(false);
+  // GM が現在流している BGM(解錠・途中入室のときに再開するため保持)。
+  const curBgmRef = useRef<{ src: string | null }>({ src: null });
 
   const roomRef = useRef<Room | null>(null);
 
@@ -176,26 +181,56 @@ export function PlayClient({
   /** GM から配信された音声を再生する(BGM=ループ / SE=単発)。 */
   function handleAudio(channel: "bgm" | "se", src: string | null) {
     if (channel === "bgm") {
-      let a = bgmElRef.current;
-      if (!a) {
-        a = new Audio();
-        a.loop = true;
-        bgmElRef.current = a;
-      }
+      curBgmRef.current = { src };
       if (!src) {
-        a.pause();
+        bgmElRef.current?.pause();
         return;
       }
-      a.src = src;
-      a.loop = true;
-      a.volume = audioVolRef.current;
-      a.play().catch(() => setAudioBlocked(true));
+      if (!audioReadyRef.current) {
+        // 未解錠: 最初のクリックで鳴らすので、合図だけ出して保持しておく。
+        setAudioBlocked(true);
+        return;
+      }
+      playBgm();
     } else {
+      // SE は単発。未解錠なら鳴らせないので捨てる(BGM と違い状態を持たない)。
       if (!src) return;
+      if (!audioReadyRef.current) {
+        setAudioBlocked(true);
+        return;
+      }
       const a = new Audio(src);
       a.volume = audioVolRef.current;
       a.play().catch(() => setAudioBlocked(true));
     }
+  }
+
+  /** 現在の BGM を冪等に再生する(同じ曲が鳴っていれば頭出しせず何もしない)。 */
+  function playBgm() {
+    const src = curBgmRef.current.src;
+    if (!src) return;
+    let a = bgmElRef.current;
+    if (!a) {
+      a = new Audio();
+      a.loop = true;
+      bgmElRef.current = a;
+    }
+    a.loop = true;
+    a.volume = audioVolRef.current;
+    if (a.src === src && !a.paused) return; // 既に同じ曲を再生中
+    if (a.src !== src) a.src = src;
+    a.play().then(
+      () => setAudioBlocked(false),
+      () => setAudioBlocked(true),
+    );
+  }
+
+  /** ユーザー操作で音声を解錠する(最初の一回だけ。以後は自由に再生できる)。 */
+  function primeAudio() {
+    if (audioReadyRef.current) return;
+    audioReadyRef.current = true;
+    setAudioBlocked(false);
+    playBgm(); // GM が既に流している BGM があれば再開する
   }
 
   // 音量変更を再生中の BGM にも反映し、端末に保存。
@@ -211,10 +246,30 @@ export function PlayClient({
     };
   }, []);
 
-  /** 自動再生がブロックされたときの解除(ユーザー操作で再生を試みる)。 */
+  // 入室後、最初のユーザー操作(クリック/キー/タッチ)で音声を一度だけ解錠する。
+  // WebView は操作前の自動再生をブロックするため。一度解錠すれば以後は自由に鳴る。
+  useEffect(() => {
+    const onFirst = () => {
+      primeAudio();
+      window.removeEventListener("pointerdown", onFirst);
+      window.removeEventListener("keydown", onFirst);
+      window.removeEventListener("touchstart", onFirst);
+    };
+    window.addEventListener("pointerdown", onFirst);
+    window.addEventListener("keydown", onFirst);
+    window.addEventListener("touchstart", onFirst);
+    return () => {
+      window.removeEventListener("pointerdown", onFirst);
+      window.removeEventListener("keydown", onFirst);
+      window.removeEventListener("touchstart", onFirst);
+    };
+    // primeAudio はマウント時のみ登録すればよい(冪等)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** 「音声を有効化」ボタン: ユーザー操作として音声を解錠する。 */
   function unblockAudio() {
-    setAudioBlocked(false);
-    bgmElRef.current?.play().catch(() => setAudioBlocked(true));
+    primeAudio();
   }
 
   const cards = useMemo(

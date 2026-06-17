@@ -166,6 +166,12 @@ export function PlayTable({
   const snapRef = useRef({ sending: false, queued: false });
   // 参加者 selfId → 表示名。hello で記録し、intent の所有権チェックに使う。
   const memberNames = useRef<Map<string, string>>(new Map());
+  // 現在配信中の BGM。途中入室した参加者は再生中の BGM メッセージを取りこぼす
+  // ため、hello を受けたら同じ BGM を再配信して late-joiner にも鳴らす。
+  const curBgmRef = useRef<{ path: string | null; loop: boolean }>({
+    path: null,
+    loop: false,
+  });
 
   const characters = useMemo(() => getLibrary(), []);
 
@@ -296,6 +302,11 @@ export function PlayTable({
   function selectScene(id: string) {
     if (id === scene.activeSceneId) return;
     dispatch(sceneSelectEvent(newCtx(), id));
+    // シーンに BGM が紐付いていれば自動再生する(背景と BGM が 1 クリックで揃う)。
+    // 紐付けが無いシーンは現在の BGM を継続(無音化しない)。SceneBar のクリックと
+    // アセットのマクロ(scene アクション)の両方がここを通る。
+    const target = scene.scenes?.find((s) => s.id === id);
+    if (target?.bgmId) setBgmSignal({ id: target.bgmId, nonce: Date.now() });
   }
 
   function renameScene(id: string, name: string) {
@@ -866,6 +877,10 @@ export function PlayTable({
    * 人もカバーしつつ、連投でメモリが膨張してホストが落ちるのを防ぐ)。
    */
   async function sendSnapshotCoalesced() {
+    // 参加者へ送る履歴の上限。盤面・駒・ターンは scene に復元済みで、古いログは
+    // 状態復元に不要(表示用スクロールバックだけ)。長時間卓で log が肥大化すると
+    // join のたびに全部を直列送信して遅くなるため、末尾 N 件に絞って join を一定化。
+    const LOG_LIMIT = 300;
     const st = snapRef.current;
     if (st.sending) {
       st.queued = true;
@@ -879,7 +894,11 @@ export function PlayTable({
         if (!r) break;
         // 秘匿キャラは参加者へ送らない(閲覧制限)。GM のローカルには残る。
         const s = sceneRef.current;
-        const forNet = { ...s, panels: s.panels.filter((p) => !p.hidden) };
+        const forNet = {
+          ...s,
+          panels: s.panels.filter((p) => !p.hidden),
+          log: s.log.length > LOG_LIMIT ? s.log.slice(-LOG_LIMIT) : s.log,
+        };
         await r.send({ type: "snapshot", scene: forNet });
       } while (st.queued);
     } finally {
@@ -895,6 +914,11 @@ export function PlayTable({
         memberNames.current.set(msg.from, msg.name);
         // 新規参加者へ現在の卓全体を送る(集約。hello 連投でも 1 本ずつ)。
         void sendSnapshotCoalesced();
+        // 既に BGM を流しているなら再配信して、途中入室でも鳴るようにする
+        // (broadcast で全員に届くが、参加者側は同じ曲なら鳴らし直さない)。
+        if (curBgmRef.current.path) {
+          void broadcastAudio("bgm", curBgmRef.current.path, curBgmRef.current.loop);
+        }
       } else if (msg.type === "intent") {
         applyIntent(msg.intent, msg.from);
       }
@@ -953,6 +977,8 @@ export function PlayTable({
     loop = false,
   ) {
     const r = roomRef.current;
+    // late-joiner 再配信のため、BGM の現在値は接続前でも覚えておく。
+    if (channel === "bgm") curBgmRef.current = { path, loop };
     if (!r) return;
     if (!path) {
       void r.send({ type: "audio", channel, src: null });

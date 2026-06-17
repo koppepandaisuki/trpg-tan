@@ -4,7 +4,8 @@ import type { SceneInfo } from "@trpg/core";
 /**
  * シーンバー。盤面(背景＋グリッド)を切り替える単位。
  * タブをクリックで切替、ダブルクリックで名前変更、× で削除。
- * キャラ・チャット・BGM は卓で共有し、シーンごとには切り替わらない。
+ * キャラ・チャットは卓で共有。BGM はシーンに紐付けておくと、切替時に
+ * 自動再生される(♪ マークの付いたシーン)。
  */
 export function SceneBar({
   scenes,
@@ -70,6 +71,11 @@ export function SceneBar({
           >
             {s.board.image && <span className="scene-dot" aria-hidden />}
             <span className="scene-name">{s.name}</span>
+            {s.bgmId && (
+              <span className="scene-bgm" title="BGM 設定済み（切替で自動再生）" aria-hidden>
+                ♪
+              </span>
+            )}
             {scenes.length > 1 && (
               <button
                 type="button"

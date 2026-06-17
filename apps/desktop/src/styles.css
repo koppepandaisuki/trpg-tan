@@ -1632,6 +1632,16 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.scene-bgm {
+  margin-left: 1px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--primary-deep);
+  opacity: 0.85;
+}
+.scene-tab.active .scene-bgm {
+  color: rgba(255, 255, 255, 0.95);
+}
 .scene-x {
   border: 0;
   background: transparent;
