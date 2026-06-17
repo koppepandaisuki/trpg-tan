@@ -1642,6 +1642,33 @@ body {
 .scene-tab.active .scene-bgm {
   color: rgba(255, 255, 255, 0.95);
 }
+
+/* 遅延読込(React.lazy)の待機中ローダー。画面切替の一瞬だけ出る。 */
+.screen-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 260px;
+}
+.screen-loading-ring {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  animation: screen-spin 0.8s linear infinite;
+}
+@keyframes screen-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen-loading-ring {
+    animation: none;
+  }
+}
 .scene-x {
   border: 0;
   background: transparent;

@@ -3,10 +3,50 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TRPG Desktop</title>
+    <title>パラDa-iCE</title>
+    <script>
+      // 保存済みテーマを styles.css 読込前に適用し、白→暗のチラつきを防ぐ。
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("trpg.theme.v1") || "light";
+      } catch (e) {}
+    </script>
+    <style>
+      /* 起動スプラッシュ。JS バンドル(数百KB)の読込〜React 初描画までの「白い
+         画面」を、ブランドのローダーで覆って体感の待ち時間を減らす。#root の中に
+         置くので React の初回描画で自動的に置き換わる(後始末の JS は不要)。 */
+      html, body { margin: 0; height: 100%; }
+      #boot {
+        position: fixed; inset: 0; z-index: 99999;
+        display: flex; flex-direction: column; gap: 16px;
+        align-items: center; justify-content: center;
+        background: #f7fbff; color: #1183cf;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      html[data-theme="dark"] #boot { background: #0d1a26; color: #6cc4f5; }
+      #boot .mark {
+        font-size: 26px; font-weight: 800; letter-spacing: .04em;
+        background: linear-gradient(135deg, #54b9ef 0%, #2198d6 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      #boot .ring {
+        width: 38px; height: 38px; border-radius: 50%;
+        border: 3px solid rgba(55, 172, 232, .25); border-top-color: #2198d6;
+        animation: bootspin .8s linear infinite;
+      }
+      #boot .cap { font-size: 12px; opacity: .7; }
+      @keyframes bootspin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { #boot .ring { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot">
+        <span class="mark">パラDa-iCE</span>
+        <span class="ring" role="status" aria-label="起動中"></span>
+        <span class="cap">起動しています…</span>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
