@@ -6058,6 +6058,24 @@ button:disabled {
   flex-direction: column;
   min-height: 0;
   background: var(--bg);
+  /* 背景にうっすらサイコロを敷く(下の ::before)。 */
+  position: relative;
+  isolation: isolate;
+}
+/* 控えめなサイコロ模様。mask で形を作り、色は --text を透かすのでテーマ追従。 */
+.store::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--text);
+  opacity: 0.045;
+  -webkit-mask: url("./assets/dice-pattern.svg") repeat 0 0 / 240px 240px;
+  mask: url("./assets/dice-pattern.svg") repeat 0 0 / 240px 240px;
+}
+[data-theme="dark"] .store::before {
+  opacity: 0.06;
 }
 .store-head {
   display: flex;
