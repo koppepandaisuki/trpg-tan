@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { CharacterSheet } from "./CharacterSheet";
 import { AuthControl } from "./AuthControl";
+import { AccountMenu } from "./AccountMenu";
 import { LibraryPage } from "./LibraryPage";
 import { Viewer } from "./Viewer";
 import { PlayTable } from "./PlayTable";
@@ -486,14 +487,13 @@ export function App() {
           >
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </button>
-          <button
-            className="btn mini ibtn"
-            onClick={() => setShowSettings(true)}
-            title="設定"
-          >
-            <Settings size={15} />
-          </button>
-          <AuthControl />
+          <AccountMenu
+            theme={theme}
+            onToggleTheme={() =>
+              setTheme((t) => (t === "dark" ? "light" : "dark"))
+            }
+            onOpenSound={() => setShowSettings(true)}
+          />
         </div>
       </header>
 
