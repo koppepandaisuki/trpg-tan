@@ -7,6 +7,7 @@ import {
   reviewProduct,
   AdminRpcError,
 } from "@/lib/mutations/admin";
+import { notifyReviewDecision } from "@/lib/notify/review-notification";
 import type { ProductStatus } from "@/lib/format/status";
 
 export type AdminActionResult = { ok: true } | { ok: false; message: string };
@@ -48,6 +49,8 @@ export async function reviewProductAction(
   }
   try {
     await reviewProduct(productId, approve, trimmed || undefined);
+    // クリエイターへ結果をメール通知(未設定なら no-op、失敗しても続行)。
+    await notifyReviewDecision({ productId, approve, note: trimmed || undefined });
     revalidatePath("/admin/products");
     revalidatePath("/store");
     return { ok: true };
