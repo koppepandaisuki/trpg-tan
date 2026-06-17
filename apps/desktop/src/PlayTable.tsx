@@ -302,6 +302,11 @@ export function PlayTable({
   function selectScene(id: string) {
     if (id === scene.activeSceneId) return;
     dispatch(sceneSelectEvent(newCtx(), id));
+    // シーンに BGM が紐付いていれば自動再生する(背景と BGM が 1 クリックで揃う)。
+    // 紐付けが無いシーンは現在の BGM を継続(無音化しない)。SceneBar のクリックと
+    // アセットのマクロ(scene アクション)の両方がここを通る。
+    const target = scene.scenes?.find((s) => s.id === id);
+    if (target?.bgmId) setBgmSignal({ id: target.bgmId, nonce: Date.now() });
   }
 
   function renameScene(id: string, name: string) {
