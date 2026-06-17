@@ -6,7 +6,23 @@ import {
   type SystemDef,
   type GenericSheet,
 } from "@trpg/core";
-import { Moon, Sun, Settings, Plus, FolderDown } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  Settings,
+  Plus,
+  FolderDown,
+  Dices,
+  DoorOpen,
+  BookOpen,
+  Users,
+  Play,
+  KeyRound,
+  LayoutGrid,
+  List,
+  Clock,
+  ChevronRight,
+} from "lucide-react";
 import { CharacterSheet } from "./CharacterSheet";
 import { AuthControl } from "./AuthControl";
 import { LibraryPage } from "./LibraryPage";
@@ -56,6 +72,39 @@ const PAGES: { key: Page; label: string }[] = [
   { key: "builder", label: "ビルダー" },
 ];
 
+/** 新しい卓を作る流れ(モックアップのステップ表示用・静的)。 */
+const LOBBY_STEPS: { icon: typeof DoorOpen; label: string }[] = [
+  { icon: DoorOpen, label: "ルーム作成" },
+  { icon: BookOpen, label: "ルール選択" },
+  { icon: Users, label: "招待・募集" },
+  { icon: Play, label: "プレイ開始" },
+];
+
+/** 組み込みシステム id の表示名(なければ findSystem → id フォールバック)。 */
+const BUILTIN_SYS_LABEL: Record<string, string> = {
+  coc7: "クトゥルフ神話TRPG(第7版)",
+  coc6: "クトゥルフ神話TRPG(第6版)",
+  "": "汎用",
+};
+function tableSystemLabel(id: string): string {
+  return BUILTIN_SYS_LABEL[id] ?? findSystem(id)?.name ?? id ?? "汎用";
+}
+
+/** ISO 日時を「たった今 / N分前 / N時間前 / 昨日 / N日前 / 日付」に。 */
+function relTime(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const m = Math.floor((Date.now() - t) / 60000);
+  if (m < 1) return "たった今";
+  if (m < 60) return `${m}分前`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}時間前`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "昨日";
+  if (d < 7) return `${d}日前`;
+  return new Date(iso).toLocaleDateString("ja-JP");
+}
+
 /**
  * アプリのルート。Steam ライクなシェル:
  *  - 上部ナビ(ストア / ライブラリ / 卓 / キャラクター)+ 右にログイン
@@ -92,6 +141,8 @@ export function App() {
   const [joinName, setJoinName] = useState(
     () => localStorage.getItem("trpg.net.name.v1") ?? "",
   );
+  // セッション卓ロビーの保存済み卓の表示(グリッド / リスト)。
+  const [lobbyView, setLobbyView] = useState<"grid" | "list">("grid");
   // 効果音などの設定モーダル。
   const [showSettings, setShowSettings] = useState(false);
   // PLAY 中のドロワー(☰)。卓を抜けずにナビへアクセスする。
@@ -464,51 +515,177 @@ export function App() {
         )}
 
         {page === "play" && (
-          <div className="page">
-            <div className="page-wrap">
-              <h2 className="page-title">🎲 セッション卓</h2>
-              <div className="tables-top">
-                <button className="btn btn-primary tables-new" onClick={newSession}>
-                  ＋ 新しい卓を作る（GM）
-                </button>
-                <div className="net-join">
-                  <strong className="net-join-title">
-                    🌐 ネットワークで参加
-                  </strong>
-                  <input
-                    className="input"
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    placeholder="参加コード（例: ABC234）"
-                    maxLength={6}
-                  />
-                  <input
-                    className="input"
-                    value={joinName}
-                    onChange={(e) => setJoinName(e.target.value)}
-                    placeholder="あなたの名前"
-                    onKeyDown={(e) => e.key === "Enter" && joinByCode()}
-                  />
-                  <button
-                    className="btn mini btn-primary"
-                    onClick={joinByCode}
-                    disabled={!joinCode.trim() || !joinName.trim()}
-                  >
-                    参加する
-                  </button>
-                </div>
+          <div className="page lobby">
+            <div className="page-wrap lobby-wrap">
+              <header className="lobby-hero">
+                <h2 className="lobby-title">
+                  セッション卓
+                  <span className="lobby-title-en">SESSION LOBBY</span>
+                </h2>
+                <p className="lobby-sub">
+                  TRPG セッションの作成・参加・管理を行います
+                </p>
+              </header>
+
+              <div className="lobby-panels">
+                {/* 新しい卓を作る */}
+                <section className="lobby-panel lobby-create">
+                  <div className="lobby-create-art" aria-hidden>
+                    <Dices size={56} />
+                  </div>
+                  <div className="lobby-create-main">
+                    <h3 className="lobby-panel-title">新しい卓を作る</h3>
+                    <p className="lobby-panel-desc">
+                      オリジナルのセッションを作成して、仲間を招待しよう
+                    </p>
+                    <div className="lobby-steps">
+                      {LOBBY_STEPS.map((s) => (
+                        <div className="lobby-step" key={s.label}>
+                          <span className="lobby-step-ic">
+                            <s.icon size={18} />
+                          </span>
+                          <span className="lobby-step-label">{s.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      className="btn btn-primary lobby-create-btn"
+                      onClick={newSession}
+                    >
+                      <Plus size={16} /> 新しい卓を作る（GM）
+                    </button>
+                  </div>
+                </section>
+
+                {/* 参加コードで参加 */}
+                <section className="lobby-panel lobby-join">
+                  <h3 className="lobby-panel-title">
+                    <KeyRound size={16} className="lobby-panel-title-ic" />
+                    参加コードで参加
+                    <span className="lobby-en">JOIN BY CODE</span>
+                  </h3>
+                  <p className="lobby-panel-desc">
+                    参加コードを入力して、既存のセッションに参加できます
+                  </p>
+                  <div className="lobby-joinbox">
+                    <label className="lobby-field">
+                      <span className="lobby-field-label">
+                        参加コード（例: ABC234）
+                      </span>
+                      <input
+                        className="input lobby-code"
+                        value={joinCode}
+                        onChange={(e) =>
+                          setJoinCode(e.target.value.toUpperCase())
+                        }
+                        placeholder="ABC234"
+                        maxLength={6}
+                      />
+                    </label>
+                    <label className="lobby-field">
+                      <span className="lobby-field-label">あなたの名前</span>
+                      <input
+                        className="input"
+                        value={joinName}
+                        onChange={(e) => setJoinName(e.target.value)}
+                        placeholder="プレイヤー名"
+                        onKeyDown={(e) => e.key === "Enter" && joinByCode()}
+                      />
+                    </label>
+                    <button
+                      className="btn btn-primary lobby-join-btn"
+                      onClick={joinByCode}
+                      disabled={!joinCode.trim() || !joinName.trim()}
+                    >
+                      参加する <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </section>
               </div>
 
-              <h3 className="page-sub">保存済みの卓</h3>
-              {playIndex.length === 0 ? (
-                <EmptyState
-                  title="まだ卓がありません"
-                  hint="卓を作って、キャラを呼んで、ダイスを振りましょう。"
-                  action={{ label: "＋ 新しい卓を作る", onClick: newSession }}
-                />
-              ) : (
-                tableList
-              )}
+              {/* 保存済みの卓 */}
+              <section className="lobby-saved">
+                <div className="lobby-saved-head">
+                  <h3 className="lobby-saved-title">
+                    保存済みの卓
+                    <span className="lobby-en">SAVED TABLES</span>
+                    <span className="lobby-count">{playIndex.length}</span>
+                  </h3>
+                  <div className="lobby-viewtoggle">
+                    <button
+                      className={`lobby-vbtn ${lobbyView === "grid" ? "on" : ""}`}
+                      onClick={() => setLobbyView("grid")}
+                      title="グリッド表示"
+                      aria-pressed={lobbyView === "grid"}
+                    >
+                      <LayoutGrid size={15} />
+                    </button>
+                    <button
+                      className={`lobby-vbtn ${lobbyView === "list" ? "on" : ""}`}
+                      onClick={() => setLobbyView("list")}
+                      title="リスト表示"
+                      aria-pressed={lobbyView === "list"}
+                    >
+                      <List size={15} />
+                    </button>
+                  </div>
+                </div>
+
+                {playIndex.length === 0 ? (
+                  <EmptyState
+                    title="まだ卓がありません"
+                    hint="卓を作って、キャラを呼んで、ダイスを振りましょう。"
+                    action={{ label: "＋ 新しい卓を作る", onClick: newSession }}
+                  />
+                ) : (
+                  <div className={`lobby-grid ${lobbyView}`}>
+                    {playIndex.map((e) => (
+                      <div
+                        key={e.id}
+                        className="lobby-card"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => void openSession(e)}
+                        onKeyDown={(ev) =>
+                          ev.key === "Enter" && void openSession(e)
+                        }
+                        title={e.path}
+                      >
+                        <div className="lobby-card-cover">
+                          <span className="lobby-card-badge">ローカル</span>
+                          <Dices className="lobby-card-art" size={40} />
+                          <button
+                            className="lobby-card-del"
+                            title="一覧から外す(ファイルは消えません)"
+                            aria-label="一覧から外す"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              removeSessionEntry(e.id);
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="lobby-card-body">
+                          <h4 className="lobby-card-title">{e.title}</h4>
+                          <p className="lobby-card-sys">
+                            {tableSystemLabel(e.systemId)}
+                          </p>
+                          <div className="lobby-card-stats">
+                            <span title="駒数">
+                              <Users size={13} /> {e.panelCount} 駒
+                            </span>
+                            <span title="最終更新">
+                              <Clock size={13} /> {relTime(e.updatedAt)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
               {error && (
                 <p className="tag fail" style={{ marginTop: 8, display: "block" }}>
                   {error}
