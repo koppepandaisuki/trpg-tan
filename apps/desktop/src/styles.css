@@ -5578,6 +5578,364 @@ button:disabled {
   margin: 0;
 }
 
+/* =====================================================================
+   セッション卓ロビー(卓を作る / 参加コードで参加 / 保存済みの卓)
+   モックアップのレイアウトを既存パレット(--primary 青 + --gold)で。
+   ===================================================================== */
+.lobby-wrap {
+  max-width: 1200px;
+}
+.lobby-hero {
+  margin-bottom: 18px;
+}
+.lobby-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--primary-deep);
+}
+.lobby-title-en,
+.lobby-en {
+  font-size: 11px;
+  letter-spacing: 3px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+.lobby-en {
+  font-size: 10px;
+  margin-left: 4px;
+}
+.lobby-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.lobby-panels {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+@media (max-width: 880px) {
+  .lobby-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lobby-panel {
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 100% at 0% 0%, var(--primary-soft), transparent 58%),
+    var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.lobby-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(55, 172, 232, 0.12);
+  pointer-events: none;
+}
+.lobby-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.lobby-panel-title-ic {
+  color: var(--primary);
+}
+.lobby-panel-desc {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* 新しい卓を作る */
+.lobby-create {
+  display: flex;
+  gap: 18px;
+}
+.lobby-create-art {
+  flex-shrink: 0;
+  align-self: center;
+  width: 92px;
+  height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--primary-soft), transparent 72%);
+}
+.lobby-create-main {
+  flex: 1;
+  min-width: 0;
+}
+.lobby-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.lobby-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 4px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.lobby-step-ic {
+  display: flex;
+  color: var(--primary);
+}
+.lobby-step-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+.lobby-create-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* 参加コードで参加 */
+.lobby-joinbox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lobby-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lobby-field-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.lobby-code {
+  letter-spacing: 3px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.lobby-join-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 11px;
+  font-size: 14px;
+}
+
+/* 保存済みの卓 */
+.lobby-saved {
+  margin-top: 4px;
+}
+.lobby-saved-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.lobby-saved-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.lobby-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.lobby-viewtoggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.lobby-vbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.lobby-vbtn.on {
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+}
+
+.lobby-grid {
+  display: grid;
+  gap: 14px;
+}
+.lobby-grid.grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.lobby-grid.list {
+  grid-template-columns: 1fr;
+}
+
+.lobby-card {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color 0.14s,
+    box-shadow 0.14s,
+    transform 0.06s;
+}
+.lobby-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.lobby-card:active {
+  transform: translateY(1px);
+}
+.lobby-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.lobby-card-cover {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(120% 120% at 70% 15%, var(--primary-soft), transparent 60%),
+    linear-gradient(135deg, var(--surface-3), var(--surface-2));
+}
+.lobby-card-art {
+  opacity: 0.5;
+}
+.lobby-card-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--primary-deep);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.lobby-card-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  line-height: 1;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.lobby-card:hover .lobby-card-del {
+  opacity: 1;
+}
+.lobby-card-del:hover {
+  background: #d9534f;
+}
+.lobby-card-body {
+  padding: 10px 12px 12px;
+}
+.lobby-card-title {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lobby-card-sys {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lobby-card-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.lobby-card-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* リスト表示は横並びカード */
+.lobby-grid.list .lobby-card {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+}
+.lobby-grid.list .lobby-card-cover {
+  aspect-ratio: auto;
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+}
+.lobby-grid.list .lobby-card-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 /* キャラクターページ(左: 一覧 / 右: シート編集) */
 .chars-page {
   height: 100%;
