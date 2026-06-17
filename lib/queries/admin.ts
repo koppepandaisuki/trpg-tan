@@ -97,6 +97,7 @@ export type AdminProductRow = {
   reviewNote: string | null;
   aiVerdict: AiVerdict | null;
   aiReason: string | null;
+  openReportCount: number;
 };
 
 export async function listProductsForAdmin(opts?: {
@@ -135,9 +136,13 @@ export async function listProductsForAdmin(opts?: {
     return emptyResult(page, pageSize);
   }
 
-  // Resolve creator display names in one batch via public_profiles.
+  // Resolve creator display names + open report counts in batches.
   const creatorIds = Array.from(new Set((data ?? []).map((r) => r.creator_id)));
-  const nameMap = await fetchCreatorNames(creatorIds);
+  const productIds = (data ?? []).map((r) => r.id);
+  const [nameMap, reportCountMap] = await Promise.all([
+    fetchCreatorNames(creatorIds),
+    fetchOpenReportCounts(productIds),
+  ]);
 
   const items: AdminProductRow[] = (data ?? []).map((r) => ({
     id: r.id,
@@ -154,9 +159,32 @@ export async function listProductsForAdmin(opts?: {
       return isAiVerdict(v) ? v : null;
     })(),
     aiReason: (r as { ai_reason?: string | null }).ai_reason ?? null,
+    openReportCount: reportCountMap.get(r.id) ?? 0,
   }));
 
   return buildResult(items, count ?? 0, page, pageSize);
+}
+
+/** 指定した作品群の open な通報件数を一括取得する。 */
+async function fetchOpenReportCounts(
+  productIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (productIds.length === 0) return result;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("product_reports")
+    .select("product_id")
+    .in("product_id", productIds)
+    .eq("status", "open");
+  if (error) {
+    console.error("[fetchOpenReportCounts] failed", error);
+    return result;
+  }
+  for (const row of data ?? []) {
+    result.set(row.product_id, (result.get(row.product_id) ?? 0) + 1);
+  }
+  return result;
 }
 
 /**

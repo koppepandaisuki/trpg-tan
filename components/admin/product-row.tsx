@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Loader2, Check, X } from "lucide-react";
+import { Loader2, Check, X, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -70,6 +70,12 @@ export function AdminProductRowCard({ product }: ProductRowProps) {
             {product.status === "pending" && product.aiVerdict && (
               <Badge variant={aiVerdictBadgeVariant(product.aiVerdict)}>
                 {AI_VERDICT_LABEL[product.aiVerdict]}
+              </Badge>
+            )}
+            {product.openReportCount > 0 && (
+              <Badge variant="warning">
+                <Flag className="mr-1 h-3 w-3" aria-hidden />
+                通報 {product.openReportCount}
               </Badge>
             )}
           </div>

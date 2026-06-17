@@ -7,7 +7,10 @@ import {
   reviewProduct,
   AdminRpcError,
 } from "@/lib/mutations/admin";
-import { notifyReviewDecision } from "@/lib/notify/review-notification";
+import {
+  notifyReviewDecision,
+  notifySuspension,
+} from "@/lib/notify/review-notification";
 import type { ProductStatus } from "@/lib/format/status";
 
 export type AdminActionResult = { ok: true } | { ok: false; message: string };
@@ -24,6 +27,10 @@ export async function setProductStatusAction(
   }
   try {
     await setProductStatus(productId, newStatus);
+    // 公開停止はクリエイターに影響が大きいのでメール通知(未設定なら no-op)。
+    if (newStatus === "suspended") {
+      await notifySuspension({ productId });
+    }
     revalidatePath("/admin/products");
     revalidatePath("/store");
     return { ok: true };
