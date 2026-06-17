@@ -37,6 +37,7 @@ export function PlayBoard({
   playerMode = false,
   onMove,
   onSetImage,
+  onSetForeground,
   onToggleGrid,
   onAddImage,
   onUpdate,
@@ -50,6 +51,8 @@ export function PlayBoard({
   playerMode?: boolean;
   onMove: (panelId: string, x: number, y: number) => void;
   onSetImage: (dataUrl: string | null) => void;
+  /** 前景画像(駒より上のレイヤー)の設定 / 解除。GM のみ。 */
+  onSetForeground?: (dataUrl: string | null) => void;
   onToggleGrid: () => void;
   onAddImage: (
     name: string,
@@ -79,6 +82,7 @@ export function PlayBoard({
 }) {
   const grid = board?.grid ?? true;
   const image = board?.image ?? null;
+  const foreground = board?.foreground ?? null;
   // このシーンに出すオブジェクト(未帰属=全シーン共通)。layer 昇順 = 後勝ちで前面。
   // 参加者ビューでは秘匿(hidden)の駒を描画しない。
   const visible = panels
@@ -345,6 +349,15 @@ export function PlayBoard({
     reader.readAsDataURL(file);
     e.target.value = "";
   }
+  function pickForeground(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !onSetForeground) return;
+    const reader = new FileReader();
+    reader.onload = () =>
+      onSetForeground(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }
 
   return (
     <div className="board-wrap">
@@ -361,6 +374,22 @@ export function PlayBoard({
         {image && (
           <button className="btn mini" onClick={() => onSetImage(null)}>
             背景クリア
+          </button>
+        )}
+        {onSetForeground && (
+          <label className="btn mini board-file">
+            前景を設定
+            <input
+              type="file"
+              accept="image/*"
+              onChange={pickForeground}
+              style={{ display: "none" }}
+            />
+          </label>
+        )}
+        {onSetForeground && foreground && (
+          <button className="btn mini" onClick={() => onSetForeground(null)}>
+            前景クリア
           </button>
         )}
         <button className="btn mini" onClick={onToggleGrid}>
@@ -522,6 +551,16 @@ export function PlayBoard({
             </div>
           );
         })}
+
+        {/* 前景レイヤー: 駒より上に重ねる演出画像。操作は透過させる。 */}
+        {foreground && (
+          <img
+            className="board-foreground"
+            src={foreground}
+            alt=""
+            draggable={false}
+          />
+        )}
       </div>
         </div>
       </div>

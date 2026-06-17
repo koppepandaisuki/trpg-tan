@@ -83,6 +83,8 @@ export function reduce(scene: PlayScene, event: PlayEvent): PlayScene {
       const board = {
         image: event.image !== undefined ? event.image : prev.image,
         grid: event.grid !== undefined ? event.grid : prev.grid,
+        foreground:
+          event.foreground !== undefined ? event.foreground : prev.foreground,
       };
       // active シーンの盤面にも反映。
       const scenes = scene.scenes?.map((s) =>

@@ -214,10 +214,10 @@ export function panelUpdateEvent(
   };
 }
 
-/** 盤面設定(背景画像 / グリッド)の変更。指定したフィールドだけ反映。 */
+/** 盤面設定(背景画像 / グリッド / 前景)の変更。指定したフィールドだけ反映。 */
 export function boardSetEvent(
   ctx: EventCtx,
-  patch: { image?: string | null; grid?: boolean },
+  patch: { image?: string | null; grid?: boolean; foreground?: string | null },
 ): BoardSetEvent {
   return {
     id: ctx.id,
@@ -226,6 +226,7 @@ export function boardSetEvent(
     kind: "board-set",
     ...(patch.image !== undefined ? { image: patch.image } : {}),
     ...(patch.grid !== undefined ? { grid: patch.grid } : {}),
+    ...(patch.foreground !== undefined ? { foreground: patch.foreground } : {}),
   };
 }
 

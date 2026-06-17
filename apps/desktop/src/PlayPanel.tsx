@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Heart, Droplet, Brain, Diamond } from "lucide-react";
+import { Heart, Droplet, Brain, Diamond, Eye, EyeOff } from "lucide-react";
 import type { Panel, PanelResource, PanelStat } from "@trpg/core";
 
 /** HP/MP/SAN 等のリソースに添えるアイコン(色は CSS の .res-* で)。 */
@@ -37,6 +37,7 @@ export function PlayPanel({
   onSend,
   onEditPalette,
   onSpeed,
+  onToggleHidden,
   playerMode = false,
 }: {
   panel: Panel;
@@ -49,6 +50,8 @@ export function PlayPanel({
   onEditPalette: (text: string) => void;
   /** 速さ(行動順)の変更。サイドバー/盤面左上の並び順に反映される。 */
   onSpeed: (panel: Panel, speed: number) => void;
+  /** 表示/非表示(秘匿)の切替。GM のみ。非表示中は参加者の画面から消える。 */
+  onToggleHidden?: (panel: Panel) => void;
   /** 参加者ビュー(卓から外す × を隠す)。 */
   playerMode?: boolean;
 }) {
@@ -59,7 +62,10 @@ export function PlayPanel({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="ppanel" style={{ borderTopColor: panel.color }}>
+    <div
+      className={`ppanel ${panel.hidden ? "ppanel-hidden" : ""}`}
+      style={{ borderTopColor: panel.color }}
+    >
       <div
         className="ppanel-head"
         onClick={() => setOpen((v) => !v)}
@@ -80,6 +86,19 @@ export function PlayPanel({
                 (panel.systemId === "coc6" ? "CoC 6版" : "CoC 7版"))}
           </span>
         </div>
+        {!playerMode && onToggleHidden && (
+          <button
+            className="ppanel-eye"
+            title={panel.hidden ? "参加者に表示する" : "参加者から隠す(秘匿)"}
+            aria-label={panel.hidden ? "表示する" : "非表示にする"}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleHidden(panel);
+            }}
+          >
+            {panel.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        )}
         {!playerMode && (
           <button
             className="ppanel-del"

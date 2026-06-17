@@ -53,6 +53,7 @@ import {
   type PlayIndexEntry,
 } from "./play-storage";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
+import { makePlayThumbnail } from "./play-thumb";
 import brandLogo from "./assets/logo.png";
 
 // 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。ストアは初期
@@ -141,6 +142,8 @@ function relTime(iso: string): string {
 export function App() {
   // Steam ライクに、起動直後はストアをフロントに出す。
   const [page, setPage] = useState<Page>("store");
+  // PLAY 中にキャラシを卓の上へオーバーレイ表示する(卓は閉じない)。
+  const [charOverlay, setCharOverlay] = useState(false);
   const [library, setLibrary] = useState<LibraryEntry[]>(() => getLibrary());
   const [active, setActive] = useState<{ sheet: Sheet | null; key: string }>(
     () => ({ sheet: null, key: "new-0" }),
@@ -262,8 +265,17 @@ export function App() {
     }
   }
 
-  function handlePlayPersist(scene: PlayScene, path: string) {
-    setPlayIndex((idx) => upsertPlayIndex(idx, buildPlayIndexEntry(scene, path)));
+  async function handlePlayPersist(scene: PlayScene, path: string) {
+    // 保存時にシステム名を解決して持たせる(全システムでカードに正しく表示するため)
+    // と、前景/背景からサムネイルを生成してカードに出す。
+    const systemLabel = tableSystemLabel(scene.systemId);
+    const thumbnail = await makePlayThumbnail(scene);
+    setPlayIndex((idx) =>
+      upsertPlayIndex(
+        idx,
+        buildPlayIndexEntry(scene, path, { systemLabel, thumbnail }),
+      ),
+    );
   }
 
   function removeSessionEntry(id: string) {
@@ -362,6 +374,48 @@ export function App() {
     </ul>
   );
 
+  /* ===== キャラクター編集パネル(キャラページ + PLAY オーバーレイで再利用) ===== */
+  const charactersPanel = (
+    <div className="chars-page">
+      <aside className="chars-list">
+        <div className="sidebar-head">
+          <strong>キャラクター</strong>
+          <button className="btn mini btn-primary" onClick={newCharacter}>
+            ＋ 新規
+          </button>
+        </div>
+        {library.length === 0 ? (
+          <p className="muted" style={{ padding: "8px 4px" }}>
+            保存したキャラがここに並びます。
+          </p>
+        ) : (
+          charList
+        )}
+        {error && (
+          <p className="tag fail" style={{ marginTop: 8, display: "block" }}>
+            {error}
+          </p>
+        )}
+      </aside>
+      <section className="chars-editor">
+        {activeGeneric ? (
+          <GenericSheetEditor
+            key={activeGeneric.key}
+            def={activeGeneric.def}
+            initial={activeGeneric.sheet}
+            onSaved={handleGenericSaved}
+          />
+        ) : (
+          <CharacterSheet
+            key={active.key}
+            initialSheet={active.sheet}
+            onSaved={handleSaved}
+          />
+        )}
+      </section>
+    </div>
+  );
+
   /* ===== 卓一覧(卓ページ + ドロワーで再利用) ===== */
   const tableList = (
     <ul className="lib-list">
@@ -404,9 +458,13 @@ export function App() {
               key={session.scene.id}
               initial={session.scene}
               path={session.path}
-              onClose={() => setSession(null)}
+              onClose={() => {
+                setSession(null);
+                setCharOverlay(false);
+              }}
               onPersist={handlePlayPersist}
               onMenu={() => setDrawerOpen(true)}
+              onCharacters={() => setCharOverlay(true)}
             />
           ) : (
             <PlayClient
@@ -469,6 +527,28 @@ export function App() {
               >
                 ×
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* PLAY 中のキャラシ オーバーレイ(卓は閉じない) */}
+        {charOverlay && (
+          <div className="play-charoverlay" role="dialog" aria-modal="true">
+            <div className="play-charoverlay-bar">
+              <strong>キャラクター</strong>
+              <span className="muted" style={{ fontSize: 12 }}>
+                卓は開いたままです
+              </span>
+              <span style={{ flex: 1 }} />
+              <button
+                className="btn mini btn-primary"
+                onClick={() => setCharOverlay(false)}
+              >
+                卓に戻る
+              </button>
+            </div>
+            <div className="play-charoverlay-body">
+              <Suspense fallback={<ScreenLoading />}>{charactersPanel}</Suspense>
             </div>
           </div>
         )}
@@ -689,7 +769,15 @@ export function App() {
                       >
                         <div className="lobby-card-cover">
                           <span className="lobby-card-badge">ローカル</span>
-                          <Dices className="lobby-card-art" size={40} />
+                          {e.thumbnail ? (
+                            <img
+                              className="lobby-card-thumb"
+                              src={e.thumbnail}
+                              alt=""
+                            />
+                          ) : (
+                            <Dices className="lobby-card-art" size={40} />
+                          )}
                           <button
                             className="lobby-card-del"
                             title="一覧から外す(ファイルは消えません)"
@@ -705,8 +793,17 @@ export function App() {
                         <div className="lobby-card-body">
                           <h4 className="lobby-card-title">{e.title}</h4>
                           <p className="lobby-card-sys">
-                            {tableSystemLabel(e.systemId)}
+                            {e.systemLabel ?? tableSystemLabel(e.systemId)}
                           </p>
+                          {e.tags && e.tags.length > 0 && (
+                            <div className="lobby-card-tags">
+                              {e.tags.slice(0, 4).map((t) => (
+                                <span key={t} className="lobby-card-tag">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           <div className="lobby-card-stats">
                             <span title="駒数">
                               <Users size={13} /> {e.panelCount} 駒
@@ -731,46 +828,7 @@ export function App() {
           </div>
         )}
 
-        {page === "characters" && (
-          <div className="chars-page">
-            <aside className="chars-list">
-              <div className="sidebar-head">
-                <strong>キャラクター</strong>
-                <button className="btn mini btn-primary" onClick={newCharacter}>
-                  ＋ 新規
-                </button>
-              </div>
-              {library.length === 0 ? (
-                <p className="muted" style={{ padding: "8px 4px" }}>
-                  保存したキャラがここに並びます。
-                </p>
-              ) : (
-                charList
-              )}
-              {error && (
-                <p className="tag fail" style={{ marginTop: 8, display: "block" }}>
-                  {error}
-                </p>
-              )}
-            </aside>
-            <section className="chars-editor">
-              {activeGeneric ? (
-                <GenericSheetEditor
-                  key={activeGeneric.key}
-                  def={activeGeneric.def}
-                  initial={activeGeneric.sheet}
-                  onSaved={handleGenericSaved}
-                />
-              ) : (
-                <CharacterSheet
-                  key={active.key}
-                  initialSheet={active.sheet}
-                  onSaved={handleSaved}
-                />
-              )}
-            </section>
-          </div>
-        )}
+        {page === "characters" && charactersPanel}
 
         {page === "builder" && (
           <SystemBuilder onCreateCharacter={newGenericCharacter} />

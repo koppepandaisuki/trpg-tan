@@ -198,15 +198,25 @@ async function sanitizeScene(scene: PlayScene): Promise<PlayScene> {
         })),
       )
     : scene.assets;
-  const board =
-    scene.board && scene.board.image
-      ? { ...scene.board, image: await up(scene.board.image) }
-      : scene.board;
+  const board = scene.board
+    ? {
+        ...scene.board,
+        image: await up(scene.board.image),
+        foreground: await up(scene.board.foreground),
+      }
+    : scene.board;
   const scenes = scene.scenes
     ? await Promise.all(
         scene.scenes.map(async (sc) =>
-          sc.board && sc.board.image
-            ? { ...sc, board: { ...sc.board, image: await up(sc.board.image) } }
+          sc.board
+            ? {
+                ...sc,
+                board: {
+                  ...sc.board,
+                  image: await up(sc.board.image),
+                  foreground: await up(sc.board.foreground),
+                },
+              }
             : sc,
         ),
       )
@@ -216,8 +226,12 @@ async function sanitizeScene(scene: PlayScene): Promise<PlayScene> {
 
 async function sanitizeEvent(ev: PlayEvent): Promise<PlayEvent> {
   if (ev.kind === "panel-add") return { ...ev, panel: await sanitizePanel(ev.panel) };
-  if (ev.kind === "board-set" && ev.image)
-    return { ...ev, image: await up(ev.image) };
+  if (ev.kind === "board-set") {
+    const next = { ...ev };
+    if (ev.image) next.image = await up(ev.image);
+    if (ev.foreground) next.foreground = await up(ev.foreground);
+    return next;
+  }
   if (ev.kind === "panel-update") {
     const patch = { ...ev.patch };
     if (patch.portrait) patch.portrait = await up(patch.portrait);

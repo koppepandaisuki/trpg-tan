@@ -82,6 +82,12 @@ export interface PlayIndexEntry {
   id: string;
   title: string;
   systemId: string;
+  /** 表示用に解決済みのシステム名(保存時に確定。全システムで正しく出すため)。 */
+  systemLabel?: string;
+  /** 卓のタグ(ロビーのカードに表示)。 */
+  tags?: string[];
+  /** 一覧カードのサムネイル(前景/背景を縮小した data URL)。 */
+  thumbnail?: string;
   path: string;
   /** パネル数(一覧表示の補助)。 */
   panelCount: number;
@@ -131,11 +137,15 @@ export function removePlayIndex(
 export function buildPlayIndexEntry(
   scene: PlayScene,
   path: string,
+  extra?: { systemLabel?: string; thumbnail?: string },
 ): PlayIndexEntry {
   return {
     id: scene.id,
     title: scene.title || "(無題の卓)",
     systemId: scene.systemId,
+    systemLabel: extra?.systemLabel,
+    tags: scene.tags && scene.tags.length > 0 ? scene.tags : undefined,
+    thumbnail: extra?.thumbnail,
     path,
     panelCount: scene.panels.length,
     updatedAt: new Date().toISOString(),

@@ -101,12 +101,14 @@ export interface Panel {
   owner?: string;
 }
 
-/** 盤面(背景マップ + グリッド)。 */
+/** 盤面(背景マップ + グリッド + 前景)。 */
 export interface PlayBoard {
   /** 背景画像(data URL)。未設定なら無地。 */
   image: string | null;
   /** グリッド表示の on/off。 */
   grid: boolean;
+  /** 前景画像(駒より上に重ねる演出レイヤー。data URL)。未設定なら無し。 */
+  foreground?: string | null;
 }
 
 /** BGM トラック(ローカル音声ファイルへの参照)。実体は埋め込まずパスだけ持つ。 */
@@ -219,6 +221,8 @@ export interface PlayScene {
   sharedMemo?: string;
   /** ダイスボット(システム別ダイス処理)。未設定は systemId から既定。 */
   diceBot?: string;
+  /** 卓のタグ(GM のローカル整理用。ロビーのカードに表示する)。配信不要。 */
+  tags?: string[];
   /** ターン管理(ラウンド数 + 手番の駒)。round 0 = 未開始。 */
   turn?: { round: number; activePanelId: string | null };
   log: PlayEvent[];
@@ -332,6 +336,8 @@ export interface BoardSetEvent extends BaseEvent {
   /** undefined のフィールドは据え置き。 */
   image?: string | null;
   grid?: boolean;
+  /** 前景画像(駒より上のレイヤー)。null で解除。undefined は据え置き。 */
+  foreground?: string | null;
 }
 
 /** シーン追加(追加後そのシーンへ切替)。 */
