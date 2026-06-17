@@ -166,6 +166,12 @@ export function PlayTable({
   const snapRef = useRef({ sending: false, queued: false });
   // 参加者 selfId → 表示名。hello で記録し、intent の所有権チェックに使う。
   const memberNames = useRef<Map<string, string>>(new Map());
+  // 現在配信中の BGM。途中入室した参加者は再生中の BGM メッセージを取りこぼす
+  // ため、hello を受けたら同じ BGM を再配信して late-joiner にも鳴らす。
+  const curBgmRef = useRef<{ path: string | null; loop: boolean }>({
+    path: null,
+    loop: false,
+  });
 
   const characters = useMemo(() => getLibrary(), []);
 
@@ -895,6 +901,11 @@ export function PlayTable({
         memberNames.current.set(msg.from, msg.name);
         // 新規参加者へ現在の卓全体を送る(集約。hello 連投でも 1 本ずつ)。
         void sendSnapshotCoalesced();
+        // 既に BGM を流しているなら再配信して、途中入室でも鳴るようにする
+        // (broadcast で全員に届くが、参加者側は同じ曲なら鳴らし直さない)。
+        if (curBgmRef.current.path) {
+          void broadcastAudio("bgm", curBgmRef.current.path, curBgmRef.current.loop);
+        }
       } else if (msg.type === "intent") {
         applyIntent(msg.intent, msg.from);
       }
@@ -953,6 +964,8 @@ export function PlayTable({
     loop = false,
   ) {
     const r = roomRef.current;
+    // late-joiner 再配信のため、BGM の現在値は接続前でも覚えておく。
+    if (channel === "bgm") curBgmRef.current = { path, loop };
     if (!r) return;
     if (!path) {
       void r.send({ type: "audio", channel, src: null });
