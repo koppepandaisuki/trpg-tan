@@ -7695,3 +7695,127 @@ button:disabled {
   padding: 4px 11px;
   white-space: nowrap;
 }
+
+/* =====================================================================
+   ストア グラスモーフィズム(ミントブルー / ハイエンド SaaS 調)
+   既存の構造はそのまま、面を半透明フロストガラス + 柔らかい影 + 微ぼかしへ。
+   既存パレット(--primary / --surface)を踏襲。最後に置いて上書きする。
+   ===================================================================== */
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --glass-bg-strong: rgba(255, 255, 255, 0.68);
+  --glass-border: rgba(255, 255, 255, 0.62);
+  --glass-shadow: 0 10px 34px rgba(24, 95, 165, 0.12);
+  --glass-blur: blur(14px) saturate(135%);
+}
+[data-theme="dark"] {
+  --glass-bg: rgba(28, 51, 73, 0.4);
+  --glass-bg-strong: rgba(24, 44, 64, 0.62);
+  --glass-border: rgba(120, 180, 230, 0.16);
+  --glass-shadow: 0 10px 34px rgba(0, 0, 0, 0.42);
+}
+
+/* 背景: ごく淡い青白グレーのグラデーション(その上に薄いサイコロ ::before) */
+.store {
+  background: linear-gradient(180deg, #fbfdff 0%, #edf4fb 55%, #e6eef6 100%);
+}
+[data-theme="dark"] .store {
+  background: linear-gradient(180deg, #0f1e2c 0%, #0d1a26 60%, #0b1722 100%);
+}
+
+/* 検索バー */
+.store-search .input {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 999px;
+}
+
+/* カテゴリチップ: 未選択は薄いガラス + 細い境界、選択/ホバーは淡シアン + 光彩 */
+.store-cats {
+  border-bottom-color: var(--glass-border);
+}
+.store-cat {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-border);
+  transition:
+    background var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
+}
+.store-cat:hover,
+.store-cat.active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-deep);
+  box-shadow:
+    0 0 0 1px var(--primary-soft),
+    0 6px 18px rgba(55, 172, 232, 0.22);
+}
+
+/* ヒーローバナー: CTA をガラスカード化(背景グラデは既存のまま) */
+.sbanner {
+  box-shadow:
+    var(--shadow-md),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.sbanner-cta {
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 6px 18px rgba(13, 70, 110, 0.25);
+}
+
+/* 注目カード: フロストガラス + 大きめ角丸 + 浮き */
+.feat-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
+}
+.feat-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    var(--glass-shadow),
+    0 16px 40px rgba(24, 95, 165, 0.16);
+}
+/* 右情報パネル: 補助情報として一段薄いガラス */
+.feat-info {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-left: 1px solid var(--glass-border);
+}
+
+/* 作品カード(グリッド / ストリップ) */
+.store-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+}
+.store-card:hover {
+  border-color: var(--primary);
+  box-shadow:
+    var(--glass-shadow),
+    0 14px 34px rgba(24, 95, 165, 0.16);
+}
+
+/* カテゴリカード / クリエイター導線もガラスに揃える */
+.catcard,
+.creators-banner {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+}
