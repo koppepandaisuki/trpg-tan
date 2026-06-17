@@ -83,6 +83,7 @@ export function SiteFooter() {
           {/* 情報(SSSSS で実ページに差替)*/}
           <FooterColumn title="情報">
             <FooterLink href="/terms" label="利用規約" />
+            <FooterLink href={"/guidelines" as Route} label="出品ガイドライン" />
             <FooterLink href="/privacy" label="プライバシーポリシー" />
             <FooterLink
               href="/legal/tokushoho"
