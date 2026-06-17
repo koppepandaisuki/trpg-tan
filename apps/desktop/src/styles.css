@@ -1669,6 +1669,32 @@ body {
     animation: none;
   }
 }
+
+/* PLAY 中にキャラシを卓の上へ重ねるオーバーレイ。卓は裏で生きたまま。 */
+.play-charoverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.play-charoverlay-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.play-charoverlay-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.play-charoverlay-body .chars-page {
+  height: 100%;
+}
 .scene-x {
   border: 0;
   background: transparent;

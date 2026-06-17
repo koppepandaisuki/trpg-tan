@@ -108,6 +108,7 @@ export function PlayTable({
   onClose,
   onPersist,
   onMenu,
+  onCharacters,
 }: {
   initial: PlayScene;
   path: string | null;
@@ -115,6 +116,8 @@ export function PlayTable({
   onPersist: (scene: PlayScene, path: string) => void;
   /** ☰ メニュー(キャラ/購入/卓のドロワー)を開く。 */
   onMenu?: () => void;
+  /** キャラクター編集を卓の上にオーバーレイで開く(卓は閉じない)。 */
+  onCharacters?: () => void;
 }) {
   const [scene, setScene] = useState<PlayScene>(initial);
   const [savedPath, setSavedPath] = useState<string | null>(path);
@@ -1122,6 +1125,16 @@ export function PlayTable({
                     ? `${room.code}・${Math.max(0, members.filter((n) => n !== "GM").length)}人`
                     : "共有"}
               </button>
+              {onCharacters && (
+                <button
+                  className="btn mini ibtn"
+                  onClick={onCharacters}
+                  title="キャラクター（卓を開いたまま編集）"
+                  aria-label="キャラクターを開く"
+                >
+                  <ScrollText size={15} />
+                </button>
+              )}
               {onMenu && (
                 <button
                   className="btn mini ibtn"

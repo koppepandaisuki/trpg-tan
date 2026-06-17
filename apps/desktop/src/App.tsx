@@ -141,6 +141,8 @@ function relTime(iso: string): string {
 export function App() {
   // Steam ライクに、起動直後はストアをフロントに出す。
   const [page, setPage] = useState<Page>("store");
+  // PLAY 中にキャラシを卓の上へオーバーレイ表示する(卓は閉じない)。
+  const [charOverlay, setCharOverlay] = useState(false);
   const [library, setLibrary] = useState<LibraryEntry[]>(() => getLibrary());
   const [active, setActive] = useState<{ sheet: Sheet | null; key: string }>(
     () => ({ sheet: null, key: "new-0" }),
@@ -362,6 +364,48 @@ export function App() {
     </ul>
   );
 
+  /* ===== キャラクター編集パネル(キャラページ + PLAY オーバーレイで再利用) ===== */
+  const charactersPanel = (
+    <div className="chars-page">
+      <aside className="chars-list">
+        <div className="sidebar-head">
+          <strong>キャラクター</strong>
+          <button className="btn mini btn-primary" onClick={newCharacter}>
+            ＋ 新規
+          </button>
+        </div>
+        {library.length === 0 ? (
+          <p className="muted" style={{ padding: "8px 4px" }}>
+            保存したキャラがここに並びます。
+          </p>
+        ) : (
+          charList
+        )}
+        {error && (
+          <p className="tag fail" style={{ marginTop: 8, display: "block" }}>
+            {error}
+          </p>
+        )}
+      </aside>
+      <section className="chars-editor">
+        {activeGeneric ? (
+          <GenericSheetEditor
+            key={activeGeneric.key}
+            def={activeGeneric.def}
+            initial={activeGeneric.sheet}
+            onSaved={handleGenericSaved}
+          />
+        ) : (
+          <CharacterSheet
+            key={active.key}
+            initialSheet={active.sheet}
+            onSaved={handleSaved}
+          />
+        )}
+      </section>
+    </div>
+  );
+
   /* ===== 卓一覧(卓ページ + ドロワーで再利用) ===== */
   const tableList = (
     <ul className="lib-list">
@@ -404,9 +448,13 @@ export function App() {
               key={session.scene.id}
               initial={session.scene}
               path={session.path}
-              onClose={() => setSession(null)}
+              onClose={() => {
+                setSession(null);
+                setCharOverlay(false);
+              }}
               onPersist={handlePlayPersist}
               onMenu={() => setDrawerOpen(true)}
+              onCharacters={() => setCharOverlay(true)}
             />
           ) : (
             <PlayClient
@@ -469,6 +517,28 @@ export function App() {
               >
                 ×
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* PLAY 中のキャラシ オーバーレイ(卓は閉じない) */}
+        {charOverlay && (
+          <div className="play-charoverlay" role="dialog" aria-modal="true">
+            <div className="play-charoverlay-bar">
+              <strong>キャラクター</strong>
+              <span className="muted" style={{ fontSize: 12 }}>
+                卓は開いたままです
+              </span>
+              <span style={{ flex: 1 }} />
+              <button
+                className="btn mini btn-primary"
+                onClick={() => setCharOverlay(false)}
+              >
+                卓に戻る
+              </button>
+            </div>
+            <div className="play-charoverlay-body">
+              <Suspense fallback={<ScreenLoading />}>{charactersPanel}</Suspense>
             </div>
           </div>
         )}
@@ -731,46 +801,7 @@ export function App() {
           </div>
         )}
 
-        {page === "characters" && (
-          <div className="chars-page">
-            <aside className="chars-list">
-              <div className="sidebar-head">
-                <strong>キャラクター</strong>
-                <button className="btn mini btn-primary" onClick={newCharacter}>
-                  ＋ 新規
-                </button>
-              </div>
-              {library.length === 0 ? (
-                <p className="muted" style={{ padding: "8px 4px" }}>
-                  保存したキャラがここに並びます。
-                </p>
-              ) : (
-                charList
-              )}
-              {error && (
-                <p className="tag fail" style={{ marginTop: 8, display: "block" }}>
-                  {error}
-                </p>
-              )}
-            </aside>
-            <section className="chars-editor">
-              {activeGeneric ? (
-                <GenericSheetEditor
-                  key={activeGeneric.key}
-                  def={activeGeneric.def}
-                  initial={activeGeneric.sheet}
-                  onSaved={handleGenericSaved}
-                />
-              ) : (
-                <CharacterSheet
-                  key={active.key}
-                  initialSheet={active.sheet}
-                  onSaved={handleSaved}
-                />
-              )}
-            </section>
-          </div>
-        )}
+        {page === "characters" && charactersPanel}
 
         {page === "builder" && (
           <SystemBuilder onCreateCharacter={newGenericCharacter} />
