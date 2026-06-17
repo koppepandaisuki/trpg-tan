@@ -34,7 +34,7 @@ import { StorePanel } from "./StorePanel";
 import { SystemBuilder } from "./SystemBuilder";
 import { GenericSheetEditor } from "./GenericSheetEditor";
 import { findSystem } from "./systems-store";
-import { SoundSettings } from "./SoundSettings";
+import { Settings as SettingsScreen, type SettingsTab } from "./Settings";
 import { Toasts } from "./Toasts";
 import { EmptyState } from "./EmptyState";
 import { FriendsButton } from "./FriendsPanel";
@@ -146,6 +146,11 @@ export function App() {
   const [lobbyView, setLobbyView] = useState<"grid" | "list">("grid");
   // 効果音などの設定モーダル。
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("account");
+  function openSettings(tab: SettingsTab = "account") {
+    setSettingsTab(tab);
+    setShowSettings(true);
+  }
   // PLAY 中のドロワー(☰)。卓を抜けずにナビへアクセスする。
   const [drawerOpen, setDrawerOpen] = useState(false);
   // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
@@ -422,7 +427,7 @@ export function App() {
                   <button
                     className="btn mini"
                     style={{ width: "100%", marginBottom: 8 }}
-                    onClick={() => setShowSettings(true)}
+                    onClick={() => openSettings("account")}
                   >
                     ⚙ 設定
                   </button>
@@ -448,7 +453,16 @@ export function App() {
             onClose={() => setViewing(null)}
           />
         )}
-        {showSettings && <SoundSettings onClose={() => setShowSettings(false)} />}
+        {showSettings && (
+          <SettingsScreen
+            initialTab={settingsTab}
+            theme={theme}
+            onToggleTheme={() =>
+              setTheme((t) => (t === "dark" ? "light" : "dark"))
+            }
+            onClose={() => setShowSettings(false)}
+          />
+        )}
         <Toasts />
       </div>
     );
@@ -487,13 +501,7 @@ export function App() {
           >
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </button>
-          <AccountMenu
-            theme={theme}
-            onToggleTheme={() =>
-              setTheme((t) => (t === "dark" ? "light" : "dark"))
-            }
-            onOpenSound={() => setShowSettings(true)}
-          />
+          <AccountMenu onOpen={() => openSettings("account")} />
         </div>
       </header>
 
@@ -753,7 +761,7 @@ export function App() {
         <span className="bottombar-right">
           <button
             className="bottombar-btn ibtn"
-            onClick={() => setShowSettings(true)}
+            onClick={() => openSettings("account")}
           >
             <Settings size={14} /> 設定
           </button>
@@ -770,7 +778,16 @@ export function App() {
         />
       )}
 
-      {showSettings && <SoundSettings onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <SettingsScreen
+          initialTab={settingsTab}
+          theme={theme}
+          onToggleTheme={() =>
+            setTheme((t) => (t === "dark" ? "light" : "dark"))
+          }
+          onClose={() => setShowSettings(false)}
+        />
+      )}
       <Toasts />
     </div>
   );
