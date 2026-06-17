@@ -7988,3 +7988,211 @@ button:disabled {
   text-align: center;
   font-size: 11px;
 }
+
+/* =====================================================================
+   一枚ものの設定画面(左カテゴリ + 右内容 + 下バー)
+   ===================================================================== */
+.set2-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 22, 36, 0.5);
+  backdrop-filter: blur(3px);
+}
+.set2-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(960px, 96vw);
+  height: min(640px, 90vh);
+  overflow: hidden;
+  border: 1px solid var(--glass-border, var(--border-strong));
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.set2-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.set2-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.set2-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.set2-x:hover {
+  border-color: var(--primary);
+  color: var(--primary-deep);
+}
+.set2-main {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  min-height: 0;
+}
+.set2-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 10px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.set2-navbtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out);
+}
+.set2-navbtn svg {
+  flex-shrink: 0;
+}
+.set2-navbtn:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.set2-navbtn.on {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-deep);
+}
+.set2-content {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px 26px;
+}
+.set2-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.set2-sec {
+  margin-bottom: 22px;
+}
+.set2-sec-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.set2-sec-desc {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.set2-id {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.set2-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.set2-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 13px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out);
+}
+.set2-link:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.set2-link > svg:first-child {
+  color: var(--primary);
+}
+.set2-link-ext {
+  margin-left: 6px;
+  color: var(--text-faint);
+}
+.set2-seg {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.set2-segbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.set2-segbtn.on {
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+  font-weight: 700;
+}
+@media (max-width: 640px) {
+  .set2-main {
+    grid-template-columns: 1fr;
+  }
+  .set2-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
