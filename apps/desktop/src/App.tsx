@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   createScene,
   type CharacterSheet as Sheet,
@@ -23,16 +23,10 @@ import {
   Clock,
   ChevronRight,
 } from "lucide-react";
-import { CharacterSheet } from "./CharacterSheet";
 import { AuthControl } from "./AuthControl";
 import { AccountMenu } from "./AccountMenu";
-import { LibraryPage } from "./LibraryPage";
 import { Viewer } from "./Viewer";
-import { PlayTable } from "./PlayTable";
-import { PlayClient } from "./PlayClient";
 import { StorePanel } from "./StorePanel";
-import { SystemBuilder } from "./SystemBuilder";
-import { GenericSheetEditor } from "./GenericSheetEditor";
 import { findSystem } from "./systems-store";
 import { Settings as SettingsScreen, type SettingsTab } from "./Settings";
 import { Toasts } from "./Toasts";
@@ -60,6 +54,37 @@ import {
 } from "./play-storage";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import brandLogo from "./assets/logo.png";
+
+// 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。ストアは初期
+// 表示なので即時読込のまま。PLAY 一式・ビルダー・ライブラリ・キャラシートは、その
+// 画面を開いたときに別チャンクとして読み込まれる(Suspense でローダー表示)。
+const PlayTable = lazy(() =>
+  import("./PlayTable").then((m) => ({ default: m.PlayTable })),
+);
+const PlayClient = lazy(() =>
+  import("./PlayClient").then((m) => ({ default: m.PlayClient })),
+);
+const SystemBuilder = lazy(() =>
+  import("./SystemBuilder").then((m) => ({ default: m.SystemBuilder })),
+);
+const LibraryPage = lazy(() =>
+  import("./LibraryPage").then((m) => ({ default: m.LibraryPage })),
+);
+const CharacterSheet = lazy(() =>
+  import("./CharacterSheet").then((m) => ({ default: m.CharacterSheet })),
+);
+const GenericSheetEditor = lazy(() =>
+  import("./GenericSheetEditor").then((m) => ({ default: m.GenericSheetEditor })),
+);
+
+/** 遅延読込の待機中に出すローダー(画面切替の一瞬だけ)。 */
+function ScreenLoading() {
+  return (
+    <div className="screen-loading" role="status" aria-label="読み込み中">
+      <span className="screen-loading-ring" />
+    </div>
+  );
+}
 
 type Page = "store" | "library" | "play" | "characters" | "builder";
 type Viewing = { item: RemoteLibraryItem; entry: DownloadedEntry };
@@ -373,23 +398,25 @@ export function App() {
   if (session || joining) {
     return (
       <div className="app-shell">
-        {session ? (
-          <PlayTable
-            key={session.scene.id}
-            initial={session.scene}
-            path={session.path}
-            onClose={() => setSession(null)}
-            onPersist={handlePlayPersist}
-            onMenu={() => setDrawerOpen(true)}
-          />
-        ) : (
-          <PlayClient
-            key={`${joining!.code}-${joining!.name}`}
-            code={joining!.code}
-            name={joining!.name}
-            onClose={() => setJoining(null)}
-          />
-        )}
+        <Suspense fallback={<ScreenLoading />}>
+          {session ? (
+            <PlayTable
+              key={session.scene.id}
+              initial={session.scene}
+              path={session.path}
+              onClose={() => setSession(null)}
+              onPersist={handlePlayPersist}
+              onMenu={() => setDrawerOpen(true)}
+            />
+          ) : (
+            <PlayClient
+              key={`${joining!.code}-${joining!.name}`}
+              code={joining!.code}
+              name={joining!.name}
+              onClose={() => setJoining(null)}
+            />
+          )}
+        </Suspense>
 
         {/* ☰ ドロワー: ナビ + 保存済みの卓(別卓への乗り換え) */}
         {drawerOpen && (
@@ -507,6 +534,7 @@ export function App() {
 
       {/* ページ本体(切替時にフェードイン)。 */}
       <main className="app-main">
+        <Suspense fallback={<ScreenLoading />}>
         <div className="page-fade" key={page}>
         {page === "store" && (
           <StorePanel
@@ -748,6 +776,7 @@ export function App() {
           <SystemBuilder onCreateCharacter={newGenericCharacter} />
         )}
         </div>
+        </Suspense>
       </main>
 
       {/* 下部バー(Steam 風) */}
