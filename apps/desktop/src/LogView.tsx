@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { PlayEvent, CoCCheckResult } from "@trpg/core";
+import { QuickRollBar } from "./QuickRollBar";
 
 /** 発言者の選択肢(GM + 卓上の駒)。 */
 export interface Speaker {
@@ -60,6 +61,7 @@ export function LogView({
   onSecretChange,
   onVisibleToChange,
   onSubmit,
+  onQuickRoll,
   onExport,
   onClearLog,
   maskSecret = false,
@@ -82,6 +84,8 @@ export function LogView({
   onSecretChange: (v: boolean) => void;
   onVisibleToChange: (names: string[]) => void;
   onSubmit: () => void;
+  /** クイックロール: 式を渡すと現在の発言者・設定で振る。未指定ならバー非表示。 */
+  onQuickRoll?: (expr: string) => void;
   /** チャットログをファイルへ書き出す(リプレイ保存)。 */
   onExport?: () => void;
   /** チャット/ログ履歴を全消去(GM のみ。未指定ならボタン非表示)。 */
@@ -306,6 +310,7 @@ export function LogView({
             <CircleHelp size={14} /> シークレット
           </button>
         </div>
+        {onQuickRoll && <QuickRollBar onRoll={onQuickRoll} />}
         <div className="pinput-row">
           <input
             ref={inputRef}

@@ -1766,6 +1766,101 @@ body {
   gap: 6px;
 }
 
+/* クイックロール・バー(入力欄の上)。よく使うダイスを 1 タップで。 */
+.qroll {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.qroll-lead {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-faint);
+  margin-right: 2px;
+}
+.qroll-chip {
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2, var(--bg));
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    transform 0.05s;
+}
+.qroll-chip:hover {
+  border-color: var(--border-strong);
+  background: var(--gold-soft);
+}
+.qroll-chip:active {
+  transform: translateY(1px);
+}
+.qroll-chip.fav {
+  border-color: var(--border-strong);
+  color: var(--gold-deep);
+}
+.qroll-favwrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.qroll-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.qroll-del:hover {
+  color: #d9534f;
+  background: rgba(217, 83, 79, 0.12);
+}
+.qroll-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.qroll-toggle.on {
+  border-style: solid;
+  color: var(--gold-deep);
+  background: var(--gold-soft);
+}
+.qroll-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.qroll-in {
+  font-size: 12px;
+  padding: 3px 6px;
+  width: 150px;
+}
+.qroll-in.short {
+  width: 96px;
+}
+
 .pinput-row .input {
   flex: 1;
   padding: 6px 8px;
@@ -6058,6 +6153,24 @@ button:disabled {
   flex-direction: column;
   min-height: 0;
   background: var(--bg);
+  /* 背景にうっすらサイコロを敷く(下の ::before)。 */
+  position: relative;
+  isolation: isolate;
+}
+/* 控えめなサイコロ模様。mask で形を作り、色は --text を透かすのでテーマ追従。 */
+.store::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--text);
+  opacity: 0.045;
+  -webkit-mask: url("./assets/dice-pattern.svg") repeat 0 0 / 240px 240px;
+  mask: url("./assets/dice-pattern.svg") repeat 0 0 / 240px 240px;
+}
+[data-theme="dark"] .store::before {
+  opacity: 0.06;
 }
 .store-head {
   display: flex;

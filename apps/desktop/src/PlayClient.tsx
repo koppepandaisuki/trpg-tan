@@ -557,6 +557,7 @@ export function PlayClient({
                         onSecretChange={setSecret}
                         onVisibleToChange={setVisibleTo}
                         onSubmit={submitCompose}
+                        onQuickRoll={(expr) => handleSend(compose.speakerId, expr)}
                         maskSecret
                         viewerName={name}
                         inputRef={inputRef}

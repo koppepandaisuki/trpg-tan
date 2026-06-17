@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" fill="none">
+  <!--
+    タイル可能なサイコロのライン画パターン。color は持たず、CSS 側の
+    mask-image として使う(塗りは background-color: var(--text) を透かす)。
+    StorePanel 背景の控えめな装飾。
+  -->
+  <g stroke="#111" stroke-width="2.4" fill="none">
+    <!-- Die A: 6 -->
+    <g transform="rotate(-10 50 52)">
+      <rect x="24" y="26" width="52" height="52" rx="10" />
+      <g fill="#111" stroke="none">
+        <circle cx="38.6" cy="40.6" r="3.6" />
+        <circle cx="38.6" cy="52" r="3.6" />
+        <circle cx="38.6" cy="63.4" r="3.6" />
+        <circle cx="61.4" cy="40.6" r="3.6" />
+        <circle cx="61.4" cy="52" r="3.6" />
+        <circle cx="61.4" cy="63.4" r="3.6" />
+      </g>
+    </g>
+    <!-- Die B: 3 -->
+    <g transform="rotate(14 172 62)">
+      <rect x="150" y="40" width="44" height="44" rx="9" />
+      <g fill="#111" stroke="none">
+        <circle cx="162.3" cy="52.3" r="3.1" />
+        <circle cx="172" cy="62" r="3.1" />
+        <circle cx="181.7" cy="71.7" r="3.1" />
+      </g>
+    </g>
+    <!-- Die C: 5 -->
+    <g transform="rotate(6 84 174)">
+      <rect x="60" y="150" width="48" height="48" rx="9" />
+      <g fill="#111" stroke="none">
+        <circle cx="73.4" cy="163.4" r="3.4" />
+        <circle cx="94.6" cy="163.4" r="3.4" />
+        <circle cx="84" cy="174" r="3.4" />
+        <circle cx="73.4" cy="184.6" r="3.4" />
+        <circle cx="94.6" cy="184.6" r="3.4" />
+      </g>
+    </g>
+    <!-- Die D: 2 -->
+    <g transform="rotate(-8 188 184)">
+      <rect x="168" y="164" width="40" height="40" rx="8" />
+      <g fill="#111" stroke="none">
+        <circle cx="179.2" cy="175.2" r="2.9" />
+        <circle cx="196.8" cy="192.8" r="2.9" />
+      </g>
+    </g>
+  </g>
+</svg>
