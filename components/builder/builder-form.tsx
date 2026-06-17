@@ -429,6 +429,18 @@ export function BuilderForm({
                   「審査に出す」ではタイトル / 説明 / カテゴリ / 形式 / 価格 / タグ(1個以上)が必要です。
                   提出後は運営の承認を経てストアに公開されます。
                 </p>
+                <p className="text-xs text-muted-foreground">
+                  出品の前に{" "}
+                  <a
+                    href="/guidelines"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-accent underline"
+                  >
+                    出品ガイドライン
+                  </a>
+                  をご確認ください。違反する作品は審査で却下されます。
+                </p>
                 {currentStatus === "suspended" && (
                   <p className="text-xs text-destructive">
                     この作品は運営により停止中です。公開の再開は admin にお問い合わせください。

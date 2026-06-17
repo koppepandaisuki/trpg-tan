@@ -1,3 +1,5 @@
+import type { Route } from "next";
+import Link from "next/link";
 import { FileText } from "lucide-react";
 import { LegalLayout, LegalSection } from "@/components/legal/legal-layout";
 
@@ -38,6 +40,13 @@ export default function TermsPage() {
           販売代金から所定のプラットフォーム手数料(30%)を差し引いた金額が
           クリエイターに支払われます。
         </p>
+        <p>
+          投稿する作品は、別途定める
+          <Link href={"/guidelines" as Route} className="text-accent underline">
+            出品ガイドライン
+          </Link>
+          に従うものとします。出品ガイドラインは本規約の一部を構成します。
+        </p>
       </LegalSection>
 
       <LegalSection heading="第4条(禁止事項)">
@@ -45,10 +54,31 @@ export default function TermsPage() {
         <ul className="list-disc space-y-1 pl-5">
           <li>法令または公序良俗に違反する行為</li>
           <li>第三者の権利を侵害する作品の投稿・販売</li>
+          <li>
+            <Link href={"/guidelines" as Route} className="text-accent underline">
+              出品ガイドライン
+            </Link>
+            で禁止された作品の投稿・販売
+          </li>
           <li>本サービスの運営を妨害する行為</li>
           <li>他の利用者に対する迷惑行為・誹謗中傷</li>
           <li>不正アクセス、その他システムに不正に干渉する行為</li>
         </ul>
+      </LegalSection>
+
+      <LegalSection heading="第4条の2(作品の審査・公開停止)">
+        <p>
+          運営者は、投稿された作品が本規約および出品ガイドラインに適合するかを
+          審査します。審査の結果、適合しないと判断した作品の公開を承認せず、
+          または公開後であっても予告なく非公開・公開停止・削除することができます。
+          公開停止等を行う場合、運営者は原則としてその理由をクリエイターに
+          通知します。
+        </p>
+        <p>
+          悪質な違反、繰り返しの違反、虚偽の通報その他本サービスの健全な運営を
+          害する行為に対し、運営者は出品の制限・アカウントの利用停止等の必要な
+          措置を講じることができます。
+        </p>
       </LegalSection>
 
       <LegalSection heading="第5条(購入・返金)">

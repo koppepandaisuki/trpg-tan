@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import type { Route } from "next";
+import Link from "next/link";
 import { Flag, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportProductAction } from "@/app/(public)/store/[slug]/report-actions";
@@ -97,7 +99,15 @@ export function ReportButton({ productId, loggedIn }: ReportButtonProps) {
             ) : (
               <p className="mt-2 text-xs text-muted-foreground">
                 ストアの趣旨に合わない投稿や不適切な内容を運営に報告します。
-                内容は運営のみが確認します。
+                内容は運営のみが確認します。判断の基準は{" "}
+                <Link
+                  href={"/guidelines" as Route}
+                  target="_blank"
+                  className="text-accent underline"
+                >
+                  出品ガイドライン
+                </Link>
+                をご覧ください。
               </p>
             )}
 
