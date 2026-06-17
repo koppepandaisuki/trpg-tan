@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   reviewApprovedEmail,
   reviewRejectedEmail,
+  reviewSuspendedEmail,
 } from "@/lib/email/templates";
 
 describe("reviewApprovedEmail", () => {
@@ -67,5 +68,39 @@ describe("reviewRejectedEmail", () => {
       editUrl: "https://x/edit",
     });
     expect(e.html).toContain("一行目<br />二行目");
+  });
+});
+
+describe("reviewSuspendedEmail", () => {
+  it("states suspension and links to the edit page", () => {
+    const e = reviewSuspendedEmail({
+      productTitle: "停止テスト",
+      reason: "通報多数",
+      editUrl: "https://example.com/creator/products/9/edit",
+    });
+    expect(e.subject).toContain("公開を停止");
+    expect(e.subject).toContain("停止テスト");
+    expect(e.html).toContain("通報多数");
+    expect(e.html).toContain("https://example.com/creator/products/9/edit");
+    expect(e.text).toContain("通報多数");
+  });
+
+  it("omits the reason block when no reason is given", () => {
+    const e = reviewSuspendedEmail({
+      productTitle: "x",
+      editUrl: "https://x/edit",
+    });
+    expect(e.html).not.toContain("理由:");
+    expect(e.text).not.toContain("理由:");
+  });
+
+  it("escapes HTML in the reason", () => {
+    const e = reviewSuspendedEmail({
+      productTitle: "x",
+      reason: "<img src=x>",
+      editUrl: "https://x/edit",
+    });
+    expect(e.html).not.toContain("<img src=x>");
+    expect(e.html).toContain("&lt;img");
   });
 });

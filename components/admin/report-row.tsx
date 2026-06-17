@@ -2,10 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Loader2, Check, X } from "lucide-react";
+import { Loader2, Check, X, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { resolveReportAction } from "@/app/(app)/admin/reports/actions";
+import {
+  resolveReportAction,
+  suspendFromReportAction,
+} from "@/app/(app)/admin/reports/actions";
 import {
   REPORT_CATEGORY_LABEL,
   REPORT_STATUS_LABEL,
@@ -31,6 +34,14 @@ export function AdminReportRowCard({ report }: ReportRowProps) {
     setError(null);
     startTransition(async () => {
       const result = await resolveReportAction(report.id, next);
+      if (!result.ok) setError(result.message);
+    });
+  }
+
+  function suspend() {
+    setError(null);
+    startTransition(async () => {
+      const result = await suspendFromReportAction(report.id);
       if (!result.ok) setError(result.message);
     });
   }
@@ -76,13 +87,24 @@ export function AdminReportRowCard({ report }: ReportRowProps) {
               variant="primary"
               size="sm"
               disabled={pending}
-              onClick={() => resolve("reviewed")}
+              onClick={suspend}
+              title="この作品を公開停止し、関連する通報をまとめて対応済みにします"
             >
               {pending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Check className="h-4 w-4" />
+                <Ban className="h-4 w-4" />
               )}
+              作品を停止
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={() => resolve("reviewed")}
+            >
+              <Check className="h-4 w-4" />
               対応済み
             </Button>
             <Button

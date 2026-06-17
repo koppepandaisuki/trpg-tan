@@ -62,6 +62,40 @@ export function reviewApprovedEmail(input: {
   return { subject, html, text };
 }
 
+/** 公開停止(takedown)通知。理由は任意。 */
+export function reviewSuspendedEmail(input: {
+  productTitle: string;
+  reason?: string;
+  editUrl: string;
+}): EmailContent {
+  const title = input.productTitle || "(無題)";
+  const reason = (input.reason ?? "").trim();
+  const subject = `【${BRAND}】作品の公開を停止しました: ${title}`;
+  const reasonHtml = reason
+    ? `<p style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;margin:16px 0"><strong>理由:</strong><br />${escapeHtml(reason).replace(/\n/g, "<br />")}</p>`
+    : "";
+  const html = shell(
+    [
+      `<p>「<strong>${escapeHtml(title)}</strong>」は、ストアのガイドラインに基づき公開を停止しました。</p>`,
+      reasonHtml,
+      "<p>ご不明な点や異議がある場合は、運営までお問い合わせください。内容を修正して再申請いただくこともできます。</p>",
+      button(input.editUrl, "編集ページを開く"),
+    ].join(""),
+  );
+  const text = [
+    `${BRAND}`,
+    "",
+    `「${title}」は、ストアのガイドラインに基づき公開を停止しました。`,
+    ...(reason ? ["", `理由: ${reason}`] : []),
+    "",
+    "ご不明な点や異議がある場合は、運営までお問い合わせください。",
+    `編集ページ: ${input.editUrl}`,
+    "",
+    `— このメールは ${BRAND} の出品審査に関する自動通知です。`,
+  ].join("\n");
+  return { subject, html, text };
+}
+
 /** 却下通知(理由付き)。 */
 export function reviewRejectedEmail(input: {
   productTitle: string;
