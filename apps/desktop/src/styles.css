@@ -5247,9 +5247,9 @@ button:disabled {
   --border: rgba(120, 180, 230, 0.16);
   --border-strong: rgba(120, 180, 230, 0.34);
 
-  --text: #e6f1fa;
-  --text-muted: #9fb8cc;
-  --text-faint: #71899f;
+  --text: #eef6fd;
+  --text-muted: #b4cadc;
+  --text-faint: #8ba3b8;
 
   --primary: #37ace8;
   --primary-hover: #54b9ef;
