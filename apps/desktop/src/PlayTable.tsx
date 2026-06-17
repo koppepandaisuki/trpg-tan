@@ -147,6 +147,8 @@ export function PlayTable({
   } | null>(null);
   // 参加者ビュー(没入モード): 盤面フルスクリーン + 格納式ドロワー。
   const [playerMode, setPlayerMode] = useState(false);
+  // 卓タグの追加入力。
+  const [tagDraft, setTagDraft] = useState("");
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -289,8 +291,18 @@ export function PlayTable({
     dispatch(boardSetEvent(newCtx(), { image: dataUrl }));
   }
 
+  function setForeground(dataUrl: string | null) {
+    dispatch(boardSetEvent(newCtx(), { foreground: dataUrl }));
+  }
+
   function toggleGrid() {
     dispatch(boardSetEvent(newCtx(), { grid: !(scene.board?.grid ?? true) }));
+  }
+
+  /** 卓のタグ(ロビーのカードに表示。ローカル整理用。配信不要)。 */
+  function setTableTags(tags: string[]) {
+    setScene((s) => ({ ...s, tags }));
+    setDirty(true);
   }
 
   function addScene() {
@@ -1210,6 +1222,52 @@ export function PlayTable({
             storageKey={`trpg.play.stack-left.v1::${scene.id}`}
             sections={[
               {
+                id: "table",
+                title: "卓のタグ",
+                icon: <BookMarked size={14} />,
+                defaultOpen: false,
+                body: (
+                  <div className="ttags">
+                    <p className="pside-empty muted" style={{ marginTop: 0 }}>
+                      ロビーのカードに表示されます(配信はされません)。
+                    </p>
+                    <div className="ttags-chips">
+                      {(scene.tags ?? []).map((t) => (
+                        <span key={t} className="ttag">
+                          {t}
+                          <button
+                            className="ttag-x"
+                            aria-label={`${t} を削除`}
+                            onClick={() =>
+                              setTableTags(
+                                (scene.tags ?? []).filter((x) => x !== t),
+                              )
+                            }
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <input
+                      className="input"
+                      value={tagDraft}
+                      onChange={(e) => setTagDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        const t = tagDraft.trim();
+                        if (t && !(scene.tags ?? []).includes(t)) {
+                          setTableTags([...(scene.tags ?? []), t].slice(0, 8));
+                        }
+                        setTagDraft("");
+                      }}
+                      placeholder="タグを追加（Enter）例: 初心者歓迎"
+                      maxLength={20}
+                    />
+                  </div>
+                ),
+              },
+              {
                 id: "assets",
                 title: "アセット",
                 icon: <ImageIcon size={14} />,
@@ -1366,6 +1424,7 @@ export function PlayTable({
               activeSceneId={scene.activeSceneId}
               onMove={movePanel}
               onSetImage={setBoardImage}
+              onSetForeground={setForeground}
               onToggleGrid={toggleGrid}
               onAddImage={addImageObject}
               onUpdate={updatePanel}

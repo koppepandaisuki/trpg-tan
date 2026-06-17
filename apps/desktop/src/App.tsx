@@ -53,6 +53,7 @@ import {
   type PlayIndexEntry,
 } from "./play-storage";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
+import { makePlayThumbnail } from "./play-thumb";
 import brandLogo from "./assets/logo.png";
 
 // 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。ストアは初期
@@ -264,8 +265,17 @@ export function App() {
     }
   }
 
-  function handlePlayPersist(scene: PlayScene, path: string) {
-    setPlayIndex((idx) => upsertPlayIndex(idx, buildPlayIndexEntry(scene, path)));
+  async function handlePlayPersist(scene: PlayScene, path: string) {
+    // 保存時にシステム名を解決して持たせる(全システムでカードに正しく表示するため)
+    // と、前景/背景からサムネイルを生成してカードに出す。
+    const systemLabel = tableSystemLabel(scene.systemId);
+    const thumbnail = await makePlayThumbnail(scene);
+    setPlayIndex((idx) =>
+      upsertPlayIndex(
+        idx,
+        buildPlayIndexEntry(scene, path, { systemLabel, thumbnail }),
+      ),
+    );
   }
 
   function removeSessionEntry(id: string) {
@@ -759,7 +769,15 @@ export function App() {
                       >
                         <div className="lobby-card-cover">
                           <span className="lobby-card-badge">ローカル</span>
-                          <Dices className="lobby-card-art" size={40} />
+                          {e.thumbnail ? (
+                            <img
+                              className="lobby-card-thumb"
+                              src={e.thumbnail}
+                              alt=""
+                            />
+                          ) : (
+                            <Dices className="lobby-card-art" size={40} />
+                          )}
                           <button
                             className="lobby-card-del"
                             title="一覧から外す(ファイルは消えません)"
@@ -775,8 +793,17 @@ export function App() {
                         <div className="lobby-card-body">
                           <h4 className="lobby-card-title">{e.title}</h4>
                           <p className="lobby-card-sys">
-                            {tableSystemLabel(e.systemId)}
+                            {e.systemLabel ?? tableSystemLabel(e.systemId)}
                           </p>
+                          {e.tags && e.tags.length > 0 && (
+                            <div className="lobby-card-tags">
+                              {e.tags.slice(0, 4).map((t) => (
+                                <span key={t} className="lobby-card-tag">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           <div className="lobby-card-stats">
                             <span title="駒数">
                               <Users size={13} /> {e.panelCount} 駒
