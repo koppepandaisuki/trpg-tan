@@ -776,16 +776,21 @@ body {
   box-shadow: var(--shadow-sm);
   touch-action: none;
 }
-/* 背景レイヤー(駒の下)。Shift+ホイールで transform: scale を変える。 */
+/* 背景レイヤー(駒の下)。Shift+ホイールで transform: scale を変える。
+   ぼかし時に縁が透けないよう少しだけ外側へはみ出させる(板で見切れる)。 */
 .board-bg {
   position: absolute;
-  inset: 0;
+  inset: -2%;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   transform-origin: center;
   pointer-events: none;
   z-index: 0;
+}
+/* 前景がある時、背景をぼかして被写体を引き立てる(ツールバーで on/off)。 */
+.board-bg.bg-blur {
+  filter: blur(10px);
 }
 
 .board-grid {
@@ -1713,7 +1718,9 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* 被写体(立ち絵など)を全部見せる。全面を覆わないので背景も一緒に見える。 */
+  object-fit: contain;
+  transform-origin: center;
   pointer-events: none;
   z-index: 90;
 }

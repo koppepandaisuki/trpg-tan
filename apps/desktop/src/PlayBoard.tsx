@@ -39,6 +39,7 @@ export function PlayBoard({
   onSetImage,
   onSetForeground,
   onScaleArt,
+  onToggleBgBlur,
   onToggleGrid,
   onAddImage,
   onUpdate,
@@ -56,6 +57,8 @@ export function PlayBoard({
   onSetForeground?: (dataUrl: string | null) => void;
   /** 背景・前景の表示倍率を Shift+ホイールで増減(factor を掛ける)。GM のみ。 */
   onScaleArt?: (factor: number) => void;
+  /** 前景がある時の背景ぼかしを on/off。GM のみ。 */
+  onToggleBgBlur?: () => void;
   onToggleGrid: () => void;
   onAddImage: (
     name: string,
@@ -88,6 +91,7 @@ export function PlayBoard({
   const foreground = board?.foreground ?? null;
   const bgScale = board?.bgScale ?? 1;
   const fgScale = board?.fgScale ?? 1;
+  const bgBlur = board?.bgBlur !== false; // 未設定 = ぼかす
   // このシーンに出すオブジェクト(未帰属=全シーン共通)。layer 昇順 = 後勝ちで前面。
   // 非表示(hidden): キャラ駒は GM・参加者とも盤面から消す(単純な表示/非表示。
   // GM はキャラ一覧の目アイコンで戻せる)。画像オブジェクトは一覧に無いので、GM
@@ -404,6 +408,11 @@ export function PlayBoard({
             前景クリア
           </button>
         )}
+        {onToggleBgBlur && foreground && (
+          <button className="btn mini" onClick={onToggleBgBlur}>
+            背景ぼかし: {bgBlur ? "ON" : "OFF"}
+          </button>
+        )}
         <button className="btn mini" onClick={onToggleGrid}>
           グリッド: {grid ? "ON" : "OFF"}
         </button>
@@ -466,7 +475,7 @@ export function PlayBoard({
         {/* 背景レイヤー(駒の下)。Shift+ホイールで倍率を変えられる。 */}
         {image && (
           <div
-            className="board-bg"
+            className={`board-bg ${foreground && bgBlur ? "bg-blur" : ""}`}
             style={{
               backgroundImage: `url(${image})`,
               transform: `scale(${bgScale})`,

@@ -223,6 +223,7 @@ export function boardSetEvent(
     foreground?: string | null;
     bgScale?: number;
     fgScale?: number;
+    bgBlur?: boolean;
   },
 ): BoardSetEvent {
   return {
@@ -235,6 +236,7 @@ export function boardSetEvent(
     ...(patch.foreground !== undefined ? { foreground: patch.foreground } : {}),
     ...(patch.bgScale !== undefined ? { bgScale: patch.bgScale } : {}),
     ...(patch.fgScale !== undefined ? { fgScale: patch.fgScale } : {}),
+    ...(patch.bgBlur !== undefined ? { bgBlur: patch.bgBlur } : {}),
   };
 }
 
