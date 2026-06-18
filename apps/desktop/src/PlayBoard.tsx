@@ -50,7 +50,7 @@ export function PlayBoard({
   onSetForeground,
   onScaleArt,
   onToggleBgBlur,
-  onSetFgLayer,
+  onReorder,
   onToggleGrid,
   onAddImage,
   onUpdate,
@@ -66,12 +66,12 @@ export function PlayBoard({
   onSetImage: (dataUrl: string | null) => void;
   /** 前景画像(駒より上のレイヤー)の設定 / 解除。GM のみ。 */
   onSetForeground?: (dataUrl: string | null) => void;
-  /** 背景・前景の表示倍率を Shift+ホイールで増減(factor を掛ける)。GM のみ。 */
-  onScaleArt?: (factor: number) => void;
+  /** 背景(bg)/前景(fg)の表示倍率を増減(factor を掛ける)。GM のみ。 */
+  onScaleArt?: (factor: number, target: "bg" | "fg") => void;
   /** 前景がある時の背景ぼかしを on/off。GM のみ。 */
   onToggleBgBlur?: () => void;
-  /** 前景の重なり順(z-index)を delta 増減。GM のみ。 */
-  onSetFgLayer?: (delta: number) => void;
+  /** 重なりを 1 つ前/後ろへ。target は 駒 id / null=前景。GM のみ。 */
+  onReorder?: (panelId: string | null, dir: 1 | -1) => void;
   onToggleGrid: () => void;
   onAddImage: (
     name: string,
@@ -132,9 +132,9 @@ export function PlayBoard({
   }
 
   function onWheel(e: React.WheelEvent) {
-    // Shift+ホイール: 背景・前景の拡大縮小(GM のみ。卓に反映・配信)。
+    // Shift+ホイール=背景 / Shift+Alt+ホイール=前景 を別々に拡大縮小(GM のみ)。
     if (e.shiftKey && onScaleArt) {
-      onScaleArt(e.deltaY < 0 ? 1.06 : 1 / 1.06);
+      onScaleArt(e.deltaY < 0 ? 1.06 : 1 / 1.06, e.altKey ? "fg" : "bg");
       return;
     }
     const next = Math.max(
@@ -429,12 +429,12 @@ export function PlayBoard({
             背景ぼかし: {bgBlur ? "ON" : "OFF"}
           </button>
         )}
-        {onSetFgLayer && foreground && (
+        {onReorder && foreground && (
           <span className="board-fglayer">
             前景の重なり
             <button
               className="btn mini"
-              onClick={() => onSetFgLayer(1)}
+              onClick={() => onReorder(null, 1)}
               title="前景を前面へ"
               aria-label="前景を前面へ"
             >
@@ -442,7 +442,7 @@ export function PlayBoard({
             </button>
             <button
               className="btn mini"
-              onClick={() => onSetFgLayer(-1)}
+              onClick={() => onReorder(null, -1)}
               title="前景を背面へ"
               aria-label="前景を背面へ"
             >
@@ -506,7 +506,7 @@ export function PlayBoard({
                 </span>
                 <button
                   className="board-layerbar-btn"
-                  onClick={() => onUpdate(sel.id, { layer: (sel.layer ?? 0) + 1 })}
+                  onClick={() => onReorder?.(sel.id, 1)}
                   title="前面へ（前景や他の駒より前に）"
                   aria-label="前面へ"
                 >
@@ -514,7 +514,7 @@ export function PlayBoard({
                 </button>
                 <button
                   className="board-layerbar-btn"
-                  onClick={() => onUpdate(sel.id, { layer: (sel.layer ?? 0) - 1 })}
+                  onClick={() => onReorder?.(sel.id, -1)}
                   title="背面へ"
                   aria-label="背面へ"
                 >
@@ -699,6 +699,7 @@ export function PlayBoard({
             activeSceneId={activeSceneId}
             playerMode={playerMode}
             onUpdate={onUpdate}
+            onReorder={onReorder}
             onDelete={() => {
               onRemove(menuPanel.id);
               setMenu(null);
@@ -719,6 +720,7 @@ function ObjectMenu({
   activeSceneId,
   playerMode = false,
   onUpdate,
+  onReorder,
   onDelete,
   onClose,
 }: {
@@ -746,6 +748,8 @@ function ObjectMenu({
       >
     >,
   ) => void;
+  /** 重なりを 1 つ前/後ろへ(駒 id / null=前景)。 */
+  onReorder?: (panelId: string | null, dir: 1 | -1) => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
@@ -982,14 +986,14 @@ function ObjectMenu({
         <span style={{ flex: 1 }} />
         <button
           className="btn mini"
-          onClick={() => onUpdate(panel.id, { layer: (panel.layer ?? 0) - 1 })}
+          onClick={() => onReorder?.(panel.id, -1)}
           title="背面へ"
         >
           ⬇ 背面
         </button>
         <button
           className="btn mini"
-          onClick={() => onUpdate(panel.id, { layer: (panel.layer ?? 0) + 1 })}
+          onClick={() => onReorder?.(panel.id, 1)}
           title="前面へ"
         >
           ⬆ 前面
