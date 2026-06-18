@@ -89,7 +89,7 @@ export function PlayPanel({
         {!playerMode && onToggleHidden && (
           <button
             className="ppanel-eye"
-            title={panel.hidden ? "参加者に表示する" : "参加者から隠す(秘匿)"}
+            title={panel.hidden ? "盤面に表示する" : "盤面から隠す（GM・参加者とも）"}
             aria-label={panel.hidden ? "表示する" : "非表示にする"}
             onClick={(e) => {
               e.stopPropagation();
