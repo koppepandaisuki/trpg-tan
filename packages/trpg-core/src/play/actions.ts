@@ -217,7 +217,13 @@ export function panelUpdateEvent(
 /** 盤面設定(背景画像 / グリッド / 前景)の変更。指定したフィールドだけ反映。 */
 export function boardSetEvent(
   ctx: EventCtx,
-  patch: { image?: string | null; grid?: boolean; foreground?: string | null },
+  patch: {
+    image?: string | null;
+    grid?: boolean;
+    foreground?: string | null;
+    bgScale?: number;
+    fgScale?: number;
+  },
 ): BoardSetEvent {
   return {
     id: ctx.id,
@@ -227,6 +233,8 @@ export function boardSetEvent(
     ...(patch.image !== undefined ? { image: patch.image } : {}),
     ...(patch.grid !== undefined ? { grid: patch.grid } : {}),
     ...(patch.foreground !== undefined ? { foreground: patch.foreground } : {}),
+    ...(patch.bgScale !== undefined ? { bgScale: patch.bgScale } : {}),
+    ...(patch.fgScale !== undefined ? { fgScale: patch.fgScale } : {}),
   };
 }
 

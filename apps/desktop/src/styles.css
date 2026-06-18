@@ -776,6 +776,17 @@ body {
   box-shadow: var(--shadow-sm);
   touch-action: none;
 }
+/* 背景レイヤー(駒の下)。Shift+ホイールで transform: scale を変える。 */
+.board-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform-origin: center;
+  pointer-events: none;
+  z-index: 0;
+}
 
 .board-grid {
   position: absolute;

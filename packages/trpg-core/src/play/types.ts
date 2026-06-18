@@ -109,6 +109,10 @@ export interface PlayBoard {
   grid: boolean;
   /** 前景画像(駒より上に重ねる演出レイヤー。data URL)。未設定なら無し。 */
   foreground?: string | null;
+  /** 背景画像の表示倍率(Shift+ホイールで調整。未設定 = 1)。 */
+  bgScale?: number;
+  /** 前景画像の表示倍率(Shift+ホイールで調整。未設定 = 1)。 */
+  fgScale?: number;
 }
 
 /** BGM トラック(ローカル音声ファイルへの参照)。実体は埋め込まずパスだけ持つ。 */
@@ -338,6 +342,9 @@ export interface BoardSetEvent extends BaseEvent {
   grid?: boolean;
   /** 前景画像(駒より上のレイヤー)。null で解除。undefined は据え置き。 */
   foreground?: string | null;
+  /** 背景 / 前景の表示倍率(undefined は据え置き)。 */
+  bgScale?: number;
+  fgScale?: number;
 }
 
 /** シーン追加(追加後そのシーンへ切替)。 */

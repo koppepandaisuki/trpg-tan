@@ -38,6 +38,7 @@ export function PlayBoard({
   onMove,
   onSetImage,
   onSetForeground,
+  onScaleArt,
   onToggleGrid,
   onAddImage,
   onUpdate,
@@ -53,6 +54,8 @@ export function PlayBoard({
   onSetImage: (dataUrl: string | null) => void;
   /** 前景画像(駒より上のレイヤー)の設定 / 解除。GM のみ。 */
   onSetForeground?: (dataUrl: string | null) => void;
+  /** 背景・前景の表示倍率を Shift+ホイールで増減(factor を掛ける)。GM のみ。 */
+  onScaleArt?: (factor: number) => void;
   onToggleGrid: () => void;
   onAddImage: (
     name: string,
@@ -83,6 +86,8 @@ export function PlayBoard({
   const grid = board?.grid ?? true;
   const image = board?.image ?? null;
   const foreground = board?.foreground ?? null;
+  const bgScale = board?.bgScale ?? 1;
+  const fgScale = board?.fgScale ?? 1;
   // このシーンに出すオブジェクト(未帰属=全シーン共通)。layer 昇順 = 後勝ちで前面。
   // 非表示(hidden): キャラ駒は GM・参加者とも盤面から消す(単純な表示/非表示。
   // GM はキャラ一覧の目アイコンで戻せる)。画像オブジェクトは一覧に無いので、GM
@@ -109,6 +114,11 @@ export function PlayBoard({
   }
 
   function onWheel(e: React.WheelEvent) {
+    // Shift+ホイール: 背景・前景の拡大縮小(GM のみ。卓に反映・配信)。
+    if (e.shiftKey && onScaleArt) {
+      onScaleArt(e.deltaY < 0 ? 1.06 : 1 / 1.06);
+      return;
+    }
     const next = Math.max(
       1,
       Math.min(4, zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12)),
@@ -448,12 +458,21 @@ export function PlayBoard({
           height: STAGE_H,
           transform: `scale(${effScale})`,
           transformOrigin: "top left",
-          ...(image ? { backgroundImage: `url(${image})` } : {}),
         }}
         onPointerDown={startPan}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
+        {/* 背景レイヤー(駒の下)。Shift+ホイールで倍率を変えられる。 */}
+        {image && (
+          <div
+            className="board-bg"
+            style={{
+              backgroundImage: `url(${image})`,
+              transform: `scale(${bgScale})`,
+            }}
+          />
+        )}
         {grid && <div className="board-grid" />}
 
         {visible.length === 0 && !image && (
@@ -561,6 +580,7 @@ export function PlayBoard({
             src={foreground}
             alt=""
             draggable={false}
+            style={{ transform: `scale(${fgScale})` }}
           />
         )}
       </div>
