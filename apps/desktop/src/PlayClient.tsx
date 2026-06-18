@@ -13,6 +13,7 @@ import {
 import { getLibrary } from "./library";
 import { readSheetFromPath, isGenericSheet } from "./storage";
 import { DiceMotion } from "./DiceMotion";
+import { unlockDiceSound } from "./dice-sound";
 import { PlayBoard } from "./PlayBoard";
 import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
@@ -89,6 +90,7 @@ export function PlayClient({
     let alive = true;
     let r: Room | null = null;
     let got = false; // スナップショット受領済みか
+    let gmSeen = false; // GM の presence を一度でも見たか(離脱検知用)
     let helloTimer: number | undefined;
     void (async () => {
       try {
@@ -98,7 +100,14 @@ export function PlayClient({
           return;
         }
         roomRef.current = r;
-        r.onPresence((names) => alive && setMembers(names));
+        r.onPresence((names) => {
+          if (!alive) return;
+          setMembers(names);
+          // GM(presence 名 "GM")が一度居て、その後消えたら卓は閉じられたとみなす。
+          // 「終了」を押さず抜けた/アプリを閉じた場合も presence 落ちで検知できる。
+          if (names.includes("GM")) gmSeen = true;
+          else if (gmSeen) setPhase("closed");
+        });
         r.onProgress((p) => alive && setProgress(p));
         r.onMessage((msg) => {
           if (!alive) return;
@@ -213,6 +222,7 @@ export function PlayClient({
     if (!a) {
       a = new Audio();
       a.loop = true;
+      a.preload = "auto"; // 先読みして途切れにくくする
       bgmElRef.current = a;
     }
     a.loop = true;
@@ -230,6 +240,7 @@ export function PlayClient({
     if (audioReadyRef.current) return;
     audioReadyRef.current = true;
     setAudioBlocked(false);
+    unlockDiceSound(); // ダイス効果音(Web Audio)も同時に解錠する
     playBgm(); // GM が既に流している BGM があれば再開する
   }
 

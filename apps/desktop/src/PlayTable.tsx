@@ -303,10 +303,41 @@ export function PlayTable({
     dispatch(boardSetEvent(newCtx(), { bgBlur: !on }));
   }
 
-  /** 前景の重なり順(z-index)を増減。駒の layer より大きいと駒の前に出る。 */
-  function setFgLayer(delta: number) {
-    const cur = scene.board?.fgLayer ?? 0;
-    dispatch(boardSetEvent(newCtx(), { fgLayer: cur + delta }));
+  /**
+   * 駒(または前景)の重なりを 1 つ前/後ろへ。盤面に出ているモノ + 前景を 1 つの
+   * スタックとして 0..N-1 の連番に振り直すので、何度押しても番号が膨らんで余白
+   * (飛び番)ができることはない(上限 = モノの数)。
+   * target: 駒 id / null=前景。dir: +1=前面へ / -1=背面へ。
+   */
+  function reorder(target: string | null, dir: 1 | -1) {
+    const board = scene.board;
+    const onBoard = scene.panels.filter(
+      (p) => !p.sceneId || p.sceneId === scene.activeSceneId,
+    );
+    const items: { key: string; sort: number; isFg: boolean }[] = onBoard.map(
+      (p) => ({ key: p.id, sort: p.layer ?? 0, isFg: false }),
+    );
+    if (board?.foreground) {
+      // 同じ整数でも前景は駒より前(既定の見え方)に来るよう +0.5。
+      items.push({ key: "__fg__", sort: (board.fgLayer ?? 0) + 0.5, isFg: true });
+    }
+    items.sort((a, b) => a.sort - b.sort);
+    const i = items.findIndex((it) => it.key === (target ?? "__fg__"));
+    if (i < 0) return;
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return; // もう端
+    [items[i], items[j]] = [items[j], items[i]];
+    // 0..N-1 へ振り直し(変わったものだけ更新)。
+    items.forEach((it, idx) => {
+      if (it.isFg) {
+        if ((board?.fgLayer ?? 0) !== idx) {
+          dispatch(boardSetEvent(newCtx(), { fgLayer: idx }));
+        }
+      } else {
+        const p = onBoard.find((t) => t.id === it.key);
+        if (p && (p.layer ?? 0) !== idx) updatePanel(p.id, { layer: idx });
+      }
+    });
   }
 
   /**
@@ -314,15 +345,13 @@ export function PlayTable({
    * (ログ・配信はしない)、止まってから確定値を 1 回だけ board-set で配信・ログ化
    * する(ホイール連投でログ/通信が膨らむのを防ぐ)。
    */
-  function scaleArt(factor: number) {
+  function scaleArt(factor: number, target: "bg" | "fg") {
     setScene((s) => {
       const board = s.board ?? { image: null, grid: true };
       const cl = (v: number) => Math.max(0.2, Math.min(5, v));
-      const nb = {
-        ...board,
-        bgScale: cl((board.bgScale ?? 1) * factor),
-        fgScale: cl((board.fgScale ?? 1) * factor),
-      };
+      const nb = { ...board };
+      if (target === "bg") nb.bgScale = cl((board.bgScale ?? 1) * factor);
+      else nb.fgScale = cl((board.fgScale ?? 1) * factor);
       const scenes = s.scenes?.map((sc) =>
         sc.id === s.activeSceneId ? { ...sc, board: nb } : sc,
       );
@@ -1475,7 +1504,7 @@ export function PlayTable({
               onSetForeground={setForeground}
               onScaleArt={scaleArt}
               onToggleBgBlur={toggleBgBlur}
-              onSetFgLayer={setFgLayer}
+              onReorder={reorder}
               onToggleGrid={toggleGrid}
               onAddImage={addImageObject}
               onUpdate={updatePanel}
