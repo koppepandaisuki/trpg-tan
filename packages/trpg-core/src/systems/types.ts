@@ -38,6 +38,11 @@ export interface SkillDef {
    */
   baseFormula?: string;
   category?: string; // "探索" 等のグルーピング
+  /**
+   * 専門名の追加入力欄を出す技能(運転〈自動車〉/射撃〈拳銃〉/芸術〈絵画〉/
+   * 他言語〈仏語〉等)。値計算には影響せず、表示・チャパレ用の名称を持つ。
+   */
+  specializable?: boolean;
 }
 
 /**

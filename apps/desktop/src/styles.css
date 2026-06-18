@@ -3058,6 +3058,16 @@ body {
 .skills th:nth-child(n + 2) {
   text-align: center;
 }
+/* 専門化技能の専門名入力(運転〈自動車〉など)。技能名の右に小さく。 */
+.skill-spec {
+  display: inline-block;
+  width: 108px;
+  margin-left: 8px;
+  height: 24px;
+  padding: 2px 8px;
+  font-size: 12px;
+  vertical-align: middle;
+}
 
 .dot {
   display: inline-block;

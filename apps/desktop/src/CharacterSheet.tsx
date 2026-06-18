@@ -113,6 +113,10 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
   const [intAlloc, setIntAlloc] = useState<Record<string, number>>(
     initialSheet?.allocation?.interest ?? {},
   );
+  // 専門化技能の専門名(運転〈自動車〉等)。技能キー → 名称。
+  const [skillSpec, setSkillSpec] = useState<Record<string, string>>(
+    initialSheet?.skillSpecialties ?? {},
+  );
   const [message, setMessage] = useState<string | null>(null);
 
   const system = getSystem(systemId) as SystemDefinition;
@@ -144,6 +148,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setOccupationName("");
     setOccAlloc({});
     setIntAlloc({});
+    setSkillSpec({});
     setImage(null);
     setId(freshId());
     setCreatedAt(new Date().toISOString());
@@ -166,6 +171,11 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     const skills: Record<string, number> = {};
     for (const s of system.skills)
       skills[s.key] = finalValue(s.key, skillBaseValue(s, chars));
+    const specialties: Record<string, string> = {};
+    for (const [k, v] of Object.entries(skillSpec)) {
+      const t = v.trim();
+      if (t) specialties[k] = t;
+    }
     return {
       schemaVersion: CCSHEET_SCHEMA_VERSION,
       id,
@@ -174,6 +184,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       image,
       characteristics: chars,
       skills,
+      skillSpecialties: Object.keys(specialties).length ? specialties : undefined,
       occupationId: isCustomOcc ? null : occupationId || null,
       occupationName: isCustomOcc
         ? occupationName.trim() || "オリジナル職業"
@@ -199,6 +210,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setOccupationName(sheet.occupationName ?? "");
     setOccAlloc(sheet.allocation?.occupation ?? {});
     setIntAlloc(sheet.allocation?.interest ?? {});
+    setSkillSpec(sheet.skillSpecialties ?? {});
   }
 
   async function onSave() {
@@ -512,6 +524,17 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
                   <td>
                     {s.label}
                     {isOcc && <span className="dot" title="職業技能" />}
+                    {s.specializable && (
+                      <input
+                        className="input skill-spec"
+                        value={skillSpec[s.key] ?? ""}
+                        onChange={(e) =>
+                          setSkillSpec({ ...skillSpec, [s.key]: e.target.value })
+                        }
+                        placeholder="〈専門〉"
+                        title="専門名（例: 自動車 / 拳銃 / 絵画 / フランス語）"
+                      />
+                    )}
                   </td>
                   <td className="muted">{base}</td>
                   <td>
