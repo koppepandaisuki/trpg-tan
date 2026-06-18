@@ -132,9 +132,11 @@ export function LogView({
     if (el) el.scrollTop = el.scrollHeight;
   }, [shown.length, filter, channel, newestFirst]);
 
-  // 選択中の発言者が居なくなったら GM に戻す。
+  // 選択中の発言者が居なくなったら、自分(参加者)があれば自分へ、無ければ GM へ。
   useEffect(() => {
-    if (!speakers.some((s) => s.id === speakerId)) onSpeakerChange("GM");
+    if (!speakers.some((s) => s.id === speakerId)) {
+      onSpeakerChange(speakers.some((s) => s.id === "self") ? "self" : "GM");
+    }
   }, [speakers, speakerId, onSpeakerChange]);
 
   function toggleViewer(name: string) {
@@ -158,7 +160,7 @@ export function LogView({
           メイン
         </button>
         {speakers
-          .filter((s) => s.id !== "GM")
+          .filter((s) => s.id !== "GM" && s.id !== "self")
           .map((s) => (
             <button
               key={s.id}
@@ -254,7 +256,7 @@ export function LogView({
               <CircleHelp size={13} /> 出目を見せる相手:
             </span>
             {speakers
-              .filter((s) => s.id !== "GM")
+              .filter((s) => s.id !== "GM" && s.id !== "self")
               .map((s) => (
                 <label key={s.id} className="pinput-viewer">
                   <input

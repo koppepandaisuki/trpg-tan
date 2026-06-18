@@ -57,9 +57,10 @@ export function PlayClient({
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(true);
 
-  // チャット入力(PlayTable と同じ流儀)。
+  // チャット入力(PlayTable と同じ流儀)。発言者は既定で「自分(入室名)」。
+  // キャラ未作成でもこのまま地の声でチャット/ダイスを振れる。
   const [compose, setCompose] = useState<{ speakerId: string; text: string }>({
-    speakerId: "GM",
+    speakerId: "self",
     text: "",
   });
   const [secret, setSecret] = useState(false);
@@ -316,12 +317,19 @@ export function PlayClient({
     }
   }
 
-  // 発言者は自分のキャラに限定。未選択/無効なら先頭の自キャラに合わせる。
+  /** 自分が登場させた駒を片付ける(GM が所有者一致を検証して panel-remove)。 */
+  function removeMyCharacter(panelId: string) {
+    sendIntent({ kind: "remove-char", panelId });
+  }
+
+  // 発言者は「自分(入室名)」か自分のキャラのみ。駒が消えるなど無効になったら
+  // 自分(地の声)へ戻す。"self" は常に有効。
   const myIds = myCards.map((p) => p.id).join(",");
   useEffect(() => {
-    if (myCards.length > 0 && !myCards.some((p) => p.id === compose.speakerId)) {
-      setCompose((c) => ({ ...c, speakerId: myCards[0].id }));
-    }
+    const valid =
+      compose.speakerId === "self" ||
+      myCards.some((p) => p.id === compose.speakerId);
+    if (!valid) setCompose((c) => ({ ...c, speakerId: "self" }));
     // myIds で myCards の変化を検知(配列参照は毎回変わるため)。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myIds, compose.speakerId]);
@@ -569,8 +577,9 @@ export function PlayClient({
                   key={p.id}
                   panel={p}
                   playerMode
+                  allowRemove
                   onResource={changeResource}
-                  onRemove={() => {}}
+                  onRemove={() => removeMyCharacter(p.id)}
                   onFill={(text) => fill(p.id, text)}
                   onSend={(text) => sendNow(p.id, text)}
                   onEditPalette={(text) => updatePanel(p.id, { palette: text })}
@@ -604,10 +613,11 @@ export function PlayClient({
                     <div className="pside-log">
                       <LogView
                         log={scene.log}
-                        speakers={myCards.map((p) => ({
-                          id: p.id,
-                          name: p.name,
-                        }))}
+                        speakers={[
+                          // 自分(入室名)= 地の声。キャラ未作成でもダイス/発言できる。
+                          { id: "self", name: `${name}(自分)` },
+                          ...myCards.map((p) => ({ id: p.id, name: p.name })),
+                        ]}
                         speakerId={compose.speakerId}
                         text={compose.text}
                         secret={secret}

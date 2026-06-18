@@ -48,6 +48,8 @@ export type NetIntent =
   | { kind: "memo"; text: string }
   /** 参加者が自分のキャラを登場させる(GM が owner を刻んで panel-add)。 */
   | { kind: "add-char"; panel: Panel }
+  /** 参加者が自分の登場させた駒を片付ける(GM が所有者一致を検証)。 */
+  | { kind: "remove-char"; panelId: string }
   | {
       kind: "panel-update";
       panelId: string;

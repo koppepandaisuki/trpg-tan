@@ -44,6 +44,7 @@ export function PlayPanel({
   onSpeed,
   onToggleHidden,
   playerMode = false,
+  allowRemove = false,
 }: {
   panel: Panel;
   onResource: (panel: Panel, resource: PanelResource, delta: number) => void;
@@ -59,6 +60,8 @@ export function PlayPanel({
   onToggleHidden?: (panel: Panel) => void;
   /** 参加者ビュー(卓から外す × を隠す)。 */
   playerMode?: boolean;
+  /** 参加者ビューでも × を出す(自分が登場させた駒を自分で片付ける)。 */
+  allowRemove?: boolean;
 }) {
   const characteristics = panel.stats.filter((s) => s.kind === "characteristic");
   const skills = panel.stats.filter((s) => s.kind === "skill");
@@ -104,12 +107,17 @@ export function PlayPanel({
             {panel.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         )}
-        {!playerMode && (
+        {(!playerMode || allowRemove) && (
           <button
             className="ppanel-del"
-            title="卓から外す"
+            title={allowRemove ? "自分の駒を片付ける" : "卓から外す"}
             onClick={(e) => {
               e.stopPropagation();
+              if (
+                allowRemove &&
+                !confirm(`「${panel.name}」を卓から片付けますか？`)
+              )
+                return;
               onRemove(panel);
             }}
           >
