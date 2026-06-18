@@ -113,6 +113,10 @@ export interface PlayBoard {
   bgScale?: number;
   /** 前景画像の表示倍率(Shift+ホイールで調整。未設定 = 1)。 */
   fgScale?: number;
+  /** 前景がある時に背景をぼかすか(未設定 = ぼかす)。 */
+  bgBlur?: boolean;
+  /** 前景の重なり順(z-index)。未設定 = 0。駒の layer がこれより大きいと駒が前。 */
+  fgLayer?: number;
 }
 
 /** BGM トラック(ローカル音声ファイルへの参照)。実体は埋め込まずパスだけ持つ。 */
@@ -345,6 +349,10 @@ export interface BoardSetEvent extends BaseEvent {
   /** 背景 / 前景の表示倍率(undefined は据え置き)。 */
   bgScale?: number;
   fgScale?: number;
+  /** 背景ぼかしの on/off(undefined は据え置き)。 */
+  bgBlur?: boolean;
+  /** 前景の重なり順(undefined は据え置き)。 */
+  fgLayer?: number;
 }
 
 /** シーン追加(追加後そのシーンへ切替)。 */

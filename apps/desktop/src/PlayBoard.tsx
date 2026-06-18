@@ -1,6 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Panel, PlayBoard as BoardState } from "@trpg/core";
-import { Eye, EyeOff, Pin, Repeat, Layers, Trash2, Ruler } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Pin,
+  Repeat,
+  Layers,
+  Trash2,
+  Ruler,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { ASSET_MIME } from "./AssetsPanel";
 
 /**
@@ -39,6 +49,8 @@ export function PlayBoard({
   onSetImage,
   onSetForeground,
   onScaleArt,
+  onToggleBgBlur,
+  onSetFgLayer,
   onToggleGrid,
   onAddImage,
   onUpdate,
@@ -56,6 +68,10 @@ export function PlayBoard({
   onSetForeground?: (dataUrl: string | null) => void;
   /** 背景・前景の表示倍率を Shift+ホイールで増減(factor を掛ける)。GM のみ。 */
   onScaleArt?: (factor: number) => void;
+  /** 前景がある時の背景ぼかしを on/off。GM のみ。 */
+  onToggleBgBlur?: () => void;
+  /** 前景の重なり順(z-index)を delta 増減。GM のみ。 */
+  onSetFgLayer?: (delta: number) => void;
   onToggleGrid: () => void;
   onAddImage: (
     name: string,
@@ -88,6 +104,8 @@ export function PlayBoard({
   const foreground = board?.foreground ?? null;
   const bgScale = board?.bgScale ?? 1;
   const fgScale = board?.fgScale ?? 1;
+  const bgBlur = board?.bgBlur !== false; // 未設定 = ぼかす
+  const fgLayer = board?.fgLayer ?? 0;
   // このシーンに出すオブジェクト(未帰属=全シーン共通)。layer 昇順 = 後勝ちで前面。
   // 非表示(hidden): キャラ駒は GM・参加者とも盤面から消す(単純な表示/非表示。
   // GM はキャラ一覧の目アイコンで戻せる)。画像オブジェクトは一覧に無いので、GM
@@ -154,6 +172,8 @@ export function PlayBoard({
   } | null>(null);
   const [dropActive, setDropActive] = useState(false);
   const [menu, setMenu] = useState<{ panelId: string; x: number; y: number } | null>(null);
+  // クリックで選択した駒(画面上の重なり ⬆⬇ バー用)。
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   // グリッド吸着(40px セル中心へスナップ)。設定は端末に保存。
   const [snap, setSnap] = useState(
     () => localStorage.getItem("trpg.board.snap.v1") !== "0",
@@ -404,6 +424,32 @@ export function PlayBoard({
             前景クリア
           </button>
         )}
+        {onToggleBgBlur && foreground && (
+          <button className="btn mini" onClick={onToggleBgBlur}>
+            背景ぼかし: {bgBlur ? "ON" : "OFF"}
+          </button>
+        )}
+        {onSetFgLayer && foreground && (
+          <span className="board-fglayer">
+            前景の重なり
+            <button
+              className="btn mini"
+              onClick={() => onSetFgLayer(1)}
+              title="前景を前面へ"
+              aria-label="前景を前面へ"
+            >
+              <ChevronUp size={14} />
+            </button>
+            <button
+              className="btn mini"
+              onClick={() => onSetFgLayer(-1)}
+              title="前景を背面へ"
+              aria-label="前景を背面へ"
+            >
+              <ChevronDown size={14} />
+            </button>
+          </span>
+        )}
         <button className="btn mini" onClick={onToggleGrid}>
           グリッド: {grid ? "ON" : "OFF"}
         </button>
@@ -442,6 +488,49 @@ export function PlayBoard({
             ⊡ {Math.round(zoom * 100)}%
           </button>
         )}
+
+        {/* 選択中の駒の重なり順を変える ⬆⬇ バー(クリックで選択)。 */}
+        {!playerMode &&
+          (() => {
+            const sel = selectedId
+              ? visible.find((p) => p.id === selectedId)
+              : null;
+            if (!sel) return null;
+            return (
+              <div
+                className="board-layerbar"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <span className="board-layerbar-name" title={sel.name}>
+                  {sel.name}
+                </span>
+                <button
+                  className="board-layerbar-btn"
+                  onClick={() => onUpdate(sel.id, { layer: (sel.layer ?? 0) + 1 })}
+                  title="前面へ（前景や他の駒より前に）"
+                  aria-label="前面へ"
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <button
+                  className="board-layerbar-btn"
+                  onClick={() => onUpdate(sel.id, { layer: (sel.layer ?? 0) - 1 })}
+                  title="背面へ"
+                  aria-label="背面へ"
+                >
+                  <ChevronDown size={16} />
+                </button>
+                <button
+                  className="board-layerbar-x"
+                  onClick={() => setSelectedId(null)}
+                  title="選択解除"
+                  aria-label="選択解除"
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })()}
         <div
           className="board-scalebox"
           style={{
@@ -462,11 +551,15 @@ export function PlayBoard({
         onPointerDown={startPan}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onClick={(e) => {
+          // 盤面の何もない所をクリックしたら選択解除。
+          if (e.target === e.currentTarget) setSelectedId(null);
+        }}
       >
         {/* 背景レイヤー(駒の下)。Shift+ホイールで倍率を変えられる。 */}
         {image && (
           <div
-            className="board-bg"
+            className={`board-bg ${foreground && bgBlur ? "bg-blur" : ""}`}
             style={{
               backgroundImage: `url(${image})`,
               transform: `scale(${bgScale})`,
@@ -492,9 +585,18 @@ export function PlayBoard({
               key={p.id}
               className={`token ${img ? "img-object" : ""} ${
                 drag?.id === p.id ? "dragging" : ""
-              } ${p.hidden ? "hidden" : ""} ${p.locked ? "locked" : ""}`}
-              style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
-              onPointerDown={(e) => startDrag(e, p, i)}
+              } ${p.hidden ? "hidden" : ""} ${p.locked ? "locked" : ""} ${
+                selectedId === p.id ? "selected" : ""
+              }`}
+              style={{
+                left: `${pos.x * 100}%`,
+                top: `${pos.y * 100}%`,
+                zIndex: p.layer ?? 0,
+              }}
+              onPointerDown={(e) => {
+                if (!playerMode) setSelectedId(p.id);
+                startDrag(e, p, i);
+              }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 // 参加者はキャラ駒(ステータスを持つ駒)のみメニューを開ける。
@@ -580,7 +682,7 @@ export function PlayBoard({
             src={foreground}
             alt=""
             draggable={false}
-            style={{ transform: `scale(${fgScale})` }}
+            style={{ transform: `scale(${fgScale})`, zIndex: fgLayer }}
           />
         )}
       </div>

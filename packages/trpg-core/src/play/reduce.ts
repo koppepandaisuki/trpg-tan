@@ -87,6 +87,8 @@ export function reduce(scene: PlayScene, event: PlayEvent): PlayScene {
           event.foreground !== undefined ? event.foreground : prev.foreground,
         bgScale: event.bgScale !== undefined ? event.bgScale : prev.bgScale,
         fgScale: event.fgScale !== undefined ? event.fgScale : prev.fgScale,
+        bgBlur: event.bgBlur !== undefined ? event.bgBlur : prev.bgBlur,
+        fgLayer: event.fgLayer !== undefined ? event.fgLayer : prev.fgLayer,
       };
       // active シーンの盤面にも反映。
       const scenes = scene.scenes?.map((s) =>
