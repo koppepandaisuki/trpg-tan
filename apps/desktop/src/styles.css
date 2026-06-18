@@ -1254,6 +1254,82 @@ body {
   accent-color: var(--primary);
 }
 
+/* サウンド一覧(BGM/SE 統合): 各行に ▶BGM / 🔔SE の 2 ボタン。 */
+.snd-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  border: 1px solid transparent;
+  transition: background 0.2s;
+}
+.snd-item:hover {
+  background: var(--surface-2);
+}
+.snd-item.bgm-on {
+  background: var(--primary-soft);
+  border-color: var(--border);
+}
+.snd-item.se-on {
+  background: rgba(244, 201, 74, 0.18);
+}
+.snd-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 7px;
+  padding: 3px 6px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text);
+  transition: all 0.12s;
+}
+.snd-btn i {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.snd-btn:hover {
+  border-color: var(--primary);
+}
+.snd-bgm.on {
+  background: var(--grad-primary);
+  border-color: transparent;
+  color: #fff;
+}
+.snd-se {
+  color: var(--text-muted);
+}
+.snd-se:hover {
+  color: var(--primary-deep);
+}
+.snd-vols {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px 2px;
+}
+.snd-vol {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.snd-vol input {
+  flex: 1;
+  min-width: 40px;
+  accent-color: var(--primary);
+}
+
 .ptable-head {
   flex-shrink: 0;
   padding: 10px 12px;
