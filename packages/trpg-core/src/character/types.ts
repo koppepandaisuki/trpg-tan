@@ -23,6 +23,10 @@ export interface CharacterSheet {
   /** 技能: キー → 割り振り後の最終値(%)。未設定技能は base 扱い。
    *  PLAY 等の消費側はこの最終値を見ればよい。 */
   skills: Record<string, number>;
+  /** 専門化技能の専門名: 技能キー → 名称(例 drive_auto→"自動車")。表示用。 */
+  skillSpecialties?: Record<string, string>;
+  /** オリジナル(自由追加)技能。値は skills にも入れて PLAY 消費側が見られる。 */
+  customSkills?: { key: string; label: string; value: number }[];
   /** 選択した職業 id(未選択可)。オリジナル職業のときは null + occupationName。*/
   occupationId?: string | null;
   /** オリジナル(自由記入)職業名。occupationId が無くこれがある＝独自職業。*/

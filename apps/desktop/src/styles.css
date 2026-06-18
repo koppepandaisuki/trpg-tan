@@ -1669,6 +1669,35 @@ body {
   padding: 12px 14px 0;
   margin-bottom: 10px;
 }
+.scenebar.collapsed {
+  flex-wrap: nowrap;
+}
+/* シーンバーの折りたたみトグル + ドロップダウン表示。 */
+.scene-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex: none;
+}
+.scene-collapse:hover {
+  color: var(--primary-deep);
+  border-color: var(--border-strong);
+}
+.scene-select {
+  height: 28px;
+  padding: 2px 8px;
+  max-width: 240px;
+}
+.scene-count {
+  font-size: 11px;
+}
 .scenebar-label {
   font-size: 11px;
   font-weight: 700;
@@ -3029,6 +3058,45 @@ body {
 .skills th:nth-child(n + 2) {
   text-align: center;
 }
+/* 専門化技能の専門名入力(運転〈自動車〉など)。技能名の右に小さく。 */
+.skill-spec {
+  display: inline-block;
+  width: 108px;
+  margin-left: 8px;
+  height: 24px;
+  padding: 2px 8px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+/* オリジナル(自由追加)技能。 */
+.custom-skills {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.custom-skills-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.custom-skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.custom-skill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.custom-skill-row .input:first-child {
+  flex: 1;
+}
+.custom-skill-row .num {
+  width: 72px;
+}
 
 .dot {
   display: inline-block;
@@ -3588,14 +3656,29 @@ body {
 /* 盤面左上のステータス一覧(速さ順) */
 .bstatus {
   position: absolute;
-  top: 54px;
-  left: 22px;
+  /* top/left は BoardStatusBar がインラインで指定(ドラッグで移動・端末に保存)。 */
   z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 4px;
   pointer-events: none;
   max-width: 340px;
+}
+/* ドラッグ用グリップ。ここだけ pointer-events: auto。 */
+.bstatus-grip {
+  align-self: flex-start;
+  pointer-events: auto;
+  cursor: grab;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(13, 36, 56, 0.5);
+  border-radius: 6px;
+  padding: 2px 3px;
+  margin-bottom: 1px;
+  display: inline-flex;
+  line-height: 0;
+}
+.bstatus-grip:active {
+  cursor: grabbing;
 }
 .bstatus-row {
   display: flex;
@@ -4864,6 +4947,7 @@ select.cutin-snd {
   align-items: center;
   gap: 6px;
   padding: 4px 6px;
+  pointer-events: auto; /* ターン操作ボタンを押せるように */
 }
 .bstatus-round {
   font-size: 12px;

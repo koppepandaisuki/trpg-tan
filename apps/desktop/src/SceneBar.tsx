@@ -1,11 +1,14 @@
 import { useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type { SceneInfo } from "@trpg/core";
+
+const COLLAPSE_KEY = "trpg.scenebar.collapsed.v1";
 
 /**
  * シーンバー。盤面(背景＋グリッド)を切り替える単位。
  * タブをクリックで切替、ダブルクリックで名前変更、× で削除。
- * キャラ・チャットは卓で共有。BGM はシーンに紐付けておくと、切替時に
- * 自動再生される(♪ マークの付いたシーン)。
+ * シーンが多くて画面を圧迫する時は、左の ▾ で「ドロップダウン」表示に畳める
+ * (任意・端末に保存)。BGM を紐付けたシーンは ♪ で示し、切替時に自動再生。
  */
 export function SceneBar({
   scenes,
@@ -24,6 +27,25 @@ export function SceneBar({
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  function toggleCollapse() {
+    setCollapsed((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        /* 保存失敗は無視 */
+      }
+      return next;
+    });
+  }
 
   function startEdit(s: SceneInfo) {
     setEditingId(s.id);
@@ -38,8 +60,63 @@ export function SceneBar({
     setEditingId(null);
   }
 
+  // 畳めるのはシーンが 2 つ以上の時だけ(1 つなら畳む意味がない)。
+  const canCollapse = scenes.length >= 2;
+
+  // 折りたたみ表示: ドロップダウンで切替するコンパクト 1 行。
+  if (canCollapse && collapsed) {
+    return (
+      <div className="scenebar collapsed" role="tablist" aria-label="シーン">
+        <button
+          type="button"
+          className="scene-collapse"
+          onClick={toggleCollapse}
+          title="シーンを展開する"
+          aria-label="シーンを展開"
+        >
+          <ChevronRight size={14} />
+        </button>
+        <span className="scenebar-label">シーン</span>
+        <select
+          className="input scene-select"
+          value={activeId ?? ""}
+          onChange={(e) => onSelect(e.target.value)}
+          title="シーンを切替"
+        >
+          {scenes.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+              {s.bgmId ? " ♪" : ""}
+            </option>
+          ))}
+        </select>
+        <span className="scene-count muted">{scenes.length}</span>
+        <button
+          type="button"
+          className="scene-add"
+          onClick={onAdd}
+          title="シーンを追加"
+          aria-label="シーンを追加"
+        >
+          ＋
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="scenebar" role="tablist" aria-label="シーン">
+      {canCollapse && (
+        <button
+          type="button"
+          className="scene-collapse"
+          onClick={toggleCollapse}
+          title="シーンを畳む(ドロップダウン表示)"
+          aria-label="シーンを畳む"
+        >
+          <ChevronDown size={14} />
+        </button>
+      )}
       <span className="scenebar-label">シーン</span>
       {scenes.map((s) => {
         const active = s.id === activeId;

@@ -14,12 +14,17 @@ function resourceIcon(key: string) {
 /** 技能/能力の判定コマンド(CCFOLIA 風)。
  *  カスタムシステムは駒の checkTemplate({value} 置換)、CoC は CC<=目標値。
  *  能力値は英語表記(STR 等)で統一し、技能は日本語ラベルのまま。 */
-function cmdFor(s: PanelStat, template?: string): string {
+function cmdFor(s: PanelStat, panel: Panel): string {
   const label = s.kind === "characteristic" ? s.key : s.label;
-  if (template) {
-    return `${template.replace(/\{value\}/g, String(s.target))} ${label}`;
+  if (panel.checkTemplate) {
+    return `${panel.checkTemplate.replace(/\{value\}/g, String(s.target))} ${label}`;
   }
-  return `CC<=${s.target} ${label}`;
+  // CoC 駒のみ CC<= で判定。汎用システムでテンプレ未設定なら、誤った CoC
+  // コマンドを出さず「ラベル 値」を流して手で組み立てられるようにする。
+  const isCoC =
+    panel.systemId === "coc6" || panel.systemId === "coc7" || !!panel.edition;
+  if (isCoC) return `CC<=${s.target} ${label}`;
+  return `${label} ${s.target}`;
 }
 
 /**
@@ -39,6 +44,7 @@ export function PlayPanel({
   onSpeed,
   onToggleHidden,
   playerMode = false,
+  allowRemove = false,
 }: {
   panel: Panel;
   onResource: (panel: Panel, resource: PanelResource, delta: number) => void;
@@ -54,6 +60,8 @@ export function PlayPanel({
   onToggleHidden?: (panel: Panel) => void;
   /** 参加者ビュー(卓から外す × を隠す)。 */
   playerMode?: boolean;
+  /** 参加者ビューでも × を出す(自分が登場させた駒を自分で片付ける)。 */
+  allowRemove?: boolean;
 }) {
   const characteristics = panel.stats.filter((s) => s.kind === "characteristic");
   const skills = panel.stats.filter((s) => s.kind === "skill");
@@ -99,12 +107,17 @@ export function PlayPanel({
             {panel.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         )}
-        {!playerMode && (
+        {(!playerMode || allowRemove) && (
           <button
             className="ppanel-del"
-            title="卓から外す"
+            title={allowRemove ? "自分の駒を片付ける" : "卓から外す"}
             onClick={(e) => {
               e.stopPropagation();
+              if (
+                allowRemove &&
+                !confirm(`「${panel.name}」を卓から片付けますか？`)
+              )
+                return;
               onRemove(panel);
             }}
           >
@@ -202,9 +215,9 @@ export function PlayPanel({
             <button
               key={s.key}
               className="pstat"
-              onClick={() => onFill(cmdFor(s, panel.checkTemplate))}
-              onDoubleClick={() => onSend(cmdFor(s, panel.checkTemplate))}
-              title={`${s.label} ─ クリック: 入力欄に / ダブルクリック: 即ロール（${cmdFor(s, panel.checkTemplate)}）`}
+              onClick={() => onFill(cmdFor(s, panel))}
+              onDoubleClick={() => onSend(cmdFor(s, panel))}
+              title={`${s.label} ─ クリック: 入力欄に / ダブルクリック: 即ロール（${cmdFor(s, panel)}）`}
             >
               {/* 能力値は英語表記で統一(日本語ラベルは title で補足)。 */}
               <span className="pstat-label">{s.key}</span>
@@ -220,9 +233,9 @@ export function PlayPanel({
             <button
               key={s.key}
               className="pskill"
-              onClick={() => onFill(cmdFor(s, panel.checkTemplate))}
-              onDoubleClick={() => onSend(cmdFor(s, panel.checkTemplate))}
-              title={`クリック: 入力欄に / ダブルクリック: 即ロール（${cmdFor(s, panel.checkTemplate)}）`}
+              onClick={() => onFill(cmdFor(s, panel))}
+              onDoubleClick={() => onSend(cmdFor(s, panel))}
+              title={`クリック: 入力欄に / ダブルクリック: 即ロール（${cmdFor(s, panel)}）`}
             >
               {s.label} <b>{s.target}</b>
             </button>
@@ -289,9 +302,8 @@ function PalettePanel({
     setEditing(false);
   }
   function importSkills() {
-    const text = panel.stats
-      .map((s) => `CC<=${s.target} ${s.label}`)
-      .join("\n");
+    // システムに応じた判定コマンド(CoC=CC<= / 汎用=checkTemplate)で取り込む。
+    const text = panel.stats.map((s) => cmdFor(s, panel)).join("\n");
     setDraft((prev) => (prev.trim() ? `${prev.trim()}\n${text}` : text));
   }
 

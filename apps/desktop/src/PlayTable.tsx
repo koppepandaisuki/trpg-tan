@@ -841,18 +841,27 @@ export function PlayTable({
   function handleSend(
     speakerId: string,
     raw: string,
-    opts?: { channel?: string; secret?: boolean; visibleTo?: string[] },
+    opts?: {
+      channel?: string;
+      secret?: boolean;
+      visibleTo?: string[];
+      /** 発言者名の上書き。参加者が「自分(入室名)」として喋るとき使う。 */
+      as?: string;
+    },
   ) {
-    const { name, edition } = resolveSpeaker(speakerId);
+    // as 指定時はキャラ駒ではなく入室名そのものとして発言する(地の声)。
+    const { name, edition } = opts?.as
+      ? { name: opts.as, edition: sceneEdition }
+      : resolveSpeaker(speakerId);
     const chSel = opts?.channel ?? channel;
     const ch = chSel === "main" ? undefined : chSel;
     const isSecret = opts?.secret ?? secret;
     const viewers = opts?.visibleTo ?? visibleTo;
 
-    // 差分切替(キャラ発言時のみ):
+    // 差分切替(キャラ発言時のみ。自分=入室名の発言には差分が無い):
     //   「face ラベル」/「@ラベル」単独 → 切替のみ
     //   「発言 @ラベル」 → 切替してから残りを発言(CCFOLIA 風)
-    if (speakerId !== "GM") {
+    if (speakerId !== "GM" && !opts?.as) {
       const only = raw.match(/^(?:face[:：]?\s*|@)(\S+)$/i);
       if (only) {
         if (!switchVariant(speakerId, only[1])) {
@@ -931,9 +940,23 @@ export function PlayTable({
 
   function applyIntent(intent: NetIntent, from: string) {
     if (intent.kind === "send") {
-      // 参加者は自分の所有キャラとしてのみ発言/ロールできる(GM 発言は不可)。
-      if (intent.speakerId !== "GM" && !ownsPanel(from, intent.speakerId)) return;
+      // GM 発言は不可(参加者がなりすませない)。
       if (intent.speakerId === "GM") return;
+      if (intent.speakerId === "self") {
+        // キャラ未作成でも「自分(入室名)」として発言/ロールできる。
+        // なりすまし防止のため、名前は hello で記録した表示名で上書きする。
+        const myName = memberNames.current.get(from);
+        if (!myName) return;
+        handleSend("self", intent.raw, {
+          channel: intent.channel,
+          secret: intent.secret,
+          visibleTo: intent.visibleTo,
+          as: myName,
+        });
+        return;
+      }
+      // それ以外は自分の所有キャラとしてのみ発言/ロールできる。
+      if (!ownsPanel(from, intent.speakerId)) return;
       handleSend(intent.speakerId, intent.raw, {
         channel: intent.channel,
         secret: intent.secret,
@@ -957,6 +980,10 @@ export function PlayTable({
       dispatch(
         panelAddEvent(newCtx(), { ...intent.panel, owner, pos: spawnPos() }),
       );
+    } else if (intent.kind === "remove-char") {
+      // 参加者は自分が登場させた駒だけ片付けられる(所有者一致を検証)。
+      if (!ownsPanel(from, intent.panelId)) return;
+      dispatch(panelRemoveEvent(newCtx(), intent.panelId));
     } else if (intent.kind === "memo") {
       setSharedMemo(intent.text);
     }
