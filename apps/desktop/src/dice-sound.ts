@@ -29,6 +29,19 @@ function ensure(): AudioContext {
   return ctx;
 }
 
+/**
+ * ダイス効果音の AudioContext をユーザー操作で解錠する。参加者は配信された
+ * ロール(自分の操作ではない)で音を鳴らすため、最初のクリック等で resume して
+ * おかないと自動再生ポリシーで無音になる。GM/参加者の入室時に一度呼ぶ。
+ */
+export function unlockDiceSound(): void {
+  try {
+    ensure();
+  } catch {
+    /* 失敗しても演出は壊さない */
+  }
+}
+
 /** 単音(オシレータ + エンベロープ)。成功音の部品。 */
 function tone(
   ac: AudioContext,
