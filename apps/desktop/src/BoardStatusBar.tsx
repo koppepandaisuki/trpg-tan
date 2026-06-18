@@ -1,10 +1,34 @@
-import { Heart, Droplet, Brain, Diamond, Play, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Heart,
+  Droplet,
+  Brain,
+  Diamond,
+  Play,
+  RotateCcw,
+  GripVertical,
+} from "lucide-react";
 import type { Panel } from "@trpg/core";
 
+const POS_KEY = "trpg.bstatus.pos.v1";
+
+function loadPos(): { x: number; y: number } {
+  try {
+    const raw = localStorage.getItem(POS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as { x: number; y: number };
+      if (typeof p.x === "number" && typeof p.y === "number") return p;
+    }
+  } catch {
+    /* 位置の読み出し失敗は既定値で */
+  }
+  return { x: 22, y: 54 }; // 既定: 左上
+}
+
 /**
- * 盤面左上のコンパクトなステータス一覧(CCFOLIA 風)。
- * 速さ(行動順)の降順で並び、サイドバーと同じ順序を共有する。
- * ターン管理(GM): ▶ で次の手番へ(一巡でラウンド+1)、現在の手番をハイライト。
+ * 盤面に浮くコンパクトなステータス一覧(CCFOLIA 風)。固定ではなく、左上のグリップ
+ * (⠿)を掴んで好きな場所へドラッグできる(位置は端末に保存)。
+ * 速さ(行動順)の降順で並び、ターン管理(GM)も兼ねる。
  */
 export function BoardStatusBar({
   cards,
@@ -20,11 +44,67 @@ export function BoardStatusBar({
   /** ターン管理をリセット(GM のみ)。 */
   onResetTurn?: () => void;
 }) {
+  const [pos, setPos] = useState(loadPos);
+  const ref = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ dx: number; dy: number } | null>(null);
+
+  // 位置が変わったら端末に保存(ドラッグ中の連続更新はまとめる)。
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      try {
+        localStorage.setItem(POS_KEY, JSON.stringify(pos));
+      } catch {
+        /* 保存失敗は無視 */
+      }
+    }, 300);
+    return () => window.clearTimeout(id);
+  }, [pos]);
+
   if (cards.length === 0) return null;
   const started = (turn?.round ?? 0) > 0;
 
+  function onGripDown(e: React.PointerEvent) {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+  }
+  function onGripMove(e: React.PointerEvent) {
+    if (!drag.current) return;
+    let x = e.clientX - drag.current.dx;
+    let y = e.clientY - drag.current.dy;
+    const parent = ref.current?.parentElement;
+    const bar = ref.current;
+    if (parent && bar) {
+      const maxX = Math.max(4, parent.clientWidth - bar.offsetWidth - 4);
+      const maxY = Math.max(4, parent.clientHeight - bar.offsetHeight - 4);
+      x = Math.max(4, Math.min(x, maxX));
+      y = Math.max(4, Math.min(y, maxY));
+    }
+    setPos({ x, y });
+  }
+  function onGripUp() {
+    drag.current = null;
+  }
+
   return (
-    <div className="bstatus" aria-label="ステータス(速さ順)">
+    <div
+      ref={ref}
+      className="bstatus"
+      style={{ left: pos.x, top: pos.y }}
+      aria-label="ステータス(速さ順)"
+    >
+      {/* ドラッグ用グリップ(これだけ掴んで移動)。 */}
+      <div
+        className="bstatus-grip"
+        onPointerDown={onGripDown}
+        onPointerMove={onGripMove}
+        onPointerUp={onGripUp}
+        title="ドラッグで移動"
+        aria-label="ステータスバーを移動"
+      >
+        <GripVertical size={12} />
+      </div>
+
       {/* ターン操作行(GM) / ラウンド表示(全員) */}
       {(onNextTurn || started) && (
         <div className="bstatus-turnbar">
