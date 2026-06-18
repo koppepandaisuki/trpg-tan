@@ -3068,6 +3068,35 @@ body {
   font-size: 12px;
   vertical-align: middle;
 }
+/* オリジナル(自由追加)技能。 */
+.custom-skills {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.custom-skills-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.custom-skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.custom-skill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.custom-skill-row .input:first-child {
+  flex: 1;
+}
+.custom-skill-row .num {
+  width: 72px;
+}
 
 .dot {
   display: inline-block;

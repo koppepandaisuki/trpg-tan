@@ -117,6 +117,10 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
   const [skillSpec, setSkillSpec] = useState<Record<string, string>>(
     initialSheet?.skillSpecialties ?? {},
   );
+  // オリジナル(自由追加)技能。名前 + 値(%)を直接入力する。
+  const [customSkills, setCustomSkills] = useState<
+    { key: string; label: string; value: number }[]
+  >(initialSheet?.customSkills ?? []);
   const [message, setMessage] = useState<string | null>(null);
 
   const system = getSystem(systemId) as SystemDefinition;
@@ -149,6 +153,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setOccAlloc({});
     setIntAlloc({});
     setSkillSpec({});
+    setCustomSkills([]);
     setImage(null);
     setId(freshId());
     setCreatedAt(new Date().toISOString());
@@ -176,6 +181,10 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       const t = v.trim();
       if (t) specialties[k] = t;
     }
+    const cleanCustom = customSkills
+      .filter((c) => c.label.trim())
+      .map((c) => ({ key: c.key, label: c.label.trim(), value: c.value }));
+    for (const c of cleanCustom) skills[c.key] = c.value; // PLAY 消費側も見られるように
     return {
       schemaVersion: CCSHEET_SCHEMA_VERSION,
       id,
@@ -185,6 +194,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       characteristics: chars,
       skills,
       skillSpecialties: Object.keys(specialties).length ? specialties : undefined,
+      customSkills: cleanCustom.length ? cleanCustom : undefined,
       occupationId: isCustomOcc ? null : occupationId || null,
       occupationName: isCustomOcc
         ? occupationName.trim() || "オリジナル職業"
@@ -211,6 +221,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setOccAlloc(sheet.allocation?.occupation ?? {});
     setIntAlloc(sheet.allocation?.interest ?? {});
     setSkillSpec(sheet.skillSpecialties ?? {});
+    setCustomSkills(sheet.customSkills ?? []);
   }
 
   async function onSave() {
@@ -580,6 +591,68 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
             ))}
           </tbody>
         </table>
+
+        {/* オリジナル技能(自由追加)。名前 + 値(%)を直接入力する。 */}
+        <div className="custom-skills">
+          <div className="custom-skills-head">
+            <strong>オリジナル技能</strong>
+            <button
+              className="btn mini"
+              onClick={() =>
+                setCustomSkills([
+                  ...customSkills,
+                  { key: `custom_${crypto.randomUUID()}`, label: "", value: 0 },
+                ])
+              }
+            >
+              ＋ 技能を追加
+            </button>
+          </div>
+          {customSkills.length === 0 ? (
+            <p className="muted" style={{ fontSize: 12, margin: "4px 2px" }}>
+              ルールに無い技能を自由に追加できます（名前と値を入力）。
+            </p>
+          ) : (
+            <div className="custom-skills-list">
+              {customSkills.map((c, i) => (
+                <div key={c.key} className="custom-skill-row">
+                  <input
+                    className="input"
+                    value={c.label}
+                    placeholder="技能名"
+                    onChange={(e) => {
+                      const next = [...customSkills];
+                      next[i] = { ...c, label: e.target.value };
+                      setCustomSkills(next);
+                    }}
+                  />
+                  <input
+                    className="input num sm"
+                    type="number"
+                    min={0}
+                    value={c.value}
+                    onChange={(e) => {
+                      const next = [...customSkills];
+                      next[i] = { ...c, value: Number(e.target.value) };
+                      setCustomSkills(next);
+                    }}
+                  />
+                  <span className="muted">%</span>
+                  <button
+                    className="btn mini"
+                    onClick={() =>
+                      setCustomSkills(customSkills.filter((x) => x.key !== c.key))
+                    }
+                    title="削除"
+                    aria-label="この技能を削除"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {validation && validation.errors.length > 0 && (
           <ul className="errors">
