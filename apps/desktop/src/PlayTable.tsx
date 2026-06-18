@@ -303,6 +303,12 @@ export function PlayTable({
     dispatch(boardSetEvent(newCtx(), { bgBlur: !on }));
   }
 
+  /** 前景の重なり順(z-index)を増減。駒の layer より大きいと駒の前に出る。 */
+  function setFgLayer(delta: number) {
+    const cur = scene.board?.fgLayer ?? 0;
+    dispatch(boardSetEvent(newCtx(), { fgLayer: cur + delta }));
+  }
+
   /**
    * 背景・前景の表示倍率を Shift+ホイールで増減。ローカルは即時に滑らかへ反映し
    * (ログ・配信はしない)、止まってから確定値を 1 回だけ board-set で配信・ログ化
@@ -1469,6 +1475,7 @@ export function PlayTable({
               onSetForeground={setForeground}
               onScaleArt={scaleArt}
               onToggleBgBlur={toggleBgBlur}
+              onSetFgLayer={setFgLayer}
               onToggleGrid={toggleGrid}
               onAddImage={addImageObject}
               onUpdate={updatePanel}

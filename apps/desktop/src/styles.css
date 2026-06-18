@@ -793,6 +793,72 @@ body {
   filter: blur(10px);
 }
 
+/* 選択中の駒の重なり順を変える浮遊バー(盤面の上部中央)。 */
+.board-layerbar {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.board-layerbar-name {
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.board-layerbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--primary-deep);
+  cursor: pointer;
+}
+.board-layerbar-btn:hover {
+  background: var(--primary-soft);
+}
+.board-layerbar-x {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.board-layerbar-x:hover {
+  color: #e5484d;
+}
+/* 前景の重なり(ツールバー)。 */
+.board-fglayer {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+/* 選択中の駒の強調。 */
+.token.selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
 .board-grid {
   position: absolute;
   inset: 0;
@@ -1722,7 +1788,7 @@ body {
   object-fit: contain;
   transform-origin: center;
   pointer-events: none;
-  z-index: 90;
+  /* z-index は board.fgLayer をインラインで指定(駒と前後を入れ替え可能)。 */
 }
 
 /* ロビーのカード: サムネイル + タグ。 */
