@@ -53,7 +53,7 @@ import {
   type PlayIndexEntry,
 } from "./play-storage";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
-import { makePlayThumbnail } from "./play-thumb";
+import { makePlayThumbnail, downscaleImage } from "./play-thumb";
 import brandLogo from "./assets/logo.png";
 
 // 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。ストアは初期
@@ -330,12 +330,25 @@ export function App() {
     }
   }
 
-  function handleSaved(sheet: Sheet, path: string) {
-    setLibrary((lib) => upsertEntry(lib, buildEntry(sheet, path)));
+  // 索引のサムネはポートレート原寸ではなく小さく縮小して載せる(localStorage の
+  // 容量超過で索引ごと保存に失敗し、PLAY からキャラを開けなくなるのを防ぐ)。
+  async function libThumb(image?: string | null): Promise<string | null> {
+    if (!image) return null;
+    return (await downscaleImage(image, 128)) ?? null;
   }
 
-  function handleGenericSaved(sheet: GenericSheet, path: string) {
-    setLibrary((lib) => upsertEntry(lib, buildGenericEntry(sheet, path)));
+  async function handleSaved(sheet: Sheet, path: string) {
+    const thumbnail = await libThumb(sheet.image);
+    setLibrary((lib) =>
+      upsertEntry(lib, { ...buildEntry(sheet, path), thumbnail }),
+    );
+  }
+
+  async function handleGenericSaved(sheet: GenericSheet, path: string) {
+    const thumbnail = await libThumb(sheet.image);
+    setLibrary((lib) =>
+      upsertEntry(lib, { ...buildGenericEntry(sheet, path), thumbnail }),
+    );
   }
 
   function handleRemove(id: string) {

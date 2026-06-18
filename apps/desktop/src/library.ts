@@ -13,6 +13,19 @@ import type { CharacterSheet, GenericSheet } from "@trpg/core";
 
 const KEY = "trpg.library.v1";
 
+/**
+ * localStorage(容量数MB)に載せるサムネ(ポートレートの dataURL)の上限。
+ * ポートレート原寸をそのまま索引に入れると数枚で容量超過し、setItem が失敗
+ * → 索引が一切保存されず、PLAY 等の別画面からキャラを開けなくなる。
+ * これを超える画像はサムネを落とす(索引本体=パス/名前/版を死守する)。
+ */
+const MAX_THUMB_CHARS = 48 * 1024;
+
+function fitThumb(image?: string | null): string | null {
+  if (!image) return null;
+  return image.length <= MAX_THUMB_CHARS ? image : null;
+}
+
 export interface LibraryEntry {
   id: string;
   name: string;
@@ -41,8 +54,16 @@ export function getLibrary(): LibraryEntry[] {
 function persist(list: LibraryEntry[]): void {
   try {
     window.localStorage.setItem(KEY, JSON.stringify(list));
+    return;
   } catch {
-    // 容量超過等は黙って無視(索引は副次的なもの)
+    // 容量超過: サムネが嵩んで索引全体が保存できない。サムネは副次的なので
+    // 全部落として、索引(パス/名前)だけは確実に残す(別画面から開けるように)。
+  }
+  try {
+    const slim = list.map((e) => ({ ...e, thumbnail: null }));
+    window.localStorage.setItem(KEY, JSON.stringify(slim));
+  } catch {
+    // それでも入らなければ諦める(索引は副次的なもの)。
   }
 }
 
@@ -78,7 +99,7 @@ export function buildEntry(
     name: sheet.name || "(名称未設定)",
     systemId: sheet.systemId,
     path,
-    thumbnail: sheet.image ?? null,
+    thumbnail: fitThumb(sheet.image),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -94,7 +115,7 @@ export function buildGenericEntry(
     systemId: sheet.systemId,
     systemName: sheet.systemName,
     path,
-    thumbnail: sheet.image ?? null,
+    thumbnail: fitThumb(sheet.image),
     updatedAt: new Date().toISOString(),
   };
 }
