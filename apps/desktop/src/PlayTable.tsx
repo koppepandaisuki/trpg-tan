@@ -149,6 +149,8 @@ export function PlayTable({
   const [playerMode, setPlayerMode] = useState(false);
   // 卓タグの追加入力。
   const [tagDraft, setTagDraft] = useState("");
+  // 背景/前景の倍率変更を確定配信するタイマー(連続ホイールを 1 回にまとめる)。
+  const scaleCommitRef = useRef<number | undefined>(undefined);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -293,6 +295,40 @@ export function PlayTable({
 
   function setForeground(dataUrl: string | null) {
     dispatch(boardSetEvent(newCtx(), { foreground: dataUrl }));
+  }
+
+  /**
+   * 背景・前景の表示倍率を Shift+ホイールで増減。ローカルは即時に滑らかへ反映し
+   * (ログ・配信はしない)、止まってから確定値を 1 回だけ board-set で配信・ログ化
+   * する(ホイール連投でログ/通信が膨らむのを防ぐ)。
+   */
+  function scaleArt(factor: number) {
+    setScene((s) => {
+      const board = s.board ?? { image: null, grid: true };
+      const cl = (v: number) => Math.max(0.2, Math.min(5, v));
+      const nb = {
+        ...board,
+        bgScale: cl((board.bgScale ?? 1) * factor),
+        fgScale: cl((board.fgScale ?? 1) * factor),
+      };
+      const scenes = s.scenes?.map((sc) =>
+        sc.id === s.activeSceneId ? { ...sc, board: nb } : sc,
+      );
+      return { ...s, board: nb, scenes };
+    });
+    setDirty(true);
+    if (scaleCommitRef.current) window.clearTimeout(scaleCommitRef.current);
+    scaleCommitRef.current = window.setTimeout(() => {
+      const b = sceneRef.current.board;
+      if (b) {
+        dispatch(
+          boardSetEvent(newCtx(), {
+            bgScale: b.bgScale ?? 1,
+            fgScale: b.fgScale ?? 1,
+          }),
+        );
+      }
+    }, 200);
   }
 
   function toggleGrid() {
@@ -1425,6 +1461,7 @@ export function PlayTable({
               onMove={movePanel}
               onSetImage={setBoardImage}
               onSetForeground={setForeground}
+              onScaleArt={scaleArt}
               onToggleGrid={toggleGrid}
               onAddImage={addImageObject}
               onUpdate={updatePanel}
