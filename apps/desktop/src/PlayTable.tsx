@@ -47,7 +47,6 @@ import {
   ScrollText,
   Clapperboard,
   Music,
-  Bell,
   MessageSquare,
   StickyNote,
   BookMarked,
@@ -59,7 +58,7 @@ import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
 import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
-import { BgmPlayer } from "./BgmPanel";
+import { SoundPanel, mergeSounds } from "./SoundPanel";
 import { BoardStatusBar } from "./BoardStatusBar";
 import { PortraitLayer } from "./PortraitLayer";
 import { TextStockPanel, TelopOverlay } from "./TextStock";
@@ -69,7 +68,7 @@ import { AssetsPanel } from "./AssetsPanel";
 import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
-import { SePanel, playSeFile } from "./SePanel";
+import { playSeFile } from "./SePanel";
 import { uploadAudioPath, sanitizeForNet } from "./play-media";
 import {
   connectRoom,
@@ -140,7 +139,7 @@ export function PlayTable({
   // 再生中のカットイン / テロップ(定型文の画面表示)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const [telop, setTelop] = useState<string | null>(null);
-  // BGM への外部再生指示(アセットのマクロから)。nonce 変化で BgmPlayer が反応。
+  // BGM への外部再生指示(アセットのマクロから)。nonce 変化で SoundPanel が反応。
   const [bgmSignal, setBgmSignal] = useState<{
     id: string | null;
     nonce: number;
@@ -438,6 +437,7 @@ export function PlayTable({
     if (ok) dispatch(sceneRemoveEvent(newCtx(), id));
   }
 
+  // サウンド一覧(BGM/SE 統合)への追加。新規は bgm 側に貯める(SE も同じ庫)。
   function addBgmTracks(newTracks: BgmTrack[]) {
     setScene((s) => ({
       ...s,
@@ -446,34 +446,22 @@ export function PlayTable({
     setDirty(true);
   }
 
-  function removeBgmTrack(id: string) {
+  // 一覧から外す。旧データで se 側にある曲も拾えるよう両リストから消す。
+  function removeSound(id: string) {
     setScene((s) => ({
       ...s,
       bgm: { tracks: (s.bgm?.tracks ?? []).filter((t) => t.id !== id) },
-    }));
-    setDirty(true);
-  }
-
-  function addSeTracks(newTracks: BgmTrack[]) {
-    setScene((s) => ({
-      ...s,
-      se: { tracks: [...(s.se?.tracks ?? []), ...newTracks] },
-    }));
-    setDirty(true);
-  }
-
-  function removeSeTrack(id: string) {
-    setScene((s) => ({
-      ...s,
       se: { tracks: (s.se?.tracks ?? []).filter((t) => t.id !== id) },
     }));
     setDirty(true);
   }
 
-  /** SE パネルの登録名で効果音を鳴らす(定型文の [SE:名前] 用)。 */
+  /** 登録名で効果音を鳴らす(定型文の [SE:名前] 用)。BGM/SE 統合一覧から探す。 */
   function playSeByName(name?: string) {
     if (!name) return;
-    const t = (scene.se?.tracks ?? []).find((x) => x.name === name);
+    const t = mergeSounds(scene.bgm?.tracks, scene.se?.tracks).find(
+      (x) => x.name === name,
+    );
     if (t) {
       void playSeFile(t.path); // GM ローカル再生
       void broadcastAudio("se", t.path); // 参加者へ配信
@@ -1476,34 +1464,25 @@ export function PlayTable({
                 ),
               },
               {
-                id: "bgm",
-                title: "BGM",
+                id: "sound",
+                title: "サウンド（BGM / SE）",
                 icon: <Music size={14} />,
                 defaultOpen: false,
                 body: (
-                  <BgmPlayer
-                    tracks={scene.bgm?.tracks ?? []}
+                  <SoundPanel
+                    tracks={mergeSounds(scene.bgm?.tracks, scene.se?.tracks)}
                     onAddTracks={addBgmTracks}
-                    onRemoveTrack={removeBgmTrack}
+                    onRemoveTrack={removeSound}
                     sceneBgmId={sceneBgmId}
                     onBindScene={bindSceneBgm}
                     playSignal={bgmSignal ?? undefined}
-                    onPlay={(track) =>
+                    onPlayBgm={(track) =>
                       void broadcastAudio("bgm", track?.path ?? null, true)
                     }
-                  />
-                ),
-              },
-              {
-                id: "se",
-                title: "SE（効果音）",
-                icon: <Bell size={14} />,
-                defaultOpen: false,
-                body: (
-                  <SePanel
-                    tracks={scene.se?.tracks ?? []}
-                    onAdd={addSeTracks}
-                    onRemove={removeSeTrack}
+                    onPlaySe={(track) => {
+                      void playSeFile(track.path); // GM ローカル再生
+                      void broadcastAudio("se", track.path); // 参加者へ配信
+                    }}
                   />
                 ),
               },
