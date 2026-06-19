@@ -36,6 +36,29 @@ import { connectRoom, type NetIntent, type Room } from "./net";
 
 type Phase = "connecting" | "waiting" | "ready" | "closed" | "error";
 
+// 楽観反映(自分の操作を即時にローカル反映)の猶予。権威 state がこの時間内に
+// 追いつけば確定、追いつかなければ(intent 取りこぼし等)権威へ戻す=再操作の合図。
+const OPT_GRACE_MS = 1500;
+
+/** 楽観反映した駒に、権威状態が「追いついた」か(予測したフィールドが一致)。 */
+function predictedEqual(a: Panel, b: Panel): boolean {
+  if ((a.pos?.x ?? -1) !== (b.pos?.x ?? -1)) return false;
+  if ((a.pos?.y ?? -1) !== (b.pos?.y ?? -1)) return false;
+  if (a.name !== b.name) return false;
+  if ((a.speed ?? null) !== (b.speed ?? null)) return false;
+  if ((a.palette ?? "") !== (b.palette ?? "")) return false;
+  if ((a.note ?? "") !== (b.note ?? "")) return false;
+  if ((a.portrait ?? null) !== (b.portrait ?? null)) return false;
+  if (JSON.stringify(a.variants ?? []) !== JSON.stringify(b.variants ?? []))
+    return false;
+  if (a.resources.length !== b.resources.length) return false;
+  for (const r of b.resources) {
+    const ar = a.resources.find((x) => x.key === r.key);
+    if (!ar || ar.current !== r.current || ar.max !== r.max) return false;
+  }
+  return true;
+}
+
 /**
  * ネットワーク参加クライアント(参加者ビュー固定)。
  *  - GM のスナップショット + イベント列を core の reduce で再構成する
@@ -100,6 +123,11 @@ export function PlayClient({
   // 適用済み state の版。rev が進んだときだけ置き換える(broadcast の順序逆転で
   // 古い state が新しいのを潰すのを防ぐ)。
   const lastRevRef = useRef(-1);
+  // 楽観反映した自分の駒(panelId → 予測した駒 + 失効時刻)。権威 state が追いつく/
+  // 猶予が切れる/権威から消えるまで、権威の上に被せて自分の操作を即時に見せる。
+  const optimistic = useRef<Map<string, { panel: Panel; until: number }>>(
+    new Map(),
+  );
 
   // 接続 → hello → state 待ち。アンマウントで切断。
   useEffect(() => {
@@ -128,12 +156,16 @@ export function PlayClient({
         r.onMessage((msg) => {
           if (!alive) return;
           if (msg.type === "state") {
-            // 古い state(順序逆転)は無視。rev が進んだときだけ丸ごと置き換える。
-            if (msg.rev <= lastRevRef.current) return;
+            // 古い state(順序逆転)は無視。同 rev(heartbeat)は、楽観反映の期限切れを
+            // 掃除して権威へ戻すときだけ再適用する(楽観が無ければ何もしない=再描画なし)。
+            if (msg.rev < lastRevRef.current) return;
+            if (msg.rev === lastRevRef.current && optimistic.current.size === 0)
+              return;
             lastRevRef.current = msg.rev;
             got = true;
             if (helloTimer) window.clearInterval(helloTimer);
-            setScene(msg.scene);
+            // 自分の未反映操作(楽観)は権威の上に被せて即時性を保つ。
+            setScene(overlayOptimistic(msg.scene));
             setPhase("ready");
           } else if (msg.type === "event") {
             // チャット/ダイスのみ即時(ログ即時表示＋ダイス演出)。状態は state が権威。
@@ -429,7 +461,50 @@ export function PlayClient({
     setCompose((c) => ({ ...c, text: "" }));
   }
 
+  /** 権威 scene に、生きている楽観駒を被せる(失効/追いつき/消滅したものは破棄)。 */
+  function overlayOptimistic(s: PlayScene): PlayScene {
+    const opt = optimistic.current;
+    if (opt.size === 0) return s;
+    const now = Date.now();
+    let panels = s.panels;
+    let changed = false;
+    for (const [id, o] of [...opt.entries()]) {
+      const auth = s.panels.find((p) => p.id === id);
+      // 権威から消えた / 猶予切れ / 権威が追いついた → 楽観破棄(権威に従う)。
+      if (!auth || o.until <= now || predictedEqual(auth, o.panel)) {
+        opt.delete(id);
+        continue;
+      }
+      panels = panels.map((p) => (p.id === id ? o.panel : p));
+      changed = true;
+    }
+    return changed ? { ...s, panels } : s;
+  }
+
+  /** 自分の駒を楽観的にローカル反映＋記録する(owner 一致時のみ)。 */
+  function optimisticPanel(panelId: string, mutate: (p: Panel) => Panel) {
+    setScene((s) => {
+      if (!s) return s;
+      const cur = s.panels.find((p) => p.id === panelId);
+      if (!cur || cur.owner !== name) return s; // 自分の駒以外は楽観しない
+      const np = mutate(cur);
+      optimistic.current.set(panelId, {
+        panel: np,
+        until: Date.now() + OPT_GRACE_MS,
+      });
+      return { ...s, panels: s.panels.map((p) => (p.id === panelId ? np : p)) };
+    });
+  }
+
   function changeResource(panel: Panel, resource: PanelResource, delta: number) {
+    optimisticPanel(panel.id, (p) => ({
+      ...p,
+      resources: p.resources.map((r) =>
+        r.key === resource.key
+          ? { ...r, current: Math.max(0, Math.min(r.max, r.current + delta)) }
+          : r,
+      ),
+    }));
     sendIntent({
       kind: "resource",
       panelId: panel.id,
@@ -439,6 +514,7 @@ export function PlayClient({
   }
 
   function movePanel(panelId: string, x: number, y: number) {
+    optimisticPanel(panelId, (p) => ({ ...p, pos: { x, y } }));
     sendIntent({ kind: "move", panelId, x, y });
   }
 
@@ -455,6 +531,17 @@ export function PlayClient({
   ) {
     // 参加者が触れるのは名前/メモ/パレット/速さ/差分のみ
     // (hidden/locked などの GM 専用フィールドは UI 側で出ない)。
+    // 指定したフィールドだけ楽観反映(undefined は据え置き)。
+    optimisticPanel(id, (p) => {
+      const np = { ...p };
+      if (patch.name !== undefined) np.name = patch.name;
+      if (patch.note !== undefined) np.note = patch.note;
+      if (patch.palette !== undefined) np.palette = patch.palette;
+      if (patch.speed !== undefined) np.speed = patch.speed;
+      if (patch.portrait !== undefined) np.portrait = patch.portrait;
+      if (patch.variants !== undefined) np.variants = patch.variants;
+      return np;
+    });
     sendIntent({
       kind: "panel-update",
       panelId: id,
