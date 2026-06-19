@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
+import { Star, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
 import { DownloadButton } from "./download-button";
@@ -32,6 +33,15 @@ export function LibraryCard({ item }: LibraryCardProps) {
   const downloadDisabled = item.availability !== "available";
   const isUnavailable =
     item.availability === "suspended" || item.availability === "blocked";
+
+  // レビュー導線は「詳細ページに飛べる(=公開中) かつ 購入済み」のときだけ。
+  // 配布停止/利用不可(詳細ページが notFound になる)では出さない。
+  const canReview =
+    !!item.slug &&
+    (item.availability === "available" || item.availability === "no_file");
+  const reviewHref: Route | null = canReview
+    ? (`/store/${item.slug}#reviews` as Route)
+    : null;
 
   return (
     <li
@@ -96,13 +106,41 @@ export function LibraryCard({ item }: LibraryCardProps) {
         <AvailabilityHint availability={item.availability} />
       </div>
 
-      <div className="flex flex-col items-end justify-center gap-2">
+      <div className="flex flex-col items-stretch justify-center gap-2 sm:items-end">
         <DownloadButton
           productId={item.productId}
           productTitle={item.title}
           disabled={downloadDisabled}
           label="ダウンロード"
         />
+        {reviewHref && (
+          <Link
+            href={reviewHref}
+            className={cn(
+              "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium transition",
+              item.reviewed
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100"
+                : "border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300 hover:bg-amber-100",
+            )}
+            aria-label={
+              item.reviewed
+                ? `「${item.title}」のレビューを編集する`
+                : `「${item.title}」のレビューを書く`
+            }
+          >
+            {item.reviewed ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                レビュー済み・編集
+              </>
+            ) : (
+              <>
+                <Star className="h-3.5 w-3.5" aria-hidden />
+                レビューを書く
+              </>
+            )}
+          </Link>
+        )}
       </div>
     </li>
   );

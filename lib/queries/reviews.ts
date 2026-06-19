@@ -280,6 +280,35 @@ export async function getMyReview(
 }
 
 /**
+ * 指定ユーザーが既にレビュー済みの product_id 集合を一括取得。
+ * ライブラリで「レビューを書く / レビュー済み・編集」を出し分けるのに使う。
+ *
+ * product_reviews は公開 read(0016)なので user_id 一致でそのまま引ける。
+ * 0 件 / 空 productIds は空 Set を返す(呼び出し側は has() で扱う)。
+ */
+export async function fetchMyReviewedProductIds(
+  userId: string,
+  productIds: string[],
+): Promise<Set<string>> {
+  const result = new Set<string>();
+  if (productIds.length === 0) return result;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("product_reviews")
+    .select("product_id")
+    .eq("user_id", userId)
+    .in("product_id", productIds);
+
+  if (error) {
+    console.error("[fetchMyReviewedProductIds] failed", error);
+    return result;
+  }
+  for (const r of data ?? []) result.add(r.product_id);
+  return result;
+}
+
+/**
  * Steam 風の総合評価ラベルを算出。
  *
  * 基準(Steam を参考に簡略化):

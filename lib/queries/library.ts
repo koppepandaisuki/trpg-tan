@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { publicCoverUrl } from "@/lib/format/storage";
+import { fetchMyReviewedProductIds } from "./reviews";
 import type { ProductType, FileFormat } from "./types";
 import type { ProductStatus } from "@/lib/format/status";
 
@@ -36,6 +37,8 @@ export type LibraryItem = {
   paidAt: string;
   hasFile: boolean;
   availability: LibraryAvailability;
+  /** 本ユーザーがこの作品に既にレビューを書いているか(導線の出し分け用)。 */
+  reviewed: boolean;
   creator: { id: string; displayName: string };
 };
 
@@ -107,7 +110,7 @@ export async function listMyLibrary(userId: string): Promise<LibraryItem[]> {
   }
 
   // 4. Build the public-facing items. file_path is consumed here and dropped.
-  return purchases
+  const items = purchases
     .map<LibraryItem | null>((purchase) => {
       const product = productMap.get(purchase.product_id);
       if (!product) {
@@ -128,6 +131,7 @@ export async function listMyLibrary(userId: string): Promise<LibraryItem[]> {
           paidAt: purchase.paid_at,
           hasFile: false,
           availability: "suspended",
+          reviewed: false,
           creator: { id: "", displayName: "" },
         };
       }
@@ -158,6 +162,7 @@ export async function listMyLibrary(userId: string): Promise<LibraryItem[]> {
         paidAt: purchase.paid_at,
         hasFile,
         availability,
+        reviewed: false,
         creator:
           creatorMap.get(product.creator_id) ?? {
             id: product.creator_id,
@@ -166,4 +171,14 @@ export async function listMyLibrary(userId: string): Promise<LibraryItem[]> {
       };
     })
     .filter((x): x is LibraryItem => x !== null);
+
+  // 5. 本ユーザーがレビュー済みの作品を一括取得して reviewed を埋める
+  //    (ライブラリの「レビューを書く / レビュー済み・編集」導線の出し分け)。
+  const reviewedSet = await fetchMyReviewedProductIds(
+    userId,
+    items.map((i) => i.productId),
+  );
+  for (const it of items) it.reviewed = reviewedSet.has(it.productId);
+
+  return items;
 }

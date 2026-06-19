@@ -257,7 +257,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
         {/* レビュー(Steam ライク): 集計 + 投稿フォーム + 一覧。
             購入済みでなければ閲覧のみ可能。 */}
-        <section className="mt-12 border-t border-border pt-8">
+        <section
+          id="reviews"
+          className="mt-12 scroll-mt-24 border-t border-border pt-8"
+        >
           <ReviewSection
             productId={product.id}
             productSlug={product.slug}
