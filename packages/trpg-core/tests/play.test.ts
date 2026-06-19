@@ -98,6 +98,28 @@ describe("panelFromSheet", () => {
     expect(panel.source).toBe("sheet");
     expect(panel.sheetId).toBe("char-1");
   });
+
+  it("専門化技能は〈専門名〉付きラベルになる(運転〈自動車〉)", () => {
+    const sheet = {
+      ...sampleSheet(),
+      skills: { ...sampleSheet().skills, drive_auto: 40 },
+      skillSpecialties: { drive_auto: "自動車" },
+    };
+    const p = panelFromSheet({ id: "p-spec", sheet });
+    const drive = p.stats.find((s) => s.key === "drive_auto");
+    expect(drive?.label).toContain("〈自動車〉");
+  });
+
+  it("オリジナル技能はキーではなくシートのラベルで表示", () => {
+    const sheet = {
+      ...sampleSheet(),
+      skills: { ...sampleSheet().skills, custom_abc: 55 },
+      customSkills: [{ key: "custom_abc", label: "料理", value: 55 }],
+    };
+    const p = panelFromSheet({ id: "p-cust", sheet });
+    const cook = p.stats.find((s) => s.key === "custom_abc");
+    expect(cook?.label).toBe("料理");
+  });
 });
 
 describe("6版は能力値×5 が目標値", () => {
