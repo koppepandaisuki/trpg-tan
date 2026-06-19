@@ -5,7 +5,6 @@ import { CoverImage } from "@/components/store/cover-image";
 import { DownloadButton } from "./download-button";
 import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
-import { publicCoverUrl } from "@/lib/format/storage";
 import type { LibraryItem } from "@/lib/queries/library";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +24,7 @@ interface LibraryCardProps {
  *  - タイトル自体も detail へのリンクに(冗長な「作品詳細を見る」削除)
  */
 export function LibraryCard({ item }: LibraryCardProps) {
-  const coverUrl = publicCoverUrl(item.coverPath);
+  const coverUrl = item.coverUrl;
   const detailHref: Route | null = item.slug
     ? (`/store/${item.slug}` as Route)
     : null;

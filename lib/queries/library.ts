@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { publicCoverUrl } from "@/lib/format/storage";
 import type { ProductType, FileFormat } from "./types";
 import type { ProductStatus } from "@/lib/format/status";
 
@@ -28,6 +29,8 @@ export type LibraryItem = {
   fileFormat: FileFormat;
   productStatus: ProductStatus;
   coverPath: string | null;
+  /** 表紙の公開 URL(server で解決済み)。client コンポーネントへ安全に渡せる。 */
+  coverUrl: string | null;
   amountJpy: number;
   currency: string;
   paidAt: string;
@@ -119,6 +122,7 @@ export async function listMyLibrary(userId: string): Promise<LibraryItem[]> {
           fileFormat: "pdf",
           productStatus: "suspended",
           coverPath: null,
+          coverUrl: null,
           amountJpy: purchase.amount_jpy,
           currency: purchase.currency,
           paidAt: purchase.paid_at,
@@ -148,6 +152,7 @@ export async function listMyLibrary(userId: string): Promise<LibraryItem[]> {
         fileFormat: product.file_format as FileFormat,
         productStatus,
         coverPath: product.cover_path,
+        coverUrl: publicCoverUrl(product.cover_path),
         amountJpy: purchase.amount_jpy,
         currency: purchase.currency,
         paidAt: purchase.paid_at,
