@@ -1766,27 +1766,88 @@ body {
   color: var(--primary-deep);
   border-color: var(--border-strong);
 }
-.scene-select {
+/* シーン折りたたみ時の自前ドロップダウン(native select の WebView 表示崩れ対策)。 */
+.scene-dd {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.scene-dd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   height: 28px;
   min-width: 120px;
   max-width: 220px;
-  flex: 0 1 auto;
-  padding: 2px 26px 2px 10px;
-  /* WebView の native select はテーマによってテキストが潰れる/読めなくなることが
-     あるので、見た目を自前で完全制御する(appearance:none + 矢印を自描画 + option
-     も明示配色)。これでライト/ダークどちらでも確実に読める。 */
-  appearance: none;
-  -webkit-appearance: none;
-  background-color: var(--surface);
-  color: var(--text);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237088a0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 9px center;
-  text-overflow: ellipsis;
-}
-.scene-select option {
+  padding: 2px 8px 2px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.scene-dd-btn:hover {
+  border-color: var(--primary);
+}
+.scene-dd-cur {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.scene-dd-caret {
+  flex: none;
+  color: var(--text-muted);
+}
+.scene-dd-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 60;
+  min-width: 100%;
+  max-width: 280px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.scene-dd-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.scene-dd-opt:hover {
+  background: var(--surface-2);
+}
+.scene-dd-opt.active {
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+}
+.scene-dd-opt-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .scene-count {
   font-size: 11px;
