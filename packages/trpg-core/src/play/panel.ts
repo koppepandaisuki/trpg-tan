@@ -54,14 +54,21 @@ export function panelFromSheet(params: {
   }
 
   // 技能: シートに記録済みのものだけ(目標値=値)。ラベルはシステム定義から。
+  // オリジナル技能(custom_<uuid>)はシステム定義に無いのでシート側のラベルで
+  // 補い、専門化技能は〈専門名〉を付ける(運転〈自動車〉)。これがチャパレ取り込み
+  // と判定ボタン・コマンドにそのまま反映される。
   const skillLabel = new Map<string, string>(
     (sys?.skills ?? []).map((s) => [s.key, s.label]),
   );
+  for (const c of sheet.customSkills ?? []) skillLabel.set(c.key, c.label);
+  const specialties = sheet.skillSpecialties ?? {};
   for (const [key, value] of Object.entries(sheet.skills ?? {})) {
     if (typeof value !== "number") continue;
+    const base = skillLabel.get(key) ?? key;
+    const spec = specialties[key]?.trim();
     stats.push({
       key,
-      label: skillLabel.get(key) ?? key,
+      label: spec ? `${base}〈${spec}〉` : base,
       value,
       target: value,
       kind: "skill",
