@@ -78,6 +78,7 @@ import {
   type NetMsg,
   type Room,
 } from "./net";
+import { useLiveDrag } from "./use-live-drag";
 import { getLibrary, systemLabel } from "./library";
 import { readSheetFromPath, isGenericSheet } from "./storage";
 import { toast } from "./Toasts";
@@ -147,6 +148,8 @@ export function PlayTable({
 
   // ネットワーク共有(GM がホスト)。room があれば全イベントを配信する。
   const [room, setRoom] = useState<Room | null>(null);
+  // ライブドラッグ(参加者のドラッグを滑らかに表示 / GM のドラッグを配信)。
+  const { sendDrag, overlay: overlayLive } = useLiveDrag(room);
   const [members, setMembers] = useState<string[]>([]);
   const [sharePop, setSharePop] = useState(false);
   const [netBusy, setNetBusy] = useState(false);
@@ -1498,9 +1501,10 @@ export function PlayTable({
           <div className="pstage">
             <PlayBoard
               board={scene.board}
-              panels={scene.panels}
+              panels={overlayLive(scene.panels)}
               activeSceneId={scene.activeSceneId}
               onMove={movePanel}
+              onDragMove={sendDrag}
               onSetImage={setBoardImage}
               onSetForeground={setForeground}
               onScaleArt={scaleArt}
@@ -1601,10 +1605,11 @@ export function PlayTable({
             <div className="pstage">
               <PlayBoard
                 board={scene.board}
-                panels={scene.panels}
+                panels={overlayLive(scene.panels)}
                 activeSceneId={scene.activeSceneId}
                 playerMode
                 onMove={movePanel}
+                onDragMove={sendDrag}
                 onSetImage={setBoardImage}
                 onToggleGrid={toggleGrid}
                 onAddImage={addImageObject}
