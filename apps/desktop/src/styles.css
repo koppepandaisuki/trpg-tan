@@ -3835,6 +3835,59 @@ body {
 .bstatus-grip:active {
   cursor: grabbing;
 }
+/* 上部の操作行(グリップ + 大きさ - / + + 非表示)。盤面の上なのでグリップに合わせた
+   暗い半透明チップで統一(テーマ非依存)。 */
+.bstatus-head {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 1px;
+}
+.bstatus-head-sp {
+  flex: 1;
+}
+.bstatus-ctrl {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(13, 36, 56, 0.5);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  line-height: 0;
+  transition: background 0.12s;
+}
+.bstatus-ctrl:hover:not(:disabled) {
+  background: rgba(13, 36, 56, 0.78);
+}
+.bstatus-ctrl:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* 非表示中の再表示ボタン(盤面の隅に小さく)。 */
+.bstatus-show {
+  position: absolute;
+  z-index: 20;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(13, 36, 56, 0.62);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.bstatus-show:hover {
+  background: rgba(13, 36, 56, 0.85);
+}
 .bstatus-row {
   display: flex;
   align-items: center;

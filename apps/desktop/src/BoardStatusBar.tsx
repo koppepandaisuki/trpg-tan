@@ -7,10 +7,30 @@ import {
   Play,
   RotateCcw,
   GripVertical,
+  Eye,
+  EyeOff,
+  Minus,
+  Plus,
 } from "lucide-react";
 import type { Panel } from "@trpg/core";
 
 const POS_KEY = "trpg.bstatus.pos.v1";
+const SCALE_KEY = "trpg.bstatus.scale.v1";
+const HIDDEN_KEY = "trpg.bstatus.hidden.v1";
+const SCALE_MIN = 0.7;
+const SCALE_MAX = 1.8;
+
+function loadScale(): number {
+  const v = Number(localStorage.getItem(SCALE_KEY));
+  return Number.isFinite(v) && v >= SCALE_MIN && v <= SCALE_MAX ? v : 1;
+}
+function loadHidden(): boolean {
+  try {
+    return localStorage.getItem(HIDDEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 function loadPos(): { x: number; y: number } {
   try {
@@ -45,6 +65,8 @@ export function BoardStatusBar({
   onResetTurn?: () => void;
 }) {
   const [pos, setPos] = useState(loadPos);
+  const [scale, setScale] = useState(loadScale);
+  const [hidden, setHidden] = useState(loadHidden);
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ dx: number; dy: number } | null>(null);
 
@@ -60,18 +82,41 @@ export function BoardStatusBar({
     return () => window.clearTimeout(id);
   }, [pos]);
 
+  // 大きさ / 表示状態も端末に保存。
+  useEffect(() => {
+    try {
+      localStorage.setItem(SCALE_KEY, String(scale));
+    } catch {
+      /* 無視 */
+    }
+  }, [scale]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(HIDDEN_KEY, hidden ? "1" : "0");
+    } catch {
+      /* 無視 */
+    }
+  }, [hidden]);
+
+  function bumpScale(dir: 1 | -1) {
+    setScale((s) =>
+      Math.min(SCALE_MAX, Math.max(SCALE_MIN, +(s + dir * 0.1).toFixed(2))),
+    );
+  }
+
   // 盤面内に収まるよう座標をクランプ(画面/盤面が小さくても はみ出さない)。
+  // 拡大時も実寸ではみ出さないよう、getBoundingClientRect(変形後サイズ)で測る。
   function clampToParent(x: number, y: number): { x: number; y: number } {
     const parent = ref.current?.parentElement;
     const bar = ref.current;
     if (!parent || !bar) return { x, y };
-    const maxX = Math.max(4, parent.clientWidth - bar.offsetWidth - 4);
-    const maxY = Math.max(4, parent.clientHeight - bar.offsetHeight - 4);
+    const r = bar.getBoundingClientRect();
+    const maxX = Math.max(4, parent.clientWidth - r.width - 4);
+    const maxY = Math.max(4, parent.clientHeight - r.height - 4);
     return { x: Math.max(4, Math.min(x, maxX)), y: Math.max(4, Math.min(y, maxY)) };
   }
 
-  // 初期表示・ウィンドウリサイズ・行数変化のたびに、画面外なら盤面内へ戻す。
-  // 保存済みの位置が今の画面では画面外、というケース(小さい画面)を救う。
+  // 初期表示・ウィンドウリサイズ・行数/大きさ/表示の変化のたびに、画面外なら盤面内へ。
   useEffect(() => {
     const reclamp = () =>
       setPos((p) => {
@@ -81,9 +126,9 @@ export function BoardStatusBar({
     reclamp();
     window.addEventListener("resize", reclamp);
     return () => window.removeEventListener("resize", reclamp);
-    // 行数(=高さ)が変わるときも再クランプ。
+    // 行数(=高さ)・倍率・表示の変化でも再クランプ。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cards.length]);
+  }, [cards.length, scale, hidden]);
 
   if (cards.length === 0) return null;
   const started = (turn?.round ?? 0) > 0;
@@ -101,23 +146,72 @@ export function BoardStatusBar({
     drag.current = null;
   }
 
+  // 非表示中: 盤面の隅に小さな再表示ボタンだけ出す。
+  if (hidden) {
+    return (
+      <button
+        ref={ref as unknown as React.RefObject<HTMLButtonElement>}
+        className="bstatus-show"
+        style={{ left: pos.x, top: pos.y }}
+        onClick={() => setHidden(false)}
+        title="ステータスを表示"
+      >
+        <Eye size={13} /> ステータス
+      </button>
+    );
+  }
+
   return (
     <div
       ref={ref}
       className="bstatus"
-      style={{ left: pos.x, top: pos.y }}
+      style={{
+        left: pos.x,
+        top: pos.y,
+        transform: scale !== 1 ? `scale(${scale})` : undefined,
+        transformOrigin: "top left",
+      }}
       aria-label="ステータス(速さ順)"
     >
-      {/* ドラッグ用グリップ(これだけ掴んで移動)。 */}
-      <div
-        className="bstatus-grip"
-        onPointerDown={onGripDown}
-        onPointerMove={onGripMove}
-        onPointerUp={onGripUp}
-        title="ドラッグで移動"
-        aria-label="ステータスバーを移動"
-      >
-        <GripVertical size={12} />
+      {/* 上部: ドラッグ用グリップ + 大きさ/表示の操作。 */}
+      <div className="bstatus-head">
+        <div
+          className="bstatus-grip"
+          onPointerDown={onGripDown}
+          onPointerMove={onGripMove}
+          onPointerUp={onGripUp}
+          title="ドラッグで移動"
+          aria-label="ステータスバーを移動"
+        >
+          <GripVertical size={12} />
+        </div>
+        <span className="bstatus-head-sp" />
+        <button
+          className="bstatus-ctrl"
+          onClick={() => bumpScale(-1)}
+          disabled={scale <= SCALE_MIN}
+          title="小さく"
+          aria-label="小さく"
+        >
+          <Minus size={12} />
+        </button>
+        <button
+          className="bstatus-ctrl"
+          onClick={() => bumpScale(1)}
+          disabled={scale >= SCALE_MAX}
+          title="大きく"
+          aria-label="大きく"
+        >
+          <Plus size={12} />
+        </button>
+        <button
+          className="bstatus-ctrl"
+          onClick={() => setHidden(true)}
+          title="ステータスを隠す"
+          aria-label="隠す"
+        >
+          <EyeOff size={12} />
+        </button>
       </div>
 
       {/* ターン操作行(GM) / ラウンド表示(全員) */}
