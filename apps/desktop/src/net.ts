@@ -19,7 +19,14 @@ const CHUNK = 60_000; // UTF-16 文字数。Realtime の上限(~256KB)に対し�
 
 export type NetMsg =
   | { type: "hello"; from: string; name: string }
-  | { type: "snapshot"; scene: PlayScene }
+  /**
+   * 権威スナップショット(状態置換)。GM の現在状態(秘匿駒を除いた scene)を丸ごと
+   * 配信し、参加者は rev が進んだときだけ scene を置き換える。取りこぼしても次の
+   * 配信で必ず収束する(イベント再生のような恒久ズレが起きない)。rev は単調増加で、
+   * broadcast の順序逆転(古い state が新しい state を潰す)を防ぐ。
+   */
+  | { type: "state"; rev: number; scene: PlayScene }
+  /** 即時イベント(チャット/ダイスのみ)。ログ即時表示＋ダイス演出用。状態は state が権威。 */
   | { type: "event"; ev: PlayEvent }
   | { type: "intent"; from: string; intent: NetIntent }
   | { type: "cutin"; cutin: CutIn }
@@ -231,7 +238,7 @@ export async function connectRoom(
       }
       // 計測: 大きい送信(卓データ/音声)や複数チャンクの所要時間を出す。
       // send=実送信時間, wait=キュー待ち, /chunk はほぼ ack 往復(RTT)の目安。
-      if (n > 1 || msg.type === "snapshot" || msg.type === "audio") {
+      if (n > 1 || msg.type === "state" || msg.type === "audio") {
         const tEnd = performance.now();
         const prepMs = tPrepped - tStart; // 変換(メディアの Storage アップ含む)
         const sendMs = tEnd - tPrepped; // チャンク送信(ack 直列)

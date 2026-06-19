@@ -169,8 +169,31 @@ export function PlayTable({
     path: null,
     loop: false,
   });
+  // 配信した状態スナップショットの版(単調増加)。参加者は rev が進んだときだけ
+  // 置き換える。broadcast の順序逆転で古い state が新しいのを潰すのを防ぐ。
+  const revRef = useRef(0);
 
   const characters = useMemo(() => getLibrary(), []);
+
+  // 卓状態が変わるたびに、参加者へ権威スナップショット(state)を配信する。
+  // sendSnapshotCoalesced は単一フライト(送信中の追加要求は 1 本だけ予約)なので、
+  // 連続変更でも詰まらず最後の状態が必ず届く。rev を進めて順序逆転を防ぐ。
+  // これにより、broadcast の取りこぼしがあっても次の state で必ず収束する。
+  useEffect(() => {
+    revRef.current += 1;
+    if (roomRef.current) void sendSnapshotCoalesced();
+    // sendSnapshotCoalesced は安定参照(関数宣言)。scene の変化だけで発火させる。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene]);
+
+  // idle heartbeat: 無操作で最後の state を取りこぼした参加者も、定期再送で収束する
+  // (rev 据え置きなので最新の参加者には no-op、遅れている参加者だけ適用される)。
+  useEffect(() => {
+    if (!room) return;
+    const h = window.setInterval(() => void sendSnapshotCoalesced(), 4000);
+    return () => window.clearInterval(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room]);
 
   // 参加者ビューのキーボード操作: [ で左(キャラ)、] で右(チャット)を開閉。
   useEffect(() => {
@@ -201,48 +224,19 @@ export function PlayTable({
   const playerCards = cards.filter((p) => !p.hidden);
 
   function dispatch(event: PlayEvent) {
-    const prev = scene;
     setScene((s) => reduce(s, event));
     setDirty(true);
-    // 共有中は配信。ただし秘匿(hidden)キャラの情報は参加者へ漏らさないよう取捨選択。
-    broadcastForNet(event, prev, reduce(prev, event));
-  }
-
-  /**
-   * 確定イベントをネットへ配信。GM が「閲覧制限(秘匿)」にしたキャラの情報は
-   * 参加者へ送らない:
-   *   - 秘匿キャラの追加 / 移動 / リソース / 発言・ロールは配信しない
-   *   - 公開→秘匿に切替: 参加者から消すため panel-remove を配信
-   *   - 秘匿→公開に切替: 参加者は未所持なのでフル情報を panel-add で配信
-   * GM 自身の画面はローカルの scene をそのまま見るので、全キャラを閲覧できる。
-   */
-  function broadcastForNet(event: PlayEvent, prev: PlayScene, next: PlayScene) {
+    // チャット/ダイスだけ即時配信(ログ即時表示＋ダイス演出)。秘匿(hidden)キャラの
+    // 発言・ロールは参加者へ漏らさない。盤面・駒・リソース等の状態は、scene の変化を
+    // 検知する effect が権威スナップショット(state)としてまとめて配信する
+    // (取りこぼしても次の state で必ず収束する = 旧来の恒久ズレを根治)。
     const r = roomRef.current;
-    if (!r) return;
-    const hiddenById = (id?: string) =>
-      !!id && !!next.panels.find((p) => p.id === id)?.hidden;
-
-    if (event.kind === "panel-add") {
-      if (event.panel.hidden) return;
-    } else if (event.kind === "panel-update") {
-      const wasHidden = !!prev.panels.find((p) => p.id === event.panelId)?.hidden;
-      const after = next.panels.find((p) => p.id === event.panelId);
-      const nowHidden = !!after?.hidden;
-      if (wasHidden && !nowHidden && after) {
-        r.send({ type: "event", ev: panelAddEvent(newCtx(), after) });
-        return;
-      }
-      if (!wasHidden && nowHidden) {
-        r.send({ type: "event", ev: panelRemoveEvent(newCtx(), event.panelId) });
-        return;
-      }
-      if (nowHidden) return;
-    } else if (event.kind === "panel-move" || event.kind === "resource") {
-      if (hiddenById(event.panelId)) return;
-    } else if (event.kind === "chat" || event.kind === "roll") {
-      if (next.panels.find((p) => p.name === event.actor)?.hidden) return;
+    if (r && (event.kind === "chat" || event.kind === "roll")) {
+      const actorHidden = scene.panels.some(
+        (p) => p.name === event.actor && p.hidden,
+      );
+      if (!actorHidden) void r.send({ type: "event", ev: event });
     }
-    r.send({ type: "event", ev: event });
   }
 
   const sceneEdition: CoCEdition = scene.systemId === "coc6" ? "6" : "7";
@@ -978,7 +972,9 @@ export function PlayTable({
     // 参加者へ送る履歴の上限。盤面・駒・ターンは scene に復元済みで、古いログは
     // 状態復元に不要(表示用スクロールバックだけ)。長時間卓で log が肥大化すると
     // join のたびに全部を直列送信して遅くなるため、末尾 N 件に絞って join を一定化。
-    const LOG_LIMIT = 300;
+    // state は変更のたびに送るので、ログは末尾 N 件に絞って軽くする(スクロール
+    // バック表示用。状態復元には不要)。
+    const LOG_LIMIT = 120;
     const st = snapRef.current;
     if (st.sending) {
       st.queued = true;
@@ -990,14 +986,22 @@ export function PlayTable({
         st.queued = false;
         const r = roomRef.current;
         if (!r) break;
-        // 秘匿キャラは参加者へ送らない(閲覧制限)。GM のローカルには残る。
+        // 秘匿キャラは参加者へ送らない(閲覧制限): 駒本体も、その駒名の発言ログも除外。
         const s = sceneRef.current;
+        const hiddenNames = new Set(
+          s.panels.filter((p) => p.hidden).map((p) => p.name),
+        );
         const forNet = {
           ...s,
           panels: s.panels.filter((p) => !p.hidden),
-          log: s.log.length > LOG_LIMIT ? s.log.slice(-LOG_LIMIT) : s.log,
+          log: (s.log ?? [])
+            .filter((e) => {
+              const actor = (e as { actor?: string }).actor;
+              return !actor || !hiddenNames.has(actor);
+            })
+            .slice(-LOG_LIMIT),
         };
-        await r.send({ type: "snapshot", scene: forNet });
+        await r.send({ type: "state", rev: revRef.current, scene: forNet });
       } while (st.queued);
     } finally {
       st.sending = false;
