@@ -11,6 +11,7 @@ import {
   reduce,
   panelFromSheet,
   panelFromGeneric,
+  makeTokenPanel,
   type PlayScene,
   type Panel,
   type PanelResource,
@@ -18,6 +19,7 @@ import {
   type CutIn,
 } from "@trpg/core";
 import { getLibrary } from "./library";
+import { downscaleImage, probeImageWidth } from "./play-thumb";
 import { readSheetFromPath, isGenericSheet } from "./storage";
 import { DiceMotion } from "./DiceMotion";
 import { unlockDiceSound } from "./dice-sound";
@@ -304,6 +306,11 @@ export function PlayClient({
   const playerCards = cards.filter((p) => !p.hidden);
   // 自分が追加したキャラ(owner=自分の表示名)。サイドバーで操作できるのはこれだけ。
   const myCards = playerCards.filter((p) => p.owner === name);
+  // 自分が D&D で置いた画像オブジェクト(トークン)。stats が無く cards には
+  // 入らないので scene.panels から直接拾い、自分のものだけ片付けられるようにする。
+  const myObjects = (scene?.panels ?? []).filter(
+    (p) => p.owner === name && p.source === "token" && !p.hidden,
+  );
 
   // 自分のローカルライブラリ(この端末に保存したキャラ)。PLAY 中にキャラシを
   // 作成/編集すると増えるので、ピッカーを開くたびに読み直す。
@@ -337,6 +344,43 @@ export function PlayClient({
   /** 自分が登場させた駒を片付ける(GM が所有者一致を検証して panel-remove)。 */
   function removeMyCharacter(panelId: string) {
     sendIntent({ kind: "remove-char", panelId });
+  }
+
+  /** 画像ファイルを盤面オブジェクトとして追加(add-char 経由で GM が登場)。 */
+  async function addImageObject(file: File) {
+    const dataUrl = await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+    if (!dataUrl) return;
+    // ネットワークを軽くするため縮小してから送る(参加者の intent は無加工)。
+    const img = (await downscaleImage(dataUrl, 720)) ?? dataUrl;
+    const size = await probeImageWidth(img, 700);
+    const token: Panel = {
+      ...makeTokenPanel({
+        id: crypto.randomUUID(),
+        name: file.name.replace(/\.[^.]+$/, ""),
+        portrait: img,
+      }),
+      pos: { x: 0.5, y: 0.5 },
+      size,
+    };
+    sendIntent({ kind: "add-char", panel: token });
+  }
+
+  function onClientDragOver(e: React.DragEvent) {
+    if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+  }
+  function onClientDrop(e: React.DragEvent) {
+    const file = Array.from(e.dataTransfer.files).find((f) =>
+      f.type.startsWith("image/"),
+    );
+    if (!file) return;
+    e.preventDefault();
+    void addImageObject(file);
   }
 
   // 発言者は「自分(入室名)」か自分のキャラのみ。駒が消えるなど無効になったら
@@ -483,7 +527,7 @@ export function PlayClient({
   }
 
   return (
-    <div className="ptable">
+    <div className="ptable" onDragOver={onClientDragOver} onDrop={onClientDrop}>
       <header className="ptable-head">
         <span className="ptable-title-ro">{scene.title || "卓"}</span>
         <div className="ptable-tools">
@@ -628,6 +672,37 @@ export function PlayClient({
                 />
               ))
             )}
+
+            {/* D&D で置いた画像オブジェクト(自分のものだけ片付け可)。 */}
+            {myObjects.length > 0 && (
+              <div className="pclient-objs">
+                <div className="pclient-objs-head">オブジェクト</div>
+                <div className="pclient-objs-grid">
+                  {myObjects.map((p) => (
+                    <div key={p.id} className="pclient-obj" title={p.name}>
+                      {p.portrait ? (
+                        <img src={p.portrait} alt={p.name} />
+                      ) : (
+                        <span aria-hidden>🖼</span>
+                      )}
+                      <button
+                        className="pclient-obj-del"
+                        title="このオブジェクトを片付ける"
+                        onClick={() => removeMyCharacter(p.id)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 画像 D&D の案内(参加者も盤面にオブジェクトを置ける)。 */}
+            <p className="pside-empty muted" style={{ fontSize: 11 }}>
+              画像ファイルを画面にドラッグ＆ドロップすると、盤面にオブジェクトとして
+              置けます。
+            </p>
           </div>
           <button
             className="pdrawer-tab"

@@ -70,6 +70,7 @@ import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
 import { playSeFile } from "./SePanel";
 import { uploadAudioPath, sanitizeForNet } from "./play-media";
+import { probeImageWidth } from "./play-thumb";
 import {
   connectRoom,
   makeRoomCode,
@@ -85,16 +86,6 @@ import { savePlayAs, savePlayToPath } from "./play-storage";
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
 function newCtx() {
   return { id: crypto.randomUUID(), ts: new Date().toISOString() };
-}
-
-/** data URL 画像の実寸(幅)を読む。cap で上限クランプ。読めなければ既定。 */
-function probeImageWidth(dataUrl: string, cap = 600): Promise<number> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(Math.min(img.naturalWidth || 140, cap));
-    img.onerror = () => resolve(140);
-    img.src = dataUrl;
-  });
 }
 
 /**

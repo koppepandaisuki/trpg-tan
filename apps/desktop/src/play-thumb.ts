@@ -1,5 +1,15 @@
 import type { PlayScene } from "@trpg/core";
 
+/** data URL 画像の実寸(幅)を読む。cap で上限クランプ。読めなければ既定。 */
+export function probeImageWidth(dataUrl: string, cap = 600): Promise<number> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(Math.min(img.naturalWidth || 140, cap));
+    img.onerror = () => resolve(140);
+    img.src = dataUrl;
+  });
+}
+
 /**
  * 画像(data URL / http URL)を最大幅 maxW に縮小した JPEG data URL にする。
  * ロビーのカード用サムネイルを localStorage に収める目的なので小さく圧縮する。

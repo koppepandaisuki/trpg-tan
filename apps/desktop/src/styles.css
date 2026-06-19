@@ -8072,6 +8072,58 @@ button:disabled {
   gap: 6px;
 }
 
+/* 参加者: D&D で置いた画像オブジェクトの一覧(サムネ + 片付け ×)。 */
+.pclient-objs-head {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 6px 2px 4px;
+}
+.pclient-objs-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pclient-obj {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.pclient-obj img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pclient-obj-del {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.pclient-obj-del:hover {
+  background: #b91c1c;
+}
+
 /* 卓データ受信の進捗(参加者の待機画面)。 */
 .pclient-wait {
   display: flex;
