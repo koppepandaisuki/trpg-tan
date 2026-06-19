@@ -6,6 +6,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CategoryTabs } from "@/components/store/category-tabs";
+import { CuratedTagRail } from "@/components/store/curated-tag-rail";
 import { WorkCard } from "@/components/store/work-card";
 import { EmptyState } from "@/components/store/empty-state";
 import { StorePagination } from "@/components/store/pagination";
@@ -167,6 +168,10 @@ export default async function StorePage({ searchParams }: StorePageProps) {
         <div>
           <CategoryTabs current={category} />
         </div>
+
+        {/* テーマで探す(キュレーション探索タグ)。カテゴリ(商品タイプ)とは
+            別軸で、遊びやすさ・時間・人数・雰囲気からタグ検索に飛ばす。 */}
+        <CuratedTagRail current={tag} />
 
         {/* ソート切替(新着順 / 好評順)。フィルタ + ソートは独立に
             選べる。category-tabs と並ぶが、別行で「2 つの軸」感を明示。 */}
