@@ -8072,6 +8072,14 @@ button:disabled {
   gap: 6px;
 }
 
+/* 参加者: 接続前/待機カードのアクション(キャラシ作成・退出)。 */
+.pclient-status-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 /* 参加者: D&D で置いた画像オブジェクトの一覧(サムネ + 片付け ×)。 */
 .pclient-objs-head {
   font-size: 11px;

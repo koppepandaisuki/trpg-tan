@@ -618,9 +618,16 @@ export function PlayClient({
           <p className="muted" style={{ fontSize: 12 }}>
             参加コード: <code>{code}</code> / 名前: {name}
           </p>
-          <button className="btn mini" onClick={onClose}>
-            退出する
-          </button>
+          <div className="pclient-status-actions">
+            {onOpenCharacters && (
+              <button className="btn mini ibtn" onClick={onOpenCharacters}>
+                <SquarePen size={14} /> キャラシを作成
+              </button>
+            )}
+            <button className="btn mini" onClick={onClose}>
+              退出する
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -655,6 +662,15 @@ export function PlayClient({
             />
           </span>
           <span className="ptable-spacer" />
+          {onOpenCharacters && (
+            <button
+              className="btn mini ibtn"
+              onClick={onOpenCharacters}
+              title="卓を開いたままキャラシを作成・編集します"
+            >
+              <SquarePen size={14} /> キャラシ
+            </button>
+          )}
           <button className="btn mini" onClick={onClose}>
             退出
           </button>
