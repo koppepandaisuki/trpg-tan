@@ -46,6 +46,7 @@ export function PlayBoard({
   activeSceneId,
   playerMode = false,
   onMove,
+  onDragMove,
   onSetImage,
   onSetForeground,
   onScaleArt,
@@ -63,6 +64,8 @@ export function PlayBoard({
   /** 参加者ビュー(GM ツール/秘匿駒/右クリック/リサイズを隠す)。 */
   playerMode?: boolean;
   onMove: (panelId: string, x: number, y: number) => void;
+  /** ドラッグ中の駒座標(0..1)。ライブ配信用(間引きは呼び出し側)。確定は onMove。 */
+  onDragMove?: (panelId: string, x: number, y: number) => void;
   onSetImage: (dataUrl: string | null) => void;
   /** 前景画像(駒より上のレイヤー)の設定 / 解除。GM のみ。 */
   onSetForeground?: (dataUrl: string | null) => void;
@@ -285,6 +288,7 @@ export function PlayBoard({
     if (drag) {
       const n = clientToNorm(e.clientX, e.clientY);
       setDrag({ id: drag.id, x: n.x, y: n.y });
+      onDragMove?.(drag.id, n.x, n.y); // ライブ配信(間引きは呼び出し側)
     }
   }
   function onPointerUp() {

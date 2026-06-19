@@ -33,6 +33,7 @@ import { SideStack } from "./SideStack";
 import { CutInOverlay } from "./CutIn";
 import { TelopOverlay } from "./TextStock";
 import { connectRoom, type NetIntent, type Room } from "./net";
+import { useLiveDrag } from "./use-live-drag";
 
 type Phase = "connecting" | "waiting" | "ready" | "closed" | "error";
 
@@ -128,6 +129,9 @@ export function PlayClient({
   const optimistic = useRef<Map<string, { panel: Panel; until: number }>>(
     new Map(),
   );
+  // ライブドラッグ(他者がドラッグ中の駒を滑らかに表示 / 自分のドラッグを配信)。
+  const [room, setRoom] = useState<Room | null>(null);
+  const { sendDrag, overlay: overlayLive } = useLiveDrag(room);
 
   // 接続 → hello → state 待ち。アンマウントで切断。
   useEffect(() => {
@@ -144,6 +148,7 @@ export function PlayClient({
           return;
         }
         roomRef.current = r;
+        setRoom(r); // ライブドラッグ hook 用(onLive 登録 / sendLive)
         r.onPresence((names) => {
           if (!alive) return;
           setMembers(names);
@@ -209,6 +214,7 @@ export function PlayClient({
       if (helloTimer) window.clearInterval(helloTimer);
       roomRef.current?.close();
       roomRef.current = null;
+      setRoom(null);
       r?.close();
     };
     // 参加コード/名前は入室時に固定。
@@ -660,10 +666,11 @@ export function PlayClient({
           <div className="pstage">
             <PlayBoard
               board={scene.board}
-              panels={scene.panels}
+              panels={overlayLive(scene.panels)}
               activeSceneId={scene.activeSceneId}
               playerMode
               onMove={movePanel}
+              onDragMove={sendDrag}
               onSetImage={() => {}}
               onToggleGrid={() => {}}
               onAddImage={() => {}}

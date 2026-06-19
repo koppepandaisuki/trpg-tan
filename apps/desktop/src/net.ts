@@ -70,6 +70,13 @@ export type NetIntent =
       };
     };
 
+/**
+ * ライブ(ephemeral)ペイロード。ドラッグ中の駒座標など、高頻度・ロスしてよい・
+ * 順序不問の一時情報。確実配信(チャンク+ack+逐次キュー)を通さず、生の broadcast で
+ * 投げっぱなしにする(確定は state が担保するので落ちても問題ない)。
+ */
+export type LiveMsg = { kind: "drag"; panelId: string; x: number; y: number };
+
 interface ChunkPayload {
   mid: string;
   i: number;
@@ -83,7 +90,11 @@ export interface Room {
   selfId: string;
   /** メッセージ送信。全チャンクの送信完了で resolve(集約・逐次化に使える)。 */
   send: (msg: NetMsg) => Promise<void>;
+  /** ライブ(ephemeral)送信。投げっぱなし(ack 待ち/チャンク/逐次化なし)。 */
+  sendLive: (msg: LiveMsg) => void;
   onMessage: (cb: (msg: NetMsg) => void) => void;
+  /** ライブ(ephemeral)受信。ドラッグ中の駒座標など。 */
+  onLive: (cb: (msg: LiveMsg) => void) => void;
   onPresence: (cb: (names: string[]) => void) => void;
   /**
    * 複数チャンクに分かれた受信(スナップショット等)の進捗。received/total は
@@ -142,6 +153,7 @@ export async function connectRoom(
   });
 
   let onMsg: (msg: NetMsg) => void = () => {};
+  let onLiveCb: (msg: LiveMsg) => void = () => {};
   let onPres: (names: string[]) => void = () => {};
   let onProg: (p: { received: number; total: number } | null) => void = () => {};
   const buffers = new Map<
@@ -187,6 +199,11 @@ export async function connectRoom(
         // 壊れたメッセージは無視
       }
     }
+  });
+
+  // ライブ(ephemeral)受信: ドラッグ中の駒座標など。チャンク再組立を通さず即適用。
+  channel.on("broadcast", { event: "live" }, ({ payload }) => {
+    onLiveCb(payload as LiveMsg);
   });
 
   channel.on("presence", { event: "sync" }, () => {
@@ -279,8 +296,16 @@ export async function connectRoom(
           code,
           selfId,
           send,
+          // ライブ送信: ack 待ち/チャンク/逐次キューを通さず投げっぱなし。高頻度でも
+          // 詰まらない(確定は state が担保するので落ちても問題ない)。
+          sendLive: (m) => {
+            void channel.send({ type: "broadcast", event: "live", payload: m });
+          },
           onMessage: (cb) => {
             onMsg = cb;
+          },
+          onLive: (cb) => {
+            onLiveCb = cb;
           },
           onPresence: (cb) => {
             onPres = cb;
