@@ -54,6 +54,7 @@ import {
 } from "./play-storage";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
+import { NewCharacterMenu } from "./NewCharacterMenu";
 import brandLogo from "./assets/logo.png";
 
 // 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。ストアは初期
@@ -391,9 +392,10 @@ export function App() {
       <aside className="chars-list">
         <div className="sidebar-head">
           <strong>キャラクター</strong>
-          <button className="btn mini btn-primary" onClick={newCharacter}>
-            ＋ 新規
-          </button>
+          <NewCharacterMenu
+            onNewCoC={newCharacter}
+            onNewGeneric={newGenericCharacter}
+          />
         </div>
         {library.length === 0 ? (
           <p className="muted" style={{ padding: "8px 4px" }}>
