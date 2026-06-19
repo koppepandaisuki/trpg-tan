@@ -97,8 +97,11 @@ export function PlayClient({
   const curBgmRef = useRef<{ src: string | null }>({ src: null });
 
   const roomRef = useRef<Room | null>(null);
+  // 適用済み state の版。rev が進んだときだけ置き換える(broadcast の順序逆転で
+  // 古い state が新しいのを潰すのを防ぐ)。
+  const lastRevRef = useRef(-1);
 
-  // 接続 → hello → snapshot 待ち。アンマウントで切断。
+  // 接続 → hello → state 待ち。アンマウントで切断。
   useEffect(() => {
     let alive = true;
     let r: Room | null = null;
@@ -124,12 +127,16 @@ export function PlayClient({
         r.onProgress((p) => alive && setProgress(p));
         r.onMessage((msg) => {
           if (!alive) return;
-          if (msg.type === "snapshot") {
+          if (msg.type === "state") {
+            // 古い state(順序逆転)は無視。rev が進んだときだけ丸ごと置き換える。
+            if (msg.rev <= lastRevRef.current) return;
+            lastRevRef.current = msg.rev;
             got = true;
             if (helloTimer) window.clearInterval(helloTimer);
             setScene(msg.scene);
             setPhase("ready");
           } else if (msg.type === "event") {
+            // チャット/ダイスのみ即時(ログ即時表示＋ダイス演出)。状態は state が権威。
             setScene((s) => (s ? reduce(s, msg.ev) : s));
             if (msg.ev.kind === "roll") setMotion(msg.ev);
           } else if (msg.type === "cutin") {

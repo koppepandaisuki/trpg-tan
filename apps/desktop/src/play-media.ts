@@ -251,7 +251,7 @@ async function sanitizeEvent(ev: PlayEvent): Promise<PlayEvent> {
  */
 export async function sanitizeForNet(msg: NetMsg): Promise<NetMsg> {
   switch (msg.type) {
-    case "snapshot":
+    case "state":
       return { ...msg, scene: await sanitizeScene(msg.scene) };
     case "event":
       return { ...msg, ev: await sanitizeEvent(msg.ev) };
