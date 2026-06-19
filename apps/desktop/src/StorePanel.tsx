@@ -99,9 +99,8 @@ function reviewTone(label: string): string {
 }
 
 function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
-  if (!review || review.total === 0) {
-    return <span className="store-rev none">評価なし</span>;
-  }
+  // 評価が無いもの(0 件)は「評価なし」を出さず、何も表示しない。
+  if (!review || review.total === 0) return null;
   return (
     <span className={`store-rev ${reviewTone(review.label)}`}>
       {review.label}（{review.total}）

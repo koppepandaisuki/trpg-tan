@@ -186,6 +186,8 @@ export async function ReviewSection({
  * 評価が高いほど positive な配色(emerald)、低いほど rose 寄りに。
  */
 function ReviewLabelBadge({ label }: { label: ReviewLabel }) {
+  // 評価が無いもの(0 件)は「評価なし」ラベルを出さず、何も描画しない。
+  if (label === "評価なし") return null;
   const tones: Record<ReviewLabel, string> = {
     圧倒的に好評: "border-emerald-300 bg-emerald-100 text-emerald-900",
     非常に好評: "border-emerald-300 bg-emerald-50 text-emerald-800",
