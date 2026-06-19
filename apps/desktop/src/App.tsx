@@ -484,7 +484,11 @@ export function App() {
               key={`${joining!.code}-${joining!.name}`}
               code={joining!.code}
               name={joining!.name}
-              onClose={() => setJoining(null)}
+              onClose={() => {
+                setJoining(null);
+                setCharOverlay(false);
+              }}
+              onOpenCharacters={() => setCharOverlay(true)}
             />
           )}
         </Suspense>
