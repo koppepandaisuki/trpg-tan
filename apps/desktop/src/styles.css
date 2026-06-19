@@ -1768,8 +1768,25 @@ body {
 }
 .scene-select {
   height: 28px;
-  padding: 2px 8px;
-  max-width: 240px;
+  min-width: 120px;
+  max-width: 220px;
+  flex: 0 1 auto;
+  padding: 2px 26px 2px 10px;
+  /* WebView の native select はテーマによってテキストが潰れる/読めなくなることが
+     あるので、見た目を自前で完全制御する(appearance:none + 矢印を自描画 + option
+     も明示配色)。これでライト/ダークどちらでも確実に読める。 */
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--surface);
+  color: var(--text);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237088a0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  text-overflow: ellipsis;
+}
+.scene-select option {
+  background: var(--surface);
+  color: var(--text);
 }
 .scene-count {
   font-size: 11px;
@@ -3738,7 +3755,8 @@ body {
   flex-direction: column;
   gap: 4px;
   pointer-events: none;
-  max-width: 340px;
+  /* 盤面が小さくても横にはみ出さない(JS 側で座標も画面内へクランプ)。 */
+  max-width: min(340px, calc(100% - 16px));
 }
 /* ドラッグ用グリップ。ここだけ pointer-events: auto。 */
 .bstatus-grip {

@@ -60,6 +60,31 @@ export function BoardStatusBar({
     return () => window.clearTimeout(id);
   }, [pos]);
 
+  // 盤面内に収まるよう座標をクランプ(画面/盤面が小さくても はみ出さない)。
+  function clampToParent(x: number, y: number): { x: number; y: number } {
+    const parent = ref.current?.parentElement;
+    const bar = ref.current;
+    if (!parent || !bar) return { x, y };
+    const maxX = Math.max(4, parent.clientWidth - bar.offsetWidth - 4);
+    const maxY = Math.max(4, parent.clientHeight - bar.offsetHeight - 4);
+    return { x: Math.max(4, Math.min(x, maxX)), y: Math.max(4, Math.min(y, maxY)) };
+  }
+
+  // 初期表示・ウィンドウリサイズ・行数変化のたびに、画面外なら盤面内へ戻す。
+  // 保存済みの位置が今の画面では画面外、というケース(小さい画面)を救う。
+  useEffect(() => {
+    const reclamp = () =>
+      setPos((p) => {
+        const c = clampToParent(p.x, p.y);
+        return c.x === p.x && c.y === p.y ? p : c;
+      });
+    reclamp();
+    window.addEventListener("resize", reclamp);
+    return () => window.removeEventListener("resize", reclamp);
+    // 行数(=高さ)が変わるときも再クランプ。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards.length]);
+
   if (cards.length === 0) return null;
   const started = (turn?.round ?? 0) > 0;
 
@@ -70,17 +95,7 @@ export function BoardStatusBar({
   }
   function onGripMove(e: React.PointerEvent) {
     if (!drag.current) return;
-    let x = e.clientX - drag.current.dx;
-    let y = e.clientY - drag.current.dy;
-    const parent = ref.current?.parentElement;
-    const bar = ref.current;
-    if (parent && bar) {
-      const maxX = Math.max(4, parent.clientWidth - bar.offsetWidth - 4);
-      const maxY = Math.max(4, parent.clientHeight - bar.offsetHeight - 4);
-      x = Math.max(4, Math.min(x, maxX));
-      y = Math.max(4, Math.min(y, maxY));
-    }
-    setPos({ x, y });
+    setPos(clampToParent(e.clientX - drag.current.dx, e.clientY - drag.current.dy));
   }
   function onGripUp() {
     drag.current = null;

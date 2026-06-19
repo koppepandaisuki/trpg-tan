@@ -183,8 +183,7 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
   const [storeHomeSig, setStoreHomeSig] = useState(0);
-  // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。
-  // PLAY(卓 / ネット参加)中は没入のため常にダーク(CCFOLIA/Steam 流)。
+  // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。PLAY 中も従う。
   const [theme, setTheme] = useState(
     () => localStorage.getItem("trpg.theme.v1") ?? "light",
   );
@@ -201,11 +200,10 @@ export function App() {
     if (isTauri()) void initDeepLinkAuth();
   }, []);
 
-  // テーマ適用。PLAY 中はユーザー設定に関わらずダークへ。
-  const inPlay = !!(session || joining);
+  // テーマ適用。PLAY 中もユーザー設定(ライト / ダーク)に従う。
   useEffect(() => {
-    document.documentElement.dataset.theme = inPlay ? "dark" : theme;
-  }, [theme, inPlay]);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   /** ページ遷移(セッション/参加を畳む)。ストアは常にホームから。 */
   function goTo(p: Page) {
