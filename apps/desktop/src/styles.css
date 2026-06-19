@@ -8065,6 +8065,13 @@ button:disabled {
   background: var(--surface-2);
 }
 
+/* 参加者: 「追加」「キャラシ作成・編集」ボタンの縦並び。 */
+.pclient-charbtns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* 卓データ受信の進捗(参加者の待機画面)。 */
 .pclient-wait {
   display: flex;

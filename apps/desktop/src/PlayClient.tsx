@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Users, MessageSquare, StickyNote, Globe, UserPlus } from "lucide-react";
+import {
+  Users,
+  MessageSquare,
+  StickyNote,
+  Globe,
+  UserPlus,
+  SquarePen,
+} from "lucide-react";
 import {
   reduce,
   panelFromSheet,
@@ -38,10 +45,13 @@ export function PlayClient({
   code,
   name,
   onClose,
+  onOpenCharacters,
 }: {
   code: string;
   name: string;
   onClose: () => void;
+  /** PLAY 中にキャラシ作成・編集オーバーレイを開く(卓は開いたまま)。 */
+  onOpenCharacters?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("connecting");
   const [netError, setNetError] = useState<string | null>(null);
@@ -295,9 +305,16 @@ export function PlayClient({
   // 自分が追加したキャラ(owner=自分の表示名)。サイドバーで操作できるのはこれだけ。
   const myCards = playerCards.filter((p) => p.owner === name);
 
-  // 自分のローカルライブラリ(この端末に保存したキャラ)。
-  const [lib] = useState(() => getLibrary());
+  // 自分のローカルライブラリ(この端末に保存したキャラ)。PLAY 中にキャラシを
+  // 作成/編集すると増えるので、ピッカーを開くたびに読み直す。
+  const [lib, setLib] = useState(() => getLibrary());
   const [picking, setPicking] = useState(false);
+
+  /** ピッカーを開く前にライブラリを読み直して最新の保存キャラを反映する。 */
+  function openPicker() {
+    setLib(getLibrary());
+    setPicking(true);
+  }
   const [addErr, setAddErr] = useState<string | null>(null);
 
   /** 自分のキャラを登場させる(GM へ intent を送り、GM が owner を刻んで配信)。 */
@@ -528,10 +545,22 @@ export function PlayClient({
             {picking ? (
               <div className="pclient-addchar">
                 {lib.length === 0 ? (
-                  <p className="pside-empty muted">
-                    この端末に保存されたキャラがありません。先にキャラシを作成/保存して
-                    ください。
-                  </p>
+                  <div className="pside-empty muted">
+                    <p style={{ margin: "0 0 8px" }}>
+                      この端末に保存されたキャラがいません。
+                      {onOpenCharacters
+                        ? "下のボタンから作成できます。"
+                        : "先にキャラシを作成/保存してください。"}
+                    </p>
+                    {onOpenCharacters && (
+                      <button
+                        className="btn mini btn-primary ibtn"
+                        onClick={onOpenCharacters}
+                      >
+                        <SquarePen size={14} /> キャラシを作成
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <select
                     className="input"
@@ -558,13 +587,25 @@ export function PlayClient({
                 </button>
               </div>
             ) : (
-              <button
-                className="btn mini btn-primary ibtn"
-                style={{ width: "100%" }}
-                onClick={() => setPicking(true)}
-              >
-                <UserPlus size={14} /> 自分のキャラを追加
-              </button>
+              <div className="pclient-charbtns">
+                <button
+                  className="btn mini btn-primary ibtn"
+                  style={{ width: "100%" }}
+                  onClick={openPicker}
+                >
+                  <UserPlus size={14} /> 自分のキャラを追加
+                </button>
+                {onOpenCharacters && (
+                  <button
+                    className="btn mini ibtn"
+                    style={{ width: "100%" }}
+                    onClick={onOpenCharacters}
+                    title="卓を開いたままキャラシを作成・編集します"
+                  >
+                    <SquarePen size={14} /> キャラシを作成・編集
+                  </button>
+                )}
+              </div>
             )}
             {myCards.length === 0 ? (
               <p className="pside-empty muted">
