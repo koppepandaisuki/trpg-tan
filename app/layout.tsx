@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { TestModeBanner } from "@/components/banner/test-mode-banner";
@@ -81,6 +81,13 @@ export const metadata: Metadata = {
   },
   // テスター環境であることを示すカテゴリヒント(検索エンジン向け)
   category: "Marketplace",
+};
+
+// このサイトはライト専用デザイン。`<meta name="color-scheme" content="only light">`
+// を出力し、OS / ブラウザの自動ダーク化による配色反転(可読性崩れ)を防ぐ。
+// globals.css の :root { color-scheme: only light } と二重で宣言。
+export const viewport: Viewport = {
+  colorScheme: "only light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
