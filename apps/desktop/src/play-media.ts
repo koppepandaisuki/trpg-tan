@@ -256,7 +256,8 @@ export async function sanitizeForNet(msg: NetMsg): Promise<NetMsg> {
     case "event":
       return { ...msg, ev: await sanitizeEvent(msg.ev) };
     case "cutin":
-      return { ...msg, cutin: { ...msg.cutin, image: await up(msg.cutin.image) } };
+      // id のみ送るので変換不要。
+      return msg;
     case "audio":
       return msg.src ? { ...msg, src: await up(msg.src) } : msg;
     default:

@@ -1,5 +1,5 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import type { PlayEvent, PlayScene, CutIn, Panel } from "@trpg/core";
+import type { PlayEvent, PlayScene, Panel } from "@trpg/core";
 import { supabase } from "./supabase";
 
 /**
@@ -29,7 +29,11 @@ export type NetMsg =
   /** 即時イベント(チャット/ダイスのみ)。ログ即時表示＋ダイス演出用。状態は state が権威。 */
   | { type: "event"; ev: PlayEvent }
   | { type: "intent"; from: string; intent: NetIntent }
-  | { type: "cutin"; cutin: CutIn }
+  /**
+   * カットイン発火。参加者は id で自分の scene.cutins から画像を引く(image を
+   * 丸ごと送ると data URL が巨大になり Realtime を詰まらせるため送らない)。
+   */
+  | { type: "cutin"; cutinId: string }
   | { type: "telop"; text: string }
   | { type: "memo"; text: string }
   /**

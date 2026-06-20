@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   reduce,
   panelFromSheet,
@@ -131,6 +131,10 @@ export function PlayTable({
   // 再生中のカットイン / テロップ(定型文の画面表示)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const [telop, setTelop] = useState<string | null>(null);
+  // onDone を毎レンダーで作り直すと CutInOverlay の useEffect が連続リセットされ
+  // タイマーが永遠に延長されるため、useCallback で参照を安定させる。
+  const clearCutin = useCallback(() => setCutin(null), []);
+  const clearTelop = useCallback(() => setTelop(null), []);
   // BGM への外部再生指示(アセットのマクロから)。nonce 変化で SoundPanel が反応。
   const [bgmSignal, setBgmSignal] = useState<{
     id: string | null;
@@ -1100,11 +1104,9 @@ export function PlayTable({
 
   function fireCutin(c: CutIn) {
     setCutin(c);
-    // 参加者にはローカルパスの soundPath は無意味なので外し、音は audio で配信。
-    roomRef.current?.send({
-      type: "cutin",
-      cutin: { ...c, soundPath: undefined, soundName: undefined },
-    });
+    // id だけ送る。参加者は自分の scene.cutins から画像を引く(data URL を丸ごと
+    // 送ると巨大になり Realtime を詰まらせてカットインが届かなくなるため)。
+    roomRef.current?.send({ type: "cutin", cutinId: c.id });
     if (c.soundPath) void broadcastAudio("se", c.soundPath);
   }
   function fireTelop(text: string) {
@@ -1739,8 +1741,8 @@ export function PlayTable({
           onClose={() => setMotion(null)}
         />
       )}
-      {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}
-      {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}
+      {cutin && <CutInOverlay cutin={cutin} onDone={clearCutin} />}
+      {telop && <TelopOverlay text={telop} onDone={clearTelop} />}
     </div>
   );
 }

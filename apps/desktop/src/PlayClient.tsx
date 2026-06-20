@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Users,
   MessageSquare,
@@ -90,6 +90,8 @@ export function PlayClient({
   const [motion, setMotion] = useState<RollEvent | null>(null);
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const [telop, setTelop] = useState<string | null>(null);
+  const clearCutin = useCallback(() => setCutin(null), []);
+  const clearTelop = useCallback(() => setTelop(null), []);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(true);
 
@@ -121,6 +123,10 @@ export function PlayClient({
   const curBgmRef = useRef<{ src: string | null }>({ src: null });
 
   const roomRef = useRef<Room | null>(null);
+  // "cutin" メッセージのハンドラは接続時の closure で固定されるため、最新の scene を
+  // 参照するための ref(毎レンダーで更新)。
+  const sceneRef = useRef<PlayScene | null>(null);
+  sceneRef.current = scene;
   // 適用済み state の版。rev が進んだときだけ置き換える(broadcast の順序逆転で
   // 古い state が新しいのを潰すのを防ぐ)。
   const lastRevRef = useRef(-1);
@@ -177,7 +183,9 @@ export function PlayClient({
             setScene((s) => (s ? reduce(s, msg.ev) : s));
             if (msg.ev.kind === "roll") setMotion(msg.ev);
           } else if (msg.type === "cutin") {
-            setCutin(msg.cutin);
+            // id だけ届くので参加者の scene から画像を引く。
+            const c = sceneRef.current?.cutins?.find((x) => x.id === msg.cutinId);
+            if (c) setCutin(c);
           } else if (msg.type === "telop") {
             setTelop(msg.text);
           } else if (msg.type === "memo") {
@@ -908,8 +916,8 @@ export function PlayClient({
           onClose={() => setMotion(null)}
         />
       )}
-      {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}
-      {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}
+      {cutin && <CutInOverlay cutin={cutin} onDone={clearCutin} />}
+      {telop && <TelopOverlay text={telop} onDone={clearTelop} />}
     </div>
   );
 }
