@@ -4,6 +4,7 @@ import { Star, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
 import { DownloadButton } from "./download-button";
+import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
 import type { LibraryItem } from "@/lib/queries/library";
@@ -43,6 +44,18 @@ export function LibraryCard({ item }: LibraryCardProps) {
     ? (`/store/${item.slug}#reviews` as Route)
     : null;
 
+  // お気に入り(localStorage)用の最小データ。ライブラリ品は購入時価格しか
+  // 持たないため priceJpy は amountJpy で代用、systemLabel は持たないので null。
+  const favoriteItem = {
+    slug: item.slug,
+    title: item.title,
+    coverUrl: item.coverUrl,
+    productType: item.productType,
+    priceJpy: item.amountJpy,
+    systemLabel: null,
+    creator: { id: item.creator.id, displayName: item.creator.displayName },
+  };
+
   return (
     <li
       className={cn(
@@ -53,7 +66,7 @@ export function LibraryCard({ item }: LibraryCardProps) {
       )}
     >
       {/* 表紙(クリック可能、無ければただの画像) */}
-      <div className="w-full max-w-[180px] shrink-0 sm:w-44">
+      <div className="relative w-full max-w-[180px] shrink-0 sm:w-44">
         {detailHref ? (
           <Link
             href={detailHref}
@@ -73,6 +86,16 @@ export function LibraryCard({ item }: LibraryCardProps) {
             alt={item.title}
             aspect="aspect-[16/10]"
           />
+        )}
+        {/* お気に入り(localStorage)。詳細に飛べる(=slug あり)ものだけ。 */}
+        {item.slug && (
+          <div className="absolute right-1.5 top-1.5 z-10">
+            <FavoriteButton
+              item={favoriteItem}
+              variant="compact"
+              className="h-8 w-8"
+            />
+          </div>
         )}
       </div>
 
