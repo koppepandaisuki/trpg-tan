@@ -24,6 +24,7 @@ import {
   fileToAvatarDataUrl,
 } from "./local-profile";
 import { signInWithGoogle, signOut } from "./auth";
+import { deleteMyAccount } from "./account-remote";
 import { supabaseConfigured } from "./supabase";
 import {
   getSoundSettings,
@@ -269,22 +270,105 @@ function StoreLinkSection() {
       <Section
         title="ストア連携"
         desc="連携済みです。購入物をライブラリに取り込めます。本名・メールはアプリ内に表示・共有されません。"
-      >
-        <button
-          className="set2-link"
-          onClick={() => void openUrl(`${WEB_BASE}/settings`)}
-        >
-          <UserCog size={16} /> メール・パスワード・退会の管理（web）
-          <ExternalLink size={14} className="set2-link-ext" />
-        </button>
-      </Section>
+      />
 
       <Section title="ログアウト" desc="この端末からサインアウトします。">
         <button className="btn acct-logout" onClick={() => void signOut()}>
           <LogOut size={15} /> ログアウト
         </button>
       </Section>
+
+      <DeleteAccountSection />
     </>
+  );
+}
+
+/**
+ * 退会(アカウント削除)。アプリ内で完結する(web を開かない)。確認フレーズを
+ * 入力させ、サーバーの退会 API を本人の JWT で叩く。成功でサインアウト。
+ * 作品保有 creator はサーバー側で弾かれ、その旨が表示される。
+ */
+function DeleteAccountSection() {
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function onDelete() {
+    setErr(null);
+    setBusy(true);
+    try {
+      await deleteMyAccount(confirm);
+      setDone(true);
+      await signOut();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "退会処理に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <Section title="退会">
+        <p className="muted">退会が完了しました。ご利用ありがとうございました。</p>
+      </Section>
+    );
+  }
+
+  return (
+    <Section
+      title="退会（アカウント削除）"
+      desc="アカウントを完全に削除します。元に戻せません。"
+    >
+      {!open ? (
+        <button className="btn acct-logout" onClick={() => setOpen(true)}>
+          <Trash2 size={15} /> 退会する…
+        </button>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            maxWidth: 360,
+          }}
+        >
+          <p className="muted" style={{ fontSize: 12 }}>
+            続けるには下の欄に「退会する」と入力してください。元に戻せません。
+            作品を公開・登録中の場合は退会できません(先に作品を削除してください)。
+          </p>
+          <input
+            className="input"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            placeholder="退会する"
+          />
+          {err && <span style={{ color: "#e5484d", fontSize: 11 }}>{err}</span>}
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              className="btn acct-logout"
+              disabled={busy || confirm.trim() !== "退会する"}
+              onClick={() => void onDelete()}
+            >
+              {busy ? "処理中…" : "完全に削除する"}
+            </button>
+            <button
+              className="btn"
+              disabled={busy}
+              onClick={() => {
+                setOpen(false);
+                setConfirm("");
+                setErr(null);
+              }}
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
+    </Section>
   );
 }
 
