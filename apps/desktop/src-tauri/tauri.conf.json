@@ -13,7 +13,7 @@
       "endpoints": [
         "https://github.com/koppepandaisuki/trpg-tan/releases/latest/download/latest.json"
       ],
-      "pubkey": ""
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGQ0E2QTlBNEY3MkY0NDUKUldSRjlISlBtbXJLSDJ0RFA3ODh4OVZsYVBiNTJMMU1lbWkySTNXZVh3Y2swWlNvYXVBek5jb2sK"
     }
   },
   "build": {
