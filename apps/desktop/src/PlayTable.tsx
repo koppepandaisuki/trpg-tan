@@ -69,7 +69,7 @@ import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
 import { playSeFile } from "./SePanel";
-import { uploadAudioPath, sanitizeForNet } from "./play-media";
+import { uploadAudioPath, sanitizeForNet, splitSceneMedia } from "./play-media";
 import { probeImageWidth } from "./play-thumb";
 import {
   connectRoom,
@@ -168,6 +168,10 @@ export function PlayTable({
   // 同時に 1 本だけ送り、送信中なら 1 本だけ予約する(連投によるメモリ膨張=
   // ホストの Out of Memory を防ぐ)。
   const snapRef = useRef({ sending: false, queued: false });
+  // 既に media 送信済みの画像 key 集合。state(軽量)は毎回送るが、画像実体は初出の
+  // ものだけ送る(駒移動のたびに巨大画像を再送しない)。新規参加者の hello でクリア
+  // して全画像を再送する。
+  const sentMediaRef = useRef<Set<string>>(new Set());
   // 参加者 selfId → 表示名。hello で記録し、intent の所有権チェックに使う。
   const memberNames = useRef<Map<string, string>>(new Map());
   // 現在配信中の BGM。途中入室した参加者は再生中の BGM メッセージを取りこぼす
@@ -1008,7 +1012,18 @@ export function PlayTable({
             })
             .slice(-LOG_LIMIT),
         };
-        await r.send({ type: "state", rev: revRef.current, scene: forNet });
+        // 画像(data URL)を分離: state は軽量(cas 参照)、画像実体は初出のものだけ
+        // 先に media で送る。これで駒移動のたびに 1〜2MB を再送せず済む。
+        const { lite, media } = splitSceneMedia(forNet);
+        const fresh: Record<string, string> = {};
+        for (const [k, v] of Object.entries(media)) {
+          if (!sentMediaRef.current.has(k)) fresh[k] = v;
+        }
+        if (Object.keys(fresh).length > 0) {
+          await r.send({ type: "media", media: fresh });
+          for (const k of Object.keys(fresh)) sentMediaRef.current.add(k);
+        }
+        await r.send({ type: "state", rev: revRef.current, scene: lite });
       } while (st.queued);
     } finally {
       st.sending = false;
@@ -1021,6 +1036,9 @@ export function PlayTable({
       if (msg.type === "hello") {
         // 参加者名を記録(intent の所有権判定に使う)。
         memberNames.current.set(msg.from, msg.name);
+        // 新規参加者は画像を 1 枚も持っていないので、送信済みフラグを消して全画像を
+        // media で再送させる(cas 参照だけ届いて画像が解決できないのを防ぐ)。
+        sentMediaRef.current.clear();
         // 新規参加者へ現在の卓全体を送る(集約。hello 連投でも 1 本ずつ)。
         void sendSnapshotCoalesced();
         // 既に BGM を流しているなら再配信して、途中入室でも鳴るようにする

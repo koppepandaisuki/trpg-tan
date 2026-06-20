@@ -28,6 +28,12 @@ export type NetMsg =
   | { type: "state"; rev: number; scene: PlayScene }
   /** 即時イベント(チャット/ダイスのみ)。ログ即時表示＋ダイス演出用。状態は state が権威。 */
   | { type: "event"; ev: PlayEvent }
+  /**
+   * 画像束(key→data URL or 公開 URL)。state は画像を "cas:<key>" 参照に置き換えた
+   * 軽量版を流し、画像実体は初出のものだけこの media で別送する(駒移動のたびに
+   * 1〜2MB を再送せず、参加者のラグを防ぐ)。state より前に送られる。
+   */
+  | { type: "media"; media: Record<string, string> }
   | { type: "intent"; from: string; intent: NetIntent }
   /**
    * カットイン発火。参加者は id で自分の scene.cutins から画像を引く(image を

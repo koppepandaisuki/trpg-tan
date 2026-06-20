@@ -33,6 +33,7 @@ import { SideStack } from "./SideStack";
 import { CutInOverlay } from "./CutIn";
 import { TelopOverlay } from "./TextStock";
 import { connectRoom, type NetIntent, type Room } from "./net";
+import { resolveSceneMedia } from "./play-media";
 import { useLiveDrag } from "./use-live-drag";
 
 type Phase = "connecting" | "waiting" | "ready" | "closed" | "error";
@@ -127,6 +128,9 @@ export function PlayClient({
   // 参照するための ref(毎レンダーで更新)。
   const sceneRef = useRef<PlayScene | null>(null);
   sceneRef.current = scene;
+  // 画像束(key→URL/dataURL)。GM は state を "cas:<key>" 参照の軽量版で流し、画像実体は
+  // 別 media メッセージで送ってくる。ここに溜めて state の参照を実体へ復元する。
+  const mediaMapRef = useRef<Map<string, string>>(new Map());
   // 適用済み state の版。rev が進んだときだけ置き換える(broadcast の順序逆転で
   // 古い state が新しいのを潰すのを防ぐ)。
   const lastRevRef = useRef(-1);
@@ -175,9 +179,19 @@ export function PlayClient({
             lastRevRef.current = msg.rev;
             got = true;
             if (helloTimer) window.clearInterval(helloTimer);
-            // 自分の未反映操作(楽観)は権威の上に被せて即時性を保つ。
-            setScene(overlayOptimistic(msg.scene));
+            // 軽量 state の "cas:<key>" 参照を、受信済みの画像実体へ復元してから
+            // 楽観反映を被せる(まだ届いていない画像は参照のまま=後続 media で埋まる)。
+            setScene(
+              overlayOptimistic(resolveSceneMedia(msg.scene, mediaMapRef.current)),
+            );
             setPhase("ready");
+          } else if (msg.type === "media") {
+            // 画像束を受け取りキャッシュ。表示中 scene に残る未解決参照を埋める
+            // (解決済み URL や通常のログ文字列には触れないのでログは保持される)。
+            for (const [k, v] of Object.entries(msg.media)) {
+              mediaMapRef.current.set(k, v);
+            }
+            setScene((s) => (s ? resolveSceneMedia(s, mediaMapRef.current) : s));
           } else if (msg.type === "event") {
             // チャット/ダイスのみ即時(ログ即時表示＋ダイス演出)。状態は state が権威。
             setScene((s) => (s ? reduce(s, msg.ev) : s));
