@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   UserCog,
@@ -13,8 +13,16 @@ import {
   Sun,
   Moon,
   Trash2,
+  UserRound,
+  ImagePlus,
 } from "lucide-react";
 import { useMyProfile } from "./useMyProfile";
+import {
+  useLocalProfile,
+  setLocalNickname,
+  setLocalAvatar,
+  fileToAvatarDataUrl,
+} from "./local-profile";
 import { signInWithGoogle, signOut } from "./auth";
 import { supabaseConfigured } from "./supabase";
 import {
@@ -30,7 +38,6 @@ import { getQuickRolls, saveQuickRolls } from "./quick-rolls";
 const WEB_BASE = (
   import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
 ).replace(/\/$/, "");
-const NET_NAME_KEY = "trpg.net.name.v1";
 
 export type SettingsTab = "account" | "display" | "sound" | "play" | "about";
 
@@ -121,7 +128,7 @@ function Section({
 }: {
   title: string;
   desc?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <section className="set2-sec">
@@ -133,23 +140,117 @@ function Section({
 }
 
 function AccountTab() {
-  const { ready, loggedIn, name, email, avatarUrl, initial } = useMyProfile();
+  const { nickname, avatar } = useLocalProfile();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [imgErr, setImgErr] = useState<string | null>(null);
+
+  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // 同じファイルを選び直せるようにリセット
+    if (!file) return;
+    setImgErr(null);
+    try {
+      const url = await fileToAvatarDataUrl(file);
+      setLocalAvatar(url);
+    } catch {
+      setImgErr("画像を読み込めませんでした。別の画像を試してください。");
+    }
+  }
+
+  return (
+    <>
+      <Section
+        title="プロフィール"
+        desc="この端末での表示名とアイコンです。卓(PLAY)に参加するときの名前にも使われます。ログインしても本名・メールはアプリ内に表示されません。"
+      >
+        <div className="set2-id">
+          <span className="acct-av lg">
+            {avatar ? (
+              <img src={avatar} alt="" />
+            ) : (
+              <UserRound size={26} aria-hidden />
+            )}
+          </span>
+          <div className="acct-id-text" style={{ gap: 8 }}>
+            <input
+              className="input"
+              value={nickname}
+              maxLength={40}
+              onChange={(e) => setLocalNickname(e.target.value)}
+              placeholder="ニックネーム（例: GM太郎）"
+            />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <button
+                className="btn mini"
+                onClick={() => fileRef.current?.click()}
+              >
+                <ImagePlus size={14} /> 画像を選ぶ
+              </button>
+              {avatar && (
+                <button
+                  className="btn mini"
+                  onClick={() => setLocalAvatar(null)}
+                >
+                  <Trash2 size={14} /> 画像を削除
+                </button>
+              )}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={onPickImage}
+              />
+            </div>
+            {!avatar && (
+              <span className="muted" style={{ fontSize: 11 }}>
+                画像未選択のときはゲストアイコンが表示されます。
+              </span>
+            )}
+            {imgErr && (
+              <span style={{ color: "#e5484d", fontSize: 11 }}>{imgErr}</span>
+            )}
+          </div>
+        </div>
+      </Section>
+
+      <StoreLinkSection />
+    </>
+  );
+}
+
+/**
+ * ストア連携(ログイン)。購入物のライブラリ取込に必要だが、本名 / メールは
+ * 一切表示しない。メール / パスワード / 退会だけは認証レベルの操作なので web に
+ * 委譲する(小さなリンク)。
+ */
+function StoreLinkSection() {
+  const { ready, loggedIn } = useMyProfile();
   const [busy, setBusy] = useState(false);
 
   if (!supabaseConfigured) {
     return (
-      <Section title="アカウント">
-        <p className="muted">
-          ログイン未設定です(VITE_SUPABASE_URL / ANON_KEY)。
-        </p>
+      <Section
+        title="ストア連携"
+        desc="ストア / ライブラリを使うにはログインが必要です。"
+      >
+        <p className="muted">ログイン未設定です(VITE_SUPABASE_URL / ANON_KEY)。</p>
       </Section>
     );
   }
-  if (!ready) return <Section title="アカウント"><p className="muted">…</p></Section>;
-
+  if (!ready) {
+    return (
+      <Section title="ストア連携">
+        <p className="muted">…</p>
+      </Section>
+    );
+  }
   if (!loggedIn) {
     return (
-      <Section title="アカウント" desc="ログインするとライブラリ取込や出品が使えます。">
+      <Section
+        title="ストア連携"
+        desc="ログインするとストアの購入物をライブラリに取り込めます。ログインしても本名・メールはアプリ内に表示されません。"
+      >
         <button
           className="btn btn-primary"
           disabled={busy}
@@ -163,30 +264,17 @@ function AccountTab() {
       </Section>
     );
   }
-
   return (
     <>
-      <div className="set2-id">
-        <span className="acct-av lg">
-          {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{initial}</span>}
-        </span>
-        <div className="acct-id-text">
-          <span className="acct-id-name">{name}</span>
-          <span className="acct-id-mail" title={email}>
-            {email}
-          </span>
-        </div>
-      </div>
-
       <Section
-        title="プロフィール・アカウント"
-        desc="表示名・アイコン・メール / パスワード・退会は web の設定で変更できます。"
+        title="ストア連携"
+        desc="連携済みです。購入物をライブラリに取り込めます。本名・メールはアプリ内に表示・共有されません。"
       >
         <button
           className="set2-link"
           onClick={() => void openUrl(`${WEB_BASE}/settings`)}
         >
-          <UserCog size={16} /> プロフィール・アカウントを編集
+          <UserCog size={16} /> メール・パスワード・退会の管理（web）
           <ExternalLink size={14} className="set2-link-ext" />
         </button>
       </Section>
@@ -318,34 +406,14 @@ function SoundTab() {
 }
 
 function PlayTab() {
-  const [netName, setNetName] = useState(
-    () => localStorage.getItem(NET_NAME_KEY) ?? "",
-  );
   const [favCount, setFavCount] = useState(() => getQuickRolls().length);
-
-  function saveName(v: string) {
-    setNetName(v);
-    try {
-      localStorage.setItem(NET_NAME_KEY, v);
-    } catch {
-      /* 保存失敗は無視 */
-    }
-  }
 
   return (
     <>
       <Section
-        title="既定のプレイヤー名"
-        desc="参加コードで卓に入るときに最初から入っている名前です。"
-      >
-        <input
-          className="input"
-          style={{ maxWidth: 280 }}
-          value={netName}
-          onChange={(e) => saveName(e.target.value)}
-          placeholder="プレイヤー名"
-        />
-      </Section>
+        title="参加名（プレイヤー名）"
+        desc="卓に参加するときの名前は『アカウント』タブのニックネームを使います。"
+      />
 
       <Section
         title="クイックロール"
