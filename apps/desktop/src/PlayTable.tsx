@@ -1497,6 +1497,15 @@ export function PlayTable({
                     onChange={(next) =>
                       setScene((s) => ({ ...s, scenario: next }))
                     }
+                    scenes={scene.scenes ?? []}
+                    onChangeScene={(sceneId, patch) =>
+                      setScene((s) => ({
+                        ...s,
+                        scenes: (s.scenes ?? []).map((sc) =>
+                          sc.id === sceneId ? { ...sc, ...patch } : sc,
+                        ),
+                      }))
+                    }
                     onExportPack={exportScenarioPack}
                   />
                 ),

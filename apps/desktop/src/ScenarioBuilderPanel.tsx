@@ -7,8 +7,14 @@ import {
   ScrollText,
   X,
   Package,
+  Clapperboard,
 } from "lucide-react";
-import type { ScenarioInfo, Handout, ScenarioNpc } from "@trpg/core";
+import type {
+  ScenarioInfo,
+  Handout,
+  ScenarioNpc,
+  SceneInfo,
+} from "@trpg/core";
 
 /**
  * シナリオ特化ビルダーの編集パネル(卓エディタ内「シナリオ作成」タブ)。
@@ -39,10 +45,16 @@ function fileToDataUrl(file: File): Promise<string> {
 export function ScenarioBuilderPanel({
   scenario,
   onChange,
+  scenes,
+  onChangeScene,
   onExportPack,
 }: {
   scenario: ScenarioInfo | undefined;
   onChange: (next: ScenarioInfo) => void;
+  /** 卓のシーン一覧(scene.scenes)。各シーンの台本/GMメモ/手がかりを編集する。 */
+  scenes?: SceneInfo[];
+  /** シーン 1 件を patch する(setScene 経由)。未指定ならシーン台本セクションを隠す。 */
+  onChangeScene?: (sceneId: string, patch: Partial<SceneInfo>) => void;
   /** 卓全体を .paradice として書き出す(親に委譲。未指定ならボタン非表示)。 */
   onExportPack?: () => void;
 }) {
@@ -185,6 +197,26 @@ export function ScenarioBuilderPanel({
           />
         ))}
       </section>
+
+      {/* シーン台本 */}
+      {onChangeScene && scenes && scenes.length > 0 && (
+        <section style={{ display: "grid", gap: 8 }}>
+          <strong style={{ fontSize: 13, display: "flex", gap: 6 }}>
+            <Clapperboard size={15} /> シーン台本
+          </strong>
+          <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+            シーンごとの読み上げ台本・GMメモ・手がかり。シーンを切り替えると
+            該当タブに表示されます（PLAY 時の参照用）。
+          </p>
+          {scenes.map((sc) => (
+            <SceneScriptEditor
+              key={sc.id}
+              scene={sc}
+              onChange={(p) => onChangeScene(sc.id, p)}
+            />
+          ))}
+        </section>
+      )}
 
       {/* 書き出し */}
       {onExportPack && (
@@ -354,6 +386,84 @@ function HandoutEditor({
         />
       </div>
     </div>
+  );
+}
+
+function SceneScriptEditor({
+  scene,
+  onChange,
+}: {
+  scene: SceneInfo;
+  onChange: (p: Partial<SceneInfo>) => void;
+}) {
+  const clues = scene.clues ?? [];
+  const setClues = (next: string[]) => onChange({ clues: next });
+  return (
+    <details
+      style={{
+        border: "1px solid var(--border, #ddd)",
+        borderRadius: 8,
+        padding: 8,
+      }}
+    >
+      <summary style={{ fontSize: 13, cursor: "pointer" }}>
+        {scene.name || "(無題のシーン)"}
+      </summary>
+      <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+        <Field label="読み上げ台本（シーン開始時に GM が読む）">
+          <textarea
+            className="input"
+            rows={3}
+            value={scene.script ?? ""}
+            onChange={(e) => onChange({ script: e.target.value })}
+            placeholder="例: 君たちは霧深い館の前に立っている..."
+          />
+        </Field>
+        <Field label="GMメモ（GM 専用）">
+          <textarea
+            className="input"
+            rows={2}
+            value={scene.gmNote ?? ""}
+            onChange={(e) => onChange({ gmNote: e.target.value })}
+            placeholder="進行の勘所・分岐の条件など"
+          />
+        </Field>
+        <div style={{ display: "grid", gap: 4 }}>
+          <span className="muted" style={{ fontSize: 11 }}>
+            手がかり（このシーンで配るキーアイテム・情報）
+          </span>
+          {clues.map((c, i) => (
+            <div key={i} style={{ display: "flex", gap: 6 }}>
+              <input
+                className="input"
+                value={c}
+                onChange={(e) => {
+                  const next = clues.slice();
+                  next[i] = e.target.value;
+                  setClues(next);
+                }}
+                placeholder="例: 古い鍵 / 血痕の手紙"
+                style={{ flex: 1 }}
+              />
+              <button
+                className="btn mini"
+                onClick={() => setClues(clues.filter((_, j) => j !== i))}
+                title="削除"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+          <button
+            className="btn mini"
+            onClick={() => setClues([...clues, ""])}
+            style={{ justifySelf: "start" }}
+          >
+            <Plus size={13} /> 手がかりを追加
+          </button>
+        </div>
+      </div>
+    </details>
   );
 }
 
