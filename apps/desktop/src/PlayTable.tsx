@@ -50,6 +50,7 @@ import {
   MessageSquare,
   StickyNote,
   BookMarked,
+  NotebookPen,
 } from "lucide-react";
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -68,6 +69,7 @@ import { AssetsPanel } from "./AssetsPanel";
 import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
+import { ScenarioBuilderPanel } from "./ScenarioBuilderPanel";
 import { playSeFile } from "./SePanel";
 import { uploadAudioPath, sanitizeForNet, splitSceneMedia } from "./play-media";
 import { probeImageWidth } from "./play-thumb";
@@ -1463,6 +1465,20 @@ export function PlayTable({
                 icon: <ScrollText size={14} />,
                 defaultOpen: false,
                 body: <ScenarioViewer playId={scene.id} />,
+              },
+              {
+                id: "scenario-build",
+                title: "シナリオ作成",
+                icon: <NotebookPen size={14} />,
+                defaultOpen: false,
+                body: (
+                  <ScenarioBuilderPanel
+                    scenario={scene.scenario}
+                    onChange={(next) =>
+                      setScene((s) => ({ ...s, scenario: next }))
+                    }
+                  />
+                ),
               },
               {
                 id: "cutin",

@@ -29,6 +29,9 @@ export {
   type SceneRemoveEvent,
   type TurnSetEvent,
   type LogClearEvent,
+  type ScenarioInfo,
+  type Handout,
+  type ScenarioNpc,
 } from "./types.js";
 export {
   createScene,
