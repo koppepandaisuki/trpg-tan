@@ -6,6 +6,7 @@ import {
   UserPlus,
   ScrollText,
   X,
+  Package,
 } from "lucide-react";
 import type { ScenarioInfo, Handout, ScenarioNpc } from "@trpg/core";
 
@@ -38,9 +39,12 @@ function fileToDataUrl(file: File): Promise<string> {
 export function ScenarioBuilderPanel({
   scenario,
   onChange,
+  onExportPack,
 }: {
   scenario: ScenarioInfo | undefined;
   onChange: (next: ScenarioInfo) => void;
+  /** 卓全体を .paradice として書き出す(親に委譲。未指定ならボタン非表示)。 */
+  onExportPack?: () => void;
 }) {
   const s = scenario ?? {};
   const patch = (p: Partial<ScenarioInfo>) => onChange({ ...s, ...p });
@@ -181,6 +185,30 @@ export function ScenarioBuilderPanel({
           />
         ))}
       </section>
+
+      {/* 書き出し */}
+      {onExportPack && (
+        <section
+          style={{
+            display: "grid",
+            gap: 6,
+            borderTop: "1px solid var(--border, #ddd)",
+            paddingTop: 12,
+          }}
+        >
+          <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+            この卓を .paradice ファイルにまとめて配布・出品できます
+            （盤面・パネル・BGM・カットイン・テキストストック・ HO/NPC を含む）。
+          </p>
+          <button
+            className="btn"
+            onClick={onExportPack}
+            style={{ justifySelf: "start" }}
+          >
+            <Package size={14} /> .paradice として書き出す
+          </button>
+        </section>
+      )}
     </div>
   );
 }

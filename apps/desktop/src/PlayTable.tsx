@@ -22,6 +22,7 @@ import {
   sceneRemoveEvent,
   turnSetEvent,
   logClearEvent,
+  buildPack,
   type PlayScene,
   type PlayEvent,
   type RollEvent,
@@ -85,6 +86,7 @@ import { getLibrary, systemLabel } from "./library";
 import { readSheetFromPath, isGenericSheet } from "./storage";
 import { toast } from "./Toasts";
 import { savePlayAs, savePlayToPath } from "./play-storage";
+import { exportPackToFile } from "./pack";
 
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
 function newCtx() {
@@ -639,6 +641,24 @@ export function PlayTable({
       );
     };
     reader.readAsDataURL(file);
+  }
+
+  /** 卓全体を .paradice として書き出す(シナリオ作成タブの導線)。 */
+  async function exportScenarioPack() {
+    try {
+      const pack = buildPack({
+        id: scene.id,
+        name: scene.title || "無題のシナリオ",
+        scenarios: [scene],
+        now: new Date().toISOString(),
+      });
+      const path = await exportPackToFile(pack);
+      if (path) toast(`📦 「${pack.name}」を書き出しました`);
+    } catch (e) {
+      toast(
+        `書き出しに失敗: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
   }
 
   /* ===== シナリオテキストストック / カットイン(GM ローカル編集) ===== */
@@ -1477,6 +1497,7 @@ export function PlayTable({
                     onChange={(next) =>
                       setScene((s) => ({ ...s, scenario: next }))
                     }
+                    onExportPack={exportScenarioPack}
                   />
                 ),
               },
