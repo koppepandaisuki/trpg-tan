@@ -193,6 +193,10 @@ function collectFromScene(out: Set<string>, scene: PlayScene): void {
     pushUrl(out, p.portrait);
     for (const v of p.variants ?? []) pushUrl(out, v.image);
   }
+  // シナリオ特化ビルダーの画像(HO 添付・NPC 立ち絵)も取り込み側の
+  // ホワイトリスト検証に乗せる(検証漏れ=外部 URL 混入を防ぐ)。
+  for (const h of scene.scenario?.handouts ?? []) pushUrl(out, h.image);
+  for (const n of scene.scenario?.npcs ?? []) pushUrl(out, n.portrait);
 }
 
 /**
