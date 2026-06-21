@@ -22,7 +22,9 @@ import {
   List,
   Clock,
   ChevronRight,
+  CalendarClock,
 } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { AuthControl } from "./AuthControl";
 import { AccountMenu } from "./AccountMenu";
 import { Viewer } from "./Viewer";
@@ -56,6 +58,12 @@ import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
 import { NewCharacterMenu } from "./NewCharacterMenu";
 import brandLogo from "./assets/logo.png";
+
+// 日程調整ツール(web)の作成ページ。ロビーから既定ブラウザで開く。匿名でも作れる
+// (web 側がログイン任意)ため、ここはアプリの Bearer を介さず URL を開くだけ。
+const SCHEDULE_WEB_BASE = (
+  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
 
 // 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。ストアは初期
 // 表示なので即時読込のまま。PLAY 一式・ビルダー・ライブラリ・キャラシートは、その
@@ -658,6 +666,16 @@ export function App() {
                 <p className="lobby-sub">
                   TRPG セッションの作成・参加・管理を行います
                 </p>
+                <button
+                  className="btn mini"
+                  style={{ marginTop: 12 }}
+                  onClick={() =>
+                    void openUrl(`${SCHEDULE_WEB_BASE}/schedule/new`)
+                  }
+                  title="ブラウザで日程調整ページを開きます（参加者はログイン不要で出欠を入れられます）"
+                >
+                  <CalendarClock size={15} /> 日程調整をつくる
+                </button>
               </header>
 
               <div className="lobby-panels">
