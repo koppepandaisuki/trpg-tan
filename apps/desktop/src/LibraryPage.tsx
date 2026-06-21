@@ -65,10 +65,13 @@ function relDay(iso: string): string {
 export function LibraryPage({
   onView,
   onGoStore,
+  refreshSignal,
 }: {
   onView?: (item: RemoteLibraryItem, entry: DownloadedEntry) => void;
   /** 空状態の「ストアを見る」(App がページ遷移)。 */
   onGoStore?: () => void;
+  /** 親から購入完了など外部イベントで再 fetch させたい時にインクリメント。 */
+  refreshSignal?: number;
 }) {
   const { session, ready } = useAuth();
   const [items, setItems] = useState<RemoteLibraryItem[] | null>(null);
@@ -128,6 +131,12 @@ export function LibraryPage({
     if (userId) void load();
     else setItems(null);
   }, [userId, load]);
+
+  // 外部(App)から refreshSignal が来たら fetch をやり直す。
+  // 例: アプリ内決済後の paradice://purchase/complete を受けた時など。
+  useEffect(() => {
+    if (refreshSignal !== undefined && userId) void load();
+  }, [refreshSignal, userId, load]);
 
   async function handleDownload(it: RemoteLibraryItem) {
     setBusy((b) => ({ ...b, [it.productId]: true }));

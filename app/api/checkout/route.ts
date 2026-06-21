@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Parse productId
-  let body: { productId?: unknown } = {};
+  // Parse productId + optional returnTo (desktop deep-link).
+  let body: { productId?: unknown; returnTo?: unknown } = {};
   try {
     body = await request.json();
   } catch {
@@ -49,6 +49,9 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  // デスクトップから来た場合、success/cancel ページが paradice:// で
+  // アプリに戻れるよう return_to=desktop を URL に乗せる。
+  const isFromDesktop = body.returnTo === "desktop";
 
   // Authorization
   const decision = await canPurchase(user.id, productId);
@@ -119,8 +122,8 @@ export async function POST(request: NextRequest) {
           userId: user.id,
         },
       },
-      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/checkout/cancel?slug=${encodeURIComponent(decision.product.slug)}`,
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}${isFromDesktop ? "&return_to=desktop" : ""}`,
+      cancel_url: `${siteUrl}/checkout/cancel?slug=${encodeURIComponent(decision.product.slug)}${isFromDesktop ? "&return_to=desktop" : ""}`,
     });
 
     if (!session.url) {

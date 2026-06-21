@@ -10,6 +10,7 @@ import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { ReturnToDesktop } from "@/components/checkout/return-to-desktop";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
@@ -17,7 +18,7 @@ export const metadata = {
 };
 
 interface PageProps {
-  searchParams: { session_id?: string };
+  searchParams: { session_id?: string; return_to?: string };
 }
 
 /**
@@ -35,6 +36,7 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
     // Development-only trace. Not surfaced to the user.
     console.info("[checkout/success] session_id", searchParams.session_id);
   }
+  const isDesktopReturn = searchParams.return_to === "desktop";
 
   return (
     <>
@@ -82,20 +84,27 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
               </ol>
             </div>
 
-            <div className="relative z-10 flex w-full flex-col gap-2 pt-2 sm:max-w-xs">
-              <Link
-                href="/library"
-                className={cn(buttonVariants({ variant: "primary" }))}
-              >
-                ライブラリを開く
-              </Link>
-              <Link
-                href="/store"
-                className={cn(buttonVariants({ variant: "outline" }))}
-              >
-                ストアへ戻る
-              </Link>
-            </div>
+            {isDesktopReturn ? (
+              <ReturnToDesktop
+                kind="complete"
+                sessionId={searchParams.session_id}
+              />
+            ) : (
+              <div className="relative z-10 flex w-full flex-col gap-2 pt-2 sm:max-w-xs">
+                <Link
+                  href="/library"
+                  className={cn(buttonVariants({ variant: "primary" }))}
+                >
+                  ライブラリを開く
+                </Link>
+                <Link
+                  href="/store"
+                  className={cn(buttonVariants({ variant: "outline" }))}
+                >
+                  ストアへ戻る
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </PageContainer>

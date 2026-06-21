@@ -5,6 +5,7 @@ import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { ReturnToDesktop } from "@/components/checkout/return-to-desktop";
 import { sanitizeSlug } from "@/lib/api/redirect";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +14,7 @@ export const metadata = {
 };
 
 interface PageProps {
-  searchParams: { slug?: string };
+  searchParams: { slug?: string; return_to?: string };
 }
 
 /**
@@ -27,6 +28,7 @@ export default function CheckoutCancelPage({ searchParams }: PageProps) {
   const slug = sanitizeSlug(searchParams.slug);
   const backHref: Route = slug ? (`/store/${slug}` as Route) : "/store";
   const backLabel = slug ? "作品ページへ戻る" : "ストアへ戻る";
+  const isDesktopReturn = searchParams.return_to === "desktop";
 
   return (
     <>
@@ -52,20 +54,24 @@ export default function CheckoutCancelPage({ searchParams }: PageProps) {
               </p>
             </div>
 
-            <div className="relative z-10 flex w-full flex-col gap-2 pt-2 sm:max-w-xs">
-              <Link
-                href={backHref}
-                className={cn(buttonVariants({ variant: "primary" }))}
-              >
-                {backLabel}
-              </Link>
-              <Link
-                href="/"
-                className={cn(buttonVariants({ variant: "outline" }))}
-              >
-                トップへ戻る
-              </Link>
-            </div>
+            {isDesktopReturn ? (
+              <ReturnToDesktop kind="cancel" slug={slug || undefined} />
+            ) : (
+              <div className="relative z-10 flex w-full flex-col gap-2 pt-2 sm:max-w-xs">
+                <Link
+                  href={backHref}
+                  className={cn(buttonVariants({ variant: "primary" }))}
+                >
+                  {backLabel}
+                </Link>
+                <Link
+                  href="/"
+                  className={cn(buttonVariants({ variant: "outline" }))}
+                >
+                  トップへ戻る
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </PageContainer>

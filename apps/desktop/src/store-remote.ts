@@ -745,8 +745,14 @@ export function formatPriceJpy(jpy: number): string {
   return jpy === 0 ? "無料" : `¥${jpy.toLocaleString("ja-JP")}`;
 }
 
-/** Web 版の商品ページ URL(決済はブラウザで行う)。 */
+/**
+ * Web 版の商品ページ URL(決済はブラウザで行う)。
+ *
+ * `?from=desktop` を付けることで、web 側 buy-button が checkout API に
+ * `returnTo: "desktop"` を伝え、決済成功/キャンセル時に
+ * paradice://purchase/* deep link でアプリへ自動で戻れる。
+ */
 export function webProductUrl(slug: string): string {
   const base = import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000";
-  return `${base}/store/${slug}`;
+  return `${base}/store/${slug}?from=desktop`;
 }

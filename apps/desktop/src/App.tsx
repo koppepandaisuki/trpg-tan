@@ -31,10 +31,11 @@ import { Viewer } from "./Viewer";
 import { StorePanel } from "./StorePanel";
 import { findSystem } from "./systems-store";
 import { Settings as SettingsScreen, type SettingsTab } from "./Settings";
-import { Toasts } from "./Toasts";
+import { Toasts, toast } from "./Toasts";
 import { EmptyState } from "./EmptyState";
 import { FriendsButton } from "./FriendsPanel";
 import { initDeepLinkAuth } from "./auth";
+import { initDeepLinkPurchase } from "./deep-link-purchase";
 import type { RemoteLibraryItem } from "./library-remote";
 import type { DownloadedEntry } from "./downloaded";
 import {
@@ -192,6 +193,8 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
   const [storeHomeSig, setStoreHomeSig] = useState(0);
+  // ライブラリ強制リフレッシュ(paradice://purchase/complete などで +1)。
+  const [librarySig, setLibrarySig] = useState(0);
   // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。PLAY 中も従う。
   const [theme, setTheme] = useState(
     () => localStorage.getItem("trpg.theme.v1") ?? "light",
@@ -207,6 +210,25 @@ export function App() {
   // deep-link(paradice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
   useEffect(() => {
     if (isTauri()) void initDeepLinkAuth();
+  }, []);
+
+  // paradice://purchase/complete|cancel を購読。決済完了でライブラリへ
+  // 自動移動 + 強制リフレッシュ。webhook 反映に数秒の遅延があるため
+  // 初回 fetch で出なくても再度ボタン押下で再取得できる。
+  useEffect(() => {
+    if (!isTauri()) return;
+    void initDeepLinkPurchase({
+      onComplete: () => {
+        toast("✅ 購入が完了しました。ライブラリで開けます");
+        setPage("library");
+        setLibrarySig((n) => n + 1);
+        // webhook 反映ラグを吸収して 4 秒後にもう一度。
+        window.setTimeout(() => setLibrarySig((n) => n + 1), 4000);
+      },
+      onCancel: () => {
+        toast("購入はキャンセルされました");
+      },
+    });
   }, []);
 
   // テーマ適用。PLAY 中もユーザー設定(ライト / ダーク)に従う。
@@ -652,6 +674,7 @@ export function App() {
           <LibraryPage
             onView={(item, entry) => setViewing({ item, entry })}
             onGoStore={() => goTo("store")}
+            refreshSignal={librarySig}
           />
         )}
 

@@ -28,11 +28,21 @@ export function BuyButton({ productId, label = "今すぐ購入" }: BuyButtonPro
     setStatus("loading");
     setError(null);
 
+    // デスクトップアプリから来た場合、success/cancel で paradice:// に
+    // 戻れるよう checkout API へヒントを渡す(?from=desktop を URL に
+    // 付けて遷移してきたケースを拾う)。
+    const fromDesktop =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("from") === "desktop";
+
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify({
+          productId,
+          ...(fromDesktop ? { returnTo: "desktop" } : {}),
+        }),
       });
 
       const contentType = res.headers.get("content-type") ?? "";
