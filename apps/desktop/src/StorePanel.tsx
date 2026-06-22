@@ -21,6 +21,8 @@ import {
   LibraryBig,
   LayoutGrid,
   Boxes,
+  Trophy,
+  User as UserIcon,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "./Toasts";
@@ -46,6 +48,7 @@ import {
   type StoreReviewSummary,
   type FeaturedItem,
   type StoreCreator,
+  type TopCreatorEntry,
 } from "./store-remote";
 
 /**
@@ -76,7 +79,10 @@ const CATEGORY_ICON: Record<RemoteProductType, ReactNode> = {
   bgm_audio: <Music size={14} />,
 };
 
-/** 「カテゴリで探す」カード(Web ホームと同じラベル / 説明 / 配色)。 */
+/**
+ * 「カテゴリで探す」のサブカード(Web ホームと同じラベル / 説明 / 配色)。
+ * フルパッケージは“目玉”として上の大型カードに分離するので、ここには含めない。
+ */
 const CAT_CARDS: {
   key: RemoteProductType;
   icon: ReactNode;
@@ -84,7 +90,6 @@ const CAT_CARDS: {
   sub: string;
   tone: string;
 }[] = [
-  { key: "full_package", icon: <Boxes size={17} />, label: "フルパッケージ", sub: "買ってすぐ遊べる完成品ゲーム", tone: "blue" },
   { key: "scenario", icon: <FileText size={17} />, label: "シナリオ", sub: "ストーリーと舞台設定", tone: "green" },
   { key: "rulebook", icon: <BookOpen size={17} />, label: "ルールブック", sub: "ハウスルール・追加システム", tone: "green" },
   { key: "map", icon: <MapIcon size={17} />, label: "マップ・バトルマップ", sub: "戦闘マップ・地図", tone: "gold" },
@@ -381,6 +386,106 @@ function Strip({
             </span>
           </button>
         ))}
+      </div>
+    </section>
+  );
+}
+
+/* ===== ホーム: 人気クリエイター TOP 3(Web ホームと同じデザイン) ===== */
+
+const RANK_LABEL: Record<number, string> = { 1: "1", 2: "2", 3: "3" };
+
+function TopCreators({
+  entries,
+  onOpenCreator,
+  onOpenProduct,
+  onSeeAll,
+}: {
+  entries: TopCreatorEntry[];
+  onOpenCreator: (c: { id: string; displayName: string }) => void;
+  onOpenProduct: (it: StoreItem) => void;
+  onSeeAll: () => void;
+}) {
+  return (
+    <section className="topcre">
+      <div className="topcre-head">
+        <span className="topcre-ic">
+          <Trophy size={16} />
+        </span>
+        <div className="topcre-headcopy">
+          <h3>人気クリエイター</h3>
+          <p className="muted">購入数の多いクリエイター TOP {entries.length}</p>
+        </div>
+        <button className="strip-more" onClick={onSeeAll}>
+          すべて見る →
+        </button>
+      </div>
+      <div className="topcre-grid">
+        {entries.map((e) => {
+          const name = e.creator.displayName || "（無名）";
+          return (
+            <div key={e.creator.id} className={`topcre-card rank-${e.rank}`}>
+              <button
+                className="topcre-main"
+                onClick={() =>
+                  onOpenCreator({ id: e.creator.id, displayName: name })
+                }
+                title={`${name} の作品を見る`}
+              >
+                <span className="topcre-av-wrap">
+                  {e.creator.avatarUrl ? (
+                    <img
+                      className="topcre-av"
+                      src={e.creator.avatarUrl}
+                      alt=""
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="topcre-av ph">
+                      <UserIcon size={22} />
+                    </span>
+                  )}
+                  <span className="topcre-rank">{RANK_LABEL[e.rank] ?? e.rank}</span>
+                </span>
+                <span className="topcre-meta">
+                  <b className="topcre-name">{name}</b>
+                  <span className="topcre-sales">累計購入 {e.totalSales} 件</span>
+                </span>
+              </button>
+
+              <button
+                className="topcre-best"
+                onClick={() => onOpenProduct(e.topProduct)}
+                title={e.topProduct.title}
+              >
+                <span className="topcre-best-label">ベストセラー作品</span>
+                <span className="topcre-best-row">
+                  <span className="topcre-best-cover">
+                    {e.topProduct.coverUrl ? (
+                      <img src={e.topProduct.coverUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className="store-noimg">No Image</span>
+                    )}
+                  </span>
+                  <span className="topcre-best-info">
+                    <span className="topcre-best-title">
+                      {e.topProduct.title}
+                    </span>
+                    <span className="topcre-best-foot">
+                      <span className="work-badge">
+                        {PRODUCT_TYPE_LABEL[e.topProduct.productType] ??
+                          e.topProduct.productType}
+                      </span>
+                      <span className="store-price small">
+                        {formatPriceJpy(e.topProduct.priceJpy)}
+                      </span>
+                    </span>
+                  </span>
+                </span>
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -944,16 +1049,38 @@ export function StorePanel({
                 onOpen={(it) => void openDetail(it)}
               />
 
-              {/* カテゴリで探す(Web ホームと同じカード) */}
+              {/* カテゴリで探す(Web ホームと同じデザイン) */}
               <section className="catsec">
-                <div className="strip-head">
-                  <h3 className="ibtn">
-                    <LayoutGrid size={16} /> カテゴリで探す
-                  </h3>
+                <div className="catsec-head">
+                  <span className="catsec-ic">
+                    <LayoutGrid size={16} />
+                  </span>
+                  <div className="catsec-headcopy">
+                    <h3>カテゴリで探す</h3>
+                    <p className="muted">ジャンルから作品を絞り込んで探せます</p>
+                  </div>
                 </div>
-                <p className="catsec-sub muted">
-                  ジャンルから作品を絞り込んで探せます
-                </p>
+
+                {/* 目玉: フルパッケージ(完成品ゲーム一式) */}
+                <button
+                  className="catfeat"
+                  onClick={() => browseWith({ category: "full_package" })}
+                >
+                  <span className="catfeat-ic">
+                    <Boxes size={24} />
+                  </span>
+                  <span className="catfeat-copy">
+                    <span className="catfeat-titlerow">
+                      <span className="catfeat-badge">目玉</span>
+                      <span className="catfeat-title">フルパッケージ</span>
+                    </span>
+                    <span className="catfeat-sub muted">
+                      買ってすぐ遊べる、完成品のゲーム一式（システム＋シナリオ）。ダウンロードして取り込むだけ。
+                    </span>
+                  </span>
+                  <span className="catfeat-arrow">→</span>
+                </button>
+
                 <div className="catcards">
                   {CAT_CARDS.map((c) => (
                     <button
@@ -971,6 +1098,21 @@ export function StorePanel({
                   ))}
                 </div>
               </section>
+
+              {/* 人気クリエイター TOP 3(Web ホームと同じデザイン) */}
+              {home.topCreators.length > 0 && (
+                <TopCreators
+                  entries={home.topCreators}
+                  onOpenCreator={(c) =>
+                    browseWith({ creator: { id: c.id, name: c.displayName } })
+                  }
+                  onOpenProduct={(it) => void openDetail(it)}
+                  onSeeAll={() => {
+                    setDetail(null);
+                    setView("creators");
+                  }}
+                />
+              )}
 
               {/* クリエイターを探す */}
               <button

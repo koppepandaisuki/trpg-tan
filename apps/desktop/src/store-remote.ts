@@ -652,32 +652,122 @@ export interface StoreHome {
   trending: StoreItem[];
   recent: StoreItem[];
   topRated: StoreItem[];
+  topCreators: TopCreatorEntry[];
   byCategory: { category: RemoteProductType; items: StoreItem[] }[];
 }
 
 /** ホーム一式をまとめて取得(α 規模なので並列に投げるだけ)。 */
 export async function fetchStoreHome(): Promise<StoreHome> {
-  const [featured, trending, recent, topRated, ...cats] = await Promise.all([
-    fetchFeaturedItems(6),
-    fetchTrendingItems(12),
-    fetchRecentItems(12),
-    fetchTopRatedItems(12),
-    ...HOME_CATEGORIES.map((c) =>
-      fetchByRating({ page: 1, pageSize: 8, category: c, searchIds: null }).then(
-        (r) => r.items,
+  const [featured, trending, recent, topRated, topCreators, ...cats] =
+    await Promise.all([
+      fetchFeaturedItems(6),
+      fetchTrendingItems(12),
+      fetchRecentItems(12),
+      fetchTopRatedItems(12),
+      fetchTopCreators(3),
+      ...HOME_CATEGORIES.map((c) =>
+        fetchByRating({ page: 1, pageSize: 8, category: c, searchIds: null }).then(
+          (r) => r.items,
+        ),
       ),
-    ),
-  ]);
+    ]);
   return {
     featured,
     trending,
     recent,
     topRated,
+    topCreators,
     byCategory: HOME_CATEGORIES.map((category, i) => ({
       category,
       items: cats[i] ?? [],
     })).filter((c) => c.items.length > 0),
   };
+}
+
+/* ===== 人気クリエイター TOP N(Web の getTopCreators 移植) ===== */
+
+export interface TopCreatorEntry {
+  rank: number;
+  creator: { id: string; displayName: string; avatarUrl: string | null };
+  totalSales: number;
+  /** その creator のベストセラー作品(クリックで詳細を開ける)。 */
+  topProduct: StoreItem;
+}
+
+/**
+ * paid 購入の多い creator を上位 N 件、各 creator のベストセラー作品つきで返す。
+ * Web の lib/queries/top-creators.ts と同じ集計手順を anon client で行う。
+ * purchases が読めない / 0 件のときは空配列(セクション非表示)。
+ */
+export async function fetchTopCreators(limit = 3): Promise<TopCreatorEntry[]> {
+  const { data: purchases, error } = await supabase
+    .from("purchases")
+    .select("product_id")
+    .eq("status", "paid")
+    .limit(5000);
+  if (error || !purchases || purchases.length === 0) return [];
+
+  const productIds = Array.from(new Set(purchases.map((p) => p.product_id)));
+  const { data: productRows } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .in("id", productIds);
+  if (!productRows || productRows.length === 0) return [];
+
+  // product 別の購入数。
+  const productCounts = new Map<string, number>();
+  for (const p of purchases) {
+    productCounts.set(p.product_id, (productCounts.get(p.product_id) ?? 0) + 1);
+  }
+
+  // creator 別の合計売上 + ベストセラー作品(最多購入の作品)。
+  const creatorSales = new Map<string, number>();
+  const creatorTopRow = new Map<string, ListRow>();
+  const creatorTopCount = new Map<string, number>();
+  for (const row of productRows as ListRow[]) {
+    const count = productCounts.get(row.id) ?? 0;
+    creatorSales.set(
+      row.creator_id,
+      (creatorSales.get(row.creator_id) ?? 0) + count,
+    );
+    const currentTop = creatorTopCount.get(row.creator_id) ?? -1;
+    if (count > currentTop) {
+      creatorTopCount.set(row.creator_id, count);
+      creatorTopRow.set(row.creator_id, row);
+    }
+  }
+
+  const sortedCreatorIds = Array.from(creatorSales.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
+  if (sortedCreatorIds.length === 0) return [];
+
+  // ベストセラー行を StoreItem 化(プロフィール / レビューもまとめて解決)。
+  const topRows = sortedCreatorIds
+    .map((id) => creatorTopRow.get(id))
+    .filter((r): r is ListRow => Boolean(r));
+  const items = await toStoreItems(topRows);
+  const itemById = new Map(items.map((it) => [it.id, it] as const));
+
+  return sortedCreatorIds.flatMap((creatorId, i) => {
+    const topRow = creatorTopRow.get(creatorId);
+    const topProduct = topRow ? itemById.get(topRow.id) : undefined;
+    if (!topProduct) return [];
+    return [
+      {
+        rank: i + 1,
+        creator: {
+          id: topProduct.creator.id,
+          displayName: topProduct.creator.displayName,
+          avatarUrl: topProduct.creator.avatarUrl,
+        },
+        totalSales: creatorSales.get(creatorId) ?? 0,
+        topProduct,
+      },
+    ];
+  });
 }
 
 /** カードホバー用: 商品のスクリーンショット URL(最大 5 枚)。 */
