@@ -57,6 +57,7 @@ export function PlayBoard({
   onAddImage,
   onUpdate,
   onRemove,
+  onOpenCharacters,
 }: {
   board: BoardState | undefined;
   panels: Panel[];
@@ -107,6 +108,11 @@ export function PlayBoard({
     >,
   ) => void;
   onRemove: (panelId: string) => void;
+  /**
+   * キャラ駒の右クリックメニューに「キャラシを開く」を出すための導線。
+   * 未指定なら項目は出ない。App.tsx の charOverlay を開く想定。
+   */
+  onOpenCharacters?: () => void;
 }) {
   const grid = board?.grid ?? true;
   const image = board?.image ?? null;
@@ -716,6 +722,7 @@ export function PlayBoard({
               onRemove(menuPanel.id);
               setMenu(null);
             }}
+            onOpenCharacters={onOpenCharacters}
             onClose={() => setMenu(null)}
           />
         </>
@@ -734,6 +741,7 @@ function ObjectMenu({
   onUpdate,
   onReorder,
   onDelete,
+  onOpenCharacters,
   onClose,
 }: {
   panel: Panel;
@@ -763,6 +771,8 @@ function ObjectMenu({
   /** 重なりを 1 つ前/後ろへ(駒 id / null=前景)。 */
   onReorder?: (panelId: string | null, dir: 1 | -1) => void;
   onDelete: () => void;
+  /** キャラ駒のときメニューに「キャラシを開く」を出す導線(任意)。 */
+  onOpenCharacters?: () => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState(panel.name);
@@ -874,6 +884,21 @@ function ObjectMenu({
           placeholder="このオブジェクトの情報"
         />
       </label>
+
+      {/* キャラ駒のとき「キャラシを開く」導線(オーバーレイで全画面表示)。 */}
+      {isChar && onOpenCharacters && (
+        <button
+          className="btn mini ibtn"
+          style={{ width: "100%", marginTop: 6 }}
+          onClick={() => {
+            onOpenCharacters();
+            onClose();
+          }}
+          title="このキャラのシートをオーバーレイで開く(卓は閉じない)"
+        >
+          📋 キャラシを開く
+        </button>
+      )}
 
       {/* 差分(立ち絵/表情の切替)。キャラ駒のみ。参加者も使える。 */}
       {isChar && (

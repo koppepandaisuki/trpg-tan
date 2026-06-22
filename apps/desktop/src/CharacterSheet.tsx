@@ -93,6 +93,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
   );
   const [name, setName] = useState(initialSheet?.name ?? "");
   const [notes, setNotes] = useState(initialSheet?.notes ?? "");
+  const [backstory, setBackstory] = useState(initialSheet?.backstory ?? "");
   const [image, setImage] = useState<string | null>(
     initialSheet?.image ?? null,
   );
@@ -201,6 +202,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
         : null,
       allocation: { occupation: occAlloc, interest: intAlloc },
       notes,
+      backstory,
       meta: { createdAt, updatedAt: new Date().toISOString() },
     };
   }
@@ -212,6 +214,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setCreatedAt(sheet.meta?.createdAt ?? new Date().toISOString());
     setName(sheet.name ?? "");
     setNotes(sheet.notes ?? "");
+    setBackstory(sheet.backstory ?? "");
     setImage(sheet.image ?? null);
     setChars(sheet.characteristics ?? {});
     setOccupationId(
@@ -663,7 +666,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
         )}
       </div>
 
-      {/* メモ */}
+      {/* メモ(短いプレイ用メモ。背景は下のバックストーリー欄へ) */}
       <div className="card">
         <strong>メモ</strong>
         <textarea
@@ -671,7 +674,23 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
           rows={3}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="背景・所持品など"
+          placeholder="所持品・行動指針など短いメモ"
+          style={{ marginTop: 8, width: "100%", resize: "vertical" }}
+        />
+      </div>
+
+      {/* バックストーリー(人物背景。長文・ロール用) */}
+      <div className="card">
+        <strong>バックストーリー</strong>
+        <p className="muted" style={{ fontSize: 11, margin: "4px 0 0" }}>
+          家族・経歴・信念・過去の出来事など、読み物として残す人物設定。
+        </p>
+        <textarea
+          className="input"
+          rows={8}
+          value={backstory}
+          onChange={(e) => setBackstory(e.target.value)}
+          placeholder="例: 田舎町で生まれ育った..."
           style={{ marginTop: 8, width: "100%", resize: "vertical" }}
         />
       </div>

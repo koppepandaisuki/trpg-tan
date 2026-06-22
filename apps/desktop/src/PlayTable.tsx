@@ -1648,6 +1648,7 @@ export function PlayTable({
               onAddImage={addImageObject}
               onUpdate={updatePanel}
               onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
+              onOpenCharacters={onCharacters}
             />
             {/* 立ち絵(直近の発言キャラ)。表示はこの端末ローカルで切替可。 */}
             <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />

@@ -715,6 +715,7 @@ export function PlayClient({
               onAddImage={() => {}}
               onUpdate={updatePanel}
               onRemove={() => {}}
+              onOpenCharacters={onOpenCharacters}
             />
             <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />
             <BoardStatusBar cards={playerCards} turn={scene.turn} />
