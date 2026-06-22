@@ -1,4 +1,10 @@
 import { audioUrl } from "./audio-url";
+import {
+  getEffectiveSeVolume,
+  getVolumeSettings,
+  setVolumeSettings,
+  onVolumeChange,
+} from "./volume-settings";
 
 /**
  * SE(効果音)の単発再生ユーティリティ。UI は SoundPanel(BGM と統合)に
@@ -6,22 +12,35 @@ import { audioUrl } from "./audio-url";
  *  - playSeFile: その場で 1 発鳴らす(直前の SE は止める)。BGM とは別要素
  *    なので BGM を流したまま重ねられる。
  *  - 定型文の [SE:名前] / カットインの ♪ もこの関数を通る。
+ *
+ * 音量設定の正本は volume-settings.ts(master × se を実効値とする)。
+ * 旧 API `getSeVolume` / `setSeVolume` は既存呼び出しのために残し、
+ * 内部で新モジュールに委譲する。
  */
 
-const VOL_KEY = "trpg.se.volume.v1";
-
-/** SE 音量(localStorage 永続。playSeFile が毎回参照する)。 */
+/** SE 音量(0..1)。実効値=master × se(muted のときは 0)。 */
 export function getSeVolume(): number {
-  const v = Number(localStorage.getItem(VOL_KEY));
-  return Number.isFinite(v) && v > 0 ? v : 0.8;
+  return getEffectiveSeVolume();
 }
 
+/** SE カテゴリの音量を設定する(volume-settings の se を更新)。 */
 export function setSeVolume(v: number): void {
-  localStorage.setItem(VOL_KEY, String(v));
-  if (current) current.volume = v;
+  setVolumeSettings({ se: v });
+  // 直近の SE が再生中なら音量を即時反映する。
+  if (current) current.volume = getEffectiveSeVolume();
+}
+
+/** カテゴリ値(master を掛けない、UI スライダ表示用)。 */
+export function getSeCategoryVolume(): number {
+  return getVolumeSettings().se;
 }
 
 let current: HTMLAudioElement | null = null;
+
+// 設定変更時に再生中の SE の音量を追従させる。
+onVolumeChange(() => {
+  if (current) current.volume = getEffectiveSeVolume();
+});
 
 /** SE を単発再生する(直前の SE は停止)。失敗時は null。 */
 export async function playSeFile(
@@ -31,7 +50,7 @@ export async function playSeFile(
     const url = await audioUrl(path);
     current?.pause();
     const a = new Audio(url);
-    a.volume = getSeVolume();
+    a.volume = getEffectiveSeVolume();
     current = a;
     void a.play();
     return a;

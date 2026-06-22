@@ -43,8 +43,15 @@ import {
   type SoundSettings as Sound,
   type SuccessSoundType,
 } from "./sound-settings";
+import {
+  getVolumeSettings,
+  setVolumeSettings,
+  onVolumeChange,
+  type VolumeSettings,
+} from "./volume-settings";
 import { playSuccess, playCritical, playFumble } from "./dice-sound";
 import { getQuickRolls, saveQuickRolls } from "./quick-rolls";
+import { Volume1, VolumeX } from "lucide-react";
 
 const WEB_BASE = (
   import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
@@ -428,7 +435,9 @@ function SoundTab() {
   }
 
   return (
-    <Section
+    <>
+      <VolumeSection />
+      <Section
       title="効果音"
       desc="判定の成功 / クリティカル / ファンブル音。ダイスの転がり音は常に鳴ります。"
     >
@@ -504,6 +513,119 @@ function SoundTab() {
         </div>
       </div>
     </Section>
+    </>
+  );
+}
+
+/**
+ * 音量設定 Section。マスター / BGM / SE / ダイス・判定音 の 4 つのスライダ +
+ * マスターミュート。スライダの値は volume-settings に即時反映され、再生中の
+ * BGM / SE / ダイス音にも追従する(他所(SoundPanel)から変更されたときも追従)。
+ */
+function VolumeSection() {
+  const [v, setV] = useState<VolumeSettings>(() => getVolumeSettings());
+
+  useEffect(() => {
+    const off = onVolumeChange((next) => setV(next));
+    return off;
+  }, []);
+
+  function patch(p: Partial<VolumeSettings>) {
+    setV(setVolumeSettings(p));
+  }
+
+  return (
+    <Section
+      title="音量"
+      desc="マスターは BGM / SE / ダイス音すべてに掛かります。サウンドライブラリのスライダと同期します。"
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <button
+          type="button"
+          className={`btn ${v.muted ? "btn-primary" : ""}`}
+          onClick={() => patch({ muted: !v.muted })}
+          title={v.muted ? "ミュート解除" : "すべてミュート"}
+          style={{ alignSelf: "flex-start" }}
+        >
+          {v.muted ? <VolumeX size={14} /> : <Volume1 size={14} />}
+          {v.muted ? "ミュート中(クリックで解除)" : "すべてミュートする"}
+        </button>
+
+        <VolumeRow
+          label="🔊 マスター"
+          value={v.master}
+          onChange={(n) => patch({ master: n })}
+          disabled={v.muted}
+        />
+        <VolumeRow
+          label="🎵 BGM"
+          value={v.bgm}
+          onChange={(n) => patch({ bgm: n })}
+          disabled={v.muted}
+          effective={v.master * v.bgm}
+        />
+        <VolumeRow
+          label="🔔 効果音(SE)"
+          value={v.se}
+          onChange={(n) => patch({ se: n })}
+          disabled={v.muted}
+          effective={v.master * v.se}
+        />
+        <VolumeRow
+          label="🎲 ダイス・判定音"
+          value={v.dice}
+          onChange={(n) => patch({ dice: n })}
+          disabled={v.muted}
+          effective={v.master * v.dice}
+        />
+      </div>
+    </Section>
+  );
+}
+
+function VolumeRow({
+  label,
+  value,
+  onChange,
+  disabled,
+  effective,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  disabled?: boolean;
+  /** マスターを掛けた実効値(表示のみ)。省略時はマスター自身。 */
+  effective?: number;
+}) {
+  const pct = Math.round((effective ?? value) * 100);
+  return (
+    <label
+      style={{
+        display: "grid",
+        gridTemplateColumns: "140px 1fr 48px",
+        alignItems: "center",
+        gap: 10,
+        fontSize: 13,
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <span>{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+      <span
+        className="muted"
+        style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}
+      >
+        {pct}%
+      </span>
+    </label>
   );
 }
 

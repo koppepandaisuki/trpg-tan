@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { BgmTrack } from "@trpg/core";
 import { audioUrl, baseName } from "./audio-url";
-import { getSeVolume, setSeVolume } from "./SePanel";
+import {
+  getEffectiveBgmVolume,
+  getVolumeSettings,
+  setVolumeSettings,
+  onVolumeChange,
+} from "./volume-settings";
 
 /**
  * サウンド・ライブラリ(BGM + SE 統合)。CCFOLIA と同じく音源を 1 つの一覧に
@@ -13,8 +18,10 @@ import { getSeVolume, setSeVolume } from "./SePanel";
  * 音声は GM のローカルで鳴らし、参加者へは onPlayBgm / onPlaySe 経由で配信する
  * (実体は呼び出し側が Storage URL 化して送る)。トラック一覧は onAddTracks /
  * onRemoveTrack でメイン卓へ送り、.play に保存・同期する。
+ *
+ * BGM / SE スライダの音量は volume-settings の正本に同期する。設定画面 →
+ * SoundPanel、SoundPanel → 設定画面、いずれの方向の変更も即座に反映される。
  */
-const VOL_KEY = "trpg.bgm.volume.v1";
 
 /** リピートの種類: 1曲(既定) / プレイリスト全体 / なし。 */
 type RepeatMode = "one" | "all" | "off";
@@ -70,16 +77,27 @@ export function SoundPanel({
   const [error, setError] = useState<string | null>(null);
   // SE を鳴らした瞬間だけ光らせる(単発なので一覧の押下フィードバック用)。
   const [seFlash, setSeFlash] = useState<string | null>(null);
-  const [volume, setVolume] = useState<number>(() => {
-    const v = Number(localStorage.getItem(VOL_KEY));
-    return Number.isFinite(v) && v > 0 ? v : 0.6;
-  });
-  const [seVol, setSeVolState] = useState<number>(getSeVolume);
+  const [volume, setVolume] = useState<number>(
+    () => getVolumeSettings().bgm,
+  );
+  const [seVol, setSeVolState] = useState<number>(
+    () => getVolumeSettings().se,
+  );
 
+  // BGM の <audio> には実効音量(master × bgm、または muted のときは 0)を当てる。
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-    localStorage.setItem(VOL_KEY, String(volume));
+    if (audioRef.current) audioRef.current.volume = getEffectiveBgmVolume();
   }, [volume]);
+
+  // 設定画面など外部からの音量変更を購読してスライダ/再生音量を追従させる。
+  useEffect(() => {
+    const off = onVolumeChange((s) => {
+      setVolume(s.bgm);
+      setSeVolState(s.se);
+      if (audioRef.current) audioRef.current.volume = getEffectiveBgmVolume();
+    });
+    return off;
+  }, []);
 
   // 1曲リピートは audio.loop で実現(ended が発火しない)。
   useEffect(() => {
@@ -94,7 +112,7 @@ export function SoundPanel({
     try {
       const url = await audioUrl(track.path);
       audio.src = url;
-      audio.volume = volume;
+      audio.volume = getEffectiveBgmVolume();
       audio.loop = repeat === "one";
       await audio.play();
       setCurrentId(id);
@@ -191,9 +209,15 @@ export function SoundPanel({
     step(1);
   }
 
+  function changeBgmVol(v: number) {
+    setVolume(v);
+    // volume-settings 経由で永続化 + 他コンポーネント(設定画面)へ通知。
+    setVolumeSettings({ bgm: v });
+  }
+
   function changeSeVol(v: number) {
     setSeVolState(v);
-    setSeVolume(v); // playSeFile が次回から参照する
+    setVolumeSettings({ se: v });
   }
 
   function remove(id: string) {
@@ -335,7 +359,7 @@ export function SoundPanel({
             max={1}
             step={0.01}
             value={volume}
-            onChange={(e) => setVolume(Number(e.target.value))}
+            onChange={(e) => changeBgmVol(Number(e.target.value))}
           />
         </label>
         <label className="snd-vol" title="SE 音量">
