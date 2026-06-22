@@ -65,3 +65,4 @@ export {
   panelFromSheet,
   makeTokenPanel,
 } from "./panel.js";
+export { parseCcfoliaCharacter } from "./ccfolia.js";

@@ -23,6 +23,7 @@ import {
   turnSetEvent,
   logClearEvent,
   buildPack,
+  parseCcfoliaCharacter,
   type PlayScene,
   type PlayEvent,
   type RollEvent,
@@ -52,6 +53,7 @@ import {
   StickyNote,
   BookMarked,
   NotebookPen,
+  ClipboardPaste,
 } from "lucide-react";
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -833,6 +835,39 @@ export function PlayTable({
     setPickId("");
   }
 
+  /**
+   * クリップボードのココフォリア駒データから駒を追加する。
+   * 他サイト(キャラクター保管所など)の「ココフォリア出力」をコピーして貼り付け。
+   */
+  async function pasteCcfoliaPanel() {
+    setError(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      const panel = parseCcfoliaCharacter(text, () => crypto.randomUUID());
+      if (!panel) {
+        setError(
+          "クリップボードにココフォリア形式のコマが見つかりません。対応サイトで「ココフォリア出力」をコピーしてからお試しください。",
+        );
+        return;
+      }
+      // ポートレートがあれば実寸幅で配置。
+      const size = panel.portrait
+        ? await probeImageWidth(panel.portrait).catch(() => undefined)
+        : undefined;
+      dispatch(
+        panelAddEvent(newCtx(), {
+          ...panel,
+          pos: spawnPos(),
+          ...(size ? { size } : {}),
+          ...(scene.activeSceneId ? { sceneId: scene.activeSceneId } : {}),
+        }),
+      );
+      toast(`🎭 「${panel.name}」をコマとして取り込みました`);
+    } catch (e) {
+      setError(`コマの貼り付けに失敗しました: ${String(e)}`);
+    }
+  }
+
   /** 発言者 id → 表示名 + 版(CoC 判定の閾値に使う)。 */
   function resolveSpeaker(speakerId: string): { name: string; edition: CoCEdition } {
     if (speakerId === "GM") return { name: "GM", edition: sceneEdition };
@@ -1260,6 +1295,13 @@ export function PlayTable({
                 disabled={!pickId}
               >
                 ＋キャラ
+              </button>
+              <button
+                className="btn mini ibtn"
+                onClick={() => void pasteCcfoliaPanel()}
+                title="他サイト（キャラクター保管所など）の「ココフォリア出力」をコピーしてから押すと、コマとして取り込めます"
+              >
+                <ClipboardPaste size={14} /> コマ貼付
               </button>
             </>
           )}
