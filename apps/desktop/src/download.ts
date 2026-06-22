@@ -1,12 +1,8 @@
 import { fetch } from "@tauri-apps/plugin-http";
-import {
-  writeFile,
-  mkdir,
-  exists,
-  BaseDirectory,
-} from "@tauri-apps/plugin-fs";
-import { appLocalDataDir, join } from "@tauri-apps/api/path";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import { join } from "@tauri-apps/api/path";
 import { supabase } from "./supabase";
+import { getDownloadsDir, getLibraryRoot } from "./library-root";
 
 /**
  * 購入物のダウンロード。
@@ -15,7 +11,10 @@ import { supabase } from "./supabase";
  *   1. Web の DL API(/api/library/:id/download)に Bearer JWT で POST し、
  *      短命の署名URL(+拡張子)を得る。
  *   2. その署名URLからファイル本体を取得。
- *   3. appLocalData/library/<productId>.<ext> に保存。
+ *   3. <library-root>/downloads/<productId>.<ext> に保存。
+ *
+ * <library-root> は設定で切替可能(library-root.ts)。デフォルトは
+ * appLocalData/library。
  *
  * 2 つの HTTP は webview の fetch ではなく tauri-plugin-http(Rust 側)を
  * 使う。これにより CORS の影響を受けず、ローカル/本番どちらの Web API も
@@ -25,9 +24,6 @@ import { supabase } from "./supabase";
 const WEB_BASE = (
   import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
 ).replace(/\/$/, "");
-
-/** ローカル保存先のサブフォルダ(appLocalData 配下)。 */
-const LIBRARY_DIR = "library";
 
 async function getAccessToken(): Promise<string> {
   const { data } = await supabase.auth.getSession();
@@ -71,7 +67,7 @@ async function requestSignedUrl(
 export type DownloadResult = {
   /** 保存した絶対パス。 */
   path: string;
-  /** appLocalData からの相対パス(viewer 用)。 */
+  /** ライブラリ root からの相対パス(viewer 用)。 */
   relativePath: string;
   ext: string;
   bytes: number;
@@ -91,22 +87,16 @@ export async function downloadToLibrary(
   const buf = await fileRes.arrayBuffer();
   const data = new Uint8Array(buf);
 
-  // appLocalData/library/ を用意。
-  if (!(await exists(LIBRARY_DIR, { baseDir: BaseDirectory.AppLocalData }))) {
-    await mkdir(LIBRARY_DIR, {
-      baseDir: BaseDirectory.AppLocalData,
-      recursive: true,
-    });
-  }
+  // ライブラリ root / downloads / を確保 → 絶対パスで書く(設定で root を
+  // 切り替えても追従するため BaseDirectory 固定にはしない)。
+  const dir = await getDownloadsDir();
+  const path = await join(dir, `${productId}.${ext}`);
+  await writeFile(path, data);
 
-  const relativePath = `${LIBRARY_DIR}/${productId}.${ext}`;
-  await writeFile(relativePath, data, {
-    baseDir: BaseDirectory.AppLocalData,
-  });
-
-  // 絶対パス(opener で Explorer 表示する用)。
-  const base = await appLocalDataDir();
-  const path = await join(base, relativePath);
+  const root = await getLibraryRoot();
+  const relativePath = path.startsWith(root)
+    ? path.slice(root.length).replace(/^[\\/]+/, "")
+    : path;
 
   return { path, relativePath, ext, bytes: data.byteLength };
 }

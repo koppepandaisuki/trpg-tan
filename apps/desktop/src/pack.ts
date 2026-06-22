@@ -1,4 +1,4 @@
-import { appLocalDataDir, join } from "@tauri-apps/api/path";
+import { join } from "@tauri-apps/api/path";
 import { mkdir, writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
@@ -12,6 +12,7 @@ import { supabase } from "./supabase";
 import { upsertCustomSystem } from "./systems-store";
 import { getPlayIndex, upsertPlayIndex } from "./play-storage";
 import { getLibrary, upsertEntry, buildGenericEntry } from "./library";
+import { getPacksDir } from "./library-root";
 
 const WEB_BASE = (
   import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
@@ -76,7 +77,9 @@ export async function importPack(pack: TrpgPack): Promise<ImportResult> {
 
   if (pack.system) upsertCustomSystem(pack.system);
 
-  const dir = await join(await appLocalDataDir(), "packs", safeName(pack.id));
+  // ライブラリ root / packs / <id> に展開(設定でユーザーが root を
+  // 変えていれば追従する)。
+  const dir = await join(await getPacksDir(), safeName(pack.id));
   if (pack.scenarios?.length || pack.sheets?.length) {
     await mkdir(dir, { recursive: true });
   }

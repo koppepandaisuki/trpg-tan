@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { useEffect, useRef, useState } from "react";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   UserCog,
   Monitor,
@@ -15,7 +15,17 @@ import {
   Trash2,
   UserRound,
   ImagePlus,
+  HardDrive,
+  FolderOpen,
+  FolderCog,
+  RotateCcw,
 } from "lucide-react";
+import {
+  getLibraryRoot,
+  pickLibraryRoot,
+  resetLibraryRoot,
+} from "./library-root";
+import { toast } from "./Toasts";
 import { useMyProfile } from "./useMyProfile";
 import {
   useLocalProfile,
@@ -40,13 +50,20 @@ const WEB_BASE = (
   import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
 ).replace(/\/$/, "");
 
-export type SettingsTab = "account" | "display" | "sound" | "play" | "about";
+export type SettingsTab =
+  | "account"
+  | "display"
+  | "sound"
+  | "play"
+  | "storage"
+  | "about";
 
 const TABS: { key: SettingsTab; label: string; icon: typeof UserCog }[] = [
   { key: "account", label: "アカウント", icon: UserCog },
   { key: "display", label: "画面・テーマ", icon: Monitor },
   { key: "sound", label: "サウンド", icon: Volume2 },
   { key: "play", label: "プレイ・マルチ", icon: Dices },
+  { key: "storage", label: "ストレージ", icon: HardDrive },
   { key: "about", label: "情報", icon: Info },
 ];
 
@@ -107,6 +124,7 @@ export function Settings({
             )}
             {tab === "sound" && <SoundTab />}
             {tab === "play" && <PlayTab />}
+            {tab === "storage" && <StorageTab />}
             {tab === "about" && <AboutTab />}
           </div>
         </div>
@@ -486,6 +504,145 @@ function SoundTab() {
         </div>
       </div>
     </Section>
+  );
+}
+
+function StorageTab() {
+  // ライブラリ root のパス表示 + 変更 / フォルダを開く / 既定に戻す。
+  // 切替は新しい DL/保存に反映される。既存のファイルは移動しない
+  // (将来「フォルダを移動」機能を追加する余地を残す)。
+  const [root, setRoot] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function refresh() {
+    try {
+      setRoot(await getLibraryRoot());
+    } catch (e) {
+      toast(`ライブラリの場所を取得できません: ${String(e)}`);
+    }
+  }
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  async function handleChange() {
+    setLoading(true);
+    try {
+      const picked = await pickLibraryRoot();
+      if (picked) {
+        toast(`📁 ライブラリの場所を変更しました`);
+        await refresh();
+      }
+    } catch (e) {
+      toast(`変更に失敗しました: ${String(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReveal() {
+    if (!root) return;
+    try {
+      await revealItemInDir(root);
+    } catch (e) {
+      toast(`フォルダを開けません: ${String(e)}`);
+    }
+  }
+
+  async function handleReset() {
+    if (
+      !window.confirm(
+        "ライブラリの場所を既定(アプリのデータフォルダ)に戻しますか？\n既存のファイルは移動されません。",
+      )
+    )
+      return;
+    resetLibraryRoot();
+    toast("既定の場所に戻しました");
+    await refresh();
+  }
+
+  return (
+    <>
+      <Section title="ライブラリの場所">
+        <p className="set2-note" style={{ marginTop: 0 }}>
+          ストアでダウンロードした作品、取り込んだパッケージ、卓 (.play)、
+          キャラシ (.ccsheet) はこのフォルダの下にまとまります。
+          切り替えると新しい保存・ダウンロードがその場所に行きます
+          （既存のファイルは移動されません）。
+        </p>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 8,
+          }}
+        >
+          <input
+            className="input"
+            readOnly
+            value={root ?? "（取得中…）"}
+            style={{ flex: 1, fontFamily: "monospace" }}
+            title={root ?? ""}
+          />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginTop: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            className="btn"
+            onClick={() => void handleChange()}
+            disabled={loading}
+          >
+            <FolderCog size={14} /> 変更…
+          </button>
+          <button
+            className="btn"
+            onClick={() => void handleReveal()}
+            disabled={!root}
+          >
+            <FolderOpen size={14} /> フォルダを開く
+          </button>
+          <button className="btn" onClick={() => void handleReset()}>
+            <RotateCcw size={14} /> 既定に戻す
+          </button>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <p
+            className="set2-note"
+            style={{ marginTop: 0, fontSize: 11 }}
+          >
+            このフォルダの中の構成
+          </p>
+          <ul
+            style={{
+              margin: "4px 0 0 18px",
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: "var(--muted, #888)",
+            }}
+          >
+            <li>
+              <code>downloads/</code> — ストア購入物の生ファイル
+            </li>
+            <li>
+              <code>packs/</code> — 取り込んだ .paradice の展開先
+            </li>
+            <li>
+              <code>sessions/</code> — 卓 (.play) の保存先
+            </li>
+            <li>
+              <code>characters/</code> — キャラシ (.ccsheet) の保存先
+            </li>
+          </ul>
+        </div>
+      </Section>
+    </>
   );
 }
 
