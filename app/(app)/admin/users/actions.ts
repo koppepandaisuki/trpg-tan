@@ -5,6 +5,8 @@ import { requireAdmin } from "@/lib/session/require";
 import {
   grantCreator,
   revokeCreator,
+  grantAdmin,
+  revokeAdmin,
   AdminRpcError,
 } from "@/lib/mutations/admin";
 
@@ -35,6 +37,38 @@ export async function revokeCreatorAction(
   }
   try {
     await revokeCreator(targetUserId);
+    revalidatePath("/admin/users");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: messageOf(e) };
+  }
+}
+
+export async function grantAdminAction(
+  targetUserId: string,
+): Promise<AdminActionResult> {
+  const admin = await requireAdmin();
+  if (admin.id === targetUserId) {
+    return { ok: false, message: "自分自身は変更できません" };
+  }
+  try {
+    await grantAdmin(targetUserId);
+    revalidatePath("/admin/users");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: messageOf(e) };
+  }
+}
+
+export async function revokeAdminAction(
+  targetUserId: string,
+): Promise<AdminActionResult> {
+  const admin = await requireAdmin();
+  if (admin.id === targetUserId) {
+    return { ok: false, message: "自分自身は変更できません" };
+  }
+  try {
+    await revokeAdmin(targetUserId);
     revalidatePath("/admin/users");
     return { ok: true };
   } catch (e) {

@@ -42,12 +42,10 @@ export async function POST(request: NextRequest) {
       { status: 401 },
     );
   }
-  if (!user.isCreator && !user.isAdmin) {
-    return NextResponse.json(
-      { ok: false, message: "クリエイター権限が必要です" },
-      { status: 403 },
-    );
-  }
+  // 未 creator でも onboarding を開始できる(=「クリエイター申請」)。
+  // Stripe Express の onboarding を完了し、charges_enabled=true が webhook
+  // で同期されると初めて creator として認められる(syncCreatorChargesEnabled
+  // 側で is_creator=true も同時にセットする運用)。
 
   const status = await getMyConnectStatus(user.id);
   let accountId = status.stripeAccountId;

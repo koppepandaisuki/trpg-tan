@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   grantCreatorAction,
   revokeCreatorAction,
+  grantAdminAction,
+  revokeAdminAction,
   type AdminActionResult,
 } from "@/app/(app)/admin/users/actions";
 import type { AdminUserRow } from "@/lib/queries/admin";
@@ -53,28 +55,71 @@ export function UserRow({ user, isSelf }: UserRowProps) {
       <div className="flex items-center gap-2">
         {isSelf ? (
           <span className="text-xs text-muted-foreground">操作不可</span>
-        ) : user.isCreator ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={() => handle(() => revokeCreatorAction(user.id))}
-          >
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            creator 剥奪
-          </Button>
         ) : (
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            disabled={pending}
-            onClick={() => handle(() => grantCreatorAction(user.id))}
-          >
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            creator 付与
-          </Button>
+          <>
+            {user.isCreator ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => handle(() => revokeCreatorAction(user.id))}
+              >
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                creator 剥奪
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                disabled={pending}
+                onClick={() => handle(() => grantCreatorAction(user.id))}
+              >
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                creator 付与
+              </Button>
+            )}
+            {user.isAdmin ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      `「${user.displayName || "このユーザー"}」の admin 権限を剥奪しますか？`,
+                    )
+                  )
+                    return;
+                  handle(() => revokeAdminAction(user.id));
+                }}
+              >
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                admin 剥奪
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      `「${user.displayName || "このユーザー"}」に admin 権限を付与しますか？\n（ストア審査・全権操作・全商品の無料 DL ができるようになります）`,
+                    )
+                  )
+                    return;
+                  handle(() => grantAdminAction(user.id));
+                }}
+              >
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                admin 付与
+              </Button>
+            )}
+          </>
         )}
       </div>
     </li>
