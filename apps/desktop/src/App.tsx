@@ -910,7 +910,14 @@ export function App() {
           >
             <Settings size={14} /> 設定
           </button>
-          <FriendsButton />
+          <FriendsButton
+            onTableInvite={(code) => {
+              // 通知から「この卓に入る」を押されたら参加コード欄に流す。
+              setJoinCode(code);
+              goTo("play");
+              toast(`参加コード ${code} を入力欄にセットしました`);
+            }}
+          />
         </span>
       </footer>
 
