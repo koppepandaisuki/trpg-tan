@@ -7,6 +7,7 @@ import { VoteTable } from "./vote-table";
 import { ScheduleComments } from "./comments";
 import { ShareBox } from "./share-box";
 import { ManagePanel } from "./manage-panel";
+import { FriendInvitePanel } from "./friend-invite-panel";
 import { fmtDate, fmtTime, fmtDateTime } from "./format";
 
 /**
@@ -78,6 +79,14 @@ export function ScheduleEventView({
       )}
 
       <ShareBox publicToken={event.publicToken} adminToken={adminToken} />
+
+      {adminToken && (
+        <FriendInvitePanel
+          adminToken={adminToken}
+          publicToken={event.publicToken}
+          slots={event.slots.map((s) => ({ id: s.id, startsAt: s.startsAt }))}
+        />
+      )}
 
       <VoteTable event={event} onChanged={refresh} />
 
