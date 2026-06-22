@@ -15,7 +15,15 @@ import { relaunch } from "@tauri-apps/plugin-process";
  */
 export async function checkForUpdatesOnLaunch(): Promise<void> {
   try {
-    const update = await check();
+    // check() はネットワーク待ちで無限に止まりうる(updater サーバ不在/
+    // 名前解決失敗など)。起動本体は別のところで動いているが、
+    // 保険として 10 秒で諦める(失敗扱いになり下の catch でログのみ)。
+    const update = await Promise.race([
+      check(),
+      new Promise<null>((_, rej) =>
+        setTimeout(() => rej(new Error("updater check timeout")), 10000),
+      ),
+    ]);
     if (!update) return; // 最新
 
     const note = update.body ? `\n\n${update.body}` : "";
