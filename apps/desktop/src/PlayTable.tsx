@@ -88,6 +88,8 @@ import { getLibrary, systemLabel } from "./library";
 import { readSheetFromPath, isGenericSheet } from "./storage";
 import { toast } from "./Toasts";
 import { savePlayAs, savePlayToPath } from "./play-storage";
+import { FriendPickerModal } from "./FriendsPanel";
+import { sendTableInvite } from "./friends-remote";
 import { exportPackToFile } from "./pack";
 
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
@@ -162,6 +164,7 @@ export function PlayTable({
   const { sendDrag, overlay: overlayLive } = useLiveDrag(room);
   const [members, setMembers] = useState<string[]>([]);
   const [sharePop, setSharePop] = useState(false);
+  const [friendInviteOpen, setFriendInviteOpen] = useState(false);
   const [netBusy, setNetBusy] = useState(false);
   const roomRef = useRef<Room | null>(null);
   roomRef.current = room;
@@ -1377,7 +1380,7 @@ export function PlayTable({
         </p>
       )}
 
-      {/* 共有ポップオーバー(参加コード / 参加者 / 終了)。 */}
+      {/* 共有ポップオーバー(参加コード / 参加者 / フレンド招待 / 終了)。 */}
       {sharePop && room && (
         <div className="share-pop">
           <div className="share-row">
@@ -1392,6 +1395,13 @@ export function PlayTable({
               title="コードをコピー"
             >
               コピー
+            </button>
+            <button
+              className="btn mini btn-primary"
+              onClick={() => setFriendInviteOpen(true)}
+              title="フレンドに参加コードを通知"
+            >
+              フレンドを招待…
             </button>
           </div>
           <p className="share-note">
@@ -1413,6 +1423,26 @@ export function PlayTable({
           </div>
         </div>
       )}
+
+      <FriendPickerModal
+        open={friendInviteOpen}
+        title="フレンドに卓を招待"
+        multi
+        onClose={() => setFriendInviteOpen(false)}
+        onSelect={async (ids) => {
+          if (!room || ids.length === 0) return;
+          try {
+            await Promise.all(
+              ids.map((id) =>
+                sendTableInvite(id, room.code, scene.title || "卓"),
+              ),
+            );
+            toast(`📨 ${ids.length} 人に招待を送信しました`);
+          } catch (e) {
+            toast(`招待の送信に失敗: ${String(e)}`);
+          }
+        }}
+      />
 
       {!playerMode && (
       <div className="ptable-body2">
