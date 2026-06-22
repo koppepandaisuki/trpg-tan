@@ -28,22 +28,17 @@ export type ProductForCheckout = {
   priceJpy: number;
   productType: string;
   creatorId: string;
-  /** Stripe Connect account ID of the creator. Non-null by the time we
-   *  reach the `ok: true` branch (the `creator_not_onboarded` gate above
-   *  rejects when charges_enabled is false, which implies no usable
-   *  account). */
-  creatorStripeAccountId: string;
+  /** Stripe Connect account ID of the creator. priceJpy>0 のときは必須
+   *  (creator_not_onboarded ガードを通っているので非 null)。priceJpy=0
+   *  (無料)のときは Stripe を通さないので null になりうる。 */
+  creatorStripeAccountId: string | null;
 };
 
 export type PurchaseDecision =
   | { ok: true; product: ProductForCheckout }
   | {
       ok: false;
-      reason:
-        | "not_found"
-        | "free"
-        | "already_purchased"
-        | "creator_not_onboarded";
+      reason: "not_found" | "already_purchased" | "creator_not_onboarded";
       status: 400 | 404 | 409 | 503;
       message: string;
     };
@@ -98,15 +93,6 @@ export async function canPurchase(
     };
   }
 
-  if (product.price_jpy <= 0) {
-    return {
-      ok: false,
-      reason: "free",
-      status: 400,
-      message: "無料作品の入手は準備中です",
-    };
-  }
-
   // Already-purchased check. Surface this explicitly — UX over secrecy here
   // because the user already owns the product and benefits from being told.
   const purchased = await isAlreadyPurchased(userId, productId);
@@ -116,6 +102,24 @@ export async function canPurchase(
       reason: "already_purchased",
       status: 409,
       message: "すでに購入済みの作品です。ライブラリからご利用ください",
+    };
+  }
+
+  // 無料作品(priceJpy=0)は Stripe を通さない(Stripe の最低決済額未満で
+  // 必ず失敗する + クリエイターの Connect 未設定でも配布したい)。
+  // checkout 側で direct insert に分岐するため、ここでは ok を返す。
+  if (product.price_jpy <= 0) {
+    return {
+      ok: true,
+      product: {
+        id: product.id,
+        slug: product.slug,
+        title: product.title,
+        priceJpy: product.price_jpy,
+        productType: product.product_type,
+        creatorId: product.creator_id,
+        creatorStripeAccountId: null,
+      },
     };
   }
 

@@ -18,7 +18,7 @@ export const metadata = {
 };
 
 interface PageProps {
-  searchParams: { session_id?: string; return_to?: string };
+  searchParams: { session_id?: string; return_to?: string; free?: string };
 }
 
 /**
@@ -37,6 +37,7 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
     console.info("[checkout/success] session_id", searchParams.session_id);
   }
   const isDesktopReturn = searchParams.return_to === "desktop";
+  const isFree = searchParams.free === "1";
 
   return (
     <>
@@ -54,11 +55,14 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
 
             <div className="relative z-10 space-y-2">
               <h1 className="text-xl font-semibold tracking-tight">
-                ご購入手続きを受け付けました
+                {isFree
+                  ? "ライブラリに追加しました"
+                  : "ご購入手続きを受け付けました"}
               </h1>
               <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-                決済結果を確認しています。購入内容はまもなくライブラリに反映されます。
-                通常は数秒で反映されますが、まれに少し時間がかかることがあります。
+                {isFree
+                  ? "無料作品をライブラリに追加しました。今すぐダウンロードして遊べます。"
+                  : "決済結果を確認しています。購入内容はまもなくライブラリに反映されます。通常は数秒で反映されますが、まれに少し時間がかかることがあります。"}
               </p>
             </div>
 

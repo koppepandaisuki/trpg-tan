@@ -4,6 +4,7 @@ import { canPurchase } from "@/lib/access/purchase-access";
 import { isSameOriginRequest } from "@/lib/api/origin";
 import { getStripe } from "@/lib/stripe/client";
 import { calculateApplicationFeeJpy } from "@/lib/stripe/fees";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * POST /api/checkout
@@ -62,9 +63,47 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+  // 無料(priceJpy=0)は Stripe を通さない:
+  //   - Stripe の最低決済額(JPY ~50円)未満で必ず失敗する
+  //   - クリエイターの Stripe Connect 未設定でも無料配布したい
+  //   - 余計に決済画面を見せる UX を避けたい
+  // admin client で purchases に paid 行を直接 insert し、success URL を
+  // 返してその場で完了させる。stripe_session_id は UNIQUE 制約があるので
+  // `free:{userId}:{productId}` 形式で再押下時の重複も防ぐ。
+  if (decision.product.priceJpy <= 0) {
+    const admin = createAdminClient();
+    const now = new Date().toISOString();
+    const { error: insErr } = await admin.from("purchases").insert({
+      user_id: user.id,
+      product_id: decision.product.id,
+      stripe_session_id: `free:${user.id}:${decision.product.id}`,
+      amount_jpy: 0,
+      currency: "jpy",
+      status: "paid",
+      paid_at: now,
+      creator_id: decision.product.creatorId,
+      application_fee_jpy: 0,
+    });
+    if (insErr && insErr.code !== "23505") {
+      // 23505 = unique_violation → 同時押下の race。実質「既に持ってる」と
+      // 同じなので成功扱いにする。他のエラーは 500。
+      console.error("[checkout/free] insert failed", insErr);
+      return NextResponse.json(
+        { ok: false, message: "受け取り処理に失敗しました" },
+        { status: 500 },
+      );
+    }
+    const successUrl = `${siteUrl}/checkout/success?free=1${isFromDesktop ? "&return_to=desktop" : ""}`;
+    return NextResponse.json(
+      { ok: true, url: successUrl },
+      { status: 200, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   // Create Stripe Checkout Session
   const stripe = getStripe();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
   // D-020 PR3: destination charge with platform fee.
   //   - application_fee_amount … プラットフォーム取り分(JPY 円整数)
@@ -112,8 +151,10 @@ export async function POST(request: NextRequest) {
       },
       payment_intent_data: {
         application_fee_amount: applicationFeeJpy,
+        // priceJpy>0 では canPurchase の creator_not_onboarded ガードを通って
+        // いるので必ず非 null(型上は null 許容にしたため as で narrow)。
         transfer_data: {
-          destination: decision.product.creatorStripeAccountId,
+          destination: decision.product.creatorStripeAccountId as string,
         },
         // Mirror productId/userId so refund-related events (Phase 8) can
         // resolve the purchase without joining through the checkout session.

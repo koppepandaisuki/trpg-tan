@@ -1174,7 +1174,8 @@ export function PlayTable({
     setCompose((c) => ({ ...c, text: "" }));
   }
 
-  async function save() {
+  /** 卓を保存する。成功すれば true(handleClose が見て続行する)。 */
+  async function save(): Promise<boolean> {
     setError(null);
     try {
       let p = savedPath;
@@ -1182,15 +1183,40 @@ export function PlayTable({
         await savePlayToPath(scene, p);
       } else {
         p = await savePlayAs(scene);
-        if (!p) return; // キャンセル
+        if (!p) return false; // 名前付け保存ダイアログでキャンセル
         setSavedPath(p);
       }
       onPersist(scene, p);
       setDirty(false);
       toast("✓ 卓を保存しました");
+      return true;
     } catch (e) {
       setError(`保存に失敗しました: ${String(e)}`);
+      return false;
     }
+  }
+
+  /** 卓を閉じる(未保存があれば 2 段階 confirm で保存/破棄を選んでもらう)。 */
+  async function handleClose() {
+    if (!dirty) {
+      onClose();
+      return;
+    }
+    // 第 1 段: 保存して閉じるか
+    const wantSave = window.confirm(
+      "卓に保存されていない変更があります。\n\n[OK] 保存して閉じる\n[キャンセル] 保存しない",
+    );
+    if (wantSave) {
+      const ok = await save();
+      if (ok) onClose();
+      // 失敗時(ダイアログキャンセル/書込失敗) は閉じない。
+      return;
+    }
+    // 第 2 段: 破棄して閉じるか
+    const wantDiscard = window.confirm(
+      "保存していない変更を破棄して閉じますか？\n\n[OK] 破棄して閉じる\n[キャンセル] 戻る",
+    );
+    if (wantDiscard) onClose();
   }
 
   return (
@@ -1295,7 +1321,7 @@ export function PlayTable({
               >
                 {dirty ? "保存*" : "保存"}
               </button>
-              <button className="btn mini" onClick={onClose}>
+              <button className="btn mini" onClick={() => void handleClose()}>
                 閉じる
               </button>
             </>

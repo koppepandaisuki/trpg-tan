@@ -23,6 +23,7 @@ import {
   Boxes,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { toast } from "./Toasts";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { SkelGrid, SkelStoreHome } from "./Skeleton";
@@ -649,17 +650,38 @@ export function StorePanel({
                       <LibraryBig size={15} /> ライブラリで開く
                     </button>
                   </>
+                ) : !session ? (
+                  <>
+                    <button
+                      className="btn btn-primary ibtn"
+                      onClick={() => {
+                        toast(
+                          "購入にはログインが必要です。右上のアカウントメニューからログインしてください",
+                        );
+                      }}
+                    >
+                      <ShoppingCart size={15} /> ログインして購入
+                    </button>
+                    <p className="store-buynote">
+                      ストアの閲覧はログイン無しで自由にできます。購入や
+                      ダウンロードにはアカウントが必要です。
+                    </p>
+                  </>
                 ) : (
                   <>
                     <button
                       className="btn btn-primary ibtn"
                       onClick={() => void openUrl(webProductUrl(detail.slug))}
                     >
-                      <ShoppingCart size={15} /> Webストアで購入
+                      <ShoppingCart size={15} />{" "}
+                      {detail.priceJpy === 0
+                        ? "無料で入手"
+                        : "Webストアで購入"}
                     </button>
                     <p className="store-buynote">
-                      決済はブラウザ(Web版)で行います。購入後、アプリの
-                      「購入」タブに反映されます。
+                      {detail.priceJpy === 0
+                        ? "ブラウザでワンクリックでライブラリに追加します。"
+                        : "決済はブラウザ(Web版)で行います。購入後、アプリの「購入」タブに反映されます。"}
                     </p>
                   </>
                 )}

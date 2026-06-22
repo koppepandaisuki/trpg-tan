@@ -76,23 +76,24 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const avatarUrl = publicAvatarUrl(product.creator.avatarPath);
 
   // CTA state — decided on the server so we never render a "buy" button to
-  // someone who already owns the product.
+  // someone who already owns the product. 無料も purchases に行が入るので
+  // isAlreadyPurchased は無料を含めて全件チェックする。
   const user = await getCurrentUser();
   const isOwnProduct = !!user && product.creator.id === user.id;
   const purchased =
-    !!user && !isOwnProduct && !isFree(product.priceJpy)
+    !!user && !isOwnProduct
       ? await isAlreadyPurchased(user.id, product.id)
       : false;
 
-  const ctaState: CtaState = isFree(product.priceJpy)
-    ? "free"
-    : isOwnProduct
-      ? "own"
-      : purchased
-        ? "purchased"
-        : user
-          ? "buy"
-          : "login";
+  const ctaState: CtaState = isOwnProduct
+    ? "own"
+    : purchased
+      ? "purchased"
+      : !user
+        ? "login"
+        : isFree(product.priceJpy)
+          ? "free"
+          : "buy";
 
   // 関連作品 / クリエイター他作品 / 評価サマリ / 販売数 / スクショ を並行 fetch
   const [
@@ -472,11 +473,7 @@ type CtaState = "free" | "login" | "buy" | "purchased" | "own";
 function PurchaseCta({ product, state }: { product: ProductDetail; state: CtaState }) {
   switch (state) {
     case "free":
-      return (
-        <Button className="w-full" disabled>
-          無料で入手(準備中)
-        </Button>
-      );
+      return <BuyButton productId={product.id} label="無料で入手" />
     case "login":
       return (
         <Link
