@@ -707,6 +707,7 @@ export function PlayClient({
               panels={overlayLive(scene.panels)}
               activeSceneId={scene.activeSceneId}
               playerMode
+              viewerName={name}
               onMove={movePanel}
               onDragMove={sendDrag}
               onSetImage={() => {}}
@@ -891,6 +892,7 @@ export function PlayClient({
                         onQuickRoll={(expr) => handleSend(compose.speakerId, expr)}
                         maskSecret
                         viewerName={name}
+                        viewerPanelNames={myCards.map((p) => p.name)}
                         inputRef={inputRef}
                       />
                     </div>

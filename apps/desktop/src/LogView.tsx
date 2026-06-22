@@ -66,6 +66,7 @@ export function LogView({
   onClearLog,
   maskSecret = false,
   viewerName,
+  viewerPanelNames,
   diceBot,
   onDiceBotChange,
   inputRef,
@@ -94,6 +95,13 @@ export function LogView({
   maskSecret?: boolean;
   /** 自分の表示名。visibleTo に含まれるシークレットは伏せずに見せる。 */
   viewerName?: string;
+  /**
+   * 自分が操作するコマの名前一覧。GM はシークレットの「見せる相手」を
+   * **コマ名** で選ぶので、参加者の入室名(viewerName)だけで照合すると
+   * 「コマ名で指定されたが入室名が違って見えない」バグになる。
+   * このリストのいずれかが visibleTo に含まれれば見える扱いにする。
+   */
+  viewerPanelNames?: string[];
   /** 卓のダイスボット id(システム別ダイス処理)。 */
   diceBot?: string;
   /** ダイスボット切替(GM のみ。未指定ならセレクタ非表示)。 */
@@ -244,6 +252,7 @@ export function LogView({
               ev={ev}
               maskSecret={maskSecret}
               viewerName={viewerName}
+              viewerPanelNames={viewerPanelNames}
             />
           ))
         )}
@@ -336,11 +345,14 @@ export function LogRow({
   ev,
   maskSecret = false,
   viewerName,
+  viewerPanelNames,
 }: {
   ev: PlayEvent;
   maskSecret?: boolean;
   /** 自分の表示名。visibleTo に含まれていれば出目を見せる。 */
   viewerName?: string;
+  /** 自分の操作するコマの名前一覧。visibleTo に含まれていれば見える。 */
+  viewerPanelNames?: string[];
 }) {
   if (ev.kind === "chat")
     return (
@@ -351,9 +363,13 @@ export function LogRow({
     );
   if (ev.kind === "roll") {
     // 参加者ビューではシークレットダイスの出目を伏せる
-    // (「見せる相手」に自分が入っていれば見える)。
+    // (「見せる相手」に自分 OR 自分が操作するコマ名が入っていれば見える)。
+    // GM は visibleTo を「コマ名」で選ぶので、入室名(viewerName)だけでは
+    // 一致せず参加者側が見えないバグになる。コマ名でも照合する。
+    const visible = ev.visibleTo ?? [];
     const canPeek =
-      !!viewerName && (ev.visibleTo ?? []).includes(viewerName);
+      (!!viewerName && visible.includes(viewerName)) ||
+      (viewerPanelNames?.some((n) => visible.includes(n)) ?? false);
     if (maskSecret && ev.secret && !canPeek) {
       return (
         <p className="logrow log-secret">

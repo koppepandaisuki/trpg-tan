@@ -65,20 +65,24 @@ export async function POST(request: NextRequest) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
-  // 無料(priceJpy=0)は Stripe を通さない:
-  //   - Stripe の最低決済額(JPY ~50円)未満で必ず失敗する
-  //   - クリエイターの Stripe Connect 未設定でも無料配布したい
-  //   - 余計に決済画面を見せる UX を避けたい
+  // 無料(priceJpy=0)、または管理者は Stripe を通さない:
+  //   - 無料: Stripe の最低決済額(JPY ~50円)未満で必ず失敗する。
+  //          クリエイターの Stripe Connect 未設定でも無料配布したい。
+  //   - 管理者: 出品物のスクリーニング/動作確認のため Stripe 決済なしで
+  //          ライブラリへ取り込めるようにする(運用配慮)。
   // admin client で purchases に paid 行を直接 insert し、success URL を
   // 返してその場で完了させる。stripe_session_id は UNIQUE 制約があるので
   // `free:{userId}:{productId}` 形式で再押下時の重複も防ぐ。
-  if (decision.product.priceJpy <= 0) {
+  const isAdminBypass = user.isAdmin;
+  if (decision.product.priceJpy <= 0 || isAdminBypass) {
     const admin = createAdminClient();
     const now = new Date().toISOString();
+    // session_id は集計時に区別したいので「admin:」「free:」プレフィックス。
+    const prefix = isAdminBypass && decision.product.priceJpy > 0 ? "admin" : "free";
     const { error: insErr } = await admin.from("purchases").insert({
       user_id: user.id,
       product_id: decision.product.id,
-      stripe_session_id: `free:${user.id}:${decision.product.id}`,
+      stripe_session_id: `${prefix}:${user.id}:${decision.product.id}`,
       amount_jpy: 0,
       currency: "jpy",
       status: "paid",

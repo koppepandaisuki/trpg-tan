@@ -45,6 +45,7 @@ export function PlayBoard({
   panels,
   activeSceneId,
   playerMode = false,
+  viewerName,
   onMove,
   onDragMove,
   onSetImage,
@@ -63,6 +64,11 @@ export function PlayBoard({
   activeSceneId?: string;
   /** 参加者ビュー(GM ツール/秘匿駒/右クリック/リサイズを隠す)。 */
   playerMode?: boolean;
+  /**
+   * 参加者ビュー時の所有者照合用(panel.owner === viewerName 時のみ右クリック
+   * メニューを許可)。未指定なら playerMode と同じ既存挙動(全キャラ駒で開ける)。
+   */
+  viewerName?: string;
   onMove: (panelId: string, x: number, y: number) => void;
   /** ドラッグ中の駒座標(0..1)。ライブ配信用(間引きは呼び出し側)。確定は onMove。 */
   onDragMove?: (panelId: string, x: number, y: number) => void;
@@ -603,9 +609,11 @@ export function PlayBoard({
               }}
               onContextMenu={(e) => {
                 e.preventDefault();
-                // 参加者はキャラ駒(ステータスを持つ駒)のみメニューを開ける。
+                // GM は全駒で開ける。参加者は「自分が所有するキャラ駒」のみ
+                // メニューを開ける(他人のキャラ駒や GM 所有の駒は触らせない)。
                 const isChar = p.stats.length > 0 || p.resources.length > 0;
-                if (!playerMode || isChar) {
+                const isMine = !!viewerName && p.owner === viewerName;
+                if (!playerMode || (isChar && isMine)) {
                   setMenu({ panelId: p.id, x: e.clientX, y: e.clientY });
                 }
               }}
