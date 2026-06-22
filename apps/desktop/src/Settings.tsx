@@ -33,7 +33,7 @@ import {
   setLocalAvatar,
   fileToAvatarDataUrl,
 } from "./local-profile";
-import { signInWithGoogle, signOut } from "./auth";
+import { openWebLogin, signOut } from "./auth";
 import { deleteMyAccount } from "./account-remote";
 import { supabaseConfigured } from "./supabase";
 import {
@@ -275,17 +275,17 @@ function StoreLinkSection() {
     return (
       <Section
         title="ストア連携"
-        desc="ログインするとストアの購入物をライブラリに取り込めます。ログインしても本名・メールはアプリ内に表示されません。"
+        desc="ログインするとストアの購入物をライブラリに取り込めます。ブラウザでログイン(メール / Google)すると自動でアプリに戻り、web とアプリの両方がログイン済みになります。本名・メールはアプリ内に表示されません。"
       >
         <button
           className="btn btn-primary"
           disabled={busy}
           onClick={() => {
             setBusy(true);
-            void signInWithGoogle().finally(() => setBusy(false));
+            void openWebLogin().finally(() => setBusy(false));
           }}
         >
-          {busy ? "ブラウザを開いています…" : "Google でログイン"}
+          {busy ? "ブラウザを開いています…" : "ログイン"}
         </button>
       </Section>
     );

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/login-form";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { getLoginErrorMessage } from "@/lib/auth/login-errors";
+import { safeNext } from "@/lib/api/redirect";
 
 export const metadata = { title: "ログイン" };
 
@@ -31,8 +32,11 @@ interface LoginPageProps {
  * と Supabase Auth 由来(otp_expired / access_denied 等)の両方を扱う。
  */
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  // 既ログインなら ?next= があればそこへ(デスクトップ handoff 等)、無ければ /。
+  // これにより「web に既ログイン → アプリのログインボタン」で即 handoff に
+  // 飛び、ワンクリックでアプリにもセッションが入る。
   const user = await getCurrentUser();
-  if (user) redirect("/");
+  if (user) redirect(safeNext(searchParams.next));
 
   const errorMessage = getLoginErrorMessage(
     searchParams.error,

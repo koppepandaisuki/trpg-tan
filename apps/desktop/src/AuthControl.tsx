@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useAuth } from "./useAuth";
-import { signInWithGoogle, signOut } from "./auth";
+import { openWebLogin, openWebSignup, signOut } from "./auth";
 import { supabaseConfigured } from "./supabase";
 
 /**
  * サイドバー下部のログイン状態コントロール。
  * 認証はオプション(キャラシはログイン無しでも使える)。ログインすると
  * 後続スライス(ライブラリ取込)が解放される。
+ *
+ * ログインはシステムブラウザの web ログイン画面に委譲する。これにより
+ * メール/パスワードと Google の両方式が使え、かつ 1 回のログインで web と
+ * アプリの両方がログイン済みになる(web 側の desktop-handoff が deep-link で
+ * セッションをアプリへ返す)。
  */
 export function AuthControl() {
   const { session, ready } = useAuth();
@@ -40,12 +45,22 @@ export function AuthControl() {
     setBusy(true);
     setError(null);
     try {
-      await signInWithGoogle();
+      await openWebLogin();
     } catch (e) {
       setError("ログインを開始できませんでした");
       console.error(e);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function signup() {
+    setError(null);
+    try {
+      await openWebSignup();
+    } catch (e) {
+      setError("新規登録を開始できませんでした");
+      console.error(e);
     }
   }
 
@@ -57,8 +72,18 @@ export function AuthControl() {
         disabled={busy}
         style={{ width: "100%" }}
       >
-        {busy ? "ブラウザを開いています…" : "Google でログイン"}
+        {busy ? "ブラウザを開いています…" : "ログイン"}
       </button>
+      <button
+        className="btn mini"
+        onClick={signup}
+        style={{ width: "100%" }}
+      >
+        新規登録
+      </button>
+      <p className="muted" style={{ fontSize: 10, lineHeight: 1.4 }}>
+        ブラウザでログイン(メール / Google)すると自動でアプリに戻ります。
+      </p>
       {error && (
         <p className="tag fail" style={{ fontSize: 10 }}>
           {error}
