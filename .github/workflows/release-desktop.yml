@@ -58,6 +58,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Vite に渡す env(beforeBuildCommand `pnpm --filter desktop build` が
+          # 継承する)。未登録の secret は空文字になる(GitHub の仕様)が、
+          # supabase.ts はダミー URL でフォールバックするので起動は止まらない。
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_WEB_BASE_URL: ${{ secrets.VITE_WEB_BASE_URL }}
+          VITE_DISCORD_WEBHOOK_URL: ${{ secrets.VITE_DISCORD_WEBHOOK_URL }}
         with:
           # src-tauri を含むディレクトリ(モノレポ)。
           projectPath: apps/desktop
