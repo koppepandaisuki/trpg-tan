@@ -140,6 +140,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
       ? {
           total: heroReviewSummary.total,
           positive: heroReviewSummary.positive,
+          avgStars: heroReviewSummary.avgStars ?? 0,
           label: heroReviewSummary.label,
         }
       : null;

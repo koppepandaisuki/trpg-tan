@@ -17,20 +17,18 @@ function toSocialLinks(raw: unknown): SocialLink[] {
 }
 
 /**
- * Steam 風の総合評価ラベル算出。reviews.ts と同じロジックを内部で
- * 重複定義(types とのサーキュラー依存回避のため、reviews 内 export を
- * 使わずローカル実装)。基準が変わったら両方を更新する必要あり。
+ * 平均星から総合評価ラベルを算出。reviews.ts の computeStarLabel と同基準を
+ * ローカルに持つ(循環依存回避)。基準が変わったら両方を更新すること。
  */
-function computeReviewLabel(positive: number, total: number): ReviewLabel {
-  if (total === 0) return "評価なし";
-  if (total < 5) return "評価不足";
-  const ratio = positive / total;
-  if (ratio >= 0.95) return "圧倒的に好評";
-  if (ratio >= 0.8) return "非常に好評";
-  if (ratio >= 0.7) return "ほぼ好評";
-  if (ratio >= 0.4) return "賛否両論";
-  if (ratio >= 0.2) return "やや不評";
-  if (ratio >= 0.05) return "不評";
+function computeStarLabel(avgStars: number | null, total: number): ReviewLabel {
+  if (total === 0 || avgStars === null) return "評価なし";
+  if (total < 3) return "評価不足";
+  if (avgStars >= 4.5) return "圧倒的に好評";
+  if (avgStars >= 4.0) return "非常に好評";
+  if (avgStars >= 3.5) return "ほぼ好評";
+  if (avgStars >= 2.5) return "賛否両論";
+  if (avgStars >= 2.0) return "やや不評";
+  if (avgStars >= 1.5) return "不評";
   return "圧倒的に不評";
 }
 
@@ -60,6 +58,8 @@ export interface CreatorAggregateStats {
     total: number;
     positive: number;
     negative: number;
+    /** 平均星(1–5)。total = 0 のときは 0。*/
+    avgStars: number;
     label: ReviewLabel;
   };
 }
@@ -186,7 +186,7 @@ async function computeCreatorStats(
       .in("product_id", productIds),
     supabase
       .from("product_reviews")
-      .select("rating")
+      .select("stars, rating")
       .in("product_id", productIds),
   ]);
 
@@ -204,11 +204,20 @@ async function computeCreatorStats(
 
   let positive = 0;
   let negative = 0;
+  let starSum = 0;
+  const total = (reviewsRes.data ?? []).length;
   for (const r of reviewsRes.data ?? []) {
-    if (r.rating === "positive") positive++;
-    else if (r.rating === "negative") negative++;
+    const s =
+      typeof r.stars === "number" && r.stars >= 1 && r.stars <= 5
+        ? r.stars
+        : r.rating === "positive"
+          ? 5
+          : 2;
+    starSum += s;
+    if (s >= 4) positive++;
+    else if (s <= 2) negative++;
   }
-  const total = positive + negative;
+  const avgStars = total === 0 ? 0 : starSum / total;
 
   return {
     totalSales,
@@ -216,7 +225,8 @@ async function computeCreatorStats(
       total,
       positive,
       negative,
-      label: computeReviewLabel(positive, total),
+      avgStars,
+      label: computeStarLabel(total === 0 ? null : avgStars, total),
     },
   };
 }
@@ -228,6 +238,7 @@ function emptyStats(): CreatorAggregateStats {
       total: 0,
       positive: 0,
       negative: 0,
+      avgStars: 0,
       label: "評価なし",
     },
   };

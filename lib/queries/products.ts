@@ -360,15 +360,15 @@ async function listByRating(args: {
   // Step 2: review summary を一括取得
   const reviewMap = await fetchReviewSummariesByProductIds(allIds);
 
-  // Step 3: 並び替え
+  // Step 3: 並び替え(平均星 desc → 件数 desc → 新着 desc)
   const sortedIds = [...allIds].sort((a, b) => {
     const ra = reviewMap.get(a);
     const rb = reviewMap.get(b);
-    const ratioA = ra && ra.total > 0 ? ra.positive / ra.total : -1;
-    const ratioB = rb && rb.total > 0 ? rb.positive / rb.total : -1;
-    if (ratioA !== ratioB) return ratioB - ratioA;
-    const countA = ra?.positive ?? 0;
-    const countB = rb?.positive ?? 0;
+    const starA = ra && ra.total > 0 ? ra.avgStars : -1;
+    const starB = rb && rb.total > 0 ? rb.avgStars : -1;
+    if (starA !== starB) return starB - starA;
+    const countA = ra?.total ?? 0;
+    const countB = rb?.total ?? 0;
     if (countA !== countB) return countB - countA;
     // published_at desc(新しい順を最後の tiebreak に)
     return (publishedMap.get(b) ?? "").localeCompare(

@@ -1,22 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  ThumbsUp,
-  ThumbsDown,
-  Loader2,
-  Trash2,
-  Gamepad2,
-  PenLine,
-} from "lucide-react";
+import { Loader2, Trash2, Gamepad2, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   submitReviewAction,
   deleteReviewAction,
 } from "@/app/(public)/store/[slug]/review-actions";
-import type { ReviewRating } from "@/lib/validators/review";
-import { cn } from "@/lib/utils";
+import { StarRating } from "@/components/review/star-rating";
 
 /**
  * 自分のレビューを投稿 / 編集 / 削除するフォーム(購入済みユーザーのみ
@@ -35,23 +27,23 @@ import { cn } from "@/lib/utils";
 interface ReviewFormProps {
   productId: string;
   productSlug: string;
-  initialRating?: ReviewRating | null;
+  initialStars?: number | null;
   initialComment?: string;
 }
 
 export function ReviewForm({
   productId,
   productSlug,
-  initialRating = null,
+  initialStars = null,
   initialComment = "",
 }: ReviewFormProps) {
-  const [rating, setRating] = useState<ReviewRating | null>(initialRating);
+  const [stars, setStars] = useState<number>(initialStars ?? 0);
   const [comment, setComment] = useState(initialComment);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isEditing = initialRating !== null;
+  const isEditing = initialStars !== null;
 
   // プレイ後レビュー導線(VVVVV)。購入済みでも、まず「プレイしましたか?」
   // のワンクッションを挟む。レビューは購入直後ではなく「遊んだ後の感想」を
@@ -85,14 +77,14 @@ export function ReviewForm({
   }
 
   async function onSubmit() {
-    if (!rating) {
-      setError("高評価か低評価を選んでください");
+    if (stars < 1) {
+      setError("星をタップして評価を選んでください");
       return;
     }
     setSubmitting(true);
     setError(null);
     const result = await submitReviewAction(productId, productSlug, {
-      rating,
+      stars,
       comment,
     });
     setSubmitting(false);
@@ -111,7 +103,7 @@ export function ReviewForm({
       setError(result.error);
       return;
     }
-    setRating(null);
+    setStars(0);
     setComment("");
   }
 
@@ -121,22 +113,12 @@ export function ReviewForm({
         {isEditing ? "あなたのレビューを編集" : "プレイした感想をレビューする"}
       </p>
 
-      {/* Rating buttons */}
-      <div className="flex gap-2">
-        <RatingButton
-          icon={ThumbsUp}
-          label="高評価"
-          tone="positive"
-          active={rating === "positive"}
-          onClick={() => setRating("positive")}
-        />
-        <RatingButton
-          icon={ThumbsDown}
-          label="低評価"
-          tone="negative"
-          active={rating === "negative"}
-          onClick={() => setRating("negative")}
-        />
+      {/* 5 段階の星評価 */}
+      <div className="flex items-center gap-3">
+        <StarRating value={stars} onChange={setStars} size="lg" />
+        <span className="text-sm text-muted-foreground">
+          {stars > 0 ? STAR_WORD[stars] : "星をタップ"}
+        </span>
       </div>
 
       {/* Comment */}
@@ -164,7 +146,7 @@ export function ReviewForm({
           variant="primary"
           size="sm"
           onClick={onSubmit}
-          disabled={submitting || !rating}
+          disabled={submitting || stars < 1}
         >
           {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {isEditing ? "更新する" : "投稿する"}
@@ -223,38 +205,11 @@ function PlayedGate({ onConfirm }: { onConfirm: () => void }) {
   );
 }
 
-function RatingButton({
-  icon: Icon,
-  label,
-  tone,
-  active,
-  onClick,
-}: {
-  icon: typeof ThumbsUp;
-  label: string;
-  tone: "positive" | "negative";
-  active: boolean;
-  onClick: () => void;
-}) {
-  const activeStyle =
-    tone === "positive"
-      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-      : "border-rose-300 bg-rose-50 text-rose-800";
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition",
-        active
-          ? activeStyle
-          : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-      )}
-    >
-      <Icon className="h-4 w-4" aria-hidden />
-      {label}
-    </button>
-  );
-}
+/** 星の数に対応する短い言葉(選択中の今の評価を言語化)。 */
+const STAR_WORD: Record<number, string> = {
+  1: "いまひとつ",
+  2: "もう少し",
+  3: "ふつう",
+  4: "良かった",
+  5: "最高！",
+};

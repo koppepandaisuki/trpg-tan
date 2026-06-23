@@ -27,6 +27,8 @@ export type FileFormat = "pdf" | "image_zip" | "audio" | "pack";
 export type ProductReviewSummary = {
   total: number;
   positive: number;
+  /** 平均星(1–5)。レビュー 0 件のときは 0。*/
+  avgStars: number;
   /** ReviewLabel と一致(型循環を避けるため string で持つ)*/
   label: string;
 };

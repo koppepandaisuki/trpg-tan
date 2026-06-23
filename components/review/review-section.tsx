@@ -1,15 +1,10 @@
 import Link from "next/link";
 import type { Route } from "next";
-import {
-  ThumbsUp,
-  ThumbsDown,
-  MessageSquare,
-  Lock,
-  User as UserIcon,
-} from "lucide-react";
+import { MessageSquare, Lock, User as UserIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { StarRating } from "@/components/review/star-rating";
 import {
   getProductReviews,
   getReviewSummary,
@@ -78,30 +73,29 @@ export async function ReviewSection({
         </div>
       </div>
 
-      {/* 集計カード */}
+      {/* 集計カード(平均星 + 総合評価ラベル)*/}
       <Card className="shadow-sm">
-        <CardContent className="space-y-4 py-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <ReviewLabelBadge label={summary.label} />
-            <span className="text-xs text-muted-foreground">
-              {summary.total} 件のレビュー
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <div className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-medium text-emerald-800">
-              <ThumbsUp className="h-3.5 w-3.5" aria-hidden />
-              高評価 {summary.positive}
+        <CardContent className="py-5">
+          {summary.total > 0 && summary.avgStars !== null ? (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-bold tabular-nums leading-none">
+                  {summary.avgStars.toFixed(1)}
+                </span>
+                <div className="space-y-1">
+                  <StarRating value={summary.avgStars} size="md" />
+                  <p className="text-xs text-muted-foreground">
+                    {summary.total} 件のレビュー
+                  </p>
+                </div>
+              </div>
+              <ReviewLabelBadge label={summary.label} />
             </div>
-            <div className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 font-medium text-rose-800">
-              <ThumbsDown className="h-3.5 w-3.5" aria-hidden />
-              低評価 {summary.negative}
-            </div>
-            {summary.positiveRatio !== null && (
-              <span className="text-muted-foreground">
-                好評率 {Math.round(summary.positiveRatio * 100)}%
-              </span>
-            )}
-          </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              まだ評価がありません。最初の星評価を付けてみませんか?
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -111,7 +105,7 @@ export async function ReviewSection({
           <ReviewForm
             productId={productId}
             productSlug={productSlug}
-            initialRating={myReview?.rating ?? null}
+            initialStars={myReview?.stars ?? null}
             initialComment={myReview?.comment ?? ""}
           />
         ) : (
@@ -143,7 +137,7 @@ export async function ReviewSection({
               <ReviewItemCard
                 reviewId={r.id}
                 productSlug={productSlug}
-                rating={r.rating}
+                stars={r.stars}
                 comment={r.comment}
                 userName={r.user.displayName}
                 avatarUrl={publicAvatarUrl(r.user.avatarPath)}
@@ -214,7 +208,7 @@ function ReviewLabelBadge({ label }: { label: ReviewLabel }) {
 function ReviewItemCard({
   reviewId,
   productSlug,
-  rating,
+  stars,
   comment,
   userName,
   avatarUrl,
@@ -226,7 +220,7 @@ function ReviewItemCard({
 }: {
   reviewId: string;
   productSlug: string;
-  rating: "positive" | "negative";
+  stars: number;
   comment: string;
   userName: string;
   avatarUrl: string | null;
@@ -267,25 +261,7 @@ function ReviewItemCard({
               </p>
             </div>
           </div>
-          <Badge
-            variant="muted"
-            className={cn(
-              "shrink-0 text-[10px]",
-              rating === "positive"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : "border-rose-200 bg-rose-50 text-rose-800",
-            )}
-          >
-            {rating === "positive" ? (
-              <span className="inline-flex items-center gap-1">
-                <ThumbsUp className="h-3 w-3" aria-hidden /> 高評価
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1">
-                <ThumbsDown className="h-3 w-3" aria-hidden /> 低評価
-              </span>
-            )}
-          </Badge>
+          <StarRating value={stars} size="sm" className="shrink-0" />
         </div>
         {comment && (
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
