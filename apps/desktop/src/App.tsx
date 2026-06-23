@@ -104,7 +104,7 @@ type Session = { scene: PlayScene; path: string | null };
 const PAGES: { key: Page; label: string }[] = [
   { key: "store", label: "ストア" },
   { key: "library", label: "ライブラリ" },
-  { key: "play", label: "卓" },
+  { key: "play", label: "PLAY" },
   { key: "characters", label: "キャラクター" },
   { key: "builder", label: "ビルダー" },
 ];
@@ -635,17 +635,22 @@ export function App() {
           <img src={brandLogo} alt="パラDa-iCE" className="topbar-logo" />
         </span>
         <nav className="topnav" role="tablist">
-          {PAGES.map((p) => (
-            <button
-              key={p.key}
-              role="tab"
-              aria-selected={page === p.key}
-              className={`topnav-link ${page === p.key ? "active" : ""}`}
-              onClick={() => goTo(p.key)}
-            >
-              {p.label}
-            </button>
-          ))}
+          {PAGES.map((p) => {
+            const isPlay = p.key === "play";
+            return (
+              <button
+                key={p.key}
+                role="tab"
+                aria-selected={page === p.key}
+                className={`topnav-link ${isPlay ? "play" : ""} ${
+                  page === p.key ? "active" : ""
+                }`}
+                onClick={() => goTo(p.key)}
+              >
+                {p.label}
+              </button>
+            );
+          })}
         </nav>
         <div className="topbar-right">
           <button

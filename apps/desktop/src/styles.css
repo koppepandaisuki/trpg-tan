@@ -6123,10 +6123,14 @@ button:disabled {
   object-fit: contain;
   margin: 0 -8px;
 }
+/* VALORANT 風に「PLAY」を中央の主役に。ナビ全体をヘッダー中央へ寄せ、
+   左=ロゴ / 右=アカウントを両端に置く。配色はパラDa-iCE のスカイ→ミント。 */
 .topnav {
+  flex: 1;
   display: flex;
   align-items: stretch;
-  gap: 4px;
+  justify-content: center;
+  gap: 6px;
   height: 100%;
 }
 .topnav-link {
@@ -6155,8 +6159,66 @@ button:disabled {
   border-radius: 3px 3px 0 0;
   background: var(--primary);
 }
+
+/* --- PLAY: 中央の主役ボタン(グラデのピル + ダイヤのマーカー) --- */
+.topnav-link.play {
+  align-self: center;
+  height: auto;
+  margin: 0 12px;
+  padding: 7px 30px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  /* letter-spacing で右側に余白が出るぶん、文字を視覚的に中央へ寄せる */
+  text-indent: 0.2em;
+  color: #fff;
+  background: var(--grad-accent);
+  box-shadow:
+    0 4px 14px rgba(33, 152, 214, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    filter var(--dur-1) var(--ease-out);
+}
+.topnav-link.play:hover {
+  color: #fff;
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow:
+    0 6px 18px rgba(33, 152, 214, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+.topnav-link.play.active {
+  box-shadow:
+    0 0 0 3px var(--primary-soft),
+    0 6px 20px rgba(33, 152, 214, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+/* PLAY は下線ではなく、上のダイヤ(◆)で選択を示す */
+.topnav-link.play.active::after {
+  display: none;
+}
+.topnav-link.play::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--mint);
+  border-radius: 1px;
+  box-shadow: 0 0 7px rgba(125, 228, 211, 0.8);
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+.topnav-link.play.active::before {
+  opacity: 1;
+}
+
 .topbar-right {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 10px;
