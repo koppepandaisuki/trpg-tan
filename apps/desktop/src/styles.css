@@ -6116,12 +6116,41 @@ button:disabled {
 .topbar-brand:hover {
   filter: brightness(1.06);
 }
-/* 公式ロゴ画像(高さでフィット。横の装飾ごと表示) */
-.topbar-logo {
-  height: 46px;
-  width: auto;
+/* ブランドマーク: ダイス(小さなアイコン)+ ベクターの文字ワードマーク。
+   文字は画像でなくテキストなので拡大しても滲まず「画像感」が出ない。 */
+.brand-dice {
+  height: 30px;
+  width: 30px;
   object-fit: contain;
-  margin: 0 -8px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 5px rgba(33, 152, 214, 0.3));
+}
+.topbar-brand:hover .brand-dice {
+  transform: rotate(-8deg) scale(1.05);
+}
+.brand-dice {
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.brand-word {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.005em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.brand-para {
+  color: var(--text);
+}
+.brand-daice {
+  /* 「Da-iCE」をスカイのグラデ文字に(ブランドの掛けことばを強調) */
+  background: linear-gradient(100deg, var(--primary-deep), var(--primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  margin-left: 1px;
 }
 /* VALORANT 風に「PLAY」を中央の主役に。ナビ全体をヘッダー中央へ寄せ、
    左=ロゴ / 右=アカウントを両端に置く。配色はパラDa-iCE のスカイ→ミント。 */

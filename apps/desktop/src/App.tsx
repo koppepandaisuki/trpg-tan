@@ -58,7 +58,7 @@ import {
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
 import { NewCharacterMenu } from "./NewCharacterMenu";
-import brandLogo from "./assets/logo.png";
+import diceMark from "./assets/dice.png";
 
 // 日程調整ツール(web)の作成ページ。ロビーから既定ブラウザで開く。匿名でも作れる
 // (web 側がログイン任意)ため、ここはアプリの Bearer を介さず URL を開くだけ。
@@ -632,7 +632,11 @@ export function App() {
           onClick={() => goTo("store")}
           title="ストアのトップへ"
         >
-          <img src={brandLogo} alt="パラDa-iCE" className="topbar-logo" />
+          <img src={diceMark} alt="" className="brand-dice" aria-hidden />
+          <span className="brand-word" aria-label="パラDa-iCE">
+            <span className="brand-para">パラ</span>
+            <span className="brand-daice">Da-iCE</span>
+          </span>
         </span>
         <nav className="topnav" role="tablist">
           {PAGES.map((p) => {
