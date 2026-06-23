@@ -7067,6 +7067,208 @@ button:disabled {
   }
 }
 
+/* ===== ビルダー(作成ハブ): システム作成 / シナリオ作成 ===== */
+.builder-hub {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.bhub-bar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.bhub-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+}
+.bhub-tab:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+.bhub-tab.on {
+  color: #fff;
+  background: var(--grad-accent);
+  box-shadow: 0 2px 8px rgba(33, 152, 214, 0.3);
+}
+.bhub-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.bhub-content > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* --- シナリオを作る(一覧 + フォーム編集) --- */
+.scb-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.scb-hero-ic {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(55, 172, 232, 0.14);
+  border: 1px solid rgba(55, 172, 232, 0.32);
+  color: var(--primary-deep);
+}
+.scb-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--text);
+}
+.scb-sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  max-width: 640px;
+  line-height: 1.5;
+}
+.scb-new {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.scb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+.scb-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+.scb-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.scb-card-cover {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-3);
+  color: var(--primary-deep);
+}
+.scb-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.scb-card-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(13, 26, 38, 0.55);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+.scb-card:hover .scb-card-del {
+  opacity: 1;
+}
+.scb-card-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.scb-card-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scb-card-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.scb-edit-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0 12px;
+  margin-bottom: 6px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.scb-edit-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 800;
+}
+.scb-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.scb-flash {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mint-deep);
+}
+.scb-edit-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
 /* ===== システムビルダー(ノーコード) ===== */
 .sysb {
   height: 100%;

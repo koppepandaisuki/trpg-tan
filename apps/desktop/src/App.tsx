@@ -23,6 +23,8 @@ import {
   Clock,
   ChevronRight,
   CalendarClock,
+  ScrollText,
+  Wrench,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { AuthControl } from "./AuthControl";
@@ -77,6 +79,9 @@ const PlayClient = lazy(() =>
 );
 const SystemBuilder = lazy(() =>
   import("./SystemBuilder").then((m) => ({ default: m.SystemBuilder })),
+);
+const ScenarioBuilder = lazy(() =>
+  import("./ScenarioBuilder").then((m) => ({ default: m.ScenarioBuilder })),
 );
 const LibraryPage = lazy(() =>
   import("./LibraryPage").then((m) => ({ default: m.LibraryPage })),
@@ -152,6 +157,10 @@ function relTime(iso: string): string {
 export function App() {
   // Steam ライクに、起動直後はストアをフロントに出す。
   const [page, setPage] = useState<Page>("store");
+  // ビルダー(作成ハブ)のモード: システム作成 / シナリオ作成。
+  const [builderMode, setBuilderMode] = useState<"system" | "scenario">(
+    "scenario",
+  );
   // PLAY 中にキャラシを卓の上へオーバーレイ表示する(卓は閉じない)。
   const [charOverlay, setCharOverlay] = useState(false);
   const [library, setLibrary] = useState<LibraryEntry[]>(() => getLibrary());
@@ -254,6 +263,14 @@ export function App() {
       now: new Date().toISOString(),
     });
     setSession({ scene, path: null });
+    setJoining(null);
+    setDrawerOpen(false);
+    setError(null);
+  }
+
+  /** シナリオ作成の「卓ごと編集」から、同じシナリオ(卓)を卓エディタで開く。 */
+  function openSessionFromScene(scene: PlayScene, path: string | null) {
+    setSession({ scene, path });
     setJoining(null);
     setDrawerOpen(false);
     setError(null);
@@ -898,7 +915,34 @@ export function App() {
         {page === "characters" && charactersPanel}
 
         {page === "builder" && (
-          <SystemBuilder onCreateCharacter={newGenericCharacter} />
+          <div className="builder-hub">
+            <div className="bhub-bar">
+              <button
+                className={`bhub-tab ${builderMode === "scenario" ? "on" : ""}`}
+                onClick={() => setBuilderMode("scenario")}
+              >
+                <ScrollText size={16} /> シナリオを作る
+              </button>
+              <button
+                className={`bhub-tab ${builderMode === "system" ? "on" : ""}`}
+                onClick={() => setBuilderMode("system")}
+              >
+                <Wrench size={16} /> システムを作る
+              </button>
+            </div>
+            <div className="bhub-content">
+              {builderMode === "system" ? (
+                <SystemBuilder onCreateCharacter={newGenericCharacter} />
+              ) : (
+                <ScenarioBuilder
+                  index={playIndex}
+                  onPersist={handlePlayPersist}
+                  onRemove={removeSessionEntry}
+                  onOpenTable={openSessionFromScene}
+                />
+              )}
+            </div>
+          </div>
         )}
         </div>
         </Suspense>
