@@ -79,6 +79,7 @@ export function SiteFooter() {
             <FooterLink href="/creator/products/new" label="作品を投稿する" />
             <FooterLink href="/library" label="ライブラリ" />
             <FooterLink href={"/schedule/new" as Route} label="日程調整" />
+            <FooterLink href={"/pricing" as Route} label="料金プラン" />
           </FooterColumn>
 
           {/* 情報(SSSSS で実ページに差替)*/}

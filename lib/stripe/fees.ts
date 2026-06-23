@@ -20,7 +20,27 @@
 
 export const PLATFORM_FEE_RATE = 0.3 as const;
 
-export function calculateApplicationFeeJpy(priceJpy: number): number {
+/**
+ * Pro プランのクリエイターは手数料を優遇(30% → 20%)。Pro 加入の最大の動機。
+ * 0030 migration の profiles.plan で判定し、checkout で出し分ける。
+ */
+export const PRO_PLATFORM_FEE_RATE = 0.2 as const;
+
+export type CreatorPlan = "basic" | "pro";
+
+/** プランに応じたプラットフォーム手数料率。未知の値は basic 扱い。 */
+export function feeRateForPlan(plan: CreatorPlan | string | null | undefined): number {
+  return plan === "pro" ? PRO_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE;
+}
+
+/**
+ * 分配の application_fee(JPY 整数)を算出。
+ * plan 省略時は basic(30%)= 既存挙動。Pro は 20%。
+ */
+export function calculateApplicationFeeJpy(
+  priceJpy: number,
+  plan: CreatorPlan | string | null = "basic",
+): number {
   if (!Number.isFinite(priceJpy) || priceJpy <= 0) return 0;
-  return Math.round(priceJpy * PLATFORM_FEE_RATE);
+  return Math.round(priceJpy * feeRateForPlan(plan));
 }

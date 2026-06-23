@@ -21,6 +21,8 @@ export type CurrentUser = {
    * - D-020 PR2 で profiles に列追加(0010 migration)
    */
   stripeChargesEnabled: boolean;
+  /** 料金プラン(0030 migration)。Pro は手数料優遇などの特典対象。 */
+  plan: "basic" | "pro";
 };
 
 /**
@@ -47,7 +49,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("display_name, is_creator, is_admin, stripe_charges_enabled")
+    .select("display_name, is_creator, is_admin, stripe_charges_enabled, plan")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -91,5 +93,6 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     isCreator,
     isAdmin,
     stripeChargesEnabled: profile?.stripe_charges_enabled ?? false,
+    plan: profile?.plan === "pro" ? "pro" : "basic",
   };
 });

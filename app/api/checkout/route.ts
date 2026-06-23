@@ -117,8 +117,18 @@ export async function POST(request: NextRequest) {
   //
   //   返金時は Stripe が自動で application_fee も逆算返金する
   //   (reverse transfer)。アプリ側で別途処理は不要。
+  // クリエイターのプランで手数料率を出し分け(Pro は 30%→20% 優遇)。
+  // RLS を跨いで他者の profiles.plan を読むため admin client を使う。
+  const planAdmin = createAdminClient();
+  const { data: creatorRow } = await planAdmin
+    .from("profiles")
+    .select("plan")
+    .eq("id", decision.product.creatorId)
+    .maybeSingle();
+  const creatorPlan = creatorRow?.plan === "pro" ? "pro" : "basic";
   const applicationFeeJpy = calculateApplicationFeeJpy(
     decision.product.priceJpy,
+    creatorPlan,
   );
 
   try {
