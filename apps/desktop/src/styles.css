@@ -8150,12 +8150,34 @@ button:disabled {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
+  /* チップ地はテーマ追従(ライト=ほぼ白 / ダーク=淡い veil)。
+     アイコン色は tone ごとに下で指定し、両テーマで視認できるようにする。 */
+  background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow-xs);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 17px;
+  color: var(--text);
+}
+/* tone ごとのアイコン色(白チップ / 暗チップどちらでも視認できる鮮やかな色) */
+.catcard.tone-blue .catcard-icon {
+  color: var(--primary-deep);
+}
+.catcard.tone-green .catcard-icon {
+  color: var(--mint-deep);
+}
+.catcard.tone-gold .catcard-icon {
+  color: var(--gold-deep);
+}
+.catcard.tone-rose .catcard-icon {
+  color: #d4674a;
+}
+.catcard.tone-violet .catcard-icon {
+  color: #7b62e0;
+}
+[data-theme="dark"] .catcard-icon {
+  background: rgba(255, 255, 255, 0.12);
 }
 .catcard-label {
   display: flex;
@@ -8609,8 +8631,11 @@ button:disabled {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #fdeff1;
-  border: 1px solid rgba(240, 135, 107, 0.35);
+  /* rgba をベースにしてライト/ダーク両対応。アイコンはコーラルで固定し
+     どちらのテーマでも視認できるようにする。 */
+  background: rgba(240, 135, 107, 0.16);
+  border: 1px solid rgba(240, 135, 107, 0.36);
+  color: var(--coral);
   display: flex;
   align-items: center;
   justify-content: center;
