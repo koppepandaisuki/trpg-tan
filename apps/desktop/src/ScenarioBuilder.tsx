@@ -10,6 +10,7 @@ import {
   Store,
   Loader2,
   X,
+  ImagePlus,
 } from "lucide-react";
 import {
   createScene,
@@ -79,11 +80,12 @@ export function ScenarioBuilder({
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // 出品ダイアログ(null = 閉)。
+  // 出品ダイアログ(null = 閉)。cover はアプリ内で選んだ表紙画像。
   const [pub, setPub] = useState<{
     title: string;
     price: number;
     desc: string;
+    cover: { url: string; blob: Blob; type: string } | null;
   } | null>(null);
   const [publishing, setPublishing] = useState(false);
 
@@ -161,6 +163,7 @@ export function ScenarioBuilder({
       title: s.title || "無題のシナリオ",
       price: 0,
       desc: s.scenario?.synopsis ?? "",
+      cover: null,
     });
   }
 
@@ -185,14 +188,22 @@ export function ScenarioBuilder({
         system: sys,
         scenarios: [scene],
       });
-      const r = await publishPack(pack, {
-        title: name,
-        priceJpy: Math.max(0, Math.round(pub.price)),
-        description,
-      });
+      const r = await publishPack(
+        pack,
+        {
+          title: name,
+          priceJpy: Math.max(0, Math.round(pub.price)),
+          description,
+        },
+        pub.cover
+          ? { blob: pub.cover.blob, contentType: pub.cover.type }
+          : undefined,
+      );
       setPub(null);
       toast(
-        "🛒 下書きを作成しました。ブラウザで表紙を設定して公開してください。",
+        pub.cover
+          ? "🛒 下書きを作成しました。ブラウザで内容を確認して公開してください。"
+          : "🛒 下書きを作成しました。ブラウザで表紙を設定して公開してください。",
       );
       // 仕上げ(表紙・価格確認・公開)の web ページを直接開く。
       void openUrl(`${WEB_BASE}/creator/products/${r.productId}/edit`);
@@ -381,6 +392,57 @@ export function ScenarioBuilder({
                 placeholder="作品名"
               />
             </label>
+            <div className="scb-pub-field">
+              <span>表紙画像（任意・PNG / JPG / WebP）</span>
+              <div className="scb-pub-cover">
+                {pub.cover ? (
+                  <>
+                    <img
+                      src={pub.cover.url}
+                      alt=""
+                      className="scb-pub-cover-img"
+                    />
+                    <button
+                      className="btn mini"
+                      onClick={() => setPub({ ...pub, cover: null })}
+                    >
+                      <X size={13} /> 外す
+                    </button>
+                  </>
+                ) : (
+                  <label className="btn mini scb-pub-cover-pick">
+                    <ImagePlus size={14} /> 画像を選ぶ
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      hidden
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f && /^image\/(png|jpe?g|webp)$/i.test(f.type)) {
+                          setPub((p) =>
+                            p
+                              ? {
+                                  ...p,
+                                  cover: {
+                                    url: URL.createObjectURL(f),
+                                    blob: f,
+                                    type: f.type,
+                                  },
+                                }
+                              : p,
+                          );
+                        }
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+              <span className="scb-pub-hint">
+                未設定でも出品できます（あとでブラウザで設定）。
+              </span>
+            </div>
+
             <label className="scb-pub-field">
               <span>価格（円・0 で無料）</span>
               <input

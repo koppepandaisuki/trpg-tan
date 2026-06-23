@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createProductFileUploadUrl } from "@/lib/storage/signed-upload-url";
+import {
+  createProductFileUploadUrl,
+  createCoverUploadUrl,
+} from "@/lib/storage/signed-upload-url";
+import { mimeToCoverExt } from "@/lib/format/upload";
 import { slugify, randomToken } from "@/lib/format/slug";
 
 /**
@@ -47,6 +51,8 @@ export async function POST(request: NextRequest) {
     priceJpy?: number;
     description?: string;
     systemLabel?: string;
+    /** 表紙をアプリ内で同時アップロードするときの MIME(image/png 等)。 */
+    coverContentType?: string;
   };
   try {
     body = await request.json();
@@ -111,8 +117,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 表紙をアプリ内から同時アップロードする場合、covers バケットの署名 token も
+  // 発行して cover_path を確定する(MIME 不正なら表紙はスキップして本体だけ続行)。
+  let coverPath: string | null = null;
+  let coverToken: string | null = null;
+  const coverExt = body.coverContentType
+    ? mimeToCoverExt(body.coverContentType)
+    : null;
+  if (coverExt) {
+    const cp = `${user.id}/${inserted.id}.${coverExt}`;
+    try {
+      const signed = await createCoverUploadUrl(cp);
+      const t = new URL(signed).searchParams.get("token");
+      if (t) {
+        coverPath = cp;
+        coverToken = t;
+      }
+    } catch (e) {
+      console.error("[pack/publish] cover signed url failed", e);
+    }
+  }
+
   const admin = createAdminClient();
-  await admin.from("products").update({ file_path: path }).eq("id", inserted.id);
+  await admin
+    .from("products")
+    .update({ file_path: path, ...(coverPath ? { cover_path: coverPath } : {}) })
+    .eq("id", inserted.id);
 
   return NextResponse.json({
     ok: true,
@@ -120,5 +150,7 @@ export async function POST(request: NextRequest) {
     slug: inserted.slug,
     path,
     token,
+    coverPath,
+    coverToken,
   });
 }

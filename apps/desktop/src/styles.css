@@ -7332,6 +7332,25 @@ button:disabled {
   gap: 8px;
   margin-top: 2px;
 }
+.scb-pub-cover {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.scb-pub-cover-img {
+  width: 96px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.scb-pub-cover-pick {
+  cursor: pointer;
+}
+.scb-pub-hint {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
 
 /* ===== システムビルダー(ノーコード) ===== */
 .sysb {
