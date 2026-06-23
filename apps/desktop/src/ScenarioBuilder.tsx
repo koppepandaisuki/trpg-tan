@@ -5,12 +5,15 @@ import {
   Save,
   Package,
   ChevronLeft,
-  Dices,
   Clock,
   LayoutDashboard,
+  Store,
+  Loader2,
+  X,
 } from "lucide-react";
 import {
   createScene,
+  buildPack,
   type PlayScene,
   type ScenarioInfo,
   type SceneInfo,
@@ -23,6 +26,15 @@ import {
   savePlayToPath,
   type PlayIndexEntry,
 } from "./play-storage";
+import { publishPack } from "./pack";
+import { getCustomSystems } from "./systems-store";
+import { useAuth } from "./useAuth";
+import { toast } from "./Toasts";
+import { openUrl } from "@tauri-apps/plugin-opener";
+
+const WEB_BASE = (
+  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
 
 /**
  * シナリオ作成(ビルダー内「シナリオを作る」)。
@@ -59,6 +71,7 @@ export function ScenarioBuilder({
   /** 「卓ごと編集」: 同じシナリオ(卓)を PLAY の卓エディタで開く。 */
   onOpenTable: (scene: PlayScene, path: string | null) => void;
 }) {
+  const { session } = useAuth();
   const [editing, setEditing] = useState<{
     scene: PlayScene;
     path: string | null;
@@ -66,6 +79,13 @@ export function ScenarioBuilder({
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 出品ダイアログ(null = 閉)。
+  const [pub, setPub] = useState<{
+    title: string;
+    price: number;
+    desc: string;
+  } | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   function newScenario() {
     const scene = createScene({
@@ -128,6 +148,59 @@ export function ScenarioBuilder({
     const res = await save();
     if (!res) return;
     onOpenTable(res.scene, res.path);
+  }
+
+  function openPublish() {
+    if (!editing) return;
+    if (!session) {
+      setError("出品するにはログインが必要です(右上のアカウントから)。");
+      return;
+    }
+    const s = editing.scene;
+    setPub({
+      title: s.title || "無題のシナリオ",
+      price: 0,
+      desc: s.scenario?.synopsis ?? "",
+    });
+  }
+
+  async function doPublish() {
+    if (!editing || !pub) return;
+    setPublishing(true);
+    setError(null);
+    try {
+      const scene: PlayScene = {
+        ...editing.scene,
+        meta: { ...editing.scene.meta, updatedAt: new Date().toISOString() },
+      };
+      // カスタムシステムを使っていれば同梱(プリセットは購入者に内蔵)。
+      const sys = getCustomSystems().find((x) => x.id === scene.systemId);
+      const name = pub.title.trim() || "無題のシナリオ";
+      const description = pub.desc.trim() || undefined;
+      const pack = buildPack({
+        id: crypto.randomUUID(),
+        name,
+        description,
+        now: new Date().toISOString(),
+        system: sys,
+        scenarios: [scene],
+      });
+      const r = await publishPack(pack, {
+        title: name,
+        priceJpy: Math.max(0, Math.round(pub.price)),
+        description,
+      });
+      setPub(null);
+      toast(
+        "🛒 下書きを作成しました。ブラウザで表紙を設定して公開してください。",
+      );
+      // 仕上げ(表紙・価格確認・公開)の web ページを直接開く。
+      void openUrl(`${WEB_BASE}/creator/products/${r.productId}/edit`);
+    } catch (e) {
+      setError(`出品に失敗: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setPublishing(false);
+    }
   }
 
   /* ===== 一覧 ===== */
@@ -236,12 +309,16 @@ export function ScenarioBuilder({
             >
               <LayoutDashboard size={15} /> 卓ごと編集
             </button>
+            <button className="btn" onClick={() => void save()} disabled={busy}>
+              <Save size={15} /> {busy ? "保存中…" : "保存"}
+            </button>
             <button
               className="btn btn-primary"
-              onClick={() => void save()}
-              disabled={busy}
+              onClick={openPublish}
+              disabled={busy || publishing}
+              title="このシナリオをストアに出品(下書き作成→ブラウザで表紙設定→公開)"
             >
-              <Save size={15} /> {busy ? "保存中…" : "保存"}
+              <Store size={15} /> 出品する
             </button>
           </div>
         </div>
@@ -274,6 +351,82 @@ export function ScenarioBuilder({
           書き出し）は「卓ごと編集」から行えます。
         </div>
       </div>
+
+      {pub && (
+        <div className="scb-pub-overlay" onClick={() => setPub(null)}>
+          <div className="scb-pub" onClick={(e) => e.stopPropagation()}>
+            <div className="scb-pub-head">
+              <strong>
+                <Store size={16} /> ストアに出品
+              </strong>
+              <button
+                className="scb-pub-x"
+                onClick={() => setPub(null)}
+                aria-label="閉じる"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+              下書きを作成してアップロードします。このあとブラウザで
+              <b>表紙の設定</b>と<b>公開</b>を行います（有料は Stripe
+              連携が必要）。
+            </p>
+            <label className="scb-pub-field">
+              <span>タイトル</span>
+              <input
+                className="input"
+                value={pub.title}
+                onChange={(e) => setPub({ ...pub, title: e.target.value })}
+                placeholder="作品名"
+              />
+            </label>
+            <label className="scb-pub-field">
+              <span>価格（円・0 で無料）</span>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                step={100}
+                value={pub.price}
+                onChange={(e) =>
+                  setPub({ ...pub, price: Number(e.target.value) || 0 })
+                }
+              />
+            </label>
+            <label className="scb-pub-field">
+              <span>説明（任意）</span>
+              <textarea
+                className="input"
+                rows={3}
+                value={pub.desc}
+                onChange={(e) => setPub({ ...pub, desc: e.target.value })}
+                placeholder="どんなシナリオか。あらすじや遊び方など"
+              />
+            </label>
+            <div className="scb-pub-actions">
+              <button className="btn" onClick={() => setPub(null)}>
+                キャンセル
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => void doPublish()}
+                disabled={publishing}
+              >
+                {publishing ? (
+                  <>
+                    <Loader2 size={15} className="spin" /> 出品中…
+                  </>
+                ) : (
+                  <>
+                    <Store size={15} /> 下書きを作成して続ける
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

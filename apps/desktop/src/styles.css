@@ -7269,6 +7269,70 @@ button:disabled {
   color: var(--text-faint);
 }
 
+/* --- 出品モーダル --- */
+.scb-pub-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(13, 26, 38, 0.45);
+  backdrop-filter: blur(2px);
+}
+.scb-pub {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 18px;
+}
+.scb-pub-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.scb-pub-head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  color: var(--text);
+}
+.scb-pub-x {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+.scb-pub-x:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.scb-pub-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.scb-pub-field > span {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.scb-pub-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 /* ===== システムビルダー(ノーコード) ===== */
 .sysb {
   height: 100%;
