@@ -22,6 +22,7 @@ import {
   LayoutGrid,
   Boxes,
   Trophy,
+  ChevronRight,
   User as UserIcon,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -97,6 +98,53 @@ const CAT_CARDS: {
   { key: "bgm_audio", icon: <Music size={17} />, label: "BGM・効果音", sub: "BGM・効果音", tone: "violet" },
 ];
 
+/** セクション見出しのアクセント色(アイコンチップの色味)。 */
+type SecTone = "sky" | "mint" | "gold" | "rose" | "violet" | "coral";
+
+/** カテゴリ別ストリップの見出し色(catcard の配色と対応)。 */
+const CAT_TONE: Record<RemoteProductType, SecTone> = {
+  full_package: "sky",
+  scenario: "sky",
+  rulebook: "mint",
+  map: "gold",
+  character_art: "rose",
+  bgm_audio: "violet",
+};
+
+/**
+ * ストアホーム共通のセクション見出し。アイコンチップ + タイトル + 補足 +
+ * 右端アクション。全セクションで同じ語彙にすることでリズムと階層を作る。
+ */
+function SecHead({
+  icon,
+  tone,
+  title,
+  sub,
+  action,
+}: {
+  icon: ReactNode;
+  tone: SecTone;
+  title: string;
+  sub?: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="sec-head">
+      <span className={`sec-ic tone-${tone}`}>{icon}</span>
+      <div className="sec-headcopy">
+        <h3 className="sec-title">{title}</h3>
+        {sub && <p className="sec-sub muted">{sub}</p>}
+      </div>
+      {action && (
+        <button className="sec-action" onClick={action.onClick}>
+          {action.label}
+          <ChevronRight size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function reviewTone(label: string): string {
   if (label.includes("好評")) return "ok";
   if (label === "賛否両論") return "mid";
@@ -163,9 +211,7 @@ function HeroCarousel({
 
   return (
     <section className="feat">
-      <div className="strip-head">
-        <h3>注目＆おすすめ</h3>
-      </div>
+      <SecHead icon={<Sparkles size={16} />} tone="coral" title="注目＆おすすめ" />
       <div className="feat-row">
         {/* 左ピーク(前の作品) */}
         {n > 1 && (
@@ -340,6 +386,7 @@ function HoverCover({
 
 function Strip({
   icon,
+  tone,
   title,
   items,
   purchased,
@@ -347,6 +394,7 @@ function Strip({
   onMore,
 }: {
   icon: ReactNode;
+  tone: SecTone;
   title: string;
   items: StoreItem[];
   purchased: Set<string>;
@@ -356,16 +404,12 @@ function Strip({
   if (items.length === 0) return null;
   return (
     <section className="strip">
-      <div className="strip-head">
-        <h3 className="ibtn">
-          {icon} {title}
-        </h3>
-        {onMore && (
-          <button className="strip-more" onClick={onMore}>
-            すべて見る →
-          </button>
-        )}
-      </div>
+      <SecHead
+        icon={icon}
+        tone={tone}
+        title={title}
+        action={onMore ? { label: "すべて見る", onClick: onMore } : undefined}
+      />
       <div className="strip-row">
         {items.map((it) => (
           <button
@@ -408,18 +452,13 @@ function TopCreators({
 }) {
   return (
     <section className="topcre">
-      <div className="topcre-head">
-        <span className="topcre-ic">
-          <Trophy size={16} />
-        </span>
-        <div className="topcre-headcopy">
-          <h3>人気クリエイター</h3>
-          <p className="muted">購入数の多いクリエイター TOP {entries.length}</p>
-        </div>
-        <button className="strip-more" onClick={onSeeAll}>
-          すべて見る →
-        </button>
-      </div>
+      <SecHead
+        icon={<Trophy size={16} />}
+        tone="gold"
+        title="人気クリエイター"
+        sub={`購入数の多いクリエイター TOP ${entries.length}`}
+        action={{ label: "すべて見る", onClick: onSeeAll }}
+      />
       <div className="topcre-grid">
         {entries.map((e) => {
           const name = e.creator.displayName || "（無名）";
@@ -1051,15 +1090,12 @@ export function StorePanel({
 
               {/* カテゴリで探す(Web ホームと同じデザイン) */}
               <section className="catsec">
-                <div className="catsec-head">
-                  <span className="catsec-ic">
-                    <LayoutGrid size={16} />
-                  </span>
-                  <div className="catsec-headcopy">
-                    <h3>カテゴリで探す</h3>
-                    <p className="muted">ジャンルから作品を絞り込んで探せます</p>
-                  </div>
-                </div>
+                <SecHead
+                  icon={<LayoutGrid size={16} />}
+                  tone="sky"
+                  title="カテゴリで探す"
+                  sub="ジャンルから作品を絞り込んで探せます"
+                />
 
                 {/* 目玉: フルパッケージ(完成品ゲーム一式) */}
                 <button
@@ -1136,6 +1172,7 @@ export function StorePanel({
 
               <Strip
                 icon={<Flame size={16} />}
+                tone="coral"
                 title="急上昇"
                 items={home.trending}
                 purchased={purchased}
@@ -1143,6 +1180,7 @@ export function StorePanel({
               />
               <Strip
                 icon={<Sparkles size={16} />}
+                tone="sky"
                 title="新着"
                 items={home.recent}
                 purchased={purchased}
@@ -1151,6 +1189,7 @@ export function StorePanel({
               />
               <Strip
                 icon={<ThumbsUp size={16} />}
+                tone="mint"
                 title="好評な作品"
                 items={home.topRated}
                 purchased={purchased}
@@ -1161,6 +1200,7 @@ export function StorePanel({
                 <Strip
                   key={cat}
                   icon={CATEGORY_ICON[cat]}
+                  tone={CAT_TONE[cat]}
                   title={PRODUCT_TYPE_LABEL[cat] ?? cat}
                   items={catItems}
                   purchased={purchased}

@@ -5934,32 +5934,8 @@ button:disabled {
 [data-theme="dark"] .creators-banner {
   background: linear-gradient(120deg, var(--surface), #2b1a20);
 }
-[data-theme="dark"] .catsec-ic {
-  background: #14304a;
-  border-color: #1f4a6e;
-}
-[data-theme="dark"] .catfeat {
-  background: linear-gradient(135deg, #123247, #0f2f28);
-  border-color: rgba(56, 152, 236, 0.45);
-}
-[data-theme="dark"] .catfeat-ic {
-  background: #14304a;
-  border-color: #1f4a6e;
-}
-[data-theme="dark"] .topcre-ic {
-  background: #3a3115;
-  border-color: #5a4a1e;
-  color: #e7c66a;
-}
-[data-theme="dark"] .topcre-card.rank-1 {
-  background: linear-gradient(135deg, #2e2710, var(--surface) 60%);
-}
-[data-theme="dark"] .topcre-card.rank-2 {
-  background: linear-gradient(135deg, #1f242b, var(--surface) 60%);
-}
-[data-theme="dark"] .topcre-card.rank-3 {
-  background: linear-gradient(135deg, #2e1f12, var(--surface) 60%);
-}
+/* catfeat / topcre / sec-ic は rgba を surface に重ねる方式なので
+   ダーク専用の上書きは不要(自動で馴染む)。 */
 [data-theme="dark"] .store-rev.bad {
   color: #ff9d8f;
   background: rgba(240, 135, 107, 0.16);
@@ -8218,43 +8194,115 @@ button:disabled {
   background: linear-gradient(135deg, #f3effd, #e9e2fa);
 }
 
-/* --- カテゴリで探す: 見出し + 目玉カード(Web ホームと統一) --- */
-.catsec-head {
+/* === ストアホーム共通: セクション見出し(アイコンチップ + タイトル + 補足) ===
+ * 全セクションで同じ語彙にしてリズムと階層を作る。アイコンチップの色味は
+ * tone-* で出し分け。色は rgba を surface の上に重ねるのでライト/ダーク両対応。 */
+.sec-head {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 11px;
   margin-bottom: 12px;
 }
-.catsec-ic {
-  width: 34px;
-  height: 34px;
+.sec-ic {
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #eaf5ff;
-  border: 1px solid #bfe0ff;
-  color: var(--primary-deep);
+  transition: transform var(--dur-2) var(--ease-out);
 }
-.catsec-headcopy h3 {
+.sec-headcopy {
+  flex: 1;
+  min-width: 0;
+}
+.sec-title {
   margin: 0;
-  font-size: 16.5px;
+  font-size: 16px;
   font-weight: 800;
+  letter-spacing: 0.01em;
   color: var(--text);
 }
-.catsec-headcopy p {
+.sec-sub {
   margin: 1px 0 0;
   font-size: 12px;
 }
+.sec-action {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 999px;
+  transition:
+    color var(--dur-1) var(--ease-out),
+    background var(--dur-1) var(--ease-out);
+}
+.sec-action:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+.sec-action svg {
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.sec-action:hover svg {
+  transform: translateX(2px);
+}
+/* tone: アイコンチップの色味(rgba を重ねて両テーマで成立) */
+.sec-ic.tone-sky {
+  background: rgba(55, 172, 232, 0.14);
+  border: 1px solid rgba(55, 172, 232, 0.34);
+  color: var(--primary-deep);
+}
+.sec-ic.tone-mint {
+  background: rgba(13, 138, 115, 0.14);
+  border: 1px solid rgba(13, 138, 115, 0.32);
+  color: var(--mint-deep);
+}
+.sec-ic.tone-gold {
+  background: rgba(244, 201, 74, 0.18);
+  border: 1px solid rgba(244, 201, 74, 0.42);
+  color: var(--gold-deep);
+}
+.sec-ic.tone-rose {
+  background: rgba(240, 135, 107, 0.16);
+  border: 1px solid rgba(240, 135, 107, 0.36);
+  color: #d4674a;
+}
+.sec-ic.tone-violet {
+  background: rgba(139, 110, 230, 0.16);
+  border: 1px solid rgba(139, 110, 230, 0.36);
+  color: #7b62e0;
+}
+.sec-ic.tone-coral {
+  background: rgba(240, 135, 107, 0.16);
+  border: 1px solid rgba(240, 135, 107, 0.36);
+  color: #e0673f;
+}
+
+/* --- カテゴリで探す: 目玉カード(Web ホームと統一) --- */
 .catfeat {
   display: flex;
   align-items: center;
   gap: 16px;
   width: 100%;
-  border: 1px solid rgba(56, 152, 236, 0.4);
+  border: 1px solid rgba(55, 172, 232, 0.34);
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #e3f1ff, #e1f6ec);
+  /* rgba を surface に重ねて両テーマ対応の淡いスカイ→ミントのグラデ */
+  background:
+    linear-gradient(
+      135deg,
+      rgba(55, 172, 232, 0.16),
+      rgba(125, 228, 211, 0.1)
+    ),
+    var(--surface);
   padding: 16px 18px;
   margin-bottom: 12px;
   cursor: pointer;
@@ -8267,7 +8315,7 @@ button:disabled {
 }
 .catfeat:hover {
   transform: translateY(-2px);
-  border-color: rgba(56, 152, 236, 0.7);
+  border-color: rgba(55, 172, 232, 0.6);
   box-shadow: var(--shadow-md);
 }
 .catfeat-ic {
@@ -8278,8 +8326,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #eaf5ff;
-  border: 1px solid #bfe0ff;
+  background: rgba(55, 172, 232, 0.16);
+  border: 1px solid rgba(55, 172, 232, 0.36);
   color: var(--primary-deep);
   transition: transform var(--dur-3) var(--ease-out);
 }
@@ -8332,38 +8380,6 @@ button:disabled {
 .topcre {
   margin-top: 4px;
 }
-.topcre-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.topcre-ic {
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fdf7e6;
-  border: 1px solid #f0dca0;
-  color: #b7791f;
-}
-.topcre-headcopy {
-  flex: 1;
-  min-width: 0;
-}
-.topcre-headcopy h3 {
-  margin: 0;
-  font-size: 16.5px;
-  font-weight: 800;
-  color: var(--text);
-}
-.topcre-headcopy p {
-  margin: 1px 0 0;
-  font-size: 12px;
-}
 .topcre-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -8388,14 +8404,24 @@ button:disabled {
   box-shadow: var(--shadow-md);
   border-color: var(--border-strong);
 }
+/* rank の地色は rgba を surface に重ねて両テーマ対応(金 / 銀 / 銅) */
 .topcre-card.rank-1 {
-  background: linear-gradient(135deg, #fdf7e6, var(--surface) 60%);
+  background:
+    linear-gradient(135deg, rgba(244, 201, 74, 0.18), transparent 62%),
+    var(--surface);
+  border-color: rgba(244, 201, 74, 0.34);
 }
 .topcre-card.rank-2 {
-  background: linear-gradient(135deg, #f1f3f6, var(--surface) 60%);
+  background:
+    linear-gradient(135deg, rgba(150, 170, 190, 0.2), transparent 62%),
+    var(--surface);
+  border-color: rgba(150, 170, 190, 0.32);
 }
 .topcre-card.rank-3 {
-  background: linear-gradient(135deg, #fdeee0, var(--surface) 60%);
+  background:
+    linear-gradient(135deg, rgba(240, 135, 107, 0.16), transparent 62%),
+    var(--surface);
+  border-color: rgba(240, 135, 107, 0.3);
 }
 .topcre-main {
   display: flex;
@@ -8541,6 +8567,21 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* --- キーボード操作の可視フォーカス(ストアの全カード共通) --- */
+.catcard:focus-visible,
+.catfeat:focus-visible,
+.topcre-main:focus-visible,
+.topcre-best:focus-visible,
+.strip-card:focus-visible,
+.store-card:focus-visible,
+.creator-card:focus-visible,
+.creators-banner:focus-visible,
+.sec-action:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-color: var(--primary);
 }
 
 /* --- クリエイターを探す(バナー + 一覧) --- */
