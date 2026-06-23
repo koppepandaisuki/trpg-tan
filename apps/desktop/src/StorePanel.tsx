@@ -23,6 +23,8 @@ import {
   Boxes,
   Trophy,
   ChevronRight,
+  Star,
+  Trash2,
   User as UserIcon,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -40,6 +42,9 @@ import {
   fetchStoreCreators,
   fetchScreenshotUrls,
   fetchMyPurchasedIds,
+  fetchMyReview,
+  submitReview,
+  deleteMyReview,
   formatPriceJpy,
   webProductUrl,
   type StoreItem,
@@ -152,12 +157,76 @@ function reviewTone(label: string): string {
   return "none";
 }
 
+/** 星の表示(平均星を 0.5 刻みで塗り分け)。size は px。 */
+function StarsDisplay({ value, size = 14 }: { value: number; size?: number }) {
+  return (
+    <span className="stars-row" aria-label={`${value.toFixed(1)} / 5`}>
+      {[1, 2, 3, 4, 5].map((i) => {
+        const fill = Math.max(0, Math.min(1, value - (i - 1)));
+        return (
+          <span
+            key={i}
+            className="star-cell"
+            style={{ width: size, height: size }}
+          >
+            <Star className="star-bg" size={size} strokeWidth={1.5} />
+            <span className="star-fg" style={{ width: `${fill * 100}%` }}>
+              <Star size={size} strokeWidth={1.5} />
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/** 星の入力(1..5 をクリック / ホバー)。 */
+function StarsInput({
+  value,
+  onChange,
+  size = 26,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  size?: number;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const shown = hover ?? value;
+  return (
+    <span className="stars-row input">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={i}
+          type="button"
+          className={`star-btn ${shown >= i ? "on" : ""}`}
+          onMouseEnter={() => setHover(i)}
+          onMouseLeave={() => setHover(null)}
+          onClick={() => onChange(i)}
+          aria-label={`${i} つ星`}
+          title={`${i} つ星`}
+        >
+          <Star size={size} strokeWidth={1.5} />
+        </button>
+      ))}
+    </span>
+  );
+}
+
+const STAR_WORD: Record<number, string> = {
+  1: "いまひとつ",
+  2: "もう少し",
+  3: "ふつう",
+  4: "良かった",
+  5: "最高！",
+};
+
 function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
-  // 評価が無いもの(0 件)は「評価なし」を出さず、何も表示しない。
+  // 評価が無いもの(0 件)は何も表示しない。
   if (!review || review.total === 0) return null;
   return (
-    <span className={`store-rev ${reviewTone(review.label)}`}>
-      {review.label}（{review.total}）
+    <span className={`store-rev star ${reviewTone(review.label)}`} title={review.label}>
+      <Star size={12} className="store-rev-star" />
+      {review.avgStars.toFixed(1)}（{review.total}）
     </span>
   );
 }
@@ -583,6 +652,77 @@ export function StorePanel({
   const [detailLoading, setDetailLoading] = useState(false);
   const [mainImage, setMainImage] = useState<string | null>(null);
 
+  // 詳細でのレビュー投稿(購入済み + ログイン時のみ)。
+  const [reviewStars, setReviewStars] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [hasMyReview, setHasMyReview] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewMsg, setReviewMsg] = useState<string | null>(null);
+
+  // 詳細を開いて購入済みなら、自分のレビューを読み込んで初期値に。
+  useEffect(() => {
+    const uid = session?.user.id;
+    setReviewMsg(null);
+    if (!detail || !uid || !purchased.has(detail.id)) {
+      setReviewStars(0);
+      setReviewComment("");
+      setHasMyReview(false);
+      return;
+    }
+    let alive = true;
+    void fetchMyReview(detail.id, uid).then((mr) => {
+      if (!alive) return;
+      setReviewStars(mr?.stars ?? 0);
+      setReviewComment(mr?.comment ?? "");
+      setHasMyReview(Boolean(mr));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail?.id, session?.user.id, purchased]);
+
+  async function submitMyReview() {
+    const uid = session?.user.id;
+    if (!uid || !detail) return;
+    if (reviewStars < 1) {
+      setReviewMsg("星をタップして評価を選んでください");
+      return;
+    }
+    setReviewBusy(true);
+    setReviewMsg(null);
+    try {
+      await submitReview(detail.id, uid, reviewStars, reviewComment);
+      setHasMyReview(true);
+      const d = await fetchStoreDetail(detail.id);
+      if (d) setDetail(d);
+      setReviewMsg("レビューを投稿しました。ありがとうございます！");
+    } catch (e) {
+      setReviewMsg(e instanceof Error ? e.message : "投稿に失敗しました");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
+  async function removeMyReview() {
+    const uid = session?.user.id;
+    if (!uid || !detail) return;
+    setReviewBusy(true);
+    setReviewMsg(null);
+    try {
+      await deleteMyReview(detail.id, uid);
+      setReviewStars(0);
+      setReviewComment("");
+      setHasMyReview(false);
+      const d = await fetchStoreDetail(detail.id);
+      if (d) setDetail(d);
+    } catch (e) {
+      setReviewMsg(e instanceof Error ? e.message : "削除に失敗しました");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
   // ロゴ / ストアタブのクリックでホームへ巻き戻す。
   useEffect(() => {
     if (homeSignal > 0) {
@@ -744,18 +884,66 @@ export function StorePanel({
               <h3 className="store-sec">
                 レビュー <ReviewBadge review={detail.review} />
               </h3>
+
+              {/* 投稿フォーム(購入済み + ログイン時のみ。押し付けない控えめ導線)*/}
+              {session && isPurchased && (
+                <div className="rev-editor">
+                  <p className="rev-editor-label">
+                    {hasMyReview
+                      ? "あなたのレビューを編集"
+                      : "プレイした感想を星で評価"}
+                  </p>
+                  <div className="rev-editor-stars">
+                    <StarsInput value={reviewStars} onChange={setReviewStars} />
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      {reviewStars > 0 ? STAR_WORD[reviewStars] : "星をタップ"}
+                    </span>
+                  </div>
+                  <textarea
+                    className="input rev-editor-text"
+                    rows={2}
+                    maxLength={2000}
+                    placeholder="コメント(任意、最大 2000 文字)"
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                  />
+                  <div className="rev-editor-actions">
+                    <button
+                      className="btn btn-primary mini"
+                      disabled={reviewBusy || reviewStars < 1}
+                      onClick={() => void submitMyReview()}
+                    >
+                      {reviewBusy ? "送信中…" : hasMyReview ? "更新する" : "投稿する"}
+                    </button>
+                    {hasMyReview && (
+                      <button
+                        className="btn mini"
+                        disabled={reviewBusy}
+                        onClick={() => void removeMyReview()}
+                        title="レビューを削除"
+                      >
+                        <Trash2 size={14} /> 削除
+                      </button>
+                    )}
+                    {reviewMsg && (
+                      <span className="muted" style={{ fontSize: 11.5 }}>
+                        {reviewMsg}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {detail.reviews.length === 0 ? (
                 <p className="muted" style={{ fontSize: 12.5 }}>
-                  まだレビューはありません。レビューの投稿は Web 版から行えます。
+                  まだレビューはありません。購入してプレイした人が、最初の星評価を付けられます。
                 </p>
               ) : (
                 <div className="store-reviews">
                   {detail.reviews.map((r) => (
                     <div key={r.id} className="store-review">
                       <div className="store-review-head">
-                        <span className={`store-thumb ${r.rating}`}>
-                          {r.rating === "positive" ? "👍" : "👎"}
-                        </span>
+                        <StarsDisplay value={r.stars} size={13} />
                         <b>{r.user.displayName || "ユーザー"}</b>
                         <span className="muted" style={{ fontSize: 11 }}>
                           {new Date(r.createdAt).toLocaleDateString("ja-JP")}

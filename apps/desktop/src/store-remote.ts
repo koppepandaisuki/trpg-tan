@@ -30,6 +30,8 @@ export type ReviewLabel =
 export interface StoreReviewSummary {
   total: number;
   positive: number;
+  /** 平均星(1–5)。レビュー 0 件のときは 0。*/
+  avgStars: number;
   label: ReviewLabel;
 }
 
@@ -48,6 +50,8 @@ export interface StoreItem {
 
 export interface StoreReview {
   id: string;
+  /** 5 段階の星評価(1..5)。*/
+  stars: number;
   rating: "positive" | "negative";
   comment: string;
   createdAt: string;
@@ -94,16 +98,24 @@ function screenshotUrl(path: string): string {
 
 /* ===== 集計(Web の computeReviewLabel と同一基準) ===== */
 
-function computeReviewLabel(positive: number, total: number): ReviewLabel {
+/** 後方互換: 旧 rating しか無い行の星フォールバック。*/
+function starsOf(row: { stars: number | null; rating: string }): number {
+  if (typeof row.stars === "number" && row.stars >= 1 && row.stars <= 5) {
+    return row.stars;
+  }
+  return row.rating === "positive" ? 5 : 2;
+}
+
+/** 平均星(1–5)から Steam 風の総合評価ラベルを算出(web と同基準)。*/
+function computeStarLabel(avgStars: number, total: number): ReviewLabel {
   if (total === 0) return "評価なし";
-  if (total < 5) return "評価不足";
-  const ratio = positive / total;
-  if (ratio >= 0.95) return "圧倒的に好評";
-  if (ratio >= 0.8) return "非常に好評";
-  if (ratio >= 0.7) return "ほぼ好評";
-  if (ratio >= 0.4) return "賛否両論";
-  if (ratio >= 0.2) return "やや不評";
-  if (ratio >= 0.05) return "不評";
+  if (total < 3) return "評価不足";
+  if (avgStars >= 4.5) return "圧倒的に好評";
+  if (avgStars >= 4.0) return "非常に好評";
+  if (avgStars >= 3.5) return "ほぼ好評";
+  if (avgStars >= 2.5) return "賛否両論";
+  if (avgStars >= 2.0) return "やや不評";
+  if (avgStars >= 1.5) return "不評";
   return "圧倒的に不評";
 }
 
@@ -114,22 +126,33 @@ async function fetchReviewSummaries(
   if (productIds.length === 0) return result;
   const { data, error } = await supabase
     .from("product_reviews")
-    .select("product_id, rating")
+    .select("product_id, stars, rating")
     .in("product_id", productIds);
   if (error) return result;
 
-  const counts = new Map<string, { positive: number; total: number }>();
+  const counts = new Map<
+    string,
+    { positive: number; total: number; starSum: number }
+  >();
   for (const row of data ?? []) {
-    const c = counts.get(row.product_id) ?? { positive: 0, total: 0 };
+    const c = counts.get(row.product_id) ?? {
+      positive: 0,
+      total: 0,
+      starSum: 0,
+    };
+    const s = starsOf(row);
     c.total++;
-    if (row.rating === "positive") c.positive++;
+    c.starSum += s;
+    if (s >= 4) c.positive++;
     counts.set(row.product_id, c);
   }
   for (const [id, c] of counts.entries()) {
+    const avgStars = c.total === 0 ? 0 : c.starSum / c.total;
     result.set(id, {
       total: c.total,
       positive: c.positive,
-      label: computeReviewLabel(c.positive, c.total),
+      avgStars,
+      label: computeStarLabel(avgStars, c.total),
     });
   }
   return result;
@@ -319,11 +342,11 @@ async function fetchByRating(args: {
   const sorted = [...allIds].sort((a, b) => {
     const ra = reviewMap.get(a);
     const rb = reviewMap.get(b);
-    const ratioA = ra && ra.total > 0 ? ra.positive / ra.total : -1;
-    const ratioB = rb && rb.total > 0 ? rb.positive / rb.total : -1;
-    if (ratioA !== ratioB) return ratioB - ratioA;
-    const countA = ra?.positive ?? 0;
-    const countB = rb?.positive ?? 0;
+    const starA = ra && ra.total > 0 ? ra.avgStars : -1;
+    const starB = rb && rb.total > 0 ? rb.avgStars : -1;
+    if (starA !== starB) return starB - starA;
+    const countA = ra?.total ?? 0;
+    const countB = rb?.total ?? 0;
     if (countA !== countB) return countB - countA;
     return (publishedMap.get(b) ?? "").localeCompare(publishedMap.get(a) ?? "");
   });
@@ -450,7 +473,7 @@ export async function fetchStoreDetail(
 async function fetchReviews(productId: string): Promise<StoreReview[]> {
   const { data: rows, error } = await supabase
     .from("product_reviews")
-    .select("id, user_id, rating, comment, created_at")
+    .select("id, user_id, stars, rating, comment, created_at")
     .eq("product_id", productId)
     .order("created_at", { ascending: false });
   if (error || !rows || rows.length === 0) return [];
@@ -489,6 +512,7 @@ async function fetchReviews(productId: string): Promise<StoreReview[]> {
 
   return rows.map((r) => ({
     id: r.id,
+    stars: starsOf(r),
     rating: r.rating as "positive" | "negative",
     comment: r.comment ?? "",
     createdAt: r.created_at,
@@ -818,6 +842,70 @@ export async function fetchStoreCreators(): Promise<StoreCreator[]> {
       workCount: counts.get(id) ?? 0,
     }))
     .sort((a, b) => b.workCount - a.workCount);
+}
+
+/* ===== レビュー投稿(アプリ内・購入済みのみ。RLS で購入を要求) ===== */
+
+export interface MyReview {
+  stars: number;
+  comment: string;
+}
+
+/** 自分のレビュー(あれば)。投稿フォームの初期値に使う。 */
+export async function fetchMyReview(
+  productId: string,
+  userId: string,
+): Promise<MyReview | null> {
+  const { data, error } = await supabase
+    .from("product_reviews")
+    .select("stars, rating, comment")
+    .eq("product_id", productId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return { stars: starsOf(data), comment: data.comment ?? "" };
+}
+
+/**
+ * レビューを投稿 / 上書き(購入済みのみ)。star(1..5)を保存し、後方互換の
+ * rating(>=4 を高評価)も導出して書く。購入していない場合は RLS で弾かれ、
+ * その旨を throw する。
+ */
+export async function submitReview(
+  productId: string,
+  userId: string,
+  stars: number,
+  comment: string,
+): Promise<void> {
+  const s = Math.max(1, Math.min(5, Math.round(stars)));
+  const { error } = await supabase.from("product_reviews").upsert(
+    {
+      product_id: productId,
+      user_id: userId,
+      stars: s,
+      rating: s >= 4 ? "positive" : "negative",
+      comment: comment.slice(0, 2000),
+    },
+    { onConflict: "product_id,user_id" },
+  );
+  if (error) {
+    throw new Error(
+      "レビューを保存できませんでした。購入済みの作品のみレビューできます。",
+    );
+  }
+}
+
+/** 自分のレビューを削除。 */
+export async function deleteMyReview(
+  productId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("product_reviews")
+    .delete()
+    .eq("product_id", productId)
+    .eq("user_id", userId);
+  if (error) throw new Error("レビューの削除に失敗しました。");
 }
 
 /** 自分の paid 購入の product_id 集合(購入済みバッジ用)。 */

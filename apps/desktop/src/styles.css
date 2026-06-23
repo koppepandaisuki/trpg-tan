@@ -7518,6 +7518,99 @@ button:disabled {
   color: var(--text-faint);
   background: var(--surface-3);
 }
+
+/* --- 星評価(表示 / 入力)+ レビュー投稿フォーム --- */
+.store-rev.star {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--gold-deep);
+  background: var(--gold-soft);
+}
+.store-rev-star {
+  fill: currentColor;
+}
+.stars-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  vertical-align: middle;
+}
+.star-cell {
+  position: relative;
+  display: inline-block;
+  color: #f4c94a;
+}
+.star-cell .star-bg {
+  color: rgba(244, 201, 74, 0.34);
+}
+.star-cell .star-fg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: inline-flex;
+  color: #f4c94a;
+}
+.star-cell .star-fg svg {
+  fill: #f4c94a;
+}
+.stars-row.input {
+  gap: 2px;
+}
+.star-btn {
+  border: 0;
+  background: transparent;
+  padding: 2px;
+  cursor: pointer;
+  color: rgba(244, 201, 74, 0.4);
+  line-height: 0;
+  transition:
+    transform var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+}
+.star-btn:hover {
+  transform: scale(1.12);
+}
+.star-btn.on {
+  color: #f4c94a;
+}
+.star-btn.on svg {
+  fill: #f4c94a;
+}
+.rev-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 12px;
+  margin: 6px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rev-editor-label {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.rev-editor-stars {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rev-editor-text {
+  resize: vertical;
+  min-height: 44px;
+}
+.rev-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .store-pager {
   display: flex;
   align-items: center;
