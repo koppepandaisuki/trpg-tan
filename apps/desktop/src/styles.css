@@ -1935,6 +1935,48 @@ body {
   }
 }
 
+/* PLAY レイヤ: 卓が開いている間は常にマウントし、画面全体を覆う。退避中
+   (.min)は display:none で隠す = 接続/状態を保ったままアプリ内を移動できる。 */
+.play-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.play-layer.min {
+  display: none;
+}
+
+/* 退避中にいつでもセッションへ戻れるフローティングボタン。 */
+.play-resume-chip {
+  position: fixed;
+  right: 16px;
+  bottom: 64px;
+  z-index: var(--z-pop);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2, var(--primary)));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.play-resume-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
+}
+
 /* PLAY 中にキャラシを卓の上へ重ねるオーバーレイ。卓は裏で生きたまま。 */
 .play-charoverlay {
   position: fixed;

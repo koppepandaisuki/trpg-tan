@@ -185,6 +185,8 @@ export function App() {
   const [joining, setJoining] = useState<{ code: string; name: string } | null>(
     null,
   );
+  // PLAY を背面に退避中か(卓は閉じず=接続を保ったまま、アプリ内を移動できる)。
+  const [playMinimized, setPlayMinimized] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState(
     () => localStorage.getItem("trpg.net.name.v1") ?? "",
@@ -247,12 +249,20 @@ export function App() {
 
   /** ページ遷移(セッション/参加を畳む)。ストアは常にホームから。 */
   function goTo(p: Page) {
-    setSession(null);
-    setJoining(null);
+    // PLAY 中は卓を閉じず背面へ退避(接続を保ったままアプリ内を移動)。
+    if (session || joining) {
+      setPlayMinimized(true);
+    }
     setPage(p);
     if (p === "store") setStoreHomeSig((n) => n + 1);
     setDrawerOpen(false);
     setError(null);
+  }
+
+  /** 退避中の PLAY を前面に戻す。 */
+  function resumePlay() {
+    setPlayMinimized(false);
+    setDrawerOpen(false);
   }
 
   function newSession() {
@@ -264,6 +274,7 @@ export function App() {
     });
     setSession({ scene, path: null });
     setJoining(null);
+    setPlayMinimized(false);
     setDrawerOpen(false);
     setError(null);
   }
@@ -272,6 +283,7 @@ export function App() {
   function openSessionFromScene(scene: PlayScene, path: string | null) {
     setSession({ scene, path });
     setJoining(null);
+    setPlayMinimized(false);
     setDrawerOpen(false);
     setError(null);
   }
@@ -291,6 +303,7 @@ export function App() {
     }
     setSession(null);
     setJoining({ code, name });
+    setPlayMinimized(false);
     setDrawerOpen(false);
     setError(null);
   }
@@ -304,6 +317,7 @@ export function App() {
       const scene = await readPlayFromPath(entry.path);
       setSession({ scene, path: entry.path });
       setJoining(null);
+      setPlayMinimized(false);
       setDrawerOpen(false);
       setError(null);
     } catch (e) {
@@ -508,10 +522,11 @@ export function App() {
     </ul>
   );
 
-  /* ===== PLAY 全画面(卓 / ネット参加) ===== */
-  if (session || joining) {
-    return (
-      <div className="app-shell">
+  /* ===== PLAY レイヤ(卓 / ネット参加)。卓を閉じるまでマウントし続け、退避中
+     (playMinimized)は背面に隠す = 接続を保ったままアプリ内を移動できる。 ===== */
+  const playLayer =
+    session || joining ? (
+      <div className={`play-layer${playMinimized ? " min" : ""}`}>
         <Suspense fallback={<ScreenLoading />}>
           {session ? (
             <PlayTable
@@ -521,6 +536,7 @@ export function App() {
               onClose={() => {
                 setSession(null);
                 setCharOverlay(false);
+                setPlayMinimized(false);
               }}
               onPersist={handlePlayPersist}
               onMenu={() => setDrawerOpen(true)}
@@ -534,6 +550,7 @@ export function App() {
               onClose={() => {
                 setJoining(null);
                 setCharOverlay(false);
+                setPlayMinimized(false);
               }}
               onOpenCharacters={() => setCharOverlay(true)}
             />
@@ -616,30 +633,11 @@ export function App() {
             </div>
           </div>
         )}
-
-        {viewing && (
-          <Viewer
-            item={viewing.item}
-            entry={viewing.entry}
-            onClose={() => setViewing(null)}
-          />
-        )}
-        {showSettings && (
-          <SettingsScreen
-            initialTab={settingsTab}
-            theme={theme}
-            onToggleTheme={() =>
-              setTheme((t) => (t === "dark" ? "light" : "dark"))
-            }
-            onClose={() => setShowSettings(false)}
-          />
-        )}
-        <Toasts />
       </div>
-    );
-  }
+    ) : null;
 
-  /* ===== 通常シェル(Steam 風: 上部ナビ + 全幅ページ + 下部バー) ===== */
+  /* ===== 通常シェル(Steam 風: 上部ナビ + 全幅ページ + 下部バー)。
+     PLAY レイヤは常にこの上に重ね、退避中だけ隠す。 ===== */
   return (
     <div className="app-shell">
       {/* 上部ナビ */}
@@ -666,7 +664,10 @@ export function App() {
                 className={`topnav-link ${isPlay ? "play" : ""} ${
                   page === p.key ? "active" : ""
                 }`}
-                onClick={() => goTo(p.key)}
+                onClick={() =>
+                  // PLAY タブ: 退避中のセッションがあればそこへ戻す。
+                  isPlay && (session || joining) ? resumePlay() : goTo(p.key)
+                }
               >
                 {p.label}
               </button>
@@ -973,6 +974,20 @@ export function App() {
           />
         </span>
       </footer>
+
+      {/* PLAY レイヤ(卓が開いている間は常にマウント。退避中は CSS で隠す)。 */}
+      {playLayer}
+
+      {/* 退避中の戻り口: いつでもセッションに戻れるフローティングボタン。 */}
+      {(session || joining) && playMinimized && (
+        <button
+          className="play-resume-chip"
+          onClick={resumePlay}
+          title="進行中のセッションに戻る"
+        >
+          <Dices size={16} /> セッションに戻る
+        </button>
+      )}
 
       {/* アプリ内ビューア(購入物の閲覧)。上に重ねる。*/}
       {viewing && (
