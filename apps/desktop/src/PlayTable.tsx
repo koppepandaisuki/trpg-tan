@@ -24,6 +24,8 @@ import {
   logClearEvent,
   buildPack,
   parseCcfoliaCharacter,
+  panelVariables,
+  substituteVars,
   type PlayScene,
   type PlayEvent,
   type RollEvent,
@@ -917,6 +919,13 @@ export function PlayTable({
       if (suffix && switchVariant(speakerId, suffix[2])) {
         raw = suffix[1];
       }
+    }
+
+    // チャパレ変数置換({共鳴} [強度] 等 → このキャラのデータ値)。判定/
+    // ダイス解釈の前段で行う。駒が見つからない発言(GM 等)は対象外。
+    const speakerPanel = scene.panels.find((x) => x.id === speakerId);
+    if (speakerPanel) {
+      raw = substituteVars(raw, panelVariables(speakerPanel));
     }
 
     // システム固有コマンド(ダイスボット)を先に解釈。非該当は汎用へ。

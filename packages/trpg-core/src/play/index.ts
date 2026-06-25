@@ -66,3 +66,4 @@ export {
   makeTokenPanel,
 } from "./panel.js";
 export { parseCcfoliaCharacter } from "./ccfolia.js";
+export { panelVariables, substituteVars } from "./vars.js";
