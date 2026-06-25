@@ -2209,6 +2209,48 @@ body {
   gap: 6px;
 }
 
+/* 発言者 / 送信先 / 色 のラベル付き composer(画像の構成)。 */
+.pcompose {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.pfield {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 0;
+}
+.pfield-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.pfield .input {
+  width: 100%;
+}
+.pfield-color {
+  flex: 0 0 auto;
+}
+.pcolor {
+  width: 38px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.pcolor::-webkit-color-swatch {
+  border: none;
+  border-radius: 5px;
+}
+.pcolor::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
 /* クイックロール・バー(入力欄の上)。よく使うダイスを 1 タップで。 */
 .qroll {
   display: flex;

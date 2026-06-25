@@ -57,6 +57,8 @@ export function LogView({
   channel,
   onChannelChange,
   onSpeakerChange,
+  color,
+  onColorChange,
   onTextChange,
   onSecretChange,
   onVisibleToChange,
@@ -81,6 +83,9 @@ export function LogView({
   channel: string;
   onChannelChange: (id: string) => void;
   onSpeakerChange: (id: string) => void;
+  /** 発言の文字色(CSS color)。 */
+  color: string;
+  onColorChange: (c: string) => void;
   onTextChange: (t: string) => void;
   onSecretChange: (v: boolean) => void;
   onVisibleToChange: (names: string[]) => void;
@@ -157,37 +162,6 @@ export function LogView({
 
   return (
     <>
-      {/* チャンネル: メイン + キャラごとの個別チャット(GM⇔キャラ)。 */}
-      <div className="chan-tabs" role="tablist" aria-label="チャンネル">
-        <button
-          role="tab"
-          aria-selected={channel === "main"}
-          className={`chan-tab ${channel === "main" ? "active" : ""}`}
-          onClick={() => onChannelChange("main")}
-        >
-          メイン
-        </button>
-        {speakers
-          .filter((s) => s.id !== "GM" && s.id !== "self")
-          .map((s) => (
-            <button
-              key={s.id}
-              role="tab"
-              aria-selected={channel === s.id}
-              className={`chan-tab ${channel === s.id ? "active" : ""}`}
-              onClick={() => onChannelChange(s.id)}
-              title={`${s.name} との個別チャット`}
-            >
-              <MessageCircle size={12} /> {s.name}
-            </button>
-          ))}
-      </div>
-      {channel !== "main" && (
-        <p className="chan-note">
-          個別チャット — ここの発言と出目はメインには流れません
-        </p>
-      )}
-
       <div className="plog-tabs" role="tablist" aria-label="ログ表示">
         {(
           [
@@ -283,21 +257,56 @@ export function LogView({
             )}
           </div>
         )}
-        {/* 1 段目: 発言者 + シークレット切替 / 2 段目: 本文 + 送信。
-            (1 行に詰めるとサイドバー幅で送信ボタンがはみ出すため分割) */}
+        {/* 発言者 / 送信先 / 色(画像の構成)。ダイスボット・シークレットは次段。 */}
+        <div className="pcompose">
+          <label className="pfield">
+            <span className="pfield-label">発言者</span>
+            <select
+              className="input pspeaker"
+              value={speakerId}
+              onChange={(e) => onSpeakerChange(e.target.value)}
+            >
+              {speakers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="pfield">
+            <span className="pfield-label">送信先</span>
+            <select
+              className="input pdest"
+              value={channel}
+              onChange={(e) => onChannelChange(e.target.value)}
+            >
+              <option value="main">メイン</option>
+              {speakers
+                .filter((s) => s.id !== "GM" && s.id !== "self")
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}（個別）
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="pfield pfield-color">
+            <span className="pfield-label">色</span>
+            <input
+              type="color"
+              className="pcolor"
+              value={color}
+              onChange={(e) => onColorChange(e.target.value)}
+              title="発言の文字色"
+            />
+          </label>
+        </div>
+        {channel !== "main" && (
+          <p className="chan-note">
+            <MessageCircle size={11} /> 個別チャット — ここの発言と出目はメインには流れません
+          </p>
+        )}
         <div className="pinput-row">
-          <select
-            className="input pspeaker"
-            value={speakerId}
-            onChange={(e) => onSpeakerChange(e.target.value)}
-            title="発言者"
-          >
-            {speakers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
           {onDiceBotChange && (
             <select
               className="input pbot"
@@ -356,7 +365,7 @@ export function LogRow({
 }) {
   if (ev.kind === "chat")
     return (
-      <p className="logrow">
+      <p className="logrow" style={ev.color ? { color: ev.color } : undefined}>
         <b className="log-actor">{ev.actor}</b>
         <span>{ev.text}</span>
       </p>
@@ -373,7 +382,12 @@ export function LogRow({
     if (maskSecret && ev.secret && !canPeek) {
       return (
         <p className="logrow log-secret">
-          <b className="log-actor">{ev.actor}</b>
+          <b
+            className="log-actor"
+            style={ev.color ? { color: ev.color } : undefined}
+          >
+            {ev.actor}
+          </b>
           <span className="log-roll">
             <CircleHelp size={12} /> シークレットダイス（出目は非公開）
           </span>
@@ -383,7 +397,12 @@ export function LogRow({
     const tone = ev.check ? levelTone(ev.check) : "";
     return (
       <p className={`logrow ${ev.secret ? "log-secret" : ""}`}>
-        <b className="log-actor">{ev.actor}</b>
+        <b
+          className="log-actor"
+          style={ev.color ? { color: ev.color } : undefined}
+        >
+          {ev.actor}
+        </b>
         <span className="log-roll">
           {ev.secret && (
             <span

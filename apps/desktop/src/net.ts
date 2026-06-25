@@ -59,6 +59,8 @@ export type NetIntent =
       channel: string;
       secret: boolean;
       visibleTo: string[];
+      /** 発言の文字色(CSS color)。 */
+      color?: string;
     }
   | { kind: "resource"; panelId: string; resourceKey: string; delta: number }
   | { kind: "move"; panelId: string; x: number; y: number }

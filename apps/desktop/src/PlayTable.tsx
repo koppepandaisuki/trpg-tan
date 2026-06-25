@@ -139,6 +139,18 @@ export function PlayTable({
   const [visibleTo, setVisibleTo] = useState<string[]>([]);
   // チャットのチャンネル("main" or パネル id=個別チャット)。
   const [channel, setChannel] = useState("main");
+  // 発言の文字色(この端末で記憶。GM 自身の発言に付く)。
+  const [chatColor, setChatColor] = useState(
+    () => localStorage.getItem("trpg.chat.color.v1") || "#cdd3e1",
+  );
+  function changeChatColor(c: string) {
+    setChatColor(c);
+    try {
+      localStorage.setItem("trpg.chat.color.v1", c);
+    } catch {
+      // 保存失敗は無視
+    }
+  }
   // 再生中のカットイン / テロップ(定型文の画面表示)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const [telop, setTelop] = useState<string | null>(null);
@@ -911,8 +923,12 @@ export function PlayTable({
       visibleTo?: string[];
       /** 発言者名の上書き。参加者が「自分(入室名)」として喋るとき使う。 */
       as?: string;
+      /** 発言の文字色(参加者は intent から、GM は自分の設定から)。 */
+      color?: string;
     },
   ) {
+    // 発言の文字色: 参加者の intent 指定を優先、無ければ GM 自身の設定色。
+    const msgColor = opts?.color ?? chatColor;
     // as 指定時はキャラ駒ではなく入室名そのものとして発言する(地の声)。
     const { name, edition } = opts?.as
       ? { name: opts.as, edition: sceneEdition }
@@ -952,6 +968,7 @@ export function PlayTable({
       let ev: RollEvent = botEv;
       if (isSecret) ev = { ...ev, secret: true, visibleTo: [...viewers] };
       if (ch) ev = { ...ev, channel: ch };
+      if (msgColor) ev = { ...ev, color: msgColor };
       dispatch(ev);
       setMotion(ev);
       setError(null);
@@ -961,7 +978,7 @@ export function PlayTable({
     const cmd = parseDiceCommand(raw);
     try {
       if (cmd.kind === "none") {
-        dispatch(chatEvent(newCtx(), name, raw, ch));
+        dispatch({ ...chatEvent(newCtx(), name, raw, ch), color: msgColor });
         return;
       }
       let ev: RollEvent;
@@ -992,6 +1009,7 @@ export function PlayTable({
       if (ch) {
         ev = { ...ev, channel: ch };
       }
+      if (msgColor) ev = { ...ev, color: msgColor };
       dispatch(ev);
       setMotion(ev);
       setError(null);
@@ -1023,6 +1041,7 @@ export function PlayTable({
           secret: intent.secret,
           visibleTo: intent.visibleTo,
           as: myName,
+          color: intent.color,
         });
         return;
       }
@@ -1032,6 +1051,7 @@ export function PlayTable({
         channel: intent.channel,
         secret: intent.secret,
         visibleTo: intent.visibleTo,
+        color: intent.color,
       });
     } else if (intent.kind === "resource") {
       if (!ownsPanel(from, intent.panelId)) return;
@@ -1746,6 +1766,8 @@ export function PlayTable({
                       visibleTo={visibleTo}
                       channel={channel}
                       onChannelChange={setChannel}
+                      color={chatColor}
+                      onColorChange={changeChatColor}
                       onSpeakerChange={(id) =>
                         setCompose((c) => ({ ...c, speakerId: id }))
                       }
@@ -1881,6 +1903,8 @@ export function PlayTable({
                           visibleTo={visibleTo}
                           channel={channel}
                           onChannelChange={setChannel}
+                      color={chatColor}
+                      onColorChange={changeChatColor}
                           onSpeakerChange={(id) =>
                             setCompose((c) => ({ ...c, speakerId: id }))
                           }

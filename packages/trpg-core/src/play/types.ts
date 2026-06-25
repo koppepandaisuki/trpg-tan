@@ -309,6 +309,8 @@ export interface ChatEvent extends BaseEvent {
   kind: "chat";
   text: string;
   channel?: string;
+  /** 発言の文字色(CSS color)。未設定は既定色。 */
+  color?: string;
 }
 
 /** ダイス(技能/能力判定 or フリーダイス)。結果は生成時に確定済み。 */
@@ -336,6 +338,8 @@ export interface RollEvent extends BaseEvent {
   visibleTo?: string[];
   /** 個別チャット内で振った場合のチャンネル(未設定=メイン)。 */
   channel?: string;
+  /** 発言者名の文字色(CSS color)。未設定は既定色。 */
+  color?: string;
 }
 
 /** リソース(HP/SAN/MP…)の増減。 */

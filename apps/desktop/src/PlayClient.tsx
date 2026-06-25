@@ -108,6 +108,18 @@ export function PlayClient({
   const [secret, setSecret] = useState(false);
   const [visibleTo, setVisibleTo] = useState<string[]>([]);
   const [channel, setChannel] = useState("main");
+  // 発言の文字色(この端末で記憶)。
+  const [chatColor, setChatColor] = useState(
+    () => localStorage.getItem("trpg.chat.color.v1") || "#cdd3e1",
+  );
+  function changeChatColor(c: string) {
+    setChatColor(c);
+    try {
+      localStorage.setItem("trpg.chat.color.v1", c);
+    } catch {
+      // 保存失敗は無視
+    }
+  }
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 音声(GM から配信される BGM/SE)。BGM は 1 本のループ要素、SE は単発。
@@ -517,6 +529,7 @@ export function PlayClient({
       channel,
       secret,
       visibleTo: [...visibleTo],
+      color: chatColor,
     });
   }
   function fill(speakerId: string, text: string) {
@@ -940,6 +953,8 @@ export function PlayClient({
                         visibleTo={visibleTo}
                         channel={channel}
                         onChannelChange={setChannel}
+                        color={chatColor}
+                        onColorChange={changeChatColor}
                         onSpeakerChange={(id) =>
                           setCompose((c) => ({ ...c, speakerId: id }))
                         }
