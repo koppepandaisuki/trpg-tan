@@ -41,3 +41,56 @@ export async function deleteMyAccount(confirm: string): Promise<void> {
     throw new Error(body.message ?? `退会処理に失敗しました (${res.status})`);
   }
 }
+
+/* ===== 料金プラン(テスター用・課金なし) ===== */
+
+export type UserPlan = "basic" | "play" | "pro";
+
+function normalizePlan(p: unknown): UserPlan {
+  return p === "pro" ? "pro" : p === "play" ? "play" : "basic";
+}
+
+/** 現在のプランを取得(未ログイン/失敗時は basic)。 */
+export async function getMyPlan(): Promise<UserPlan> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return "basic";
+  try {
+    const res = await fetch(`${WEB_BASE}/api/account/plan`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const body = (await res.json()) as { ok?: boolean; plan?: string };
+    if (res.ok && body.ok) return normalizePlan(body.plan);
+  } catch {
+    // 取得失敗は basic 扱い(画面は出す)。
+  }
+  return "basic";
+}
+
+/**
+ * テスター用にプランを設定(課金なし)。本人の JWT を Bearer で送り、サーバーが
+ * 本人のプランのみ更新する。Stripe Billing 実装後は購入フローに置き換える。
+ */
+export async function setMyPlanTester(plan: UserPlan): Promise<UserPlan> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("ログインが必要です。");
+  const res = await fetch(`${WEB_BASE}/api/account/plan`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ plan }),
+  });
+  let body: { ok?: boolean; message?: string; plan?: string };
+  try {
+    body = (await res.json()) as typeof body;
+  } catch {
+    throw new Error(`サーバ応答が不正です (${res.status})`);
+  }
+  if (!res.ok || !body.ok) {
+    throw new Error(body.message ?? `プラン変更に失敗しました (${res.status})`);
+  }
+  return normalizePlan(body.plan);
+}

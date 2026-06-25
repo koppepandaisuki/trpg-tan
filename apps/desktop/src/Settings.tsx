@@ -34,7 +34,12 @@ import {
   fileToAvatarDataUrl,
 } from "./local-profile";
 import { openWebLogin, signOut } from "./auth";
-import { deleteMyAccount } from "./account-remote";
+import {
+  deleteMyAccount,
+  getMyPlan,
+  setMyPlanTester,
+  type UserPlan,
+} from "./account-remote";
 import { supabaseConfigured } from "./supabase";
 import {
   getSoundSettings,
@@ -297,6 +302,8 @@ function StoreLinkSection() {
         desc="連携済みです。購入物をライブラリに取り込めます。本名・メールはアプリ内に表示・共有されません。"
       />
 
+      <PlanSection />
+
       <Section title="ログアウト" desc="この端末からサインアウトします。">
         <button className="btn acct-logout" onClick={() => void signOut()}>
           <LogOut size={15} /> ログアウト
@@ -305,6 +312,79 @@ function StoreLinkSection() {
 
       <DeleteAccountSection />
     </>
+  );
+}
+
+/**
+ * 料金プラン(テスター用・課金なし)。選ぶと web API 経由で本人の plan を更新する。
+ * Stripe Billing 実装後は購入フローに置き換える。
+ */
+const PLAN_OPTIONS: { key: UserPlan; label: string; price: string; desc: string }[] = [
+  { key: "basic", label: "基本", price: "無料", desc: "購入・ライブラリ・卓に参加" },
+  { key: "play", label: "プレイ", price: "¥500/月", desc: "PLAY 解放(卓を立てる・全機能)" },
+  { key: "pro", label: "Pro", price: "¥980/月", desc: "全部 + 出品手数料 20% など" },
+];
+
+function PlanSection() {
+  const [plan, setPlan] = useState<UserPlan | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getMyPlan()
+      .then(setPlan)
+      .catch(() => setPlan("basic"));
+  }, []);
+
+  async function choose(p: UserPlan) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const next = await setMyPlanTester(p);
+      setPlan(next);
+      setMsg("プランを変更しました(テスト中・料金は発生しません)。");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "変更に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section
+      title="プラン"
+      desc="テスト期間中のため、選んでも料金は発生しません(動作確認用)。自動決済は準備中です。"
+    >
+      <div className="plan-rows">
+        {PLAN_OPTIONS.map((p) => (
+          <div key={p.key} className={`plan-row ${plan === p.key ? "on" : ""}`}>
+            <div className="plan-row-main">
+              <span className="plan-row-head">
+                <b>{p.label}</b>
+                <span className="muted">{p.price}</span>
+              </span>
+              <span className="muted plan-row-desc">{p.desc}</span>
+            </div>
+            {plan === p.key ? (
+              <span className="tag ok">利用中</span>
+            ) : (
+              <button
+                className="btn mini"
+                disabled={busy || plan === null}
+                onClick={() => void choose(p.key)}
+              >
+                このプランにする
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      {msg && (
+        <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>
+          {msg}
+        </p>
+      )}
+    </Section>
   );
 }
 

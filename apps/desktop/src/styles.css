@@ -7352,6 +7352,42 @@ button:disabled {
   color: var(--text-faint);
 }
 
+/* --- 設定: 料金プラン(テスター) --- */
+.plan-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.plan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 10px 12px;
+}
+.plan-row.on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.plan-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.plan-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.plan-row-desc {
+  font-size: 11px;
+}
+
 /* ===== システムビルダー(ノーコード) ===== */
 .sysb {
   height: 100%;

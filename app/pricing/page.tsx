@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { PLATFORM_FEE_RATE, PRO_PLATFORM_FEE_RATE } from "@/lib/stripe/fees";
 import { PLAN_LABEL, PLAN_PRICE_JPY, type UserPlan } from "@/lib/plan";
+import { PlanSelectButton } from "@/components/plan/plan-select-button";
 
 export const metadata = {
   title: "料金プラン",
@@ -90,6 +91,12 @@ export default async function PricingPage() {
           )}
         </header>
 
+        {/* テスター期間中の注記(課金は発生しない) */}
+        <div className="mx-auto mt-5 max-w-3xl rounded-md border border-amber-300/60 bg-amber-50/60 px-4 py-2.5 text-center text-xs text-amber-900">
+          テスト期間中です。プランを選んでも<strong>料金は発生しません</strong>
+          （動作確認用）。自動決済は準備中です。
+        </div>
+
         <div className="mx-auto mt-8 grid max-w-5xl items-start gap-4 sm:grid-cols-3">
           {PLANS.map((p) => (
             <PlanCard
@@ -100,6 +107,7 @@ export default async function PricingPage() {
               perks={p.perks}
               featured={p.featured}
               current={currentPlan === p.plan}
+              loggedIn={Boolean(user)}
             />
           ))}
         </div>
@@ -121,6 +129,7 @@ function PlanCard({
   perks,
   featured,
   current,
+  loggedIn,
 }: {
   plan: UserPlan;
   Icon: typeof Sparkles;
@@ -128,6 +137,7 @@ function PlanCard({
   perks: Perk[];
   featured?: boolean;
   current?: boolean;
+  loggedIn: boolean;
 }) {
   const price = PLAN_PRICE_JPY[plan];
   const isPro = plan === "pro";
@@ -202,6 +212,9 @@ function PlanCard({
             </li>
           ))}
         </ul>
+        <div className="pt-1">
+          <PlanSelectButton plan={plan} current={!!current} loggedIn={loggedIn} />
+        </div>
       </CardContent>
     </Card>
   );
