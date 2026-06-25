@@ -21,6 +21,7 @@ import {
   type CutIn,
 } from "@trpg/core";
 import { getLibrary } from "./library";
+import { setDiagContext } from "./diag";
 import { downscaleImage, probeImageWidth } from "./play-thumb";
 import { readSheetFromPath, isGenericSheet } from "./storage";
 import { DiceMotion } from "./DiceMotion";
@@ -244,6 +245,19 @@ export function PlayClient({
     // 参加コード/名前は入室時に固定。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, name]);
+
+  // 不具合報告に PLAY の文脈(参加者・卓・システム)を載せる。マウント中だけ登録。
+  useEffect(() => {
+    setDiagContext(() =>
+      [
+        "role: 参加者",
+        `name: ${name}`,
+        `room: ${code}`,
+        `play: ${scene?.id ?? "?"} / ${scene?.systemId ?? "?"}`,
+      ].join("\n"),
+    );
+    return () => setDiagContext(null);
+  }, [code, name, scene?.id, scene?.systemId]);
 
   // [ / ] でドロワー開閉(入力中は無効)。
   useEffect(() => {

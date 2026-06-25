@@ -19,7 +19,11 @@ import {
   FolderOpen,
   FolderCog,
   RotateCcw,
+  Bug,
+  Send,
+  Copy,
 } from "lucide-react";
+import { hasWebhook, sendReport, collectReport } from "./diag";
 import {
   getLibraryRoot,
   pickLibraryRoot,
@@ -68,6 +72,7 @@ export type SettingsTab =
   | "sound"
   | "play"
   | "storage"
+  | "report"
   | "about";
 
 const TABS: { key: SettingsTab; label: string; icon: typeof UserCog }[] = [
@@ -76,6 +81,7 @@ const TABS: { key: SettingsTab; label: string; icon: typeof UserCog }[] = [
   { key: "sound", label: "サウンド", icon: Volume2 },
   { key: "play", label: "プレイ・マルチ", icon: Dices },
   { key: "storage", label: "ストレージ", icon: HardDrive },
+  { key: "report", label: "不具合報告", icon: Bug },
   { key: "about", label: "情報", icon: Info },
 ];
 
@@ -137,6 +143,7 @@ export function Settings({
             {tab === "sound" && <SoundTab />}
             {tab === "play" && <PlayTab />}
             {tab === "storage" && <StorageTab />}
+            {tab === "report" && <ReportTab />}
             {tab === "about" && <AboutTab />}
           </div>
         </div>
@@ -873,6 +880,96 @@ function PlayTab() {
           <Trash2 size={15} /> お気に入りロールをリセット
           {favCount > 0 ? `（${favCount}件）` : ""}
         </button>
+      </Section>
+    </>
+  );
+}
+
+/**
+ * 不具合報告タブ。事象を一言コメントして、直近のログ・エラー・端末/アプリ情報・
+ * PLAY の文脈を添えて開発者へ自動送信する(Discord)。送信先が未設定の環境では、
+ * 代わりにレポート全文をクリップボードへコピーして手動で共有できる。
+ */
+function ReportTab() {
+  const [note, setNote] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
+    "idle",
+  );
+  const [err, setErr] = useState<string | null>(null);
+  const webhook = hasWebhook();
+
+  async function send() {
+    setStatus("sending");
+    setErr(null);
+    try {
+      await sendReport(note);
+      setStatus("sent");
+      setNote("");
+      window.setTimeout(() => setStatus("idle"), 2500);
+    } catch (e) {
+      setStatus("error");
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(collectReport(note));
+      toast("レポートをコピーしました。Discord などに貼り付けて送ってください。");
+    } catch {
+      toast("コピーに失敗しました");
+    }
+  }
+
+  return (
+    <>
+      <Section
+        title="不具合を報告する"
+        desc="うまく動かない・固まる等があれば、何が起きたかを一言添えて送ってください。"
+      >
+        <textarea
+          className="input"
+          rows={4}
+          placeholder="例: 参加者の画面で駒を動かしても相手に反映されない / ダイスを振ると固まる など"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          disabled={status === "sending"}
+        />
+        <p className="set2-sec-desc muted" style={{ marginTop: 8 }}>
+          一緒に送られるもの: 直近のログ・エラー、アプリのバージョン、端末情報、
+          PLAY 中の役割・卓・参加人数（再現に必要な情報）。
+          <strong>卓の本文やキャラの中身は送りません。</strong>
+        </p>
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          {webhook && (
+            <button
+              className="btn btn-primary ibtn"
+              disabled={status === "sending"}
+              onClick={() => void send()}
+            >
+              <Send size={14} />
+              {status === "sending"
+                ? "送信中…"
+                : status === "sent"
+                  ? "✓ 送信しました"
+                  : "送信する"}
+            </button>
+          )}
+          <button className="btn ibtn" onClick={() => void copy()}>
+            <Copy size={14} /> レポートをコピー
+          </button>
+        </div>
+        {!webhook && (
+          <p className="tag" style={{ marginTop: 8, display: "block" }}>
+            この環境では自動送信先が未設定です。「レポートをコピー」して Discord
+            などに貼り付けて共有してください。
+          </p>
+        )}
+        {err && (
+          <p className="tag fail" style={{ marginTop: 8, display: "block" }}>
+            {err}
+          </p>
+        )}
       </Section>
     </>
   );

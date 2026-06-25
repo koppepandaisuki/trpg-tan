@@ -597,6 +597,14 @@ export function App() {
                   >
                     ⚙ 設定
                   </button>
+                  <button
+                    className="btn mini"
+                    style={{ width: "100%", marginBottom: 8 }}
+                    onClick={() => openSettings("report")}
+                    title="不具合をコメントして、ログ・端末情報・PLAY の文脈つきで開発者へ送ります"
+                  >
+                    🐞 不具合報告
+                  </button>
                   <AuthControl />
                 </div>
               </aside>

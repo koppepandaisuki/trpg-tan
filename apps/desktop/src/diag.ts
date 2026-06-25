@@ -10,11 +10,32 @@
  * プロジェクト URL・入室名・現在の画面 URL」。卓の本文やキャラ内容は送らない。
  */
 
+import { getVersion } from "@tauri-apps/api/app";
+
 const WEBHOOK =
   (import.meta.env.VITE_DISCORD_WEBHOOK_URL as string | undefined)?.trim() || "";
 
 const MAX_LINES = 500;
 const buffer: string[] = [];
+
+// アプリのバージョン(Tauri から取得)。レポートに同梱して再現に役立てる。
+let appVersion = "";
+void getVersion()
+  .then((v) => {
+    appVersion = v;
+  })
+  .catch(() => {
+    // 非 Tauri / 取得失敗時は空のまま
+  });
+
+/**
+ * 追加の文脈プロバイダ。PLAY 中の役割・卓・システム・参加人数などを、その時点の
+ * 値で文字列化して返す。PlayTable / PlayClient がマウント中だけ登録する。
+ */
+let contextProvider: (() => string) | null = null;
+export function setDiagContext(fn: (() => string) | null): void {
+  contextProvider = fn;
+}
 
 function record(level: string, args: unknown[]): void {
   try {
@@ -72,13 +93,23 @@ function meta(): string {
   } catch {
     // localStorage 不可は無視
   }
-  return [
+  const lines = [
     `time: ${new Date().toString()}`,
+    `version: ${appVersion || "(取得不可)"}`,
     `name: ${name || "(未設定)"}`,
     `supabase: ${import.meta.env.VITE_SUPABASE_URL ?? "(未設定)"}`,
+    `platform: ${navigator.platform}`,
     `ua: ${navigator.userAgent}`,
     `url: ${location.href}`,
-  ].join("\n");
+  ];
+  // PLAY 中なら役割・卓・参加人数などを追記(再現に必要な文脈)。
+  try {
+    const ctx = contextProvider?.();
+    if (ctx) lines.push("", "--- PLAY 文脈 ---", ctx);
+  } catch {
+    // 文脈収集の失敗は無視
+  }
+  return lines.join("\n");
 }
 
 /** 添付する全文レポート(メタ情報 + ログ)。 */

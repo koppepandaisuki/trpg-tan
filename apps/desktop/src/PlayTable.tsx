@@ -60,6 +60,7 @@ import {
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { DiceMotion } from "./DiceMotion";
+import { setDiagContext } from "./diag";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
 import { PlayPanel } from "./PlayPanel";
@@ -216,6 +217,22 @@ export function PlayTable({
     return () => window.clearInterval(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room]);
+
+  // 不具合報告に PLAY の文脈(役割・卓・参加人数)を載せる。マウント中だけ登録。
+  useEffect(() => {
+    setDiagContext(() => {
+      const s = sceneRef.current;
+      const r = roomRef.current;
+      return [
+        "role: ホスト(GM)",
+        `play: ${s.id} / ${s.systemId}`,
+        `title: ${s.title ?? ""}`,
+        `panels: ${s.panels.length} / activeScene: ${s.activeSceneId ?? "-"}`,
+        `net: ${r ? `共有中 code=${r.code} 参加=${memberNames.current.size}人` : "ローカル"}`,
+      ].join("\n");
+    });
+    return () => setDiagContext(null);
+  }, []);
 
   // 参加者ビューのキーボード操作: [ で左(キャラ)、] で右(チャット)を開閉。
   useEffect(() => {
