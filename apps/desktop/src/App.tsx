@@ -460,7 +460,7 @@ export function App() {
         </div>
         {library.length === 0 ? (
           <p className="muted" style={{ padding: "8px 4px" }}>
-            保存したキャラがここに並びます。
+            保存したキャラがここに並びます。「＋新規」からシステム（CoC・プリセット・自作）を選んで作成できます。
           </p>
         ) : (
           charList

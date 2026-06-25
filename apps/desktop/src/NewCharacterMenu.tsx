@@ -4,9 +4,9 @@ import type { SystemDef } from "@trpg/core";
 import { getAllSystems } from "./systems-store";
 
 /**
- * 「＋ 新規」キャラクター作成メニュー。CoC(6版/7版はエディタ内で切替)に加え、
- * ビルダーのプリセット(SW2.5 / DX3 / シノビガミ 等)や自作システムからも
- * キャラシを作成できる。一覧に出すのは getAllSystems()(自作＋プリセット)。
+ * 「＋ 新規」キャラクター作成メニュー。CoC を特別扱いせず、追加済みの全システム
+ * (CoC / ビルダーのプリセット / 自作)を 1 つのフラットな一覧として並べ、どれからでも
+ * 対等に作成できる。CoC はエディタ内で 6版/7版 を切替。自作には「自作」タグを付ける。
  *
  * .chars-list が overflow:auto でクリップするため、メニューは fixed 配置にして
  * ボタンの矩形から座標を出す(クリッピングを回避)。
@@ -54,8 +54,26 @@ export function NewCharacterMenu({
     setOpen(true);
   }
 
-  // 開くたびに最新のシステム一覧(自作の追加・削除を反映)。
-  const systems = open ? getAllSystems() : [];
+  // 開くたびに最新のシステム一覧(自作の追加・削除を反映)。CoC を先頭に置きつつ、
+  // 見た目は他システムと同じ行にして“優遇”しない。自作だけ「自作」タグで識別。
+  const items = open
+    ? [
+        {
+          key: "coc",
+          icon: "🐙",
+          name: "クトゥルフ神話TRPG（6版 / 7版）",
+          tag: null as string | null,
+          pick: onNewCoC,
+        },
+        ...getAllSystems().map((s) => ({
+          key: s.id,
+          icon: s.icon ?? "🎲",
+          name: s.name || "(名称未設定)",
+          tag: s.preset === false ? "自作" : null,
+          pick: () => onNewGeneric(s),
+        })),
+      ]
+    : [];
 
   return (
     <div className="newchar" ref={wrapRef}>
@@ -74,33 +92,20 @@ export function NewCharacterMenu({
           role="menu"
           style={{ left: menuPos.left, top: menuPos.top }}
         >
-          <div className="newchar-group">クトゥルフ神話TRPG</div>
-          <button
-            className="newchar-opt"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onNewCoC();
-            }}
-          >
-            <span className="newchar-ic">🐙</span>
-            <span className="newchar-name">CoC（6版 / 7版）</span>
-          </button>
-
-          <div className="newchar-group">その他のシステム</div>
-          {systems.map((s) => (
+          <div className="newchar-group">システムを選んで作成</div>
+          {items.map((it) => (
             <button
-              key={s.id}
+              key={it.key}
               className="newchar-opt"
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                onNewGeneric(s);
+                it.pick();
               }}
             >
-              <span className="newchar-ic">{s.icon ?? "🎲"}</span>
-              <span className="newchar-name">{s.name || "(名称未設定)"}</span>
-              {s.preset === false && <span className="newchar-tag">自作</span>}
+              <span className="newchar-ic">{it.icon}</span>
+              <span className="newchar-name">{it.name}</span>
+              {it.tag && <span className="newchar-tag">{it.tag}</span>}
             </button>
           ))}
         </div>
