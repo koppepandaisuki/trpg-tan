@@ -10,6 +10,7 @@ import { FollowingCreatorsSection } from "@/components/creator/following-creator
 import { TopCreatorsSection } from "@/components/creator/top-creators-section";
 import { CreatorEntryCard } from "@/components/creator/creator-entry-card";
 import { CreatorApplyCta } from "@/components/store/creator-apply-cta";
+import { AppDownloadCta } from "@/components/store/app-download-cta";
 import { getCurrentUser } from "@/lib/session/get-user";
 import {
   listRecentProducts,
@@ -107,6 +108,9 @@ export default async function HomePage() {
       <TopHeader />
       <PageContainer className="space-y-10 py-8">
         <HomeHero hasProducts={hasProducts} />
+
+        {/* デスクトップアプリの DL 誘導(テスター配布期間)。常時表示。 */}
+        <AppDownloadCta />
 
         {/* Steam ライク大型カルーセル(TTTT): 売上上位 + 好評 + 新着 を
             組合せた注目作品を auto-rotate。実商品が 1 件もないときは
