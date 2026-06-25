@@ -258,6 +258,13 @@ export interface ScenarioInfo {
   npcs?: ScenarioNpc[];
 }
 
+/** メモの 1 ページ(名前付き)。共有メモ・個人メモで使い回す。 */
+export interface MemoPage {
+  id: string;
+  name: string;
+  text: string;
+}
+
 /** セッション卓(シーン)の全状態。 */
 export interface PlayScene {
   schemaVersion: typeof PLAY_SCHEMA_VERSION;
@@ -283,8 +290,10 @@ export interface PlayScene {
   assets?: AssetItem[];
   /** シナリオ情報(あらすじ/HO/NPC/GMメモ)。シナリオ特化ビルダーで編集。任意。 */
   scenario?: ScenarioInfo;
-  /** 共有メモ(卓の全員と共有する想定。.play に保存)。 */
+  /** 共有メモ(旧形式の単一テキスト。後方互換のため残す。新形式は sharedMemos)。 */
   sharedMemo?: string;
+  /** 共有メモ(名前付きの複数ページ。卓の全員と共有・.play に保存)。 */
+  sharedMemos?: MemoPage[];
   /** ダイスボット(システム別ダイス処理)。未設定は systemId から既定。 */
   diceBot?: string;
   /** 卓のタグ(GM のローカル整理用。ロビーのカードに表示する)。配信不要。 */

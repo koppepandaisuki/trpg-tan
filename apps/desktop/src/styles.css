@@ -4324,6 +4324,84 @@ body {
   line-height: 1.7;
 }
 
+/* メモの名前付きページ(タブの追加・削除・改名)。 */
+.memo-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+}
+.memo-pagetabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.memo-pagetab {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.memo-pagetab.active {
+  border-color: var(--primary);
+  background: var(--primary-soft, rgba(120, 120, 255, 0.12));
+}
+.memo-pagename {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  padding: 4px 8px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.memo-pagetab.active .memo-pagename {
+  font-weight: 700;
+}
+.memo-pagedel {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.memo-pagedel:hover {
+  color: var(--danger, #e5484d);
+}
+.memo-rename {
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  padding: 4px 6px;
+  width: 110px;
+  outline: 1px solid var(--primary);
+  border-radius: 5px;
+}
+.memo-pageadd {
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  border-radius: 7px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.memo-pageadd:hover {
+  color: var(--text);
+  border-color: var(--primary);
+}
+
 /* ルールブック Q&A */
 .rqa {
   display: flex;

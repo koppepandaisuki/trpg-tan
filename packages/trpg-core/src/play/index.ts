@@ -32,6 +32,7 @@ export {
   type ScenarioInfo,
   type Handout,
   type ScenarioNpc,
+  type MemoPage,
 } from "./types.js";
 export {
   createScene,

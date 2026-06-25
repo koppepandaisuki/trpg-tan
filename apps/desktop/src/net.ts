@@ -1,5 +1,5 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import type { PlayEvent, PlayScene, Panel } from "@trpg/core";
+import type { PlayEvent, PlayScene, Panel, MemoPage } from "@trpg/core";
 import { supabase } from "./supabase";
 
 /**
@@ -41,7 +41,7 @@ export type NetMsg =
    */
   | { type: "cutin"; cutinId: string }
   | { type: "telop"; text: string }
-  | { type: "memo"; text: string }
+  | { type: "memo"; memos: MemoPage[] }
   /**
    * 音声(GM のローカル音源を data URL で配信)。
    *   - channel "bgm": ループ再生。src=null で停止。
@@ -64,7 +64,7 @@ export type NetIntent =
     }
   | { kind: "resource"; panelId: string; resourceKey: string; delta: number }
   | { kind: "move"; panelId: string; x: number; y: number }
-  | { kind: "memo"; text: string }
+  | { kind: "memo"; memos: MemoPage[] }
   /** 参加者が自分のキャラを登場させる(GM が owner を刻んで panel-add)。 */
   | { kind: "add-char"; panel: Panel }
   /** 参加者が自分の登場させた駒を片付ける(GM が所有者一致を検証)。 */

@@ -17,6 +17,7 @@ import {
   type PlayScene,
   type Panel,
   type PanelResource,
+  type MemoPage,
   type RollEvent,
   type CutIn,
 } from "@trpg/core";
@@ -218,7 +219,7 @@ export function PlayClient({
           } else if (msg.type === "telop") {
             setTelop(msg.text);
           } else if (msg.type === "memo") {
-            setScene((s) => (s ? { ...s, sharedMemo: msg.text } : s));
+            setScene((s) => (s ? { ...s, sharedMemos: msg.memos } : s));
           } else if (msg.type === "audio") {
             handleAudio(msg.channel, msg.src);
           } else if (msg.type === "closed") {
@@ -650,11 +651,11 @@ export function PlayClient({
 
   // 共有メモ: 手元へ即反映しつつ、デバウンスして GM へ送る。
   const memoTimer = useRef<number | undefined>(undefined);
-  function setSharedMemo(text: string) {
-    setScene((s) => (s ? { ...s, sharedMemo: text } : s));
+  function setSharedMemos(memos: MemoPage[]) {
+    setScene((s) => (s ? { ...s, sharedMemos: memos } : s));
     window.clearTimeout(memoTimer.current);
     memoTimer.current = window.setTimeout(() => {
-      sendIntent({ kind: "memo", text });
+      sendIntent({ kind: "memo", memos });
     }, 600);
   }
 
@@ -981,8 +982,12 @@ export function PlayClient({
                   body: (
                     <MemoPanel
                       playId={scene.id}
-                      shared={scene.sharedMemo ?? ""}
-                      onSharedChange={setSharedMemo}
+                      sharedMemos={
+                        scene.sharedMemos ?? [
+                          { id: "main", name: "メモ", text: scene.sharedMemo ?? "" },
+                        ]
+                      }
+                      onSharedMemosChange={setSharedMemos}
                     />
                   ),
                 },

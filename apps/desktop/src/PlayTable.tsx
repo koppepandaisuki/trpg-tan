@@ -36,6 +36,7 @@ import {
   type BgmTrack,
   type SceneInfo,
   type CutIn,
+  type MemoPage,
   type AssetItem,
   type AssetAction,
   type CoCEdition,
@@ -706,14 +707,14 @@ export function PlayTable({
   }
 
   const memoTimer = useRef<number | undefined>(undefined);
-  function setSharedMemo(text: string) {
-    setScene((s) => ({ ...s, sharedMemo: text }));
+  function setSharedMemos(memos: MemoPage[]) {
+    setScene((s) => ({ ...s, sharedMemos: memos }));
     setDirty(true);
     // 共有中はデバウンスして参加者へ(キーストローク毎に流さない)。
     if (roomRef.current) {
       window.clearTimeout(memoTimer.current);
       memoTimer.current = window.setTimeout(() => {
-        roomRef.current?.send({ type: "memo", text });
+        roomRef.current?.send({ type: "memo", memos });
       }, 600);
     }
   }
@@ -1076,7 +1077,7 @@ export function PlayTable({
       if (!ownsPanel(from, intent.panelId)) return;
       dispatch(panelRemoveEvent(newCtx(), intent.panelId));
     } else if (intent.kind === "memo") {
-      setSharedMemo(intent.text);
+      setSharedMemos(intent.memos);
     }
   }
 
@@ -1795,8 +1796,12 @@ export function PlayTable({
                 body: (
                   <MemoPanel
                     playId={scene.id}
-                    shared={scene.sharedMemo ?? ""}
-                    onSharedChange={setSharedMemo}
+                    sharedMemos={
+                      scene.sharedMemos ?? [
+                        { id: "main", name: "メモ", text: scene.sharedMemo ?? "" },
+                      ]
+                    }
+                    onSharedMemosChange={setSharedMemos}
                   />
                 ),
               },
@@ -1930,8 +1935,16 @@ export function PlayTable({
                     body: (
                       <MemoPanel
                         playId={scene.id}
-                        shared={scene.sharedMemo ?? ""}
-                        onSharedChange={setSharedMemo}
+                        sharedMemos={
+                          scene.sharedMemos ?? [
+                            {
+                              id: "main",
+                              name: "メモ",
+                              text: scene.sharedMemo ?? "",
+                            },
+                          ]
+                        }
+                        onSharedMemosChange={setSharedMemos}
                       />
                     ),
                   },
