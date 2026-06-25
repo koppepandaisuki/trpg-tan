@@ -195,6 +195,7 @@ export function panelUpdateEvent(
     note?: string;
     hidden?: boolean;
     size?: number;
+    height?: number;
     palette?: string;
     speed?: number;
     sceneId?: string | null;
@@ -202,6 +203,8 @@ export function panelUpdateEvent(
     locked?: boolean;
     portrait?: string | null;
     variants?: PanelVariant[];
+    /** 操作権の譲渡(プレイヤー名)/解除(null=GM 所有に戻す)。 */
+    owner?: string | null;
   },
 ): PanelUpdateEvent {
   return {

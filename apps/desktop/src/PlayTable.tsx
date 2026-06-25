@@ -506,6 +506,7 @@ export function PlayTable({
       locked?: boolean;
       portrait?: string | null;
       variants?: PanelVariant[];
+      owner?: string | null;
     },
   ) {
     dispatch(panelUpdateEvent(newCtx(), id, patch));
@@ -1688,6 +1689,8 @@ export function PlayTable({
               onUpdate={updatePanel}
               onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
               onOpenCharacters={onCharacters}
+              participants={members.filter((n) => n !== "GM")}
+              onTransfer={(panelId, owner) => updatePanel(panelId, { owner })}
             />
             {/* 立ち絵(直近の発言キャラ)。表示はこの端末ローカルで切替可。 */}
             <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />

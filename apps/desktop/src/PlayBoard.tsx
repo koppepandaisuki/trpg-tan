@@ -58,6 +58,8 @@ export function PlayBoard({
   onUpdate,
   onRemove,
   onOpenCharacters,
+  participants,
+  onTransfer,
 }: {
   board: BoardState | undefined;
   panels: Panel[];
@@ -113,6 +115,10 @@ export function PlayBoard({
    * 未指定なら項目は出ない。App.tsx の charOverlay を開く想定。
    */
   onOpenCharacters?: () => void;
+  /** GM のみ: 接続中のプレイヤー名(キャラ譲渡先の候補)。 */
+  participants?: string[];
+  /** GM のみ: キャラ駒の操作権をプレイヤーへ譲渡 / 解除(null=GM)。 */
+  onTransfer?: (panelId: string, owner: string | null) => void;
 }) {
   const grid = board?.grid ?? true;
   const image = board?.image ?? null;
@@ -596,6 +602,8 @@ export function PlayBoard({
           const size = sizeOf(p);
           const h = heightOf(p);
           const img = isImageObject(p);
+          // 参加者ビューで「自分の駒」か(リサイズ/右クリックを許可する判定)。
+          const isMine = !!viewerName && p.owner === viewerName;
           return (
             <div
               key={p.id}
@@ -618,7 +626,6 @@ export function PlayBoard({
                 // GM は全駒で開ける。参加者は「自分が所有するキャラ駒」のみ
                 // メニューを開ける(他人のキャラ駒や GM 所有の駒は触らせない)。
                 const isChar = p.stats.length > 0 || p.resources.length > 0;
-                const isMine = !!viewerName && p.owner === viewerName;
                 if (!playerMode || (isChar && isMine)) {
                   setMenu({ panelId: p.id, x: e.clientX, y: e.clientY });
                 }
@@ -682,7 +689,7 @@ export function PlayBoard({
               {p.locked && (<span className="token-pin"><Pin size={12} /></span>)}
               {!img && <span className="token-name">{p.name}</span>}
 
-              {!p.locked && !playerMode && (
+              {!p.locked && (!playerMode || isMine) && (
                 <span
                   className="token-resize"
                   onPointerDown={(e) => startResize(e, p)}
@@ -723,6 +730,8 @@ export function PlayBoard({
               setMenu(null);
             }}
             onOpenCharacters={onOpenCharacters}
+            participants={participants}
+            onTransfer={onTransfer}
             onClose={() => setMenu(null)}
           />
         </>
@@ -742,6 +751,8 @@ function ObjectMenu({
   onReorder,
   onDelete,
   onOpenCharacters,
+  participants,
+  onTransfer,
   onClose,
 }: {
   panel: Panel;
@@ -773,6 +784,10 @@ function ObjectMenu({
   onDelete: () => void;
   /** キャラ駒のときメニューに「キャラシを開く」を出す導線(任意)。 */
   onOpenCharacters?: () => void;
+  /** GM のみ: 譲渡先候補のプレイヤー名。 */
+  participants?: string[];
+  /** GM のみ: 操作権をプレイヤーへ譲渡 / 解除。 */
+  onTransfer?: (panelId: string, owner: string | null) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState(panel.name);
@@ -899,6 +914,40 @@ function ObjectMenu({
           📋 キャラシを開く
         </button>
       )}
+
+      {/* キャラの操作権をプレイヤーへ譲渡(GM のみ)。譲渡すると相手がダイス/
+          パレット/移動/リサイズを操作でき、GM に戻すと自分の管理に戻る。 */}
+      {!playerMode &&
+        isChar &&
+        onTransfer &&
+        ((participants?.length ?? 0) > 0 || panel.owner) && (
+          <div className="ctx-transfer" style={{ marginTop: 6 }}>
+            <div className="ctx-vhead">
+              操作を任せる{" "}
+              <span className="muted">
+                現在: {panel.owner ? panel.owner : "GM"}
+              </span>
+            </div>
+            <select
+              className="input"
+              value={panel.owner ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                onTransfer(panel.id, v === "" ? null : v);
+              }}
+            >
+              <option value="">GM（自分で操作）</option>
+              {(participants ?? []).map((nm) => (
+                <option key={nm} value={nm}>
+                  {nm} に任せる
+                </option>
+              ))}
+              {panel.owner && !(participants ?? []).includes(panel.owner) && (
+                <option value={panel.owner}>{panel.owner}（未接続）</option>
+              )}
+            </select>
+          </div>
+        )}
 
       {/* 差分(立ち絵/表情の切替)。キャラ駒のみ。参加者も使える。 */}
       {isChar && (

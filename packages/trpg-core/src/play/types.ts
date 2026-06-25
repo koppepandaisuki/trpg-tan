@@ -95,10 +95,11 @@ export interface Panel {
   variants?: PanelVariant[];
   /**
    * 操作権の持ち主。マルチで参加者が自分で追加したキャラはその参加者の表示名が
-   * 入り、本人だけがダイス/パレット/リソースを操作できる。未設定/"GM" は GM 所有
-   * (参加者は操作不可・GM は全操作可)。
+   * 入り、本人だけがダイス/パレット/リソースを操作できる。未設定/null/"GM" は GM 所有
+   * (参加者は操作不可・GM は全操作可)。GM がキャラをプレイヤーへ譲渡すると相手の
+   * 表示名が入り、null へ戻すと GM 所有に戻る。
    */
-  owner?: string;
+  owner?: string | null;
 }
 
 /** 盤面(背景マップ + グリッド + 前景)。 */
@@ -392,6 +393,8 @@ export interface PanelUpdateEvent extends BaseEvent {
     portrait?: string | null;
     /** 差分リストの編集。 */
     variants?: PanelVariant[];
+    /** 操作権の譲渡(プレイヤー名)/解除(null=GM 所有)。 */
+    owner?: string | null;
   };
 }
 

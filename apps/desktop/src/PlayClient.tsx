@@ -6,12 +6,14 @@ import {
   Globe,
   UserPlus,
   SquarePen,
+  ClipboardPaste,
 } from "lucide-react";
 import {
   reduce,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
+  parseCcfoliaCharacter,
   type PlayScene,
   type Panel,
   type PanelResource,
@@ -413,6 +415,35 @@ export function PlayClient({
     sendIntent({ kind: "remove-char", panelId });
   }
 
+  /**
+   * クリップボードのココフォリア駒データを自分のキャラとして取り込む。
+   * GM へ add-char を送り、GM が owner を本人名で刻んで配信する(ホストと同じ取込み)。
+   */
+  async function pasteCcfoliaPanel() {
+    setAddErr(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      const panel = parseCcfoliaCharacter(text, () => crypto.randomUUID());
+      if (!panel) {
+        setAddErr(
+          "クリップボードにココフォリア形式のコマが見つかりません。対応サイトで「ココフォリア出力」をコピーしてからお試しください。",
+        );
+        return;
+      }
+      // ポートレートがあれば実寸幅で配置(送信前にこちらで解決)。
+      const size = panel.portrait
+        ? await probeImageWidth(panel.portrait, 700).catch(() => undefined)
+        : undefined;
+      sendIntent({
+        kind: "add-char",
+        panel: { ...panel, ...(size ? { size } : {}) },
+      });
+      setPicking(false);
+    } catch (e) {
+      setAddErr(`コマの貼り付けに失敗しました: ${String(e)}`);
+    }
+  }
+
   /** 画像ファイルを盤面オブジェクトとして追加(add-char 経由で GM が登場)。 */
   async function addImageObject(file: File) {
     const dataUrl = await new Promise<string | null>((resolve) => {
@@ -553,11 +584,13 @@ export function PlayClient({
       note?: string;
       palette?: string;
       speed?: number;
+      size?: number;
+      height?: number;
       portrait?: string | null;
       variants?: { id: string; label: string; image: string }[];
     },
   ) {
-    // 参加者が触れるのは名前/メモ/パレット/速さ/差分のみ
+    // 参加者が触れるのは名前/メモ/パレット/速さ/差分/自分の駒のサイズのみ
     // (hidden/locked などの GM 専用フィールドは UI 側で出ない)。
     // 指定したフィールドだけ楽観反映(undefined は据え置き)。
     optimisticPanel(id, (p) => {
@@ -566,6 +599,8 @@ export function PlayClient({
       if (patch.note !== undefined) np.note = patch.note;
       if (patch.palette !== undefined) np.palette = patch.palette;
       if (patch.speed !== undefined) np.speed = patch.speed;
+      if (patch.size !== undefined) np.size = patch.size;
+      if (patch.height !== undefined) np.height = patch.height;
       if (patch.portrait !== undefined) np.portrait = patch.portrait;
       if (patch.variants !== undefined) np.variants = patch.variants;
       return np;
@@ -578,6 +613,8 @@ export function PlayClient({
         note: patch.note,
         palette: patch.palette,
         speed: patch.speed,
+        size: patch.size,
+        height: patch.height,
         portrait: patch.portrait,
         variants: patch.variants,
       },
@@ -779,6 +816,14 @@ export function PlayClient({
                   onClick={openPicker}
                 >
                   <UserPlus size={14} /> 自分のキャラを追加
+                </button>
+                <button
+                  className="btn mini ibtn"
+                  style={{ width: "100%" }}
+                  onClick={pasteCcfoliaPanel}
+                  title="他サイト（キャラクター保管所など）の「ココフォリア出力」をコピーしてから押すと、自分のコマとして取り込めます"
+                >
+                  <ClipboardPaste size={14} /> ココフォリアのコマを取り込む
                 </button>
                 {onOpenCharacters && (
                   <button

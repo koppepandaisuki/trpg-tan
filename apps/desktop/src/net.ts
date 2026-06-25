@@ -75,6 +75,9 @@ export type NetIntent =
         note?: string;
         palette?: string;
         speed?: number;
+        /** 自分の駒のサイズ変更(円形駒は size のみ、画像は size+height)。 */
+        size?: number;
+        height?: number;
         portrait?: string | null;
         variants?: { id: string; label: string; image: string }[];
       };
