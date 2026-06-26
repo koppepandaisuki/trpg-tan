@@ -62,6 +62,7 @@ import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { DiceMotion } from "./DiceMotion";
 import { setDiagContext } from "./diag";
+import { getMyPlan } from "./account-remote";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
 import { PlayPanel } from "./PlayPanel";
@@ -1174,6 +1175,15 @@ export function PlayTable({
     setNetBusy(true);
     setError(null);
     try {
+      // マルチ卓のホスト(参加コード発行)は PLAY プラン以上が必要。無料(basic)は
+      // 「参加のみ」= 他人の卓には入れるが、自分はホストできない。ソロ準備・卓作成は可。
+      const plan = await getMyPlan();
+      if (plan === "basic") {
+        setError(
+          "マルチ卓のホスト（共有）は PLAY プラン以上が必要です。設定 → プラン から切り替えてください（テスト期間中は無料で選べます）。参加コードで他の人の卓に入るのは無料のままできます。",
+        );
+        return;
+      }
       // transform: 送信直前にメディアを Storage の URL へ逃がす(Realtime を軽く)。
       const r = await connectRoom(makeRoomCode(), "GM", {
         transform: sanitizeForNet,
