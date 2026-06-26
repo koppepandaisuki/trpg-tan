@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { MobileMenu } from "@/components/layout/mobile-menu";
 import { SearchBar } from "@/components/layout/search-bar";
-import { NAV_ITEMS } from "@/components/layout/nav-items";
+import { NavLinks } from "@/components/layout/nav-links";
 import { PresenceHeartbeat } from "@/components/friends/presence-heartbeat";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { cn } from "@/lib/utils";
@@ -56,22 +56,8 @@ export async function TopHeader({ className }: { className?: string }) {
           <SearchBar />
         </div>
 
-        {/* デスクトップ用 nav */}
-        <nav className="hidden items-center gap-1 md:flex">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition hover:bg-primary-soft hover:text-primary"
-              >
-                <Icon className="h-4 w-4" aria-hidden />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {/* デスクトップ用 nav(現在地ハイライト付き。アプリのトップバーと同挙動) */}
+        <NavLinks />
 
         <div className="ml-auto flex items-center gap-2">
           {/* デスクトップ用ユーザーメニュー */}
@@ -96,6 +82,11 @@ export async function TopHeader({ className }: { className?: string }) {
           />
         </div>
       </div>
+      {/* ブランドのスカイ→シアンを下端の細いアクセントに(アプリと同じトーン)。 */}
+      <div
+        aria-hidden
+        className="h-0.5 w-full bg-gradient-to-r from-sky-500/70 via-cyan-400/40 to-transparent"
+      />
     </header>
   );
 }
