@@ -1,17 +1,11 @@
-import { Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * パラDa-iCE のブランドロゴ。
- *
- * 元のロゴ画像(public/logo.png)を Vercel が拾えない問題への対応として、
- * 「画像ファイル不要・コードベースのロゴ」として実装。サイズや色を
- * Tailwind で完全に制御でき、ロード失敗が原理的に発生しない。
- *
- * 配色は元ロゴのトーンを Tailwind から近似:
- *  - 「パラ」  = rose-500   (coral / 暖色)
- *  - 「Da-iCE」 = sky-600    (寒色 / アクセント)
- *  - サイコロ  = sky-600    (Da-iCE と同色で視覚連動)
+ * パラDa-iCE のブランドロゴ。デスクトップアプリと同じ見た目に揃える:
+ *  - アイコン = パラダイスのサイコロ画像(public/dice.png、背景透過)
+ *  - 「パラ」 = 通常の文字色(foreground)
+ *  - 「Da-iCE」= スカイ→シアンのグラデ文字(掛けことばを強調)
+ *  - ウェイトは black(900)で、文字は画像でなくテキストなので滲まない
  *
  * 使い方:
  *   <BrandMark size="md" />           // ヘッダー / フッター標準
@@ -33,21 +27,21 @@ interface BrandMarkProps {
 }
 
 const ICON_SIZE: Record<BrandMarkSize, string> = {
-  sm: "h-5 w-5",
-  md: "h-6 w-6",
-  lg: "h-8 w-8",
+  sm: "h-6 w-6",
+  md: "h-7 w-7",
+  lg: "h-9 w-9",
 };
 
 const TEXT_SIZE: Record<BrandMarkSize, string> = {
   sm: "text-sm",
-  md: "text-base",
-  lg: "text-xl",
+  md: "text-lg",
+  lg: "text-2xl",
 };
 
 const GAP: Record<BrandMarkSize, string> = {
-  sm: "gap-1",
-  md: "gap-1.5",
-  lg: "gap-2",
+  sm: "gap-1.5",
+  md: "gap-2",
+  lg: "gap-2.5",
 };
 
 export function BrandMark({
@@ -63,15 +57,21 @@ export function BrandMark({
         className,
       )}
     >
-      <Dices className={cn(ICON_SIZE[size], "text-sky-600")} aria-hidden />
-      <span
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/dice.png"
+        alt=""
+        aria-hidden
         className={cn(
-          "font-bold tracking-tight",
-          TEXT_SIZE[size],
+          ICON_SIZE[size],
+          "shrink-0 object-contain drop-shadow-[0_2px_5px_rgba(33,152,214,0.3)]",
         )}
-      >
-        <span className="text-rose-500">パラ</span>
-        <span className="text-sky-600">Da-iCE</span>
+      />
+      <span className={cn("font-black tracking-tight", TEXT_SIZE[size])}>
+        <span className="text-foreground">パラ</span>
+        <span className="bg-gradient-to-r from-sky-600 to-cyan-400 bg-clip-text text-transparent">
+          Da-iCE
+        </span>
       </span>
       {showSubtitle && (
         <span className="ml-1 text-xs font-medium tracking-wide text-muted-foreground">
