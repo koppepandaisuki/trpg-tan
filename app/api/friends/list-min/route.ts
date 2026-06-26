@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { listFriends } from "@/lib/queries/friends";
 import { isSameOriginRequest } from "@/lib/api/origin";
 
+// この GET は request 引数を読まず listFriends() 経由で cookies() を使うため、
+// Next が静的レンダリングしようとして "Dynamic server usage" でビルドが落ちる。
+// API は常に動的なので force-dynamic を明示する。
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/friends/list-min — ログイン user の最小フレンド一覧。
  * 日程調整の招待 UI のように "ログイン user 視点で自分のフレンドだけ" を
