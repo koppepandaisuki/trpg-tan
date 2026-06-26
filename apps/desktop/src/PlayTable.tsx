@@ -62,7 +62,7 @@ import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { DiceMotion } from "./DiceMotion";
 import { setDiagContext } from "./diag";
-import { getMyPlan } from "./account-remote";
+import { getMyAccount } from "./account-remote";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
 import { PlayPanel } from "./PlayPanel";
@@ -1177,8 +1177,9 @@ export function PlayTable({
     try {
       // マルチ卓のホスト(参加コード発行)は PLAY プラン以上が必要。無料(basic)は
       // 「参加のみ」= 他人の卓には入れるが、自分はホストできない。ソロ準備・卓作成は可。
-      const plan = await getMyPlan();
-      if (plan === "basic") {
+      // 管理者(admin)はプラン不問で全機能可(ゲート免除)。
+      const acct = await getMyAccount();
+      if (!acct.isAdmin && acct.plan === "basic") {
         setError(
           "マルチ卓のホスト（共有）は PLAY プラン以上が必要です。設定 → プラン から切り替えてください（テスト期間中は無料で選べます）。参加コードで他の人の卓に入るのは無料のままできます。",
         );

@@ -40,7 +40,7 @@ import {
 import { openWebLogin, signOut } from "./auth";
 import {
   deleteMyAccount,
-  getMyPlan,
+  getMyAccount,
   setMyPlanTester,
   type UserPlan,
 } from "./account-remote";
@@ -334,12 +334,16 @@ const PLAN_OPTIONS: { key: UserPlan; label: string; price: string; desc: string 
 
 function PlanSection() {
   const [plan, setPlan] = useState<UserPlan | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    void getMyPlan()
-      .then(setPlan)
+    void getMyAccount()
+      .then((a) => {
+        setPlan(a.plan);
+        setIsAdmin(a.isAdmin);
+      })
       .catch(() => setPlan("basic"));
   }, []);
 
@@ -362,6 +366,14 @@ function PlanSection() {
       title="プラン"
       desc="テスト期間中のため、選んでも料金は発生しません(動作確認用)。自動決済は準備中です。"
     >
+      {isAdmin && (
+        <p
+          className="tag ok"
+          style={{ display: "block", marginBottom: 8 }}
+        >
+          🛡 管理者アカウント — プラン不問で、すべての機能（PLAY のホスト等）をご利用いただけます。
+        </p>
+      )}
       <div className="plan-rows">
         {PLAN_OPTIONS.map((p) => (
           <div key={p.key} className={`plan-row ${plan === p.key ? "on" : ""}`}>

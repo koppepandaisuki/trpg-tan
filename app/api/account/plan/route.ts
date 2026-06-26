@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { setUserPlanTester } from "@/lib/mutations/plan";
 import { normalizePlan } from "@/lib/plan";
+import { isAlphaAdminEmail } from "@/lib/access/alpha-whitelist";
 
 /**
  * GET/POST /api/account/plan — デスクトップアプリ用の料金プラン取得/設定。
@@ -37,11 +38,15 @@ export async function GET(request: NextRequest) {
   }
   const { data } = await auth.client
     .from("profiles")
-    .select("plan")
+    .select("plan, is_admin")
     .eq("id", auth.user.id)
     .maybeSingle();
+  // 管理者は profiles.is_admin、または α whitelist のメアド。管理者はプラン不問で
+  // 全機能を使える(ゲート免除)ため、デスクトップへ admin フラグも返す。
+  const admin =
+    Boolean(data?.is_admin) || isAlphaAdminEmail(auth.user.email ?? "");
   return NextResponse.json(
-    { ok: true, plan: normalizePlan(data?.plan) },
+    { ok: true, plan: normalizePlan(data?.plan), admin },
     { status: 200, headers: { "Cache-Control": "no-store" } },
   );
 }

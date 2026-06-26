@@ -9771,6 +9771,20 @@ button:disabled {
   flex-shrink: 0;
   color: var(--text-faint);
 }
+/* 管理者バッジ(プラン不問で全機能)。スカイ系で目立たせる。 */
+.acct-admin {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary-deep, var(--primary)), var(--primary));
+}
 
 .acct-modal {
   max-width: 380px;

@@ -50,21 +50,37 @@ function normalizePlan(p: unknown): UserPlan {
   return p === "pro" ? "pro" : p === "play" ? "play" : "basic";
 }
 
-/** 現在のプランを取得(未ログイン/失敗時は basic)。 */
-export async function getMyPlan(): Promise<UserPlan> {
+export type MyAccount = { plan: UserPlan; isAdmin: boolean };
+
+/**
+ * 現在のアカウント情報(プラン + 管理者か)を取得。未ログイン/失敗時は
+ * { plan:"basic", isAdmin:false }。管理者はプラン不問で全機能を使える。
+ */
+export async function getMyAccount(): Promise<MyAccount> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  if (!token) return "basic";
+  if (!token) return { plan: "basic", isAdmin: false };
   try {
     const res = await fetch(`${WEB_BASE}/api/account/plan`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    const body = (await res.json()) as { ok?: boolean; plan?: string };
-    if (res.ok && body.ok) return normalizePlan(body.plan);
+    const body = (await res.json()) as {
+      ok?: boolean;
+      plan?: string;
+      admin?: boolean;
+    };
+    if (res.ok && body.ok) {
+      return { plan: normalizePlan(body.plan), isAdmin: Boolean(body.admin) };
+    }
   } catch {
-    // 取得失敗は basic 扱い(画面は出す)。
+    // 取得失敗は未加入扱い(画面は出す)。
   }
-  return "basic";
+  return { plan: "basic", isAdmin: false };
+}
+
+/** 現在のプランだけ取得(未ログイン/失敗時は basic)。 */
+export async function getMyPlan(): Promise<UserPlan> {
+  return (await getMyAccount()).plan;
 }
 
 /**
