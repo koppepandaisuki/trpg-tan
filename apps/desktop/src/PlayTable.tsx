@@ -1113,23 +1113,28 @@ export function PlayTable({
         const forNet = {
           ...s,
           panels: s.panels.filter((p) => !p.hidden),
+          // 先に末尾 N 件へ絞ってから秘匿フィルタ(全履歴を毎回走査しない)。
+          // 長時間卓で log が数千件でも、1 回の同期は末尾 N 件分で一定。
           log: (s.log ?? [])
+            .slice(-LOG_LIMIT)
             .filter((e) => {
               const actor = (e as { actor?: string }).actor;
               return !actor || !hiddenNames.has(actor);
-            })
-            .slice(-LOG_LIMIT),
+            }),
         };
-        // 画像(data URL)を分離: state は軽量(cas 参照)、画像実体は初出のものだけ
-        // 先に media で送る。これで駒移動のたびに 1〜2MB を再送せず済む。
+        // 画像(data URL)を分離: state は軽量(cas 参照)、画像実体は初出のものだけ送る。
         const { lite, media } = splitSceneMedia(forNet);
-        const fresh: Record<string, string> = {};
+        // 画像は 1 枚ずつ送る。まとめて 1 通にすると数百チャンクの巨大メッセージになり、
+        // 再入室時(全画像を再送)に取りこぼして「画像が出ない」原因になる。1 枚ずつなら
+        // 1 枚の失敗が他に波及せず、sent に入れないので次のスナップショットで再送される。
         for (const [k, v] of Object.entries(media)) {
-          if (!sentMediaRef.current.has(k)) fresh[k] = v;
-        }
-        if (Object.keys(fresh).length > 0) {
-          await r.send({ type: "media", media: fresh });
-          for (const k of Object.keys(fresh)) sentMediaRef.current.add(k);
+          if (sentMediaRef.current.has(k)) continue;
+          try {
+            await r.send({ type: "media", media: { [k]: v } });
+            sentMediaRef.current.add(k);
+          } catch {
+            // 失敗した画像は sent に入れず、次回スナップショットで再送する。
+          }
         }
         await r.send({ type: "state", rev: revRef.current, scene: lite });
       } while (st.queued);

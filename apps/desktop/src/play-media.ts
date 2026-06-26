@@ -299,11 +299,25 @@ function mapStrings(v: unknown, fn: (s: string) => string): unknown {
   return v;
 }
 
-/** data URL → 短い参照キー(同期・簡易ハッシュ。長さも混ぜて衝突を抑える)。 */
+/**
+ * data URL → 短い参照キー(同期・簡易ハッシュ。長さも混ぜて衝突を抑える)。
+ *
+ * 重要: 画像 data URL は巨大(数百KB〜数MB)で、splitSceneMedia は state 変更の
+ * たび(+定期)に全画像へ casKey を掛ける。毎回 1 文字ずつハッシュし直すと、卓に
+ * 画像が増えるほど 1 回の同期が重くなり「後半ほど反映が遅い」原因になる。
+ * 同じ文字列(= 同じ画像)は結果を memo して再ハッシュを避ける(値で keyed なので
+ * 同一画像なら 2 回目以降は O(1))。卓を跨いで肥大しないよう上限を設ける。
+ */
+const keyCache = new Map<string, string>();
 function casKey(s: string): string {
+  const cached = keyCache.get(s);
+  if (cached !== undefined) return cached;
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  return `${(h >>> 0).toString(36)}_${s.length.toString(36)}`;
+  const key = `${(h >>> 0).toString(36)}_${s.length.toString(36)}`;
+  if (keyCache.size > 512) keyCache.clear();
+  keyCache.set(s, key);
+  return key;
 }
 
 /**
