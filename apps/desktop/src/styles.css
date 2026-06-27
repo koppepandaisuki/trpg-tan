@@ -6169,6 +6169,253 @@ button:disabled {
 }
 
 /* ===== ネットワーク共有(GM ホスト)ポップオーバー ===== */
+/* 「みんなで遊ぶ」= マルチのホストを開始する目立つボタン(スカイ→シアンのグラデ)。
+   共有中(live)は緑＋点滅ドットで“配信中”感を出す。 */
+.play-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 15px;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+  box-shadow: 0 3px 12px rgba(14, 165, 233, 0.4);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
+}
+.play-share-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(14, 165, 233, 0.5);
+  filter: brightness(1.05);
+}
+.play-share-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+  transform: none;
+}
+.play-share-btn.live {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  box-shadow: 0 3px 12px rgba(34, 197, 94, 0.4);
+}
+.play-share-btn.live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  animation: share-live-pulse 1.4s ease-in-out infinite;
+}
+@keyframes share-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ===== プラン案内モーダル(無料が「みんなで遊ぶ」を押したとき) ===== */
+.plan-gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(8, 16, 28, 0.55);
+  backdrop-filter: blur(3px);
+}
+.plan-gate {
+  position: relative;
+  width: 100%;
+  max-width: 660px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  padding: 22px 22px 18px;
+}
+.plan-gate-x {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 4px;
+}
+.plan-gate-x:hover {
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  color: var(--text);
+}
+.plan-gate-head {
+  text-align: center;
+  margin-bottom: 16px;
+}
+.plan-gate-spark {
+  display: inline-flex;
+  color: #0ea5e9;
+}
+.plan-gate-head h2 {
+  margin: 4px 0 6px;
+  font-size: 20px;
+  font-weight: 900;
+}
+.plan-gate-head p {
+  margin: 0 auto;
+  max-width: 460px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+.plan-gate-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+.plan-gate-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 14px 14px;
+  background: var(--surface);
+}
+.plan-gate-card.featured {
+  box-shadow: 0 8px 22px rgba(14, 165, 233, 0.18);
+}
+.plan-gate-badge {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: #0284c7;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+.pg-code {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.pg-label {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.pg-price {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 900;
+  margin: 6px 0 2px;
+}
+.pg-perks {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+}
+.pg-perks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.pg-btn {
+  margin-top: 14px;
+  border: none;
+  border-radius: 9px;
+  padding: 9px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+.pg-btn:hover {
+  filter: brightness(1.06);
+}
+.pg-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+/* プラン別アクセント(シアン→スカイ→インディゴ) */
+.pg-cyan {
+  border-color: #67e8f9;
+}
+.pg-cyan .pg-code,
+.pg-cyan .pg-price {
+  color: #0891b2;
+}
+.pg-cyan .pg-perks svg {
+  color: #06b6d4;
+}
+.pg-cyan .pg-btn {
+  background: #06b6d4;
+}
+.pg-sky {
+  border-color: #38bdf8;
+}
+.pg-sky .pg-code,
+.pg-sky .pg-price {
+  color: #0284c7;
+}
+.pg-sky .pg-perks svg {
+  color: #0ea5e9;
+}
+.pg-sky .pg-btn {
+  background: #0284c7;
+}
+.pg-indigo {
+  border-color: #a5b4fc;
+}
+.pg-indigo .pg-code,
+.pg-indigo .pg-price {
+  color: #4f46e5;
+}
+.pg-indigo .pg-perks svg {
+  color: #6366f1;
+}
+.pg-indigo .pg-btn {
+  background: #4f46e5;
+}
+.plan-gate-err {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #e5484d;
+  text-align: center;
+}
+.plan-gate-foot {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .share-pop {
   position: fixed;
   top: 56px;

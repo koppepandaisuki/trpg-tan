@@ -44,7 +44,8 @@ import {
 import {
   Dices,
   Wrench,
-  Globe,
+  Radio,
+  Share2,
   Menu,
   Image as ImageIcon,
   Users,
@@ -94,6 +95,7 @@ import { readSheetFromPath, isGenericSheet } from "./storage";
 import { toast } from "./Toasts";
 import { savePlayAs, savePlayToPath } from "./play-storage";
 import { FriendPickerModal } from "./FriendsPanel";
+import { PlayPlanGate } from "./PlayPlanGate";
 import { sendTableInvite } from "./friends-remote";
 import { exportPackToFile } from "./pack";
 
@@ -181,6 +183,8 @@ export function PlayTable({
   const { sendDrag, overlay: overlayLive } = useLiveDrag(room);
   const [members, setMembers] = useState<string[]>([]);
   const [sharePop, setSharePop] = useState(false);
+  // 無料(basic・非admin)が共有を押したとき出すプラン案内モーダル。
+  const [planGateOpen, setPlanGateOpen] = useState(false);
   const [friendInviteOpen, setFriendInviteOpen] = useState(false);
   const [netBusy, setNetBusy] = useState(false);
   const roomRef = useRef<Room | null>(null);
@@ -1176,13 +1180,11 @@ export function PlayTable({
     setError(null);
     try {
       // マルチ卓のホスト(参加コード発行)は PLAY プラン以上が必要。無料(basic)は
-      // 「参加のみ」= 他人の卓には入れるが、自分はホストできない。ソロ準備・卓作成は可。
-      // 管理者(admin)はプラン不問で全機能可(ゲート免除)。
+      // 「参加のみ」。管理者(admin)はプラン不問で全機能可(ゲート免除・案内も出さない)。
+      // basic のときはエラー文ではなくプラン案内モーダルを出す。
       const acct = await getMyAccount();
       if (!acct.isAdmin && acct.plan === "basic") {
-        setError(
-          "マルチ卓のホスト（共有）は PLAY プラン以上が必要です。設定 → プラン から切り替えてください（テスト期間中は無料で選べます）。参加コードで他の人の卓に入るのは無料のままできます。",
-        );
+        setPlanGateOpen(true);
         return;
       }
       // transform: 送信直前にメディアを Storage の URL へ逃がす(Realtime を軽く)。
@@ -1388,21 +1390,21 @@ export function PlayTable({
           {!playerMode && (
             <>
               <button
-                className={`btn mini ibtn ${room ? "btn-primary" : ""}`}
+                className={`play-share-btn ${room ? "live" : ""}`}
                 onClick={() => void startShare()}
                 disabled={netBusy}
                 title={
                   room
                     ? `共有中（コード ${room.code}）— クリックで詳細`
-                    : "ネットワーク共有を開始（参加コードを発行）"
+                    : "みんなで卓を立てて招待（参加コードを発行）"
                 }
               >
-                <Globe size={14} />
+                {room ? <Radio size={15} /> : <Share2 size={15} />}
                 {netBusy
                   ? "接続中…"
                   : room
                     ? `${room.code}・${Math.max(0, members.filter((n) => n !== "GM").length)}人`
-                    : "共有"}
+                    : "みんなで遊ぶ"}
               </button>
               {onCharacters && (
                 <button
@@ -1486,6 +1488,18 @@ export function PlayTable({
             </button>
           </div>
         </div>
+      )}
+
+      {/* 無料(basic・非admin)が共有を押したときのプラン案内。PLAY/Pro を選ぶと
+          自動でホスト(共有)を再開する。 */}
+      {planGateOpen && (
+        <PlayPlanGate
+          onClose={() => setPlanGateOpen(false)}
+          onUnlocked={() => {
+            setPlanGateOpen(false);
+            void startShare();
+          }}
+        />
       )}
 
       <FriendPickerModal
