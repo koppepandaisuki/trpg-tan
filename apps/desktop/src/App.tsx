@@ -164,14 +164,17 @@ export function App() {
   // PLAY 中にキャラシを卓の上へオーバーレイ表示する(卓は閉じない)。
   const [charOverlay, setCharOverlay] = useState(false);
   const [library, setLibrary] = useState<LibraryEntry[]>(() => getLibrary());
-  const [active, setActive] = useState<{ sheet: Sheet | null; key: string }>(
-    () => ({ sheet: null, key: "new-0" }),
-  );
+  const [active, setActive] = useState<{
+    sheet: Sheet | null;
+    key: string;
+    path?: string | null;
+  }>(() => ({ sheet: null, key: "new-0" }));
   // カスタムシステムの汎用シート編集(非 null のとき CoC エディタの代わりに表示)。
   const [activeGeneric, setActiveGeneric] = useState<{
     def: SystemDef | null;
     sheet: GenericSheet | null;
     key: string;
+    path?: string | null;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   // アプリ内ビューア(購入物の閲覧)。null のとき非表示。
@@ -379,10 +382,11 @@ export function App() {
           def: findSystem(sheet.systemId),
           sheet,
           key: `${entry.id}-${Date.now()}`,
+          path: entry.path, // 上書き保存先
         });
       } else {
         setActiveGeneric(null);
-        setActive({ sheet, key: `${entry.id}-${Date.now()}` });
+        setActive({ sheet, key: `${entry.id}-${Date.now()}`, path: entry.path });
       }
       setError(null);
     } catch (e) {
@@ -477,12 +481,14 @@ export function App() {
             key={activeGeneric.key}
             def={activeGeneric.def}
             initial={activeGeneric.sheet}
+            initialPath={activeGeneric.path}
             onSaved={handleGenericSaved}
           />
         ) : (
           <CharacterSheet
             key={active.key}
             initialSheet={active.sheet}
+            initialPath={active.path}
             onSaved={handleSaved}
           />
         )}

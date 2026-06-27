@@ -1081,6 +1081,17 @@ export function PlayTable({
       // 参加者は自分が登場させた駒だけ片付けられる(所有者一致を検証)。
       if (!ownsPanel(from, intent.panelId)) return;
       dispatch(panelRemoveEvent(newCtx(), intent.panelId));
+    } else if (intent.kind === "claim-char") {
+      // 「自分の駒にする」(ココフォリア的)。なりすまし防止のため owner は hello
+      // で記録した表示名で刻む。対象はキャラ駒(stats/resources あり)かつ非秘匿
+      // のみ(参加者に見えていない駒は奪えない)。
+      const claimer = memberNames.current.get(from);
+      if (!claimer) return;
+      const p = scene.panels.find((x) => x.id === intent.panelId);
+      if (!p || p.hidden) return;
+      const isChar = p.stats.length > 0 || p.resources.length > 0;
+      if (!isChar) return;
+      updatePanel(intent.panelId, { owner: claimer });
     } else if (intent.kind === "memo") {
       setSharedMemos(intent.memos);
     }

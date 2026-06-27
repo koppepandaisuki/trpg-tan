@@ -35,13 +35,22 @@ async function defaultCharacterPath(name: string): Promise<string> {
   );
 }
 
-/** 保存ダイアログを出して .ccsheet を書き出す。返り値は保存先パス(キャンセルは null)。*/
+/** 保存ダイアログを出して .ccsheet を書き出す(別名で保存)。返り値は保存先パス(キャンセルは null)。*/
 export async function saveSheet(sheet: CharacterSheet): Promise<string | null> {
   const path = await save({
     defaultPath: await defaultCharacterPath(sheet.name),
     filters: FILTERS,
   });
   if (!path) return null;
+  await writeTextFile(path, JSON.stringify(sheet, null, 2));
+  return path;
+}
+
+/** 既存パスへ直接上書き保存(ダイアログを出さない)。CoC / 汎用どちらも書ける。*/
+export async function saveSheetToPath(
+  sheet: CharacterSheet | GenericSheet,
+  path: string,
+): Promise<string> {
   await writeTextFile(path, JSON.stringify(sheet, null, 2));
   return path;
 }

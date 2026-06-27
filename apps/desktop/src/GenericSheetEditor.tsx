@@ -5,7 +5,7 @@ import {
   type GenericSheet,
   type SystemDef,
 } from "@trpg/core";
-import { saveGenericSheet, isTauri } from "./storage";
+import { saveGenericSheet, saveSheetToPath, isTauri } from "./storage";
 import { toast } from "./Toasts";
 
 /**
@@ -16,12 +16,15 @@ import { toast } from "./Toasts";
 export function GenericSheetEditor({
   def,
   initial,
+  initialPath,
   onSaved,
 }: {
   /** 由来システム(再生成ボタン等で参照。開けないときは null)。 */
   def: SystemDef | null;
   /** 既存シート(null なら def から新規作成)。 */
   initial: GenericSheet | null;
+  /** 既存キャラのファイルパス(ライブラリから開いたとき)。上書き保存に使う。 */
+  initialPath?: string | null;
   onSaved: (sheet: GenericSheet, path: string) => void;
 }) {
   const [sheet, setSheet] = useState<GenericSheet>(() => {
@@ -29,6 +32,10 @@ export function GenericSheetEditor({
     if (def) return newGenericSheet(def, crypto.randomUUID());
     throw new Error("システム定義かシートのどちらかが必要です");
   });
+  // 現在の保存先。あれば「保存」で上書き、無ければ別名保存ダイアログを出す。
+  const [currentPath, setCurrentPath] = useState<string | null>(
+    initialPath ?? null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -44,6 +51,7 @@ export function GenericSheetEditor({
     reader.readAsDataURL(file);
   }
 
+  /** 上書き保存。保存先が未確定(新規)なら別名保存にフォールバック。 */
   async function save() {
     if (!isTauri()) {
       setError("保存にはデスクトップアプリが必要です");
@@ -51,12 +59,36 @@ export function GenericSheetEditor({
     }
     setError(null);
     try {
-      const path = await saveGenericSheet(sheet);
-      if (!path) return; // キャンセル
+      let path = currentPath;
+      if (path) {
+        await saveSheetToPath(sheet, path);
+      } else {
+        path = await saveGenericSheet(sheet);
+        if (!path) return; // キャンセル
+        setCurrentPath(path);
+      }
       onSaved(sheet, path);
       setSavedFlash(true);
       window.setTimeout(() => setSavedFlash(false), 1600);
-      toast("✓ キャラを保存しました");
+      toast(currentPath ? "✓ 上書き保存しました" : "✓ キャラを保存しました");
+    } catch (e) {
+      setError(`保存に失敗しました: ${String(e)}`);
+    }
+  }
+
+  /** 別名で保存(常にダイアログ)。以後はその新しいパスへ上書きする。 */
+  async function saveAs() {
+    if (!isTauri()) {
+      setError("保存にはデスクトップアプリが必要です");
+      return;
+    }
+    setError(null);
+    try {
+      const path = await saveGenericSheet(sheet);
+      if (!path) return;
+      setCurrentPath(path);
+      onSaved(sheet, path);
+      toast("✓ 別名で保存しました");
     } catch (e) {
       setError(`保存に失敗しました: ${String(e)}`);
     }
@@ -80,8 +112,27 @@ export function GenericSheetEditor({
           onChange={(e) => patch({ name: e.target.value })}
           placeholder="キャラクター名"
         />
-        <button className="btn btn-primary" onClick={() => void save()}>
-          {savedFlash ? "✓ 保存しました" : "保存 (.ccsheet)"}
+        <button
+          className="btn"
+          onClick={() => void saveAs()}
+          title="別の名前/場所に保存"
+        >
+          別名で保存
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={() => void save()}
+          title={
+            currentPath
+              ? "同じファイルに上書き保存（ダイアログを出しません）"
+              : "保存先を選んで保存"
+          }
+        >
+          {savedFlash
+            ? "✓ 保存しました"
+            : currentPath
+              ? "上書き保存"
+              : "保存 (.ccsheet)"}
         </button>
       </div>
 

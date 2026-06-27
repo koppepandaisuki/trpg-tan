@@ -5048,6 +5048,62 @@ select.cutin-snd {
   font-size: 13px;
 }
 
+/* 「自分の駒にする」(参加者が他人/GM の駒に来たとき) */
+.ctx-claim {
+  border-bottom: 1px solid var(--border);
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ctx-claim-note {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.ctx-claim-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* 重なり順(今が前から何番目か + 1段ずつ / 最前面・最背面) */
+.ctx-stack {
+  padding: 7px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ctx-stack-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.ctx-stack-pos {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.ctx-stack-pos b {
+  color: var(--text);
+}
+.ctx-stack-btns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.ctx-stack-btns .btn.mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 5px 4px;
+  font-size: 11px;
+}
+
 /* 差分(立ち絵切替)セクション */
 .ctx-variants {
   border-top: 1px solid var(--border);

@@ -10,6 +10,9 @@ import {
   Ruler,
   ChevronUp,
   ChevronDown,
+  ChevronsUp,
+  ChevronsDown,
+  Hand,
 } from "lucide-react";
 import { ASSET_MIME } from "./AssetsPanel";
 
@@ -40,6 +43,25 @@ function isImageObject(p: Panel): boolean {
 const STAGE_W = 1280;
 const STAGE_H = 720;
 
+/** 駒の重なり順情報。pos=1 が最前面。visible は layer 昇順(末尾=前面)。 */
+type StackInfo = {
+  pos: number;
+  total: number;
+  maxLayer: number;
+  minLayer: number;
+};
+function stackInfoOf(visible: Panel[], id: string): StackInfo | null {
+  const idx = visible.findIndex((p) => p.id === id);
+  if (idx < 0) return null;
+  const layers = visible.map((p) => p.layer ?? 0);
+  return {
+    pos: visible.length - idx, // 末尾(前面)を 1 番目とする
+    total: visible.length,
+    maxLayer: Math.max(...layers),
+    minLayer: Math.min(...layers),
+  };
+}
+
 export function PlayBoard({
   board,
   panels,
@@ -60,6 +82,7 @@ export function PlayBoard({
   onOpenCharacters,
   participants,
   onTransfer,
+  onClaim,
 }: {
   board: BoardState | undefined;
   panels: Panel[];
@@ -119,6 +142,11 @@ export function PlayBoard({
   participants?: string[];
   /** GM のみ: キャラ駒の操作権をプレイヤーへ譲渡 / 解除(null=GM)。 */
   onTransfer?: (panelId: string, owner: string | null) => void;
+  /**
+   * 参加者のみ: GM/他人のキャラ駒を「自分の駒にする」(ココフォリア的)。
+   * GM が owner を送信者名で刻んで操作権を渡す。未指定なら項目は出ない。
+   */
+  onClaim?: (panelId: string) => void;
 }) {
   const grid = board?.grid ?? true;
   const image = board?.image ?? null;
@@ -623,10 +651,11 @@ export function PlayBoard({
               }}
               onContextMenu={(e) => {
                 e.preventDefault();
-                // GM は全駒で開ける。参加者は「自分が所有するキャラ駒」のみ
-                // メニューを開ける(他人のキャラ駒や GM 所有の駒は触らせない)。
+                // GM は全駒で開ける。参加者はキャラ駒なら開ける(自分の駒は編集、
+                // 他人/GM の駒は「自分の駒にする」だけ出す)。画像オブジェクトは
+                // 参加者には触らせない。
                 const isChar = p.stats.length > 0 || p.resources.length > 0;
-                if (!playerMode || (isChar && isMine)) {
+                if (!playerMode || isChar) {
                   setMenu({ panelId: p.id, x: e.clientX, y: e.clientY });
                 }
               }}
@@ -723,6 +752,8 @@ export function PlayBoard({
             y={menu.y}
             activeSceneId={activeSceneId}
             playerMode={playerMode}
+            viewerOwns={!!viewerName && menuPanel.owner === viewerName}
+            stack={stackInfoOf(visible, menuPanel.id)}
             onUpdate={onUpdate}
             onReorder={onReorder}
             onDelete={() => {
@@ -732,6 +763,7 @@ export function PlayBoard({
             onOpenCharacters={onOpenCharacters}
             participants={participants}
             onTransfer={onTransfer}
+            onClaim={onClaim}
             onClose={() => setMenu(null)}
           />
         </>
@@ -747,12 +779,15 @@ function ObjectMenu({
   y,
   activeSceneId,
   playerMode = false,
+  viewerOwns = false,
+  stack,
   onUpdate,
   onReorder,
   onDelete,
   onOpenCharacters,
   participants,
   onTransfer,
+  onClaim,
   onClose,
 }: {
   panel: Panel;
@@ -761,6 +796,10 @@ function ObjectMenu({
   activeSceneId?: string;
   /** 参加者ビュー: 名前とメモと差分だけ(GM 専用の行は隠す)。 */
   playerMode?: boolean;
+  /** 参加者ビューで、この駒が自分の駒か(編集系を出すかの判定)。 */
+  viewerOwns?: boolean;
+  /** 重なり順情報(GM の重なりUIで「N/M番目」表示と最前面/最背面に使う)。 */
+  stack?: StackInfo | null;
   onUpdate: (
     panelId: string,
     patch: Partial<
@@ -788,6 +827,8 @@ function ObjectMenu({
   participants?: string[];
   /** GM のみ: 操作権をプレイヤーへ譲渡 / 解除。 */
   onTransfer?: (panelId: string, owner: string | null) => void;
+  /** 参加者のみ: この駒を「自分の駒にする」。 */
+  onClaim?: (panelId: string) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState(panel.name);
@@ -804,6 +845,10 @@ function ObjectMenu({
     if (s !== panel.size) onUpdate(panel.id, { size: s });
   }
   const isChar = panel.stats.length > 0 || panel.resources.length > 0;
+  // 参加者ビューでは「自分の駒」のときだけ名前/メモ/差分などを編集できる。
+  // GM(!playerMode) は常に編集可。他人の駒に来た参加者は「自分の駒にする」のみ。
+  const canEdit = !playerMode || viewerOwns;
+  const canClaim = playerMode && !viewerOwns && isChar && !!onClaim;
 
   /** 差分画像を追加。初回は現在の立ち絵を「基本」として自動登録する。 */
   function addVariant(e: React.ChangeEvent<HTMLInputElement>) {
@@ -873,32 +918,55 @@ function ObjectMenu({
         )}
       </div>
 
-      <label className="ctx-field">
-        <span>名前</span>
-        <input
-          className="input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => {
-            const v = name.trim() || panel.name;
-            if (v !== panel.name) onUpdate(panel.id, { name: v });
-          }}
-        />
-      </label>
+      {/* 他人/GM のキャラ駒に来た参加者: 「自分の駒にする」だけ出す(ココフォリア的)。 */}
+      {canClaim && (
+        <div className="ctx-claim">
+          <p className="ctx-claim-note">
+            {panel.owner ? `${panel.owner} の駒` : "GM の駒"}です
+          </p>
+          <button
+            className="btn mini btn-primary ctx-claim-btn"
+            onClick={() => {
+              onClaim?.(panel.id);
+              onClose();
+            }}
+            title="この駒を自分の操作下に置く（GM が承認して操作権が移ります）"
+          >
+            <Hand size={14} /> 自分の駒にする
+          </button>
+        </div>
+      )}
 
-      <label className="ctx-field">
-        <span>情報・メモ</span>
-        <textarea
-          className="input"
-          rows={3}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          onBlur={() => {
-            if (note !== (panel.note ?? "")) onUpdate(panel.id, { note });
-          }}
-          placeholder="このオブジェクトの情報"
-        />
-      </label>
+      {canEdit && (
+        <>
+          <label className="ctx-field">
+            <span>名前</span>
+            <input
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => {
+                const v = name.trim() || panel.name;
+                if (v !== panel.name) onUpdate(panel.id, { name: v });
+              }}
+            />
+          </label>
+
+          <label className="ctx-field">
+            <span>情報・メモ</span>
+            <textarea
+              className="input"
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              onBlur={() => {
+                if (note !== (panel.note ?? "")) onUpdate(panel.id, { note });
+              }}
+              placeholder="このオブジェクトの情報"
+            />
+          </label>
+        </>
+      )}
 
       {/* キャラ駒のとき「キャラシを開く」導線(オーバーレイで全画面表示)。 */}
       {isChar && onOpenCharacters && (
@@ -949,8 +1017,8 @@ function ObjectMenu({
           </div>
         )}
 
-      {/* 差分(立ち絵/表情の切替)。キャラ駒のみ。参加者も使える。 */}
-      {isChar && (
+      {/* 差分(立ち絵/表情の切替)。キャラ駒のみ。自分の駒のときだけ編集可。 */}
+      {isChar && canEdit && (
         <div className="ctx-variants">
           <div className="ctx-vhead">
             差分 <span className="muted">（ダブルクリックで切替）</span>
@@ -1065,25 +1133,62 @@ function ObjectMenu({
         </span>
       </button>
 
-      {/* 重なり順(レイヤー)。 */}
-      <div className="ctx-layer">
-        <span className="ctx-icon"><Layers size={14} /></span>
-        <span>重なり順</span>
-        <span style={{ flex: 1 }} />
-        <button
-          className="btn mini"
-          onClick={() => onReorder?.(panel.id, -1)}
-          title="背面へ"
-        >
-          ⬇ 背面
-        </button>
-        <button
-          className="btn mini"
-          onClick={() => onReorder?.(panel.id, 1)}
-          title="前面へ"
-        >
-          ⬆ 前面
-        </button>
+      {/* 重なり順(レイヤー)。今が前から何番目か + 1段ずつ / 最前面・最背面。 */}
+      <div className="ctx-stack">
+        <div className="ctx-stack-head">
+          <span className="ctx-icon">
+            <Layers size={14} />
+          </span>
+          <span>重なり順</span>
+          {stack && (
+            <span className="ctx-stack-pos">
+              前から <b>{stack.pos}</b> / {stack.total} 番目
+              {stack.pos === 1
+                ? "（最前面）"
+                : stack.pos === stack.total
+                  ? "（最背面）"
+                  : ""}
+            </span>
+          )}
+        </div>
+        <div className="ctx-stack-btns">
+          <button
+            className="btn mini"
+            onClick={() =>
+              onUpdate(panel.id, { layer: (stack?.minLayer ?? 0) - 1 })
+            }
+            disabled={!!stack && stack.pos === stack.total}
+            title="最背面へ"
+          >
+            <ChevronsDown size={13} /> 最背面
+          </button>
+          <button
+            className="btn mini"
+            onClick={() => onReorder?.(panel.id, -1)}
+            disabled={!!stack && stack.pos === stack.total}
+            title="1 つ背面へ"
+          >
+            <ChevronDown size={13} /> 背面
+          </button>
+          <button
+            className="btn mini"
+            onClick={() => onReorder?.(panel.id, 1)}
+            disabled={!!stack && stack.pos === 1}
+            title="1 つ前面へ"
+          >
+            <ChevronUp size={13} /> 前面
+          </button>
+          <button
+            className="btn mini btn-primary"
+            onClick={() =>
+              onUpdate(panel.id, { layer: (stack?.maxLayer ?? 0) + 1 })
+            }
+            disabled={!!stack && stack.pos === 1}
+            title="最前面へ"
+          >
+            <ChevronsUp size={13} /> 最前面
+          </button>
+        </div>
       </div>
 
       <button className="ctx-row danger" onClick={onDelete}>

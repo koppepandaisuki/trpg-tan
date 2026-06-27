@@ -69,6 +69,8 @@ export type NetIntent =
   | { kind: "add-char"; panel: Panel }
   /** 参加者が自分の登場させた駒を片付ける(GM が所有者一致を検証)。 */
   | { kind: "remove-char"; panelId: string }
+  /** 参加者が GM/他人のキャラ駒を「自分の駒にする」(GM が owner を送信者名で刻む)。 */
+  | { kind: "claim-char"; panelId: string }
   | {
       kind: "panel-update";
       panelId: string;

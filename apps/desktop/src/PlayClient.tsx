@@ -442,6 +442,11 @@ export function PlayClient({
     sendIntent({ kind: "remove-char", panelId });
   }
 
+  /** GM/他人の駒を「自分の駒にする」(GM が owner を本人名で刻んで操作権を渡す)。 */
+  function claimCharacter(panelId: string) {
+    sendIntent({ kind: "claim-char", panelId });
+  }
+
   /**
    * クリップボードのココフォリア駒データを自分のキャラとして取り込む。
    * GM へ add-char を送り、GM が owner を本人名で刻んで配信する(ホストと同じ取込み)。
@@ -781,6 +786,7 @@ export function PlayClient({
               onUpdate={updatePanel}
               onRemove={() => {}}
               onOpenCharacters={onOpenCharacters}
+              onClaim={claimCharacter}
             />
             <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />
             <BoardStatusBar cards={playerCards} turn={scene.turn} />
