@@ -83,6 +83,73 @@ export async function getMyPlan(): Promise<UserPlan> {
   return (await getMyAccount()).plan;
 }
 
+type CheckoutResult =
+  | { ok: true; url: string }
+  | { ok: false; reason: string; message: string };
+
+/**
+ * Stripe Checkout セッションを作成して URL を返す。デスクトップはこの URL を
+ * 外部ブラウザで開き、決済後 paradice://subscription/complete で戻ってくる。
+ */
+export async function startPlanCheckout(
+  plan: UserPlan,
+): Promise<CheckoutResult> {
+  if (plan === "basic") throw new Error("basic は無料プランです。");
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("ログインが必要です。");
+  const res = await fetch(`${WEB_BASE}/api/plan/checkout`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ plan, returnTo: "desktop" }),
+  });
+  let body: { ok?: boolean; url?: string; reason?: string; message?: string };
+  try {
+    body = (await res.json()) as typeof body;
+  } catch {
+    throw new Error(`サーバ応答が不正です (${res.status})`);
+  }
+  if (res.ok && body.ok && body.url) return { ok: true, url: body.url };
+  return {
+    ok: false,
+    reason: body.reason ?? "server_error",
+    message: body.message ?? `申し込みに失敗しました (${res.status})`,
+  };
+}
+
+/**
+ * Stripe Customer Portal セッションを作成して URL を返す。
+ * 解約・プラン変更・支払い方法の更新をユーザー自身が行える。
+ */
+export async function openPlanPortal(): Promise<CheckoutResult> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("ログインが必要です。");
+  const res = await fetch(`${WEB_BASE}/api/plan/portal`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ returnTo: "desktop" }),
+  });
+  let body: { ok?: boolean; url?: string; message?: string };
+  try {
+    body = (await res.json()) as typeof body;
+  } catch {
+    throw new Error(`サーバ応答が不正です (${res.status})`);
+  }
+  if (res.ok && body.ok && body.url) return { ok: true, url: body.url };
+  return {
+    ok: false,
+    reason: "server_error",
+    message: body.message ?? `管理ページを開けませんでした (${res.status})`,
+  };
+}
+
 /**
  * テスター用にプランを設定(課金なし)。本人の JWT を Bearer で送り、サーバーが
  * 本人のプランのみ更新する。Stripe Billing 実装後は購入フローに置き換える。

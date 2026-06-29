@@ -210,6 +210,8 @@ export function App() {
   const [storeHomeSig, setStoreHomeSig] = useState(0);
   // ライブラリ強制リフレッシュ(paradice://purchase/complete などで +1)。
   const [librarySig, setLibrarySig] = useState(0);
+  // プラン再取得シグナル(paradice://subscription/complete などで +1)。
+  const [planSig, setPlanSig] = useState(0);
   // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。PLAY 中も従う。
   const [theme, setTheme] = useState(
     () => localStorage.getItem("trpg.theme.v1") ?? "light",
@@ -242,6 +244,13 @@ export function App() {
       },
       onCancel: () => {
         toast("購入はキャンセルされました");
+      },
+      onSubscriptionComplete: ({ plan }) => {
+        const label = plan === "pro" ? "Pro" : "プレイ";
+        toast(`✅ ${label}プランが有効になりました`);
+        setPlanSig((n) => n + 1);
+        // webhook 反映ラグを吸収して 4 秒後にもう一度。
+        window.setTimeout(() => setPlanSig((n) => n + 1), 4000);
       },
     });
   }, []);
@@ -1051,6 +1060,7 @@ export function App() {
             setTheme((t) => (t === "dark" ? "light" : "dark"))
           }
           onClose={() => setShowSettings(false)}
+          planSig={planSig}
         />
       )}
       <Toasts />

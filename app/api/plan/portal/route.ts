@@ -1,24 +1,35 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { isSameOriginRequest } from "@/lib/api/origin";
+import { createBearerClient } from "@/lib/supabase/bearer";
 import { getStripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+async function resolveUser(
+  request: NextRequest,
+): Promise<{ id: string } | null> {
+  const authHeader = request.headers.get("authorization") ?? "";
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const token = authHeader.slice(7).trim();
+    const {
+      data: { user },
+    } = await createBearerClient(token).auth.getUser();
+    return user ? { id: user.id } : null;
+  }
+  if (!isSameOriginRequest(request)) return null;
+  const u = await getCurrentUser();
+  return u ? { id: u.id } : null;
+}
 
 /**
  * POST /api/plan/portal
  *
  * Stripe Customer Portal のセッションを作り URL を返す。プラン変更・解約・
  * 支払い方法の更新・領収書をユーザー自身が行える(自動課金の解約導線)。
+ * Bearer JWT(デスクトップ)と Cookie セッション(ブラウザ)の両方を受け付ける。
  */
 export async function POST(request: NextRequest) {
-  if (!isSameOriginRequest(request)) {
-    return NextResponse.json(
-      { ok: false, message: "リクエストが拒否されました" },
-      { status: 403 },
-    );
-  }
-
-  const user = await getCurrentUser();
+  const user = await resolveUser(request);
   if (!user) {
     return NextResponse.json(
       { ok: false, message: "ログインが必要です" },

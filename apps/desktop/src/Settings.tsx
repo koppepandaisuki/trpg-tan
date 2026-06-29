@@ -41,6 +41,8 @@ import { openWebLogin, signOut } from "./auth";
 import {
   deleteMyAccount,
   getMyAccount,
+  startPlanCheckout,
+  openPlanPortal,
   setMyPlanTester,
   type UserPlan,
 } from "./account-remote";
@@ -95,11 +97,13 @@ export function Settings({
   theme,
   onToggleTheme,
   onClose,
+  planSig = 0,
 }: {
   initialTab?: SettingsTab;
   theme: string;
   onToggleTheme: () => void;
   onClose: () => void;
+  planSig?: number;
 }) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
 
@@ -136,7 +140,7 @@ export function Settings({
           </nav>
 
           <div className="set2-content">
-            {tab === "account" && <AccountTab />}
+            {tab === "account" && <AccountTab planSig={planSig} />}
             {tab === "display" && (
               <DisplayTab theme={theme} onToggleTheme={onToggleTheme} />
             )}
@@ -177,7 +181,7 @@ function Section({
   );
 }
 
-function AccountTab() {
+function AccountTab({ planSig = 0 }: { planSig?: number }) {
   const { nickname, avatar } = useLocalProfile();
   const fileRef = useRef<HTMLInputElement>(null);
   const [imgErr, setImgErr] = useState<string | null>(null);
@@ -252,7 +256,7 @@ function AccountTab() {
         </div>
       </Section>
 
-      <StoreLinkSection />
+      <StoreLinkSection planSig={planSig} />
     </>
   );
 }
@@ -262,7 +266,7 @@ function AccountTab() {
  * 一切表示しない。メール / パスワード / 退会だけは認証レベルの操作なので web に
  * 委譲する(小さなリンク)。
  */
-function StoreLinkSection() {
+function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
   const { ready, loggedIn } = useMyProfile();
   const [busy, setBusy] = useState(false);
 
@@ -309,7 +313,7 @@ function StoreLinkSection() {
         desc="連携済みです。購入物をライブラリに取り込めます。本名・メールはアプリ内に表示・共有されません。"
       />
 
-      <PlanSection />
+      <PlanSection planSig={planSig} />
 
       <Section title="ログアウト" desc="この端末からサインアウトします。">
         <button className="btn acct-logout" onClick={() => void signOut()}>
@@ -322,17 +326,13 @@ function StoreLinkSection() {
   );
 }
 
-/**
- * 料金プラン(テスター用・課金なし)。選ぶと web API 経由で本人の plan を更新する。
- * Stripe Billing 実装後は購入フローに置き換える。
- */
 const PLAN_OPTIONS: { key: UserPlan; label: string; price: string; desc: string }[] = [
   { key: "basic", label: "基本", price: "無料", desc: "購入・ライブラリ・卓に参加" },
   { key: "play", label: "プレイ", price: "¥500/月", desc: "PLAY 解放(卓を立てる・全機能)" },
   { key: "pro", label: "Pro", price: "¥980/月", desc: "全部 + 出品手数料 20% など" },
 ];
 
-function PlanSection() {
+function PlanSection({ planSig = 0 }: { planSig?: number }) {
   const [plan, setPlan] = useState<UserPlan | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -340,37 +340,66 @@ function PlanSection() {
 
   useEffect(() => {
     void getMyAccount()
-      .then((a) => {
-        setPlan(a.plan);
-        setIsAdmin(a.isAdmin);
-      })
+      .then((a) => { setPlan(a.plan); setIsAdmin(a.isAdmin); })
       .catch(() => setPlan("basic"));
+  }, [planSig]);
+
+  // ウィンドウがフォーカスを取り戻したとき(ブラウザでの決済完了後)に再取得。
+  useEffect(() => {
+    function onFocus() {
+      void getMyAccount()
+        .then((a) => { setPlan(a.plan); setIsAdmin(a.isAdmin); })
+        .catch(() => {});
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  async function choose(p: UserPlan) {
+  async function choosePaid(p: "play" | "pro") {
     setBusy(true);
     setMsg(null);
     try {
-      const next = await setMyPlanTester(p);
-      setPlan(next);
-      setMsg("プランを変更しました(テスト中・料金は発生しません)。");
+      const r = await startPlanCheckout(p);
+      if (r.ok) {
+        // 外部ブラウザで Stripe を開く。戻り先は paradice://subscription/complete。
+        await openUrl(r.url);
+        setMsg("ブラウザで決済ページを開きました。完了後に自動でプランが更新されます。");
+      } else if (r.reason === "not_configured") {
+        // 課金未構成(テスト環境): テスター切替にフォールバック。
+        const next = await setMyPlanTester(p);
+        setPlan(next);
+        setMsg("プランを変更しました(テスト中・料金は発生しません)。");
+      } else {
+        setMsg(r.message);
+      }
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "変更に失敗しました。");
+      setMsg(e instanceof Error ? e.message : "申し込みに失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function managePortal() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await openPlanPortal();
+      if (r.ok) {
+        await openUrl(r.url);
+      } else {
+        setMsg(r.message);
+      }
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "管理ページを開けませんでした。");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Section
-      title="プラン"
-      desc="テスト期間中のため、選んでも料金は発生しません(動作確認用)。自動決済は準備中です。"
-    >
+    <Section title="プラン">
       {isAdmin && (
-        <p
-          className="tag ok"
-          style={{ display: "block", marginBottom: 8 }}
-        >
+        <p className="tag ok" style={{ display: "block", marginBottom: 8 }}>
           🛡 管理者アカウント — プラン不問で、すべての機能（PLAY のホスト等）をご利用いただけます。
         </p>
       )}
@@ -385,14 +414,26 @@ function PlanSection() {
               <span className="muted plan-row-desc">{p.desc}</span>
             </div>
             {plan === p.key ? (
-              <span className="tag ok">利用中</span>
-            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                <span className="tag ok">利用中</span>
+                {p.key !== "basic" && (
+                  <button
+                    className="btn mini"
+                    disabled={busy}
+                    onClick={() => void managePortal()}
+                    style={{ fontSize: 11 }}
+                  >
+                    契約を管理
+                  </button>
+                )}
+              </div>
+            ) : p.key === "basic" ? null : (
               <button
                 className="btn mini"
                 disabled={busy || plan === null}
-                onClick={() => void choose(p.key)}
+                onClick={() => void choosePaid(p.key as "play" | "pro")}
               >
-                このプランにする
+                申し込む
               </button>
             )}
           </div>

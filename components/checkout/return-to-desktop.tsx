@@ -18,20 +18,25 @@ export function ReturnToDesktop({
   kind,
   sessionId,
   slug,
+  subPlan,
 }: {
   kind: "complete" | "cancel";
   sessionId?: string;
   slug?: string;
+  subPlan?: string;
 }) {
   const [autoTried, setAutoTried] = React.useState(false);
 
   const href = React.useMemo(() => {
+    if (subPlan) {
+      return `paradice://subscription/complete?plan=${subPlan}`;
+    }
     const q = new URLSearchParams();
     if (sessionId) q.set("session_id", sessionId);
     if (slug) q.set("slug", slug);
     const qs = q.toString();
     return `paradice://purchase/${kind}${qs ? `?${qs}` : ""}`;
-  }, [kind, sessionId, slug]);
+  }, [kind, sessionId, slug, subPlan]);
 
   React.useEffect(() => {
     // ブラウザのポップアップブロックに引っかからない手段で発火。

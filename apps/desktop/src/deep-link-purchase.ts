@@ -21,20 +21,28 @@ const processedSessions = new Set<string>();
 export type PurchaseDeepLinkHandlers = {
   onComplete?: (info: { sessionId: string | null }) => void;
   onCancel?: (info: { slug: string | null }) => void;
+  onSubscriptionComplete?: (info: { plan: string | null }) => void;
 };
 
 function handleUrl(raw: string, handlers: PurchaseDeepLinkHandlers): void {
-  if (!raw.startsWith("paradice://purchase/")) return;
+  if (!raw.startsWith("paradice://purchase/") && !raw.startsWith("paradice://subscription/")) return;
   try {
     const u = new URL(raw);
-    const kind = u.pathname.replace(/^\/+/, ""); // "complete" or "cancel"
-    if (kind === "complete") {
+    const scheme = raw.startsWith("paradice://subscription/") ? "subscription" : "purchase";
+    const kind = u.pathname.replace(/^\/+/, "");
+    if (scheme === "subscription" && kind === "complete") {
+      const plan = u.searchParams.get("plan");
+      const dedupKey = `sub:${plan}:${Date.now()}`;
+      if (processedSessions.has(dedupKey)) return;
+      processedSessions.add(dedupKey);
+      handlers.onSubscriptionComplete?.({ plan });
+    } else if (scheme === "purchase" && kind === "complete") {
       const sessionId = u.searchParams.get("session_id");
       const dedupKey = sessionId ?? `complete:${Date.now()}`;
       if (processedSessions.has(dedupKey)) return;
       processedSessions.add(dedupKey);
       handlers.onComplete?.({ sessionId });
-    } else if (kind === "cancel") {
+    } else if (scheme === "purchase" && kind === "cancel") {
       handlers.onCancel?.({ slug: u.searchParams.get("slug") });
     }
   } catch (e) {

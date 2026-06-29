@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/session/get-user";
 import { PLATFORM_FEE_RATE, PRO_PLATFORM_FEE_RATE } from "@/lib/stripe/fees";
 import { PLAN_LABEL, PLAN_PRICE_JPY, type UserPlan } from "@/lib/plan";
 import { PlanSelectButton } from "@/components/plan/plan-select-button";
+import { isPlanBillingConfigured } from "@/lib/stripe/subscription";
 
 export const metadata = {
   title: "料金プラン",
@@ -97,6 +98,7 @@ const PLANS: {
 export default async function PricingPage() {
   const user = await getCurrentUser();
   const currentPlan = user?.plan ?? null;
+  const billingConfigured = isPlanBillingConfigured();
 
   return (
     <>
@@ -150,11 +152,13 @@ export default async function PricingPage() {
       </section>
 
       <div className="mx-auto w-full max-w-screen-2xl px-4 py-10 sm:px-6">
-        {/* テスター期間中の注記(課金は発生しない) */}
-        <div className="mx-auto max-w-3xl rounded-lg border border-amber-300/60 bg-amber-50/70 px-4 py-2.5 text-center text-xs text-amber-900">
-          テスト期間中です。プランを選んでも<strong>料金は発生しません</strong>
-          （動作確認用）。自動決済は準備中です。
-        </div>
+        {/* テスター期間の注記: 課金未構成(env 未設定)時のみ表示 */}
+        {!billingConfigured && (
+          <div className="mx-auto max-w-3xl rounded-lg border border-amber-300/60 bg-amber-50/70 px-4 py-2.5 text-center text-xs text-amber-900">
+            テスト期間中です。プランを選んでも<strong>料金は発生しません</strong>
+            （動作確認用）。自動決済は準備中です。
+          </div>
+        )}
 
         <div className="mx-auto mt-8 grid max-w-5xl items-stretch gap-5 sm:grid-cols-3">
           {PLANS.map((p) => (
@@ -167,6 +171,7 @@ export default async function PricingPage() {
               featured={p.featured}
               current={currentPlan === p.plan}
               loggedIn={Boolean(user)}
+              billingConfigured={billingConfigured}
             />
           ))}
         </div>
@@ -188,6 +193,7 @@ function PlanCard({
   featured,
   current,
   loggedIn,
+  billingConfigured,
 }: {
   plan: UserPlan;
   Icon: typeof Sparkles;
@@ -196,6 +202,7 @@ function PlanCard({
   featured?: boolean;
   current?: boolean;
   loggedIn: boolean;
+  billingConfigured: boolean;
 }) {
   const price = PLAN_PRICE_JPY[plan];
   const t = THEME[plan];
@@ -283,6 +290,7 @@ function PlanCard({
           current={!!current}
           loggedIn={loggedIn}
           accentClassName={t.btn}
+          billingConfigured={billingConfigured}
         />
       </div>
     </div>

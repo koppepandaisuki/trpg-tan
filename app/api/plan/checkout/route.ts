@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { isSameOriginRequest } from "@/lib/api/origin";
+import { createBearerClient } from "@/lib/supabase/bearer";
 import { getStripe } from "@/lib/stripe/client";
 import {
   getOrCreateCustomerId,
@@ -9,6 +10,23 @@ import {
   type PaidPlan,
 } from "@/lib/stripe/subscription";
 
+// デスクトップ(Bearer JWT)とブラウザ(Cookie + Origin)の両経路を統一。
+async function resolveUser(
+  request: NextRequest,
+): Promise<{ id: string; email: string | null } | null> {
+  const authHeader = request.headers.get("authorization") ?? "";
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const token = authHeader.slice(7).trim();
+    const {
+      data: { user },
+    } = await createBearerClient(token).auth.getUser();
+    return user ? { id: user.id, email: user.email ?? null } : null;
+  }
+  if (!isSameOriginRequest(request)) return null;
+  const u = await getCurrentUser();
+  return u ? { id: u.id, email: u.email ?? null } : null;
+}
+
 /**
  * POST /api/plan/checkout
  *
@@ -16,18 +34,12 @@ import {
  * クライアントはこの URL へ遷移する。デスクトップは外部ブラウザでこの導線(=/pricing)
  * を開き、決済後 return_to=desktop の deep-link でアプリに戻る。
  *
+ * Bearer JWT(デスクトップ)と Cookie セッション(ブラウザ)の両方を受け付ける。
  * Trust boundary: クライアントは plan のみ渡す。Price は env の Price ID から
  * サーバ側で解決し、ユーザーには触らせない。
  */
 export async function POST(request: NextRequest) {
-  if (!isSameOriginRequest(request)) {
-    return NextResponse.json(
-      { ok: false, message: "リクエストが拒否されました" },
-      { status: 403 },
-    );
-  }
-
-  const user = await getCurrentUser();
+  const user = await resolveUser(request);
   if (!user) {
     return NextResponse.json(
       { ok: false, message: "ログインが必要です" },
