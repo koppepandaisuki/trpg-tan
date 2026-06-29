@@ -6549,6 +6549,9 @@ button:disabled {
 /* ===== アプリシェル(Steam ライク: 上部ナビ + 全幅ページ + 下部バー) ===== */
 .app-shell {
   position: relative;
+  /* isolate でスタッキングコンテキストを作る。これが無いと .ambient-bg の
+     z-index:-1 が root まで抜けてシェル背景の裏に隠れ、装飾が見えない。 */
+  isolation: isolate;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -6567,7 +6570,7 @@ button:disabled {
 }
 .ambient-item {
   position: absolute;
-  opacity: 0.06;
+  opacity: 0.14;
   transform: rotate(var(--rot, 0deg));
   animation: ambient-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite;
   will-change: transform;
@@ -6600,10 +6603,10 @@ button:disabled {
 @keyframes ambient-twinkle {
   0%,
   100% {
-    opacity: 0.04;
+    opacity: 0.1;
   }
   50% {
-    opacity: 0.13;
+    opacity: 0.22;
   }
 }
 @media (prefers-reduced-motion: reduce) {

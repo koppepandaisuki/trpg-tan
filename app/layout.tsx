@@ -97,7 +97,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       {/* flex-col + min-h-screen で sticky footer パターン:
           コンテンツが短いページでもフッターを画面下に貼り付け、
           長いページではコンテンツの下に自然に流れる。 */}
-      <body className="flex min-h-screen flex-col bg-background">
+      <body className="isolate flex min-h-screen flex-col bg-background">
         {/* 背景の控えめな装飾(サイコロ・キラキラ)。body 背景の上・本文の下。 */}
         <AmbientBackground />
 
