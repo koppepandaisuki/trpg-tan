@@ -259,6 +259,8 @@ export function App() {
     }
     setPage(p);
     if (p === "store") setStoreHomeSig((n) => n + 1);
+    // PLAY を開くたびに卓一覧を最新化(ライブラリから取り込んだ卓も一覧に出す)。
+    if (p === "play") setPlayIndex(getPlayIndex());
     setDrawerOpen(false);
     setError(null);
   }
@@ -326,6 +328,30 @@ export function App() {
       setError(null);
     } catch (e) {
       setError(`卓を開けませんでした(移動/削除の可能性): ${String(e)}`);
+    }
+  }
+
+  /**
+   * フルパッケージ(卓入り)をライブラリで開いたとき、取り込んだ卓(.play)を
+   * そのまま PLAY 画面で開く。取り込み済みの卓は PLAY ロビーの「保存済みの卓」
+   * 一覧にも出るので、あとから一覧で開き直せる。
+   */
+  async function openPackPlay(playPath: string) {
+    setPlayIndex(getPlayIndex()); // 取り込んだ卓をロビー一覧へ反映
+    if (!isTauri()) {
+      setError("卓を開くにはデスクトップアプリが必要です");
+      return;
+    }
+    try {
+      const scene = await readPlayFromPath(playPath);
+      setSession({ scene, path: playPath });
+      setJoining(null);
+      setPlayMinimized(false);
+      setDrawerOpen(false);
+      setPage("play");
+      setError(null);
+    } catch (e) {
+      setError(`卓を開けませんでした: ${String(e)}`);
     }
   }
 
@@ -719,6 +745,7 @@ export function App() {
           <LibraryPage
             onView={(item, entry) => setViewing({ item, entry })}
             onGoStore={() => goTo("store")}
+            onOpenPlay={(playPath) => void openPackPlay(playPath)}
             refreshSignal={librarySig}
           />
         )}

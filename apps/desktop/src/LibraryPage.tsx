@@ -66,11 +66,17 @@ function relDay(iso: string): string {
 export function LibraryPage({
   onView,
   onGoStore,
+  onOpenPlay,
   refreshSignal,
 }: {
   onView?: (item: RemoteLibraryItem, entry: DownloadedEntry) => void;
   /** 空状態の「ストアを見る」(App がページ遷移)。 */
   onGoStore?: () => void;
+  /**
+   * フルパッケージ(卓入り)を開いたとき、取り込んだ卓(.play)をそのまま PLAY で
+   * 開くための導線。引数は取り込んだ卓の絶対パス。
+   */
+  onOpenPlay?: (playPath: string) => void;
   /** 親から購入完了など外部イベントで再 fetch させたい時にインクリメント。 */
   refreshSignal?: number;
 }) {
@@ -216,6 +222,13 @@ export function LibraryPage({
     if (isPackEntry(entry)) {
       try {
         const res = await importPackFromPath(entry.path);
+        // 卓(.play)が入っているフルパッケージは、取り込んだうえで最初の卓を
+        // そのまま PLAY で開く(リクエスト: 開いたら PLAY 画面へ直行)。
+        if (res.scenes.length > 0 && onOpenPlay) {
+          toast(`▶ 「${res.name}」を開きます`);
+          onOpenPlay(res.scenes[0].path);
+          return;
+        }
         const parts = [
           res.system ? "システム" : "",
           res.scenarios ? `シナリオ${res.scenarios}` : "",
