@@ -22,6 +22,8 @@ import {
   type CutIn,
 } from "@trpg/core";
 import { getLibrary } from "./library";
+import { JoinPromo } from "./JoinPromo";
+import { getMyAccount } from "./account-remote";
 import { setDiagContext } from "./diag";
 import { downscaleImage, probeImageWidth } from "./play-thumb";
 import { readSheetFromPath, isGenericSheet } from "./storage";
@@ -86,6 +88,24 @@ export function PlayClient({
 }) {
   const [phase, setPhase] = useState<Phase>("connecting");
   const [netError, setNetError] = useState<string | null>(null);
+  // 無料(basic / 未ログイン)参加者か。卓DL中のハウス広告(JoinPromo)の表示判定に使う。
+  // 課金(play/pro)・管理者には広告を出さない。
+  const [freeViewer, setFreeViewer] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const acct = await getMyAccount();
+        if (active) setFreeViewer(!acct.isAdmin && acct.plan === "basic");
+      } catch {
+        // 未ログイン等で取得できない場合は無料扱い(広告を出す)。
+        if (active) setFreeViewer(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   // 卓データ(スナップショット)の受信進捗。null=まだ届いていない / 受信中=チャンク数。
   const [progress, setProgress] = useState<{ received: number; total: number } | null>(
     null,
@@ -707,6 +727,13 @@ export function PlayClient({
           {phase === "error" && (
             <p className="tag fail">接続できませんでした: {netError}</p>
           )}
+
+          {/* 卓のダウンロード中だけ、無料参加者にハウス広告(注目作品＋プラン案内)。
+              受信が終わると phase==="ready" になりこの画面ごと閉じる。 */}
+          {freeViewer && (phase === "connecting" || phase === "waiting") && (
+            <JoinPromo />
+          )}
+
           <p className="muted" style={{ fontSize: 12 }}>
             参加コード: <code>{code}</code> / 名前: {name}
           </p>

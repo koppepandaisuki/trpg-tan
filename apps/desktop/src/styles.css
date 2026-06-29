@@ -9809,6 +9809,125 @@ button:disabled {
   box-shadow: var(--shadow-lg);
   font-size: 14.5px;
 }
+
+/* ===== 卓DL中のハウス広告(JoinPromo) ===== */
+.join-promo {
+  width: 340px;
+  max-width: 78vw;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.06));
+}
+.join-promo-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+.join-promo-head svg {
+  color: #0ea5e9;
+}
+.join-promo-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.join-promo-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+.join-promo-card.placeholder {
+  cursor: default;
+  color: var(--text-faint);
+  font-size: 12px;
+  justify-content: center;
+}
+.join-promo-card img,
+.join-promo-noimg {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-2, rgba(127, 127, 127, 0.1));
+}
+.join-promo-noimg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+.join-promo-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.join-promo-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.join-promo-sys {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+.join-promo-price {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0284c7;
+}
+.join-promo-dots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+.join-promo-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.join-promo-dots span.on {
+  background: #0ea5e9;
+}
+.join-promo-upsell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+}
+.join-promo-upsell:hover {
+  filter: brightness(1.05);
+}
+
 /* 参加者: 音量コントロール + 自動再生ブロック解除ボタン。 */
 .pclient-vol {
   display: inline-flex;
