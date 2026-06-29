@@ -36,6 +36,13 @@ import { useAuth } from "./useAuth";
  *     ゆうやけこやけ / ネクロニカ / エモクロア) + 保存したカスタム。
  * 右: 選択中システムの編集フォーム。プリセットは「複製して編集」。
  */
+/** 出品確認画面で見せるパッケージのプレビュー(gatherPack の結果)。 */
+type PackPreview = {
+  pack: ReturnType<typeof buildPack>;
+  scenarios: number;
+  sheets: number;
+};
+
 export function SystemBuilder({
   onCreateCharacter,
 }: {
@@ -50,7 +57,51 @@ export function SystemBuilder({
   const [pubOpen, setPubOpen] = useState(false);
   const [pubPrice, setPubPrice] = useState(0);
   const [publishing, setPublishing] = useState(false);
+  // 出品は 2 段階。"form"(価格入力) → "confirm"(内容確認)。誤作動での未完成品
+  // 投稿を防ぐため、確認画面を必ず一段階挟む。
+  const [pubPhase, setPubPhase] = useState<"form" | "confirm">("form");
+  const [pubPreview, setPubPreview] = useState<PackPreview | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const { session } = useAuth();
+
+  /** 出品ダイアログを閉じてフェーズもリセット。 */
+  function closePublish() {
+    setPubOpen(false);
+    setPubPhase("form");
+    setPubPreview(null);
+  }
+
+  /**
+   * 出品できる最低基準。満たさない項目の説明文を配列で返す(空なら出品可)。
+   * 誤作動・未完成品の出品を防ぐための最小限のチェック。
+   */
+  function publishIssues(): string[] {
+    if (!draft) return ["システムが選択されていません。"];
+    const errs: string[] = [];
+    const name = draft.name.trim();
+    if (name.length < 2) errs.push("システム名を 2 文字以上にしてください。");
+    const fields =
+      draft.attributes.length + draft.skills.length + draft.resources.length;
+    if (fields === 0)
+      errs.push("能力値・技能・リソースを合わせて 1 つ以上設定してください。");
+    return errs;
+  }
+
+  /** 価格入力 → 内容確認へ。パッケージを集めてプレビューを作る。 */
+  async function goConfirm() {
+    if (!draft) return;
+    setPreparing(true);
+    try {
+      const g = await gatherPack();
+      if (!g) return;
+      setPubPreview(g);
+      setPubPhase("confirm");
+    } catch (e) {
+      toast(`準備に失敗: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setPreparing(false);
+    }
+  }
 
   /** このシステム + 同システムの卓・プリジェネを集めてパッケージ化する。 */
   async function gatherPack(): Promise<{
@@ -107,18 +158,21 @@ export function SystemBuilder({
     }
   }
 
-  /** アプリ内で出品(下書き作成 + .paradice アップロード)。公開は web で確認後。 */
+  /**
+   * 確認画面からの最終出品(下書き作成 + .paradice アップロード)。公開は web で
+   * 確認後。確認画面で作ったプレビューをそのまま使う(再集計しない)。
+   */
   async function handlePublish() {
-    if (!draft) return;
+    if (!draft || !pubPreview) return;
+    // 最低基準を満たさないものはここでも弾く(二重の防御)。
+    if (publishIssues().length > 0) return;
     setPublishing(true);
     try {
-      const g = await gatherPack();
-      if (!g) return;
-      const r = await publishPack(g.pack, {
-        title: g.pack.name,
+      const r = await publishPack(pubPreview.pack, {
+        title: pubPreview.pack.name,
         priceJpy: pubPrice,
       });
-      setPubOpen(false);
+      closePublish();
       toast(
         "🛒 下書きを作成しました。ブラウザで表紙を設定して公開してください。",
       );
@@ -316,12 +370,13 @@ export function SystemBuilder({
               </button>
             </div>
 
-            {pubOpen && (
+            {pubOpen && pubPhase === "form" && (
               <div className="sysb-publish">
                 <p className="muted" style={{ fontSize: 12, margin: 0 }}>
                   このシステム＋同システムの卓・プリジェネを{" "}
-                  <b>フルパッケージ</b>として<b>下書き出品</b>します。公開は web
-                  のクリエイターページで表紙・価格を確認してから行ってください。
+                  <b>フルパッケージ</b>として<b>下書き出品</b>します。次の画面で
+                  内容を確認してから出品します。公開は web のクリエイターページで
+                  表紙・価格を確認してから行ってください。
                 </p>
                 <div className="sysb-publish-row">
                   <label className="sysb-label" style={{ maxWidth: 220 }}>
@@ -337,16 +392,85 @@ export function SystemBuilder({
                     />
                   </label>
                   <span style={{ flex: 1 }} />
-                  <button className="btn mini" onClick={() => setPubOpen(false)}>
+                  <button className="btn mini" onClick={closePublish}>
+                    キャンセル
+                  </button>
+                  <button
+                    className="btn mini btn-primary ibtn"
+                    onClick={() => void goConfirm()}
+                    disabled={preparing}
+                  >
+                    {preparing ? "準備中…" : "内容を確認する →"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {pubOpen && pubPhase === "confirm" && pubPreview && (
+              <div className="sysb-publish">
+                <p style={{ fontSize: 13, margin: 0, fontWeight: 700 }}>
+                  この内容で下書き出品します。よろしいですか？
+                </p>
+                <ul className="sysb-confirm-list">
+                  <li>
+                    <span>システム</span>
+                    <b>{pubPreview.pack.name}</b>
+                  </li>
+                  <li>
+                    <span>同梱シナリオ（卓）</span>
+                    <b>{pubPreview.scenarios} 件</b>
+                  </li>
+                  <li>
+                    <span>同梱プリジェネ</span>
+                    <b>{pubPreview.sheets} 件</b>
+                  </li>
+                  <li>
+                    <span>価格</span>
+                    <b>
+                      {pubPrice === 0
+                        ? "無料"
+                        : `¥${pubPrice.toLocaleString("ja-JP")}`}
+                    </b>
+                  </li>
+                </ul>
+
+                {publishIssues().length > 0 ? (
+                  <div className="sysb-issues">
+                    <p style={{ margin: "0 0 4px", fontWeight: 700 }}>
+                      ⚠ 出品の前に次を直してください
+                    </p>
+                    <ul>
+                      {publishIssues().map((m) => (
+                        <li key={m}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="muted" style={{ fontSize: 11.5, margin: 0 }}>
+                    出品すると<b>下書き</b>が作られ、ブラウザのクリエイターページが
+                    開きます。表紙・説明・価格を整えてから「公開」してください
+                    （この時点ではまだ販売されません）。
+                  </p>
+                )}
+
+                <div className="sysb-publish-row">
+                  <button
+                    className="btn mini"
+                    onClick={() => setPubPhase("form")}
+                  >
+                    ← 戻る
+                  </button>
+                  <span style={{ flex: 1 }} />
+                  <button className="btn mini" onClick={closePublish}>
                     キャンセル
                   </button>
                   <button
                     className="btn mini btn-primary ibtn"
                     onClick={() => void handlePublish()}
-                    disabled={publishing}
+                    disabled={publishing || publishIssues().length > 0}
                   >
                     <Store size={14} />{" "}
-                    {publishing ? "出品中…" : "下書きとして出品"}
+                    {publishing ? "出品中…" : "この内容で下書き出品"}
                   </button>
                 </div>
               </div>
