@@ -50,16 +50,18 @@ function normalizePlan(p: unknown): UserPlan {
   return p === "pro" ? "pro" : p === "play" ? "play" : "basic";
 }
 
-export type MyAccount = { plan: UserPlan; isAdmin: boolean };
+export type MyAccount = { plan: UserPlan; isAdmin: boolean; loggedIn: boolean };
 
 /**
- * 現在のアカウント情報(プラン + 管理者か)を取得。未ログイン/失敗時は
- * { plan:"basic", isAdmin:false }。管理者はプラン不問で全機能を使える。
+ * 現在のアカウント情報(プラン + 管理者か + ログイン有無)を取得。未ログイン/失敗時は
+ * { plan:"basic", isAdmin:false, loggedIn:false }。管理者はプラン不問で全機能を使える。
+ * loggedIn は「未ログイン」と「ログイン済み basic」を区別するために使う
+ * (未ログインはプラン案内ではなくログイン誘導を出す)。
  */
 export async function getMyAccount(): Promise<MyAccount> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  if (!token) return { plan: "basic", isAdmin: false };
+  if (!token) return { plan: "basic", isAdmin: false, loggedIn: false };
   try {
     const res = await fetch(`${WEB_BASE}/api/account/plan`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -70,12 +72,16 @@ export async function getMyAccount(): Promise<MyAccount> {
       admin?: boolean;
     };
     if (res.ok && body.ok) {
-      return { plan: normalizePlan(body.plan), isAdmin: Boolean(body.admin) };
+      return {
+        plan: normalizePlan(body.plan),
+        isAdmin: Boolean(body.admin),
+        loggedIn: true,
+      };
     }
   } catch {
-    // 取得失敗は未加入扱い(画面は出す)。
+    // 取得失敗は未加入扱い(画面は出す)。token はあるのでログイン済み。
   }
-  return { plan: "basic", isAdmin: false };
+  return { plan: "basic", isAdmin: false, loggedIn: true };
 }
 
 /** 現在のプランだけ取得(未ログイン/失敗時は basic)。 */

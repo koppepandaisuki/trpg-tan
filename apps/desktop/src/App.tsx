@@ -35,6 +35,7 @@ import { StorePanel } from "./StorePanel";
 import { findSystem } from "./systems-store";
 import { Settings as SettingsScreen, type SettingsTab } from "./Settings";
 import { Toasts, toast } from "./Toasts";
+import { LoginGate } from "./LoginGate";
 import { EmptyState } from "./EmptyState";
 import { FriendsButton } from "./FriendsPanel";
 import { initDeepLinkAuth } from "./auth";
@@ -1064,6 +1065,7 @@ export function App() {
         />
       )}
       <Toasts />
+      <LoginGate />
     </div>
   );
 }

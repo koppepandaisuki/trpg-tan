@@ -64,6 +64,7 @@ import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { DiceMotion } from "./DiceMotion";
 import { setDiagContext } from "./diag";
 import { getMyAccount } from "./account-remote";
+import { requireLogin } from "./LoginGate";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
 import { PlayPanel } from "./PlayPanel";
@@ -1206,8 +1207,12 @@ export function PlayTable({
     try {
       // マルチ卓のホスト(参加コード発行)は PLAY プラン以上が必要。無料(basic)は
       // 「参加のみ」。管理者(admin)はプラン不問で全機能可(ゲート免除・案内も出さない)。
-      // basic のときはエラー文ではなくプラン案内モーダルを出す。
+      // 未ログインはログイン誘導、ログイン済み basic はプラン案内を出す。
       const acct = await getMyAccount();
+      if (!acct.loggedIn) {
+        requireLogin("「みんなで遊ぶ」(卓を立てる)にはログインが必要です。");
+        return;
+      }
       if (!acct.isAdmin && acct.plan === "basic") {
         setPlanGateOpen(true);
         return;

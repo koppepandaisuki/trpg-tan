@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "./Toasts";
+import { requireLogin } from "./LoginGate";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { SkelGrid, SkelStoreHome } from "./Skeleton";
@@ -986,13 +987,16 @@ export function StorePanel({
                   <>
                     <button
                       className="btn btn-primary ibtn"
-                      onClick={() => {
-                        toast(
-                          "購入にはログインが必要です。右上のアカウントメニューからログインしてください",
-                        );
-                      }}
+                      onClick={() =>
+                        requireLogin(
+                          detail.priceJpy === 0
+                            ? "ダウンロードにはログインが必要です。"
+                            : "購入にはログインが必要です。",
+                        )
+                      }
                     >
-                      <ShoppingCart size={15} /> ログインして購入
+                      <ShoppingCart size={15} /> ログインして
+                      {detail.priceJpy === 0 ? "入手" : "購入"}
                     </button>
                     <p className="store-buynote">
                       ストアの閲覧はログイン無しで自由にできます。購入や

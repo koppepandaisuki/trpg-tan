@@ -10671,3 +10671,80 @@ button:disabled {
   line-height: 1.6;
   margin: 0;
 }
+
+/* ===== ログイン誘導モーダル(LoginGate) ===== */
+.login-gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(8, 16, 28, 0.55);
+  backdrop-filter: blur(3px);
+}
+.login-gate {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  padding: 28px 24px 20px;
+  text-align: center;
+}
+.login-gate-x {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 4px;
+  display: inline-flex;
+}
+.login-gate-x:hover {
+  background: var(--surface-2, rgba(120, 140, 170, 0.12));
+}
+.login-gate-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+}
+.login-gate-title {
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+.login-gate-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+.login-gate-btn {
+  width: 100%;
+  justify-content: center;
+}
+.login-gate-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 12px 0 0;
+}
+[data-theme="dark"] .login-gate-icon {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.35);
+}
