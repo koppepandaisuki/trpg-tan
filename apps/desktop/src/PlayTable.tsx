@@ -309,6 +309,11 @@ export function PlayTable({
     setScene((s) => ({ ...s, diceBot: id }));
     setDirty(true);
   }
+  /** 卓のシステム(保存カードの表示・判定版・既定ダイス)を変更。 */
+  function setSystemId(id: string) {
+    setScene((s) => (s.systemId === id ? s : { ...s, systemId: id }));
+    setDirty(true);
+  }
 
   function rollStat(panel: Panel, stat: PanelStat) {
     const edition = panel.edition ?? sceneEdition;
@@ -860,6 +865,15 @@ export function PlayTable({
           ...(size ? { size } : {}),
         }),
       );
+      // 卓のシステムを「最初に登場したキャラ」のシステムに合わせる。これが
+      // 保存カードの “卓名の下” の表示になる(従来は常に coc7 固定だった)。
+      // 既にキャラ駒があるときは触らない(システム混在・手動運用を尊重)。
+      const hadChar = scene.panels.some(
+        (p) => p.stats.length > 0 || p.resources.length > 0,
+      );
+      if (!hadChar && sheet.systemId && sheet.systemId !== scene.systemId) {
+        setSystemId(sheet.systemId);
+      }
       // システム付きキャラを取り込んだら、卓のダイスボットも自動で合わせる
       // (手動で選んでいた場合は上書きしない)。
       if (isGenericSheet(sheet) && sheet.diceBot && !scene.diceBot) {
