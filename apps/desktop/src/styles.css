@@ -6548,11 +6548,68 @@ button:disabled {
 
 /* ===== アプリシェル(Steam ライク: 上部ナビ + 全幅ページ + 下部バー) ===== */
 .app-shell {
+  position: relative;
   height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--bg);
+}
+
+/* 背景の控えめな装飾(サイコロ・キラキラ)。z-index:-1 でシェル背景の上・
+   本文の下に敷く(本文側の z は触らない)。PLAY レイヤは前面を覆うので卓には出ない。 */
+.ambient-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+.ambient-item {
+  position: absolute;
+  opacity: 0.06;
+  transform: rotate(var(--rot, 0deg));
+  animation: ambient-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite;
+  will-change: transform;
+}
+.ai-dice {
+  color: #0ea5e9;
+}
+.ai-spark {
+  color: #22d3ee;
+}
+.ai-star {
+  color: #6366f1;
+}
+/* キラキラ系は薄く明滅(サイコロは浮遊のみ)。 */
+.ai-spark,
+.ai-star {
+  animation:
+    ambient-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite,
+    ambient-twinkle calc(var(--d, 14s) / 2) ease-in-out var(--delay, 0s) infinite;
+}
+@keyframes ambient-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--rot, 0deg));
+  }
+  50% {
+    transform: translateY(-14px) rotate(calc(var(--rot, 0deg) + 6deg));
+  }
+}
+@keyframes ambient-twinkle {
+  0%,
+  100% {
+    opacity: 0.04;
+  }
+  50% {
+    opacity: 0.13;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ambient-item {
+    animation: none;
+  }
 }
 .app-shell .ptable {
   height: 100%;

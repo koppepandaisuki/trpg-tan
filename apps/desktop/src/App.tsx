@@ -29,6 +29,7 @@ import {
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { AuthControl } from "./AuthControl";
 import { AccountMenu } from "./AccountMenu";
+import { AmbientBg } from "./AmbientBg";
 import { Viewer } from "./Viewer";
 import { StorePanel } from "./StorePanel";
 import { findSystem } from "./systems-store";
@@ -654,6 +655,9 @@ export function App() {
      PLAY レイヤは常にこの上に重ね、退避中だけ隠す。 ===== */
   return (
     <div className="app-shell">
+      {/* 背景の控えめな装飾(サイコロ・キラキラ)。PLAY レイヤが前面を覆うので
+          卓の上には出ない。 */}
+      <AmbientBg />
       {/* 上部ナビ */}
       <header className="topbar">
         <span
