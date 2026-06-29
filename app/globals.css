@@ -96,7 +96,7 @@
 /* ===== 背景の控えめな装飾(サイコロ・キラキラ) ===== */
 .amb-item {
   position: absolute;
-  opacity: 0.07;
+  opacity: 0.15;
   transform: rotate(var(--rot, 0deg));
   animation: amb-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite;
   will-change: transform;
@@ -129,10 +129,10 @@
 @keyframes amb-twinkle {
   0%,
   100% {
-    opacity: 0.05;
+    opacity: 0.1;
   }
   50% {
-    opacity: 0.14;
+    opacity: 0.24;
   }
 }
 @media (prefers-reduced-motion: reduce) {
