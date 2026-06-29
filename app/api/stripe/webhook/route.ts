@@ -10,6 +10,10 @@ import {
   handleChargeRefunded,
   handleAccountUpdated,
 } from "@/lib/stripe/webhook";
+import {
+  handleSubscriptionChange,
+  handleSubscriptionDeleted,
+} from "@/lib/stripe/subscription";
 
 /**
  * POST /api/stripe/webhook
@@ -88,6 +92,22 @@ export async function POST(request: NextRequest) {
         // No-op for accounts not in our DB (warn log + 200 ack).
         const account = event.data.object as Stripe.Account;
         await handleAccountUpdated(account);
+        break;
+      }
+
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        // 月額プラン(play/pro)の付与/状態同期。status が有効なら付与、
+        // 支払い不能・解約済みなら basic に落とす。
+        const sub = event.data.object as Stripe.Subscription;
+        await handleSubscriptionChange(sub);
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        // 解約確定 → basic へダウングレード。
+        const sub = event.data.object as Stripe.Subscription;
+        await handleSubscriptionDeleted(sub);
         break;
       }
 
