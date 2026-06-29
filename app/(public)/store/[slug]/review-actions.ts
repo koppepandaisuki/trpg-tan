@@ -7,6 +7,7 @@ import { isAlreadyPurchased } from "@/lib/access/purchase-access";
 import {
   reviewSubmitSchema,
   reviewReplySchema,
+  ratingFromStars,
   type ReviewSubmitInput,
   type ReviewReplyInput,
 } from "@/lib/validators/review";
@@ -55,7 +56,9 @@ export async function submitReviewAction(
     {
       product_id: productId,
       user_id: user.id,
-      rating: parsed.data.rating,
+      stars: parsed.data.stars,
+      // rating は後方互換のため星から導出して保存(NOT NULL 制約 + 旧集計用)。
+      rating: ratingFromStars(parsed.data.stars),
       comment: parsed.data.comment,
     },
     { onConflict: "product_id,user_id" },

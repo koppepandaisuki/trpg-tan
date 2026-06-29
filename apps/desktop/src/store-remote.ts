@@ -30,6 +30,8 @@ export type ReviewLabel =
 export interface StoreReviewSummary {
   total: number;
   positive: number;
+  /** 平均星(1–5)。レビュー 0 件のときは 0。*/
+  avgStars: number;
   label: ReviewLabel;
 }
 
@@ -48,6 +50,8 @@ export interface StoreItem {
 
 export interface StoreReview {
   id: string;
+  /** 5 段階の星評価(1..5)。*/
+  stars: number;
   rating: "positive" | "negative";
   comment: string;
   createdAt: string;
@@ -94,16 +98,24 @@ function screenshotUrl(path: string): string {
 
 /* ===== 集計(Web の computeReviewLabel と同一基準) ===== */
 
-function computeReviewLabel(positive: number, total: number): ReviewLabel {
+/** 後方互換: 旧 rating しか無い行の星フォールバック。*/
+function starsOf(row: { stars: number | null; rating: string }): number {
+  if (typeof row.stars === "number" && row.stars >= 1 && row.stars <= 5) {
+    return row.stars;
+  }
+  return row.rating === "positive" ? 5 : 2;
+}
+
+/** 平均星(1–5)から Steam 風の総合評価ラベルを算出(web と同基準)。*/
+function computeStarLabel(avgStars: number, total: number): ReviewLabel {
   if (total === 0) return "評価なし";
-  if (total < 5) return "評価不足";
-  const ratio = positive / total;
-  if (ratio >= 0.95) return "圧倒的に好評";
-  if (ratio >= 0.8) return "非常に好評";
-  if (ratio >= 0.7) return "ほぼ好評";
-  if (ratio >= 0.4) return "賛否両論";
-  if (ratio >= 0.2) return "やや不評";
-  if (ratio >= 0.05) return "不評";
+  if (total < 3) return "評価不足";
+  if (avgStars >= 4.5) return "圧倒的に好評";
+  if (avgStars >= 4.0) return "非常に好評";
+  if (avgStars >= 3.5) return "ほぼ好評";
+  if (avgStars >= 2.5) return "賛否両論";
+  if (avgStars >= 2.0) return "やや不評";
+  if (avgStars >= 1.5) return "不評";
   return "圧倒的に不評";
 }
 
@@ -114,22 +126,33 @@ async function fetchReviewSummaries(
   if (productIds.length === 0) return result;
   const { data, error } = await supabase
     .from("product_reviews")
-    .select("product_id, rating")
+    .select("product_id, stars, rating")
     .in("product_id", productIds);
   if (error) return result;
 
-  const counts = new Map<string, { positive: number; total: number }>();
+  const counts = new Map<
+    string,
+    { positive: number; total: number; starSum: number }
+  >();
   for (const row of data ?? []) {
-    const c = counts.get(row.product_id) ?? { positive: 0, total: 0 };
+    const c = counts.get(row.product_id) ?? {
+      positive: 0,
+      total: 0,
+      starSum: 0,
+    };
+    const s = starsOf(row);
     c.total++;
-    if (row.rating === "positive") c.positive++;
+    c.starSum += s;
+    if (s >= 4) c.positive++;
     counts.set(row.product_id, c);
   }
   for (const [id, c] of counts.entries()) {
+    const avgStars = c.total === 0 ? 0 : c.starSum / c.total;
     result.set(id, {
       total: c.total,
       positive: c.positive,
-      label: computeReviewLabel(c.positive, c.total),
+      avgStars,
+      label: computeStarLabel(avgStars, c.total),
     });
   }
   return result;
@@ -319,11 +342,11 @@ async function fetchByRating(args: {
   const sorted = [...allIds].sort((a, b) => {
     const ra = reviewMap.get(a);
     const rb = reviewMap.get(b);
-    const ratioA = ra && ra.total > 0 ? ra.positive / ra.total : -1;
-    const ratioB = rb && rb.total > 0 ? rb.positive / rb.total : -1;
-    if (ratioA !== ratioB) return ratioB - ratioA;
-    const countA = ra?.positive ?? 0;
-    const countB = rb?.positive ?? 0;
+    const starA = ra && ra.total > 0 ? ra.avgStars : -1;
+    const starB = rb && rb.total > 0 ? rb.avgStars : -1;
+    if (starA !== starB) return starB - starA;
+    const countA = ra?.total ?? 0;
+    const countB = rb?.total ?? 0;
     if (countA !== countB) return countB - countA;
     return (publishedMap.get(b) ?? "").localeCompare(publishedMap.get(a) ?? "");
   });
@@ -450,7 +473,7 @@ export async function fetchStoreDetail(
 async function fetchReviews(productId: string): Promise<StoreReview[]> {
   const { data: rows, error } = await supabase
     .from("product_reviews")
-    .select("id, user_id, rating, comment, created_at")
+    .select("id, user_id, stars, rating, comment, created_at")
     .eq("product_id", productId)
     .order("created_at", { ascending: false });
   if (error || !rows || rows.length === 0) return [];
@@ -489,6 +512,7 @@ async function fetchReviews(productId: string): Promise<StoreReview[]> {
 
   return rows.map((r) => ({
     id: r.id,
+    stars: starsOf(r),
     rating: r.rating as "positive" | "negative",
     comment: r.comment ?? "",
     createdAt: r.created_at,
@@ -652,32 +676,122 @@ export interface StoreHome {
   trending: StoreItem[];
   recent: StoreItem[];
   topRated: StoreItem[];
+  topCreators: TopCreatorEntry[];
   byCategory: { category: RemoteProductType; items: StoreItem[] }[];
 }
 
 /** ホーム一式をまとめて取得(α 規模なので並列に投げるだけ)。 */
 export async function fetchStoreHome(): Promise<StoreHome> {
-  const [featured, trending, recent, topRated, ...cats] = await Promise.all([
-    fetchFeaturedItems(6),
-    fetchTrendingItems(12),
-    fetchRecentItems(12),
-    fetchTopRatedItems(12),
-    ...HOME_CATEGORIES.map((c) =>
-      fetchByRating({ page: 1, pageSize: 8, category: c, searchIds: null }).then(
-        (r) => r.items,
+  const [featured, trending, recent, topRated, topCreators, ...cats] =
+    await Promise.all([
+      fetchFeaturedItems(6),
+      fetchTrendingItems(12),
+      fetchRecentItems(12),
+      fetchTopRatedItems(12),
+      fetchTopCreators(3),
+      ...HOME_CATEGORIES.map((c) =>
+        fetchByRating({ page: 1, pageSize: 8, category: c, searchIds: null }).then(
+          (r) => r.items,
+        ),
       ),
-    ),
-  ]);
+    ]);
   return {
     featured,
     trending,
     recent,
     topRated,
+    topCreators,
     byCategory: HOME_CATEGORIES.map((category, i) => ({
       category,
       items: cats[i] ?? [],
     })).filter((c) => c.items.length > 0),
   };
+}
+
+/* ===== 人気クリエイター TOP N(Web の getTopCreators 移植) ===== */
+
+export interface TopCreatorEntry {
+  rank: number;
+  creator: { id: string; displayName: string; avatarUrl: string | null };
+  totalSales: number;
+  /** その creator のベストセラー作品(クリックで詳細を開ける)。 */
+  topProduct: StoreItem;
+}
+
+/**
+ * paid 購入の多い creator を上位 N 件、各 creator のベストセラー作品つきで返す。
+ * Web の lib/queries/top-creators.ts と同じ集計手順を anon client で行う。
+ * purchases が読めない / 0 件のときは空配列(セクション非表示)。
+ */
+export async function fetchTopCreators(limit = 3): Promise<TopCreatorEntry[]> {
+  const { data: purchases, error } = await supabase
+    .from("purchases")
+    .select("product_id")
+    .eq("status", "paid")
+    .limit(5000);
+  if (error || !purchases || purchases.length === 0) return [];
+
+  const productIds = Array.from(new Set(purchases.map((p) => p.product_id)));
+  const { data: productRows } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .in("id", productIds);
+  if (!productRows || productRows.length === 0) return [];
+
+  // product 別の購入数。
+  const productCounts = new Map<string, number>();
+  for (const p of purchases) {
+    productCounts.set(p.product_id, (productCounts.get(p.product_id) ?? 0) + 1);
+  }
+
+  // creator 別の合計売上 + ベストセラー作品(最多購入の作品)。
+  const creatorSales = new Map<string, number>();
+  const creatorTopRow = new Map<string, ListRow>();
+  const creatorTopCount = new Map<string, number>();
+  for (const row of productRows as ListRow[]) {
+    const count = productCounts.get(row.id) ?? 0;
+    creatorSales.set(
+      row.creator_id,
+      (creatorSales.get(row.creator_id) ?? 0) + count,
+    );
+    const currentTop = creatorTopCount.get(row.creator_id) ?? -1;
+    if (count > currentTop) {
+      creatorTopCount.set(row.creator_id, count);
+      creatorTopRow.set(row.creator_id, row);
+    }
+  }
+
+  const sortedCreatorIds = Array.from(creatorSales.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
+  if (sortedCreatorIds.length === 0) return [];
+
+  // ベストセラー行を StoreItem 化(プロフィール / レビューもまとめて解決)。
+  const topRows = sortedCreatorIds
+    .map((id) => creatorTopRow.get(id))
+    .filter((r): r is ListRow => Boolean(r));
+  const items = await toStoreItems(topRows);
+  const itemById = new Map(items.map((it) => [it.id, it] as const));
+
+  return sortedCreatorIds.flatMap((creatorId, i) => {
+    const topRow = creatorTopRow.get(creatorId);
+    const topProduct = topRow ? itemById.get(topRow.id) : undefined;
+    if (!topProduct) return [];
+    return [
+      {
+        rank: i + 1,
+        creator: {
+          id: topProduct.creator.id,
+          displayName: topProduct.creator.displayName,
+          avatarUrl: topProduct.creator.avatarUrl,
+        },
+        totalSales: creatorSales.get(creatorId) ?? 0,
+        topProduct,
+      },
+    ];
+  });
 }
 
 /** カードホバー用: 商品のスクリーンショット URL(最大 5 枚)。 */
@@ -730,6 +844,70 @@ export async function fetchStoreCreators(): Promise<StoreCreator[]> {
     .sort((a, b) => b.workCount - a.workCount);
 }
 
+/* ===== レビュー投稿(アプリ内・購入済みのみ。RLS で購入を要求) ===== */
+
+export interface MyReview {
+  stars: number;
+  comment: string;
+}
+
+/** 自分のレビュー(あれば)。投稿フォームの初期値に使う。 */
+export async function fetchMyReview(
+  productId: string,
+  userId: string,
+): Promise<MyReview | null> {
+  const { data, error } = await supabase
+    .from("product_reviews")
+    .select("stars, rating, comment")
+    .eq("product_id", productId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return { stars: starsOf(data), comment: data.comment ?? "" };
+}
+
+/**
+ * レビューを投稿 / 上書き(購入済みのみ)。star(1..5)を保存し、後方互換の
+ * rating(>=4 を高評価)も導出して書く。購入していない場合は RLS で弾かれ、
+ * その旨を throw する。
+ */
+export async function submitReview(
+  productId: string,
+  userId: string,
+  stars: number,
+  comment: string,
+): Promise<void> {
+  const s = Math.max(1, Math.min(5, Math.round(stars)));
+  const { error } = await supabase.from("product_reviews").upsert(
+    {
+      product_id: productId,
+      user_id: userId,
+      stars: s,
+      rating: s >= 4 ? "positive" : "negative",
+      comment: comment.slice(0, 2000),
+    },
+    { onConflict: "product_id,user_id" },
+  );
+  if (error) {
+    throw new Error(
+      "レビューを保存できませんでした。購入済みの作品のみレビューできます。",
+    );
+  }
+}
+
+/** 自分のレビューを削除。 */
+export async function deleteMyReview(
+  productId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("product_reviews")
+    .delete()
+    .eq("product_id", productId)
+    .eq("user_id", userId);
+  if (error) throw new Error("レビューの削除に失敗しました。");
+}
+
 /** 自分の paid 購入の product_id 集合(購入済みバッジ用)。 */
 export async function fetchMyPurchasedIds(userId: string): Promise<Set<string>> {
   const { data } = await supabase
@@ -745,8 +923,14 @@ export function formatPriceJpy(jpy: number): string {
   return jpy === 0 ? "無料" : `¥${jpy.toLocaleString("ja-JP")}`;
 }
 
-/** Web 版の商品ページ URL(決済はブラウザで行う)。 */
+/**
+ * Web 版の商品ページ URL(決済はブラウザで行う)。
+ *
+ * `?from=desktop` を付けることで、web 側 buy-button が checkout API に
+ * `returnTo: "desktop"` を伝え、決済成功/キャンセル時に
+ * paradice://purchase/* deep link でアプリへ自動で戻れる。
+ */
 export function webProductUrl(slug: string): string {
   const base = import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000";
-  return `${base}/store/${slug}`;
+  return `${base}/store/${slug}?from=desktop`;
 }

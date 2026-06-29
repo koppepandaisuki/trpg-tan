@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { useEffect, useRef, useState } from "react";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   UserCog,
   Monitor,
@@ -13,9 +13,37 @@ import {
   Sun,
   Moon,
   Trash2,
+  UserRound,
+  ImagePlus,
+  HardDrive,
+  FolderOpen,
+  FolderCog,
+  RotateCcw,
+  Bug,
+  Send,
+  Copy,
 } from "lucide-react";
+import { hasWebhook, sendReport, collectReport } from "./diag";
+import {
+  getLibraryRoot,
+  pickLibraryRoot,
+  resetLibraryRoot,
+} from "./library-root";
+import { toast } from "./Toasts";
 import { useMyProfile } from "./useMyProfile";
-import { signInWithGoogle, signOut } from "./auth";
+import {
+  useLocalProfile,
+  setLocalNickname,
+  setLocalAvatar,
+  fileToAvatarDataUrl,
+} from "./local-profile";
+import { openWebLogin, signOut } from "./auth";
+import {
+  deleteMyAccount,
+  getMyAccount,
+  setMyPlanTester,
+  type UserPlan,
+} from "./account-remote";
 import { supabaseConfigured } from "./supabase";
 import {
   getSoundSettings,
@@ -24,21 +52,36 @@ import {
   type SoundSettings as Sound,
   type SuccessSoundType,
 } from "./sound-settings";
+import {
+  getVolumeSettings,
+  setVolumeSettings,
+  onVolumeChange,
+  type VolumeSettings,
+} from "./volume-settings";
 import { playSuccess, playCritical, playFumble } from "./dice-sound";
 import { getQuickRolls, saveQuickRolls } from "./quick-rolls";
+import { Volume1, VolumeX } from "lucide-react";
 
 const WEB_BASE = (
   import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
 ).replace(/\/$/, "");
-const NET_NAME_KEY = "trpg.net.name.v1";
 
-export type SettingsTab = "account" | "display" | "sound" | "play" | "about";
+export type SettingsTab =
+  | "account"
+  | "display"
+  | "sound"
+  | "play"
+  | "storage"
+  | "report"
+  | "about";
 
 const TABS: { key: SettingsTab; label: string; icon: typeof UserCog }[] = [
   { key: "account", label: "アカウント", icon: UserCog },
   { key: "display", label: "画面・テーマ", icon: Monitor },
   { key: "sound", label: "サウンド", icon: Volume2 },
   { key: "play", label: "プレイ・マルチ", icon: Dices },
+  { key: "storage", label: "ストレージ", icon: HardDrive },
+  { key: "report", label: "不具合報告", icon: Bug },
   { key: "about", label: "情報", icon: Info },
 ];
 
@@ -99,6 +142,8 @@ export function Settings({
             )}
             {tab === "sound" && <SoundTab />}
             {tab === "play" && <PlayTab />}
+            {tab === "storage" && <StorageTab />}
+            {tab === "report" && <ReportTab />}
             {tab === "about" && <AboutTab />}
           </div>
         </div>
@@ -121,7 +166,7 @@ function Section({
 }: {
   title: string;
   desc?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <section className="set2-sec">
@@ -133,70 +178,321 @@ function Section({
 }
 
 function AccountTab() {
-  const { ready, loggedIn, name, email, avatarUrl, initial } = useMyProfile();
+  const { nickname, avatar } = useLocalProfile();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [imgErr, setImgErr] = useState<string | null>(null);
+
+  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // 同じファイルを選び直せるようにリセット
+    if (!file) return;
+    setImgErr(null);
+    try {
+      const url = await fileToAvatarDataUrl(file);
+      setLocalAvatar(url);
+    } catch {
+      setImgErr("画像を読み込めませんでした。別の画像を試してください。");
+    }
+  }
+
+  return (
+    <>
+      <Section
+        title="プロフィール"
+        desc="この端末での表示名とアイコンです。卓(PLAY)に参加するときの名前にも使われます。ログインしても本名・メールはアプリ内に表示されません。"
+      >
+        <div className="set2-id">
+          <span className="acct-av lg">
+            {avatar ? (
+              <img src={avatar} alt="" />
+            ) : (
+              <UserRound size={26} aria-hidden />
+            )}
+          </span>
+          <div className="acct-id-text" style={{ gap: 8 }}>
+            <input
+              className="input"
+              value={nickname}
+              maxLength={40}
+              onChange={(e) => setLocalNickname(e.target.value)}
+              placeholder="ニックネーム（例: GM太郎）"
+            />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <button
+                className="btn mini"
+                onClick={() => fileRef.current?.click()}
+              >
+                <ImagePlus size={14} /> 画像を選ぶ
+              </button>
+              {avatar && (
+                <button
+                  className="btn mini"
+                  onClick={() => setLocalAvatar(null)}
+                >
+                  <Trash2 size={14} /> 画像を削除
+                </button>
+              )}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={onPickImage}
+              />
+            </div>
+            {!avatar && (
+              <span className="muted" style={{ fontSize: 11 }}>
+                画像未選択のときはゲストアイコンが表示されます。
+              </span>
+            )}
+            {imgErr && (
+              <span style={{ color: "#e5484d", fontSize: 11 }}>{imgErr}</span>
+            )}
+          </div>
+        </div>
+      </Section>
+
+      <StoreLinkSection />
+    </>
+  );
+}
+
+/**
+ * ストア連携(ログイン)。購入物のライブラリ取込に必要だが、本名 / メールは
+ * 一切表示しない。メール / パスワード / 退会だけは認証レベルの操作なので web に
+ * 委譲する(小さなリンク)。
+ */
+function StoreLinkSection() {
+  const { ready, loggedIn } = useMyProfile();
   const [busy, setBusy] = useState(false);
 
   if (!supabaseConfigured) {
     return (
-      <Section title="アカウント">
-        <p className="muted">
-          ログイン未設定です(VITE_SUPABASE_URL / ANON_KEY)。
-        </p>
+      <Section
+        title="ストア連携"
+        desc="ストア / ライブラリを使うにはログインが必要です。"
+      >
+        <p className="muted">ログイン未設定です(VITE_SUPABASE_URL / ANON_KEY)。</p>
       </Section>
     );
   }
-  if (!ready) return <Section title="アカウント"><p className="muted">…</p></Section>;
-
+  if (!ready) {
+    return (
+      <Section title="ストア連携">
+        <p className="muted">…</p>
+      </Section>
+    );
+  }
   if (!loggedIn) {
     return (
-      <Section title="アカウント" desc="ログインするとライブラリ取込や出品が使えます。">
+      <Section
+        title="ストア連携"
+        desc="ログインするとストアの購入物をライブラリに取り込めます。ブラウザでログイン(メール / Google)すると自動でアプリに戻り、web とアプリの両方がログイン済みになります。本名・メールはアプリ内に表示されません。"
+      >
         <button
           className="btn btn-primary"
           disabled={busy}
           onClick={() => {
             setBusy(true);
-            void signInWithGoogle().finally(() => setBusy(false));
+            void openWebLogin().finally(() => setBusy(false));
           }}
         >
-          {busy ? "ブラウザを開いています…" : "Google でログイン"}
+          {busy ? "ブラウザを開いています…" : "ログイン"}
         </button>
       </Section>
     );
   }
-
   return (
     <>
-      <div className="set2-id">
-        <span className="acct-av lg">
-          {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{initial}</span>}
-        </span>
-        <div className="acct-id-text">
-          <span className="acct-id-name">{name}</span>
-          <span className="acct-id-mail" title={email}>
-            {email}
-          </span>
-        </div>
-      </div>
-
       <Section
-        title="プロフィール・アカウント"
-        desc="表示名・アイコン・メール / パスワード・退会は web の設定で変更できます。"
-      >
-        <button
-          className="set2-link"
-          onClick={() => void openUrl(`${WEB_BASE}/settings`)}
-        >
-          <UserCog size={16} /> プロフィール・アカウントを編集
-          <ExternalLink size={14} className="set2-link-ext" />
-        </button>
-      </Section>
+        title="ストア連携"
+        desc="連携済みです。購入物をライブラリに取り込めます。本名・メールはアプリ内に表示・共有されません。"
+      />
+
+      <PlanSection />
 
       <Section title="ログアウト" desc="この端末からサインアウトします。">
         <button className="btn acct-logout" onClick={() => void signOut()}>
           <LogOut size={15} /> ログアウト
         </button>
       </Section>
+
+      <DeleteAccountSection />
     </>
+  );
+}
+
+/**
+ * 料金プラン(テスター用・課金なし)。選ぶと web API 経由で本人の plan を更新する。
+ * Stripe Billing 実装後は購入フローに置き換える。
+ */
+const PLAN_OPTIONS: { key: UserPlan; label: string; price: string; desc: string }[] = [
+  { key: "basic", label: "基本", price: "無料", desc: "購入・ライブラリ・卓に参加" },
+  { key: "play", label: "プレイ", price: "¥500/月", desc: "PLAY 解放(卓を立てる・全機能)" },
+  { key: "pro", label: "Pro", price: "¥980/月", desc: "全部 + 出品手数料 20% など" },
+];
+
+function PlanSection() {
+  const [plan, setPlan] = useState<UserPlan | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getMyAccount()
+      .then((a) => {
+        setPlan(a.plan);
+        setIsAdmin(a.isAdmin);
+      })
+      .catch(() => setPlan("basic"));
+  }, []);
+
+  async function choose(p: UserPlan) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const next = await setMyPlanTester(p);
+      setPlan(next);
+      setMsg("プランを変更しました(テスト中・料金は発生しません)。");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "変更に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section
+      title="プラン"
+      desc="テスト期間中のため、選んでも料金は発生しません(動作確認用)。自動決済は準備中です。"
+    >
+      {isAdmin && (
+        <p
+          className="tag ok"
+          style={{ display: "block", marginBottom: 8 }}
+        >
+          🛡 管理者アカウント — プラン不問で、すべての機能（PLAY のホスト等）をご利用いただけます。
+        </p>
+      )}
+      <div className="plan-rows">
+        {PLAN_OPTIONS.map((p) => (
+          <div key={p.key} className={`plan-row ${plan === p.key ? "on" : ""}`}>
+            <div className="plan-row-main">
+              <span className="plan-row-head">
+                <b>{p.label}</b>
+                <span className="muted">{p.price}</span>
+              </span>
+              <span className="muted plan-row-desc">{p.desc}</span>
+            </div>
+            {plan === p.key ? (
+              <span className="tag ok">利用中</span>
+            ) : (
+              <button
+                className="btn mini"
+                disabled={busy || plan === null}
+                onClick={() => void choose(p.key)}
+              >
+                このプランにする
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      {msg && (
+        <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>
+          {msg}
+        </p>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * 退会(アカウント削除)。アプリ内で完結する(web を開かない)。確認フレーズを
+ * 入力させ、サーバーの退会 API を本人の JWT で叩く。成功でサインアウト。
+ * 作品保有 creator はサーバー側で弾かれ、その旨が表示される。
+ */
+function DeleteAccountSection() {
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function onDelete() {
+    setErr(null);
+    setBusy(true);
+    try {
+      await deleteMyAccount(confirm);
+      setDone(true);
+      await signOut();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "退会処理に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <Section title="退会">
+        <p className="muted">退会が完了しました。ご利用ありがとうございました。</p>
+      </Section>
+    );
+  }
+
+  return (
+    <Section
+      title="退会（アカウント削除）"
+      desc="アカウントを完全に削除します。元に戻せません。"
+    >
+      {!open ? (
+        <button className="btn acct-logout" onClick={() => setOpen(true)}>
+          <Trash2 size={15} /> 退会する…
+        </button>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            maxWidth: 360,
+          }}
+        >
+          <p className="muted" style={{ fontSize: 12 }}>
+            続けるには下の欄に「退会する」と入力してください。元に戻せません。
+            作品を公開・登録中の場合は退会できません(先に作品を削除してください)。
+          </p>
+          <input
+            className="input"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            placeholder="退会する"
+          />
+          {err && <span style={{ color: "#e5484d", fontSize: 11 }}>{err}</span>}
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              className="btn acct-logout"
+              disabled={busy || confirm.trim() !== "退会する"}
+              onClick={() => void onDelete()}
+            >
+              {busy ? "処理中…" : "完全に削除する"}
+            </button>
+            <button
+              className="btn"
+              disabled={busy}
+              onClick={() => {
+                setOpen(false);
+                setConfirm("");
+                setErr(null);
+              }}
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
+    </Section>
   );
 }
 
@@ -238,7 +534,9 @@ function SoundTab() {
   }
 
   return (
-    <Section
+    <>
+      <VolumeSection />
+      <Section
       title="効果音"
       desc="判定の成功 / クリティカル / ファンブル音。ダイスの転がり音は常に鳴ります。"
     >
@@ -314,38 +612,270 @@ function SoundTab() {
         </div>
       </div>
     </Section>
+    </>
   );
 }
 
-function PlayTab() {
-  const [netName, setNetName] = useState(
-    () => localStorage.getItem(NET_NAME_KEY) ?? "",
-  );
-  const [favCount, setFavCount] = useState(() => getQuickRolls().length);
+/**
+ * 音量設定 Section。マスター / BGM / SE / ダイス・判定音 の 4 つのスライダ +
+ * マスターミュート。スライダの値は volume-settings に即時反映され、再生中の
+ * BGM / SE / ダイス音にも追従する(他所(SoundPanel)から変更されたときも追従)。
+ */
+function VolumeSection() {
+  const [v, setV] = useState<VolumeSettings>(() => getVolumeSettings());
 
-  function saveName(v: string) {
-    setNetName(v);
+  useEffect(() => {
+    const off = onVolumeChange((next) => setV(next));
+    return off;
+  }, []);
+
+  function patch(p: Partial<VolumeSettings>) {
+    setV(setVolumeSettings(p));
+  }
+
+  return (
+    <Section
+      title="音量"
+      desc="マスターは BGM / SE / ダイス音すべてに掛かります。サウンドライブラリのスライダと同期します。"
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <button
+          type="button"
+          className={`btn ${v.muted ? "btn-primary" : ""}`}
+          onClick={() => patch({ muted: !v.muted })}
+          title={v.muted ? "ミュート解除" : "すべてミュート"}
+          style={{ alignSelf: "flex-start" }}
+        >
+          {v.muted ? <VolumeX size={14} /> : <Volume1 size={14} />}
+          {v.muted ? "ミュート中(クリックで解除)" : "すべてミュートする"}
+        </button>
+
+        <VolumeRow
+          label="🔊 マスター"
+          value={v.master}
+          onChange={(n) => patch({ master: n })}
+          disabled={v.muted}
+        />
+        <VolumeRow
+          label="🎵 BGM"
+          value={v.bgm}
+          onChange={(n) => patch({ bgm: n })}
+          disabled={v.muted}
+          effective={v.master * v.bgm}
+        />
+        <VolumeRow
+          label="🔔 効果音(SE)"
+          value={v.se}
+          onChange={(n) => patch({ se: n })}
+          disabled={v.muted}
+          effective={v.master * v.se}
+        />
+        <VolumeRow
+          label="🎲 ダイス・判定音"
+          value={v.dice}
+          onChange={(n) => patch({ dice: n })}
+          disabled={v.muted}
+          effective={v.master * v.dice}
+        />
+      </div>
+    </Section>
+  );
+}
+
+function VolumeRow({
+  label,
+  value,
+  onChange,
+  disabled,
+  effective,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  disabled?: boolean;
+  /** マスターを掛けた実効値(表示のみ)。省略時はマスター自身。 */
+  effective?: number;
+}) {
+  const pct = Math.round((effective ?? value) * 100);
+  return (
+    <label
+      style={{
+        display: "grid",
+        gridTemplateColumns: "140px 1fr 48px",
+        alignItems: "center",
+        gap: 10,
+        fontSize: 13,
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <span>{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+      <span
+        className="muted"
+        style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}
+      >
+        {pct}%
+      </span>
+    </label>
+  );
+}
+
+function StorageTab() {
+  // ライブラリ root のパス表示 + 変更 / フォルダを開く / 既定に戻す。
+  // 切替は新しい DL/保存に反映される。既存のファイルは移動しない
+  // (将来「フォルダを移動」機能を追加する余地を残す)。
+  const [root, setRoot] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function refresh() {
     try {
-      localStorage.setItem(NET_NAME_KEY, v);
-    } catch {
-      /* 保存失敗は無視 */
+      setRoot(await getLibraryRoot());
+    } catch (e) {
+      toast(`ライブラリの場所を取得できません: ${String(e)}`);
     }
+  }
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  async function handleChange() {
+    setLoading(true);
+    try {
+      const picked = await pickLibraryRoot();
+      if (picked) {
+        toast(`📁 ライブラリの場所を変更しました`);
+        await refresh();
+      }
+    } catch (e) {
+      toast(`変更に失敗しました: ${String(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReveal() {
+    if (!root) return;
+    try {
+      await revealItemInDir(root);
+    } catch (e) {
+      toast(`フォルダを開けません: ${String(e)}`);
+    }
+  }
+
+  async function handleReset() {
+    if (
+      !window.confirm(
+        "ライブラリの場所を既定(アプリのデータフォルダ)に戻しますか？\n既存のファイルは移動されません。",
+      )
+    )
+      return;
+    resetLibraryRoot();
+    toast("既定の場所に戻しました");
+    await refresh();
   }
 
   return (
     <>
-      <Section
-        title="既定のプレイヤー名"
-        desc="参加コードで卓に入るときに最初から入っている名前です。"
-      >
-        <input
-          className="input"
-          style={{ maxWidth: 280 }}
-          value={netName}
-          onChange={(e) => saveName(e.target.value)}
-          placeholder="プレイヤー名"
-        />
+      <Section title="ライブラリの場所">
+        <p className="set2-note" style={{ marginTop: 0 }}>
+          ストアでダウンロードした作品、取り込んだパッケージ、卓 (.play)、
+          キャラシ (.ccsheet) はこのフォルダの下にまとまります。
+          切り替えると新しい保存・ダウンロードがその場所に行きます
+          （既存のファイルは移動されません）。
+        </p>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 8,
+          }}
+        >
+          <input
+            className="input"
+            readOnly
+            value={root ?? "（取得中…）"}
+            style={{ flex: 1, fontFamily: "monospace" }}
+            title={root ?? ""}
+          />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginTop: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            className="btn"
+            onClick={() => void handleChange()}
+            disabled={loading}
+          >
+            <FolderCog size={14} /> 変更…
+          </button>
+          <button
+            className="btn"
+            onClick={() => void handleReveal()}
+            disabled={!root}
+          >
+            <FolderOpen size={14} /> フォルダを開く
+          </button>
+          <button className="btn" onClick={() => void handleReset()}>
+            <RotateCcw size={14} /> 既定に戻す
+          </button>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <p
+            className="set2-note"
+            style={{ marginTop: 0, fontSize: 11 }}
+          >
+            このフォルダの中の構成
+          </p>
+          <ul
+            style={{
+              margin: "4px 0 0 18px",
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: "var(--muted, #888)",
+            }}
+          >
+            <li>
+              <code>downloads/</code> — ストア購入物の生ファイル
+            </li>
+            <li>
+              <code>packs/</code> — 取り込んだ .paradice の展開先
+            </li>
+            <li>
+              <code>sessions/</code> — 卓 (.play) の保存先
+            </li>
+            <li>
+              <code>characters/</code> — キャラシ (.ccsheet) の保存先
+            </li>
+          </ul>
+        </div>
       </Section>
+    </>
+  );
+}
+
+function PlayTab() {
+  const [favCount, setFavCount] = useState(() => getQuickRolls().length);
+
+  return (
+    <>
+      <Section
+        title="参加名（プレイヤー名）"
+        desc="卓に参加するときの名前は『アカウント』タブのニックネームを使います。"
+      />
 
       <Section
         title="クイックロール"
@@ -362,6 +892,96 @@ function PlayTab() {
           <Trash2 size={15} /> お気に入りロールをリセット
           {favCount > 0 ? `（${favCount}件）` : ""}
         </button>
+      </Section>
+    </>
+  );
+}
+
+/**
+ * 不具合報告タブ。事象を一言コメントして、直近のログ・エラー・端末/アプリ情報・
+ * PLAY の文脈を添えて開発者へ自動送信する(Discord)。送信先が未設定の環境では、
+ * 代わりにレポート全文をクリップボードへコピーして手動で共有できる。
+ */
+function ReportTab() {
+  const [note, setNote] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
+    "idle",
+  );
+  const [err, setErr] = useState<string | null>(null);
+  const webhook = hasWebhook();
+
+  async function send() {
+    setStatus("sending");
+    setErr(null);
+    try {
+      await sendReport(note);
+      setStatus("sent");
+      setNote("");
+      window.setTimeout(() => setStatus("idle"), 2500);
+    } catch (e) {
+      setStatus("error");
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(collectReport(note));
+      toast("レポートをコピーしました。Discord などに貼り付けて送ってください。");
+    } catch {
+      toast("コピーに失敗しました");
+    }
+  }
+
+  return (
+    <>
+      <Section
+        title="不具合を報告する"
+        desc="うまく動かない・固まる等があれば、何が起きたかを一言添えて送ってください。"
+      >
+        <textarea
+          className="input"
+          rows={4}
+          placeholder="例: 参加者の画面で駒を動かしても相手に反映されない / ダイスを振ると固まる など"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          disabled={status === "sending"}
+        />
+        <p className="set2-sec-desc muted" style={{ marginTop: 8 }}>
+          一緒に送られるもの: 直近のログ・エラー、アプリのバージョン、端末情報、
+          PLAY 中の役割・卓・参加人数（再現に必要な情報）。
+          <strong>卓の本文やキャラの中身は送りません。</strong>
+        </p>
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          {webhook && (
+            <button
+              className="btn btn-primary ibtn"
+              disabled={status === "sending"}
+              onClick={() => void send()}
+            >
+              <Send size={14} />
+              {status === "sending"
+                ? "送信中…"
+                : status === "sent"
+                  ? "✓ 送信しました"
+                  : "送信する"}
+            </button>
+          )}
+          <button className="btn ibtn" onClick={() => void copy()}>
+            <Copy size={14} /> レポートをコピー
+          </button>
+        </div>
+        {!webhook && (
+          <p className="tag" style={{ marginTop: 8, display: "block" }}>
+            この環境では自動送信先が未設定です。「レポートをコピー」して Discord
+            などに貼り付けて共有してください。
+          </p>
+        )}
+        {err && (
+          <p className="tag fail" style={{ marginTop: 8, display: "block" }}>
+            {err}
+          </p>
+        )}
       </Section>
     </>
   );

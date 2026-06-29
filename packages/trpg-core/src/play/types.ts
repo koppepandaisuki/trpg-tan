@@ -95,10 +95,11 @@ export interface Panel {
   variants?: PanelVariant[];
   /**
    * 操作権の持ち主。マルチで参加者が自分で追加したキャラはその参加者の表示名が
-   * 入り、本人だけがダイス/パレット/リソースを操作できる。未設定/"GM" は GM 所有
-   * (参加者は操作不可・GM は全操作可)。
+   * 入り、本人だけがダイス/パレット/リソースを操作できる。未設定/null/"GM" は GM 所有
+   * (参加者は操作不可・GM は全操作可)。GM がキャラをプレイヤーへ譲渡すると相手の
+   * 表示名が入り、null へ戻すと GM 所有に戻る。
    */
-  owner?: string;
+  owner?: string | null;
 }
 
 /** 盤面(背景マップ + グリッド + 前景)。 */
@@ -139,6 +140,12 @@ export interface SceneInfo {
   board: PlayBoard;
   /** このシーンに紐づく BGM(BgmTrack.id)。切替時に自動再生する。 */
   bgmId?: string;
+  /** 読み上げ台本(プレイヤーに見せる導入/情景)。シナリオビルダー用。 */
+  script?: string;
+  /** GM だけが見る進行メモ。 */
+  gmNote?: string;
+  /** このシーンで出せる手がかり(箇条書き)。 */
+  clues?: string[];
 }
 
 /**
@@ -202,6 +209,62 @@ export interface CutIn {
   soundName?: string;
 }
 
+/**
+ * ハンドアウト(HO)。プレイヤー個別の導入・秘密。PLAY 中に指定相手へ配布する。
+ * シナリオ特化ビルダーの目玉。公開部分は全員、秘密部分は担当者だけに見せる。
+ */
+export interface Handout {
+  id: string;
+  /** "HO1" などの短いラベル。 */
+  label: string;
+  title: string;
+  /** 全員に見せてよい公開部分。 */
+  publicText?: string;
+  /** 担当プレイヤーだけに見せる秘密部分。 */
+  secretText?: string;
+  /** 割り当て先(参加者の表示名 or 駒 id)。未割当は誰でも取得可。 */
+  assignTo?: string | null;
+  /** 添付画像(data URL or Storage URL)。 */
+  image?: string | null;
+}
+
+/** シナリオに登場する NPC の覚書(GM 用。必要なら駒化する)。 */
+export interface ScenarioNpc {
+  id: string;
+  name: string;
+  portrait?: string | null;
+  /** 公開してよい情報。 */
+  note?: string;
+  /** GM だけが見る秘密。 */
+  secret?: string;
+}
+
+/**
+ * シナリオ情報(卓に同梱する「読み物 + 進行 + HO」メタ)。PlayScene に任意で付く。
+ * 既存の .play には無いので optional(後方互換)。シナリオ特化ビルダーで編集する。
+ */
+export interface ScenarioInfo {
+  /** あらすじ・概要。 */
+  synopsis?: string;
+  /** 推奨人数(表示用の自由文 "2〜4人" 等)。 */
+  players?: string;
+  /** 想定プレイ時間(分)。 */
+  minutes?: number;
+  /** GM 向けの全体メモ(進行の勘所・ネタバレ)。 */
+  gmNotes?: string;
+  /** ハンドアウト一覧。 */
+  handouts?: Handout[];
+  /** NPC 一覧。 */
+  npcs?: ScenarioNpc[];
+}
+
+/** メモの 1 ページ(名前付き)。共有メモ・個人メモで使い回す。 */
+export interface MemoPage {
+  id: string;
+  name: string;
+  text: string;
+}
+
 /** セッション卓(シーン)の全状態。 */
 export interface PlayScene {
   schemaVersion: typeof PLAY_SCHEMA_VERSION;
@@ -225,8 +288,12 @@ export interface PlayScene {
   cutins?: CutIn[];
   /** アセット(画像素材庫)。盤面へドラッグ / 配置して使う。 */
   assets?: AssetItem[];
-  /** 共有メモ(卓の全員と共有する想定。.play に保存)。 */
+  /** シナリオ情報(あらすじ/HO/NPC/GMメモ)。シナリオ特化ビルダーで編集。任意。 */
+  scenario?: ScenarioInfo;
+  /** 共有メモ(旧形式の単一テキスト。後方互換のため残す。新形式は sharedMemos)。 */
   sharedMemo?: string;
+  /** 共有メモ(名前付きの複数ページ。卓の全員と共有・.play に保存)。 */
+  sharedMemos?: MemoPage[];
   /** ダイスボット(システム別ダイス処理)。未設定は systemId から既定。 */
   diceBot?: string;
   /** 卓のタグ(GM のローカル整理用。ロビーのカードに表示する)。配信不要。 */
@@ -251,6 +318,8 @@ export interface ChatEvent extends BaseEvent {
   kind: "chat";
   text: string;
   channel?: string;
+  /** 発言の文字色(CSS color)。未設定は既定色。 */
+  color?: string;
 }
 
 /** ダイス(技能/能力判定 or フリーダイス)。結果は生成時に確定済み。 */
@@ -278,6 +347,8 @@ export interface RollEvent extends BaseEvent {
   visibleTo?: string[];
   /** 個別チャット内で振った場合のチャンネル(未設定=メイン)。 */
   channel?: string;
+  /** 発言者名の文字色(CSS color)。未設定は既定色。 */
+  color?: string;
 }
 
 /** リソース(HP/SAN/MP…)の増減。 */
@@ -335,6 +406,8 @@ export interface PanelUpdateEvent extends BaseEvent {
     portrait?: string | null;
     /** 差分リストの編集。 */
     variants?: PanelVariant[];
+    /** 操作権の譲渡(プレイヤー名)/解除(null=GM 所有)。 */
+    owner?: string | null;
   };
 }
 

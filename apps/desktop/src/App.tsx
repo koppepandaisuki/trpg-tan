@@ -22,17 +22,23 @@ import {
   List,
   Clock,
   ChevronRight,
+  CalendarClock,
+  ScrollText,
+  Wrench,
 } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { AuthControl } from "./AuthControl";
 import { AccountMenu } from "./AccountMenu";
+import { AmbientBg } from "./AmbientBg";
 import { Viewer } from "./Viewer";
 import { StorePanel } from "./StorePanel";
 import { findSystem } from "./systems-store";
 import { Settings as SettingsScreen, type SettingsTab } from "./Settings";
-import { Toasts } from "./Toasts";
+import { Toasts, toast } from "./Toasts";
 import { EmptyState } from "./EmptyState";
 import { FriendsButton } from "./FriendsPanel";
 import { initDeepLinkAuth } from "./auth";
+import { initDeepLinkPurchase } from "./deep-link-purchase";
 import type { RemoteLibraryItem } from "./library-remote";
 import type { DownloadedEntry } from "./downloaded";
 import {
@@ -54,7 +60,14 @@ import {
 } from "./play-storage";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
-import brandLogo from "./assets/logo.png";
+import { NewCharacterMenu } from "./NewCharacterMenu";
+import diceMark from "./assets/dice.png";
+
+// 日程調整ツール(web)の作成ページ。ロビーから既定ブラウザで開く。匿名でも作れる
+// (web 側がログイン任意)ため、ここはアプリの Bearer を介さず URL を開くだけ。
+const SCHEDULE_WEB_BASE = (
+  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
 
 // 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。ストアは初期
 // 表示なので即時読込のまま。PLAY 一式・ビルダー・ライブラリ・キャラシートは、その
@@ -67,6 +80,9 @@ const PlayClient = lazy(() =>
 );
 const SystemBuilder = lazy(() =>
   import("./SystemBuilder").then((m) => ({ default: m.SystemBuilder })),
+);
+const ScenarioBuilder = lazy(() =>
+  import("./ScenarioBuilder").then((m) => ({ default: m.ScenarioBuilder })),
 );
 const LibraryPage = lazy(() =>
   import("./LibraryPage").then((m) => ({ default: m.LibraryPage })),
@@ -94,7 +110,7 @@ type Session = { scene: PlayScene; path: string | null };
 const PAGES: { key: Page; label: string }[] = [
   { key: "store", label: "ストア" },
   { key: "library", label: "ライブラリ" },
-  { key: "play", label: "卓" },
+  { key: "play", label: "PLAY" },
   { key: "characters", label: "キャラクター" },
   { key: "builder", label: "ビルダー" },
 ];
@@ -142,17 +158,24 @@ function relTime(iso: string): string {
 export function App() {
   // Steam ライクに、起動直後はストアをフロントに出す。
   const [page, setPage] = useState<Page>("store");
+  // ビルダー(作成ハブ)のモード: システム作成 / シナリオ作成。
+  const [builderMode, setBuilderMode] = useState<"system" | "scenario">(
+    "scenario",
+  );
   // PLAY 中にキャラシを卓の上へオーバーレイ表示する(卓は閉じない)。
   const [charOverlay, setCharOverlay] = useState(false);
   const [library, setLibrary] = useState<LibraryEntry[]>(() => getLibrary());
-  const [active, setActive] = useState<{ sheet: Sheet | null; key: string }>(
-    () => ({ sheet: null, key: "new-0" }),
-  );
+  const [active, setActive] = useState<{
+    sheet: Sheet | null;
+    key: string;
+    path?: string | null;
+  }>(() => ({ sheet: null, key: "new-0" }));
   // カスタムシステムの汎用シート編集(非 null のとき CoC エディタの代わりに表示)。
   const [activeGeneric, setActiveGeneric] = useState<{
     def: SystemDef | null;
     sheet: GenericSheet | null;
     key: string;
+    path?: string | null;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   // アプリ内ビューア(購入物の閲覧)。null のとき非表示。
@@ -166,6 +189,8 @@ export function App() {
   const [joining, setJoining] = useState<{ code: string; name: string } | null>(
     null,
   );
+  // PLAY を背面に退避中か(卓は閉じず=接続を保ったまま、アプリ内を移動できる)。
+  const [playMinimized, setPlayMinimized] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState(
     () => localStorage.getItem("trpg.net.name.v1") ?? "",
@@ -183,8 +208,9 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
   const [storeHomeSig, setStoreHomeSig] = useState(0);
-  // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。
-  // PLAY(卓 / ネット参加)中は没入のため常にダーク(CCFOLIA/Steam 流)。
+  // ライブラリ強制リフレッシュ(paradice://purchase/complete などで +1)。
+  const [librarySig, setLibrarySig] = useState(0);
+  // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。PLAY 中も従う。
   const [theme, setTheme] = useState(
     () => localStorage.getItem("trpg.theme.v1") ?? "light",
   );
@@ -201,20 +227,46 @@ export function App() {
     if (isTauri()) void initDeepLinkAuth();
   }, []);
 
-  // テーマ適用。PLAY 中はユーザー設定に関わらずダークへ。
-  const inPlay = !!(session || joining);
+  // paradice://purchase/complete|cancel を購読。決済完了でライブラリへ
+  // 自動移動 + 強制リフレッシュ。webhook 反映に数秒の遅延があるため
+  // 初回 fetch で出なくても再度ボタン押下で再取得できる。
   useEffect(() => {
-    document.documentElement.dataset.theme = inPlay ? "dark" : theme;
-  }, [theme, inPlay]);
+    if (!isTauri()) return;
+    void initDeepLinkPurchase({
+      onComplete: () => {
+        toast("✅ 購入が完了しました。ライブラリで開けます");
+        setPage("library");
+        setLibrarySig((n) => n + 1);
+        // webhook 反映ラグを吸収して 4 秒後にもう一度。
+        window.setTimeout(() => setLibrarySig((n) => n + 1), 4000);
+      },
+      onCancel: () => {
+        toast("購入はキャンセルされました");
+      },
+    });
+  }, []);
+
+  // テーマ適用。PLAY 中もユーザー設定(ライト / ダーク)に従う。
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   /** ページ遷移(セッション/参加を畳む)。ストアは常にホームから。 */
   function goTo(p: Page) {
-    setSession(null);
-    setJoining(null);
+    // PLAY 中は卓を閉じず背面へ退避(接続を保ったままアプリ内を移動)。
+    if (session || joining) {
+      setPlayMinimized(true);
+    }
     setPage(p);
     if (p === "store") setStoreHomeSig((n) => n + 1);
     setDrawerOpen(false);
     setError(null);
+  }
+
+  /** 退避中の PLAY を前面に戻す。 */
+  function resumePlay() {
+    setPlayMinimized(false);
+    setDrawerOpen(false);
   }
 
   function newSession() {
@@ -226,6 +278,16 @@ export function App() {
     });
     setSession({ scene, path: null });
     setJoining(null);
+    setPlayMinimized(false);
+    setDrawerOpen(false);
+    setError(null);
+  }
+
+  /** シナリオ作成の「卓ごと編集」から、同じシナリオ(卓)を卓エディタで開く。 */
+  function openSessionFromScene(scene: PlayScene, path: string | null) {
+    setSession({ scene, path });
+    setJoining(null);
+    setPlayMinimized(false);
     setDrawerOpen(false);
     setError(null);
   }
@@ -245,6 +307,7 @@ export function App() {
     }
     setSession(null);
     setJoining({ code, name });
+    setPlayMinimized(false);
     setDrawerOpen(false);
     setError(null);
   }
@@ -258,6 +321,7 @@ export function App() {
       const scene = await readPlayFromPath(entry.path);
       setSession({ scene, path: entry.path });
       setJoining(null);
+      setPlayMinimized(false);
       setDrawerOpen(false);
       setError(null);
     } catch (e) {
@@ -319,10 +383,11 @@ export function App() {
           def: findSystem(sheet.systemId),
           sheet,
           key: `${entry.id}-${Date.now()}`,
+          path: entry.path, // 上書き保存先
         });
       } else {
         setActiveGeneric(null);
-        setActive({ sheet, key: `${entry.id}-${Date.now()}` });
+        setActive({ sheet, key: `${entry.id}-${Date.now()}`, path: entry.path });
       }
       setError(null);
     } catch (e) {
@@ -393,13 +458,14 @@ export function App() {
       <aside className="chars-list">
         <div className="sidebar-head">
           <strong>キャラクター</strong>
-          <button className="btn mini btn-primary" onClick={newCharacter}>
-            ＋ 新規
-          </button>
+          <NewCharacterMenu
+            onNewCoC={newCharacter}
+            onNewGeneric={newGenericCharacter}
+          />
         </div>
         {library.length === 0 ? (
           <p className="muted" style={{ padding: "8px 4px" }}>
-            保存したキャラがここに並びます。
+            保存したキャラがここに並びます。「＋新規」からシステム（CoC・プリセット・自作）を選んで作成できます。
           </p>
         ) : (
           charList
@@ -416,12 +482,14 @@ export function App() {
             key={activeGeneric.key}
             def={activeGeneric.def}
             initial={activeGeneric.sheet}
+            initialPath={activeGeneric.path}
             onSaved={handleGenericSaved}
           />
         ) : (
           <CharacterSheet
             key={active.key}
             initialSheet={active.sheet}
+            initialPath={active.path}
             onSaved={handleSaved}
           />
         )}
@@ -461,10 +529,11 @@ export function App() {
     </ul>
   );
 
-  /* ===== PLAY 全画面(卓 / ネット参加) ===== */
-  if (session || joining) {
-    return (
-      <div className="app-shell">
+  /* ===== PLAY レイヤ(卓 / ネット参加)。卓を閉じるまでマウントし続け、退避中
+     (playMinimized)は背面に隠す = 接続を保ったままアプリ内を移動できる。 ===== */
+  const playLayer =
+    session || joining ? (
+      <div className={`play-layer${playMinimized ? " min" : ""}`}>
         <Suspense fallback={<ScreenLoading />}>
           {session ? (
             <PlayTable
@@ -474,6 +543,7 @@ export function App() {
               onClose={() => {
                 setSession(null);
                 setCharOverlay(false);
+                setPlayMinimized(false);
               }}
               onPersist={handlePlayPersist}
               onMenu={() => setDrawerOpen(true)}
@@ -487,6 +557,7 @@ export function App() {
               onClose={() => {
                 setJoining(null);
                 setCharOverlay(false);
+                setPlayMinimized(false);
               }}
               onOpenCharacters={() => setCharOverlay(true)}
             />
@@ -533,6 +604,14 @@ export function App() {
                   >
                     ⚙ 設定
                   </button>
+                  <button
+                    className="btn mini"
+                    style={{ width: "100%", marginBottom: 8 }}
+                    onClick={() => openSettings("report")}
+                    title="不具合をコメントして、ログ・端末情報・PLAY の文脈つきで開発者へ送ります"
+                  >
+                    🐞 不具合報告
+                  </button>
                   <AuthControl />
                 </div>
               </aside>
@@ -569,32 +648,16 @@ export function App() {
             </div>
           </div>
         )}
-
-        {viewing && (
-          <Viewer
-            item={viewing.item}
-            entry={viewing.entry}
-            onClose={() => setViewing(null)}
-          />
-        )}
-        {showSettings && (
-          <SettingsScreen
-            initialTab={settingsTab}
-            theme={theme}
-            onToggleTheme={() =>
-              setTheme((t) => (t === "dark" ? "light" : "dark"))
-            }
-            onClose={() => setShowSettings(false)}
-          />
-        )}
-        <Toasts />
       </div>
-    );
-  }
+    ) : null;
 
-  /* ===== 通常シェル(Steam 風: 上部ナビ + 全幅ページ + 下部バー) ===== */
+  /* ===== 通常シェル(Steam 風: 上部ナビ + 全幅ページ + 下部バー)。
+     PLAY レイヤは常にこの上に重ね、退避中だけ隠す。 ===== */
   return (
     <div className="app-shell">
+      {/* 背景の控えめな装飾(サイコロ・キラキラ)。PLAY レイヤが前面を覆うので
+          卓の上には出ない。 */}
+      <AmbientBg />
       {/* 上部ナビ */}
       <header className="topbar">
         <span
@@ -602,20 +665,32 @@ export function App() {
           onClick={() => goTo("store")}
           title="ストアのトップへ"
         >
-          <img src={brandLogo} alt="パラDa-iCE" className="topbar-logo" />
+          <img src={diceMark} alt="" className="brand-dice" aria-hidden />
+          <span className="brand-word" aria-label="パラDa-iCE">
+            <span className="brand-para">パラ</span>
+            <span className="brand-daice">Da-iCE</span>
+          </span>
         </span>
         <nav className="topnav" role="tablist">
-          {PAGES.map((p) => (
-            <button
-              key={p.key}
-              role="tab"
-              aria-selected={page === p.key}
-              className={`topnav-link ${page === p.key ? "active" : ""}`}
-              onClick={() => goTo(p.key)}
-            >
-              {p.label}
-            </button>
-          ))}
+          {PAGES.map((p) => {
+            const isPlay = p.key === "play";
+            return (
+              <button
+                key={p.key}
+                role="tab"
+                aria-selected={page === p.key}
+                className={`topnav-link ${isPlay ? "play" : ""} ${
+                  page === p.key ? "active" : ""
+                }`}
+                onClick={() =>
+                  // PLAY タブ: 退避中のセッションがあればそこへ戻す。
+                  isPlay && (session || joining) ? resumePlay() : goTo(p.key)
+                }
+              >
+                {p.label}
+              </button>
+            );
+          })}
         </nav>
         <div className="topbar-right">
           <button
@@ -644,6 +719,7 @@ export function App() {
           <LibraryPage
             onView={(item, entry) => setViewing({ item, entry })}
             onGoStore={() => goTo("store")}
+            refreshSignal={librarySig}
           />
         )}
 
@@ -658,6 +734,16 @@ export function App() {
                 <p className="lobby-sub">
                   TRPG セッションの作成・参加・管理を行います
                 </p>
+                <button
+                  className="btn mini"
+                  style={{ marginTop: 12 }}
+                  onClick={() =>
+                    void openUrl(`${SCHEDULE_WEB_BASE}/schedule/new`)
+                  }
+                  title="ブラウザで日程調整ページを開きます（参加者はログイン不要で出欠を入れられます）"
+                >
+                  <CalendarClock size={15} /> 日程調整をつくる
+                </button>
               </header>
 
               <div className="lobby-panels">
@@ -848,7 +934,34 @@ export function App() {
         {page === "characters" && charactersPanel}
 
         {page === "builder" && (
-          <SystemBuilder onCreateCharacter={newGenericCharacter} />
+          <div className="builder-hub">
+            <div className="bhub-bar">
+              <button
+                className={`bhub-tab ${builderMode === "scenario" ? "on" : ""}`}
+                onClick={() => setBuilderMode("scenario")}
+              >
+                <ScrollText size={16} /> シナリオを作る
+              </button>
+              <button
+                className={`bhub-tab ${builderMode === "system" ? "on" : ""}`}
+                onClick={() => setBuilderMode("system")}
+              >
+                <Wrench size={16} /> システムを作る
+              </button>
+            </div>
+            <div className="bhub-content">
+              {builderMode === "system" ? (
+                <SystemBuilder onCreateCharacter={newGenericCharacter} />
+              ) : (
+                <ScenarioBuilder
+                  index={playIndex}
+                  onPersist={handlePlayPersist}
+                  onRemove={removeSessionEntry}
+                  onOpenTable={openSessionFromScene}
+                />
+              )}
+            </div>
+          </div>
         )}
         </div>
         </Suspense>
@@ -869,9 +982,30 @@ export function App() {
           >
             <Settings size={14} /> 設定
           </button>
-          <FriendsButton />
+          <FriendsButton
+            onTableInvite={(code) => {
+              // 通知から「この卓に入る」を押されたら参加コード欄に流す。
+              setJoinCode(code);
+              goTo("play");
+              toast(`参加コード ${code} を入力欄にセットしました`);
+            }}
+          />
         </span>
       </footer>
+
+      {/* PLAY レイヤ(卓が開いている間は常にマウント。退避中は CSS で隠す)。 */}
+      {playLayer}
+
+      {/* 退避中の戻り口: いつでもセッションに戻れるフローティングボタン。 */}
+      {(session || joining) && playMinimized && (
+        <button
+          className="play-resume-chip"
+          onClick={resumePlay}
+          title="進行中のセッションに戻る"
+        >
+          <Dices size={16} /> セッションに戻る
+        </button>
+      )}
 
       {/* アプリ内ビューア(購入物の閲覧)。上に重ねる。*/}
       {viewing && (

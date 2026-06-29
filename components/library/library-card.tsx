@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Route } from "next";
+import { Star, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
 import { DownloadButton } from "./download-button";
+import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
-import { publicCoverUrl } from "@/lib/format/storage";
 import type { LibraryItem } from "@/lib/queries/library";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ interface LibraryCardProps {
  *  - タイトル自体も detail へのリンクに(冗長な「作品詳細を見る」削除)
  */
 export function LibraryCard({ item }: LibraryCardProps) {
-  const coverUrl = publicCoverUrl(item.coverPath);
+  const coverUrl = item.coverUrl;
   const detailHref: Route | null = item.slug
     ? (`/store/${item.slug}` as Route)
     : null;
@@ -33,6 +34,27 @@ export function LibraryCard({ item }: LibraryCardProps) {
   const downloadDisabled = item.availability !== "available";
   const isUnavailable =
     item.availability === "suspended" || item.availability === "blocked";
+
+  // レビュー導線は「詳細ページに飛べる(=公開中) かつ 購入済み」のときだけ。
+  // 配布停止/利用不可(詳細ページが notFound になる)では出さない。
+  const canReview =
+    !!item.slug &&
+    (item.availability === "available" || item.availability === "no_file");
+  const reviewHref: Route | null = canReview
+    ? (`/store/${item.slug}#reviews` as Route)
+    : null;
+
+  // お気に入り(localStorage)用の最小データ。ライブラリ品は購入時価格しか
+  // 持たないため priceJpy は amountJpy で代用、systemLabel は持たないので null。
+  const favoriteItem = {
+    slug: item.slug,
+    title: item.title,
+    coverUrl: item.coverUrl,
+    productType: item.productType,
+    priceJpy: item.amountJpy,
+    systemLabel: null,
+    creator: { id: item.creator.id, displayName: item.creator.displayName },
+  };
 
   return (
     <li
@@ -44,7 +66,7 @@ export function LibraryCard({ item }: LibraryCardProps) {
       )}
     >
       {/* 表紙(クリック可能、無ければただの画像) */}
-      <div className="w-full max-w-[180px] shrink-0 sm:w-44">
+      <div className="relative w-full max-w-[180px] shrink-0 sm:w-44">
         {detailHref ? (
           <Link
             href={detailHref}
@@ -64,6 +86,16 @@ export function LibraryCard({ item }: LibraryCardProps) {
             alt={item.title}
             aspect="aspect-[16/10]"
           />
+        )}
+        {/* お気に入り(localStorage)。詳細に飛べる(=slug あり)ものだけ。 */}
+        {item.slug && (
+          <div className="absolute right-1.5 top-1.5 z-10">
+            <FavoriteButton
+              item={favoriteItem}
+              variant="compact"
+              className="h-8 w-8"
+            />
+          </div>
         )}
       </div>
 
@@ -97,13 +129,41 @@ export function LibraryCard({ item }: LibraryCardProps) {
         <AvailabilityHint availability={item.availability} />
       </div>
 
-      <div className="flex flex-col items-end justify-center gap-2">
+      <div className="flex flex-col items-stretch justify-center gap-2 sm:items-end">
         <DownloadButton
           productId={item.productId}
           productTitle={item.title}
           disabled={downloadDisabled}
           label="ダウンロード"
         />
+        {reviewHref && (
+          <Link
+            href={reviewHref}
+            className={cn(
+              "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium transition",
+              item.reviewed
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100"
+                : "border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300 hover:bg-amber-100",
+            )}
+            aria-label={
+              item.reviewed
+                ? `「${item.title}」のレビューを編集する`
+                : `「${item.title}」のレビューを書く`
+            }
+          >
+            {item.reviewed ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                レビュー済み・編集
+              </>
+            ) : (
+              <>
+                <Star className="h-3.5 w-3.5" aria-hidden />
+                レビューを書く
+              </>
+            )}
+          </Link>
+        )}
       </div>
     </li>
   );

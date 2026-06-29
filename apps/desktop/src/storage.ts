@@ -1,10 +1,12 @@
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
+import { join } from "@tauri-apps/api/path";
 import {
   CCSHEET_SCHEMA_VERSION,
   type CharacterSheet,
   type GenericSheet,
 } from "@trpg/core";
+import { getCharactersDir } from "./library-root";
 
 /** .ccsheet に入りうるシート(CoC 専用 or カスタムシステムの汎用)。 */
 export type AnySheet = CharacterSheet | GenericSheet;
@@ -25,13 +27,30 @@ export function isTauri(): boolean {
 
 const FILTERS = [{ name: "TRPG Character", extensions: ["ccsheet"] }];
 
-/** 保存ダイアログを出して .ccsheet を書き出す。返り値は保存先パス(キャンセルは null)。*/
+/** Save As の既定パスをライブラリ root / characters / に組み立てる。 */
+async function defaultCharacterPath(name: string): Promise<string> {
+  return join(
+    await getCharactersDir(),
+    `${sanitize(name) || "character"}.ccsheet`,
+  );
+}
+
+/** 保存ダイアログを出して .ccsheet を書き出す(別名で保存)。返り値は保存先パス(キャンセルは null)。*/
 export async function saveSheet(sheet: CharacterSheet): Promise<string | null> {
   const path = await save({
-    defaultPath: `${sanitize(sheet.name) || "character"}.ccsheet`,
+    defaultPath: await defaultCharacterPath(sheet.name),
     filters: FILTERS,
   });
   if (!path) return null;
+  await writeTextFile(path, JSON.stringify(sheet, null, 2));
+  return path;
+}
+
+/** 既存パスへ直接上書き保存(ダイアログを出さない)。CoC / 汎用どちらも書ける。*/
+export async function saveSheetToPath(
+  sheet: CharacterSheet | GenericSheet,
+  path: string,
+): Promise<string> {
   await writeTextFile(path, JSON.stringify(sheet, null, 2));
   return path;
 }
@@ -67,7 +86,7 @@ export async function saveGenericSheet(
   sheet: GenericSheet,
 ): Promise<string | null> {
   const path = await save({
-    defaultPath: `${sanitize(sheet.name) || "character"}.ccsheet`,
+    defaultPath: await defaultCharacterPath(sheet.name),
     filters: FILTERS,
   });
   if (!path) return null;

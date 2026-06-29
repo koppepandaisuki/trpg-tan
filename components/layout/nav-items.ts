@@ -4,6 +4,7 @@ import {
   PlusCircle,
   Library,
   Users,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -27,6 +28,8 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "ホーム", icon: Home },
   { href: "/store", label: "探す", icon: Store },
+  // デスクトップアプリの DL 導線(テスター配布のため目立つ位置に)。
+  { href: "/download" as Route, label: "アプリ", icon: Download },
   { href: "/creator/products/new", label: "投稿する", icon: PlusCircle },
   { href: "/library", label: "ライブラリ", icon: Library },
   // /friends は本ブランチで新設。typedRoutes 再生成前は既存 union に無いので cast。

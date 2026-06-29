@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   reduce,
   panelFromSheet,
@@ -22,6 +22,10 @@ import {
   sceneRemoveEvent,
   turnSetEvent,
   logClearEvent,
+  buildPack,
+  parseCcfoliaCharacter,
+  panelVariables,
+  substituteVars,
   type PlayScene,
   type PlayEvent,
   type RollEvent,
@@ -32,6 +36,7 @@ import {
   type BgmTrack,
   type SceneInfo,
   type CutIn,
+  type MemoPage,
   type AssetItem,
   type AssetAction,
   type CoCEdition,
@@ -39,7 +44,8 @@ import {
 import {
   Dices,
   Wrench,
-  Globe,
+  Radio,
+  Share2,
   Menu,
   Image as ImageIcon,
   Users,
@@ -50,10 +56,14 @@ import {
   MessageSquare,
   StickyNote,
   BookMarked,
+  NotebookPen,
+  ClipboardPaste,
 } from "lucide-react";
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { DiceMotion } from "./DiceMotion";
+import { setDiagContext } from "./diag";
+import { getMyAccount } from "./account-remote";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
 import { PlayPanel } from "./PlayPanel";
@@ -68,8 +78,9 @@ import { AssetsPanel } from "./AssetsPanel";
 import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
+import { ScenarioBuilderPanel } from "./ScenarioBuilderPanel";
 import { playSeFile } from "./SePanel";
-import { uploadAudioPath, sanitizeForNet } from "./play-media";
+import { uploadAudioPath, sanitizeForNet, splitSceneMedia } from "./play-media";
 import { probeImageWidth } from "./play-thumb";
 import {
   connectRoom,
@@ -83,6 +94,10 @@ import { getLibrary, systemLabel } from "./library";
 import { readSheetFromPath, isGenericSheet } from "./storage";
 import { toast } from "./Toasts";
 import { savePlayAs, savePlayToPath } from "./play-storage";
+import { FriendPickerModal } from "./FriendsPanel";
+import { PlayPlanGate } from "./PlayPlanGate";
+import { sendTableInvite } from "./friends-remote";
+import { exportPackToFile } from "./pack";
 
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
 function newCtx() {
@@ -128,9 +143,25 @@ export function PlayTable({
   const [visibleTo, setVisibleTo] = useState<string[]>([]);
   // チャットのチャンネル("main" or パネル id=個別チャット)。
   const [channel, setChannel] = useState("main");
+  // 発言の文字色(この端末で記憶。GM 自身の発言に付く)。
+  const [chatColor, setChatColor] = useState(
+    () => localStorage.getItem("trpg.chat.color.v1") || "#cdd3e1",
+  );
+  function changeChatColor(c: string) {
+    setChatColor(c);
+    try {
+      localStorage.setItem("trpg.chat.color.v1", c);
+    } catch {
+      // 保存失敗は無視
+    }
+  }
   // 再生中のカットイン / テロップ(定型文の画面表示)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const [telop, setTelop] = useState<string | null>(null);
+  // onDone を毎レンダーで作り直すと CutInOverlay の useEffect が連続リセットされ
+  // タイマーが永遠に延長されるため、useCallback で参照を安定させる。
+  const clearCutin = useCallback(() => setCutin(null), []);
+  const clearTelop = useCallback(() => setTelop(null), []);
   // BGM への外部再生指示(アセットのマクロから)。nonce 変化で SoundPanel が反応。
   const [bgmSignal, setBgmSignal] = useState<{
     id: string | null;
@@ -152,6 +183,9 @@ export function PlayTable({
   const { sendDrag, overlay: overlayLive } = useLiveDrag(room);
   const [members, setMembers] = useState<string[]>([]);
   const [sharePop, setSharePop] = useState(false);
+  // 無料(basic・非admin)が共有を押したとき出すプラン案内モーダル。
+  const [planGateOpen, setPlanGateOpen] = useState(false);
+  const [friendInviteOpen, setFriendInviteOpen] = useState(false);
   const [netBusy, setNetBusy] = useState(false);
   const roomRef = useRef<Room | null>(null);
   roomRef.current = room;
@@ -164,6 +198,10 @@ export function PlayTable({
   // 同時に 1 本だけ送り、送信中なら 1 本だけ予約する(連投によるメモリ膨張=
   // ホストの Out of Memory を防ぐ)。
   const snapRef = useRef({ sending: false, queued: false });
+  // 既に media 送信済みの画像 key 集合。state(軽量)は毎回送るが、画像実体は初出の
+  // ものだけ送る(駒移動のたびに巨大画像を再送しない)。新規参加者の hello でクリア
+  // して全画像を再送する。
+  const sentMediaRef = useRef<Set<string>>(new Set());
   // 参加者 selfId → 表示名。hello で記録し、intent の所有権チェックに使う。
   const memberNames = useRef<Map<string, string>>(new Map());
   // 現在配信中の BGM。途中入室した参加者は再生中の BGM メッセージを取りこぼす
@@ -197,6 +235,22 @@ export function PlayTable({
     return () => window.clearInterval(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room]);
+
+  // 不具合報告に PLAY の文脈(役割・卓・参加人数)を載せる。マウント中だけ登録。
+  useEffect(() => {
+    setDiagContext(() => {
+      const s = sceneRef.current;
+      const r = roomRef.current;
+      return [
+        "role: ホスト(GM)",
+        `play: ${s.id} / ${s.systemId}`,
+        `title: ${s.title ?? ""}`,
+        `panels: ${s.panels.length} / activeScene: ${s.activeSceneId ?? "-"}`,
+        `net: ${r ? `共有中 code=${r.code} 参加=${memberNames.current.size}人` : "ローカル"}`,
+      ].join("\n");
+    });
+    return () => setDiagContext(null);
+  }, []);
 
   // 参加者ビューのキーボード操作: [ で左(キャラ)、] で右(チャット)を開閉。
   useEffect(() => {
@@ -487,6 +541,7 @@ export function PlayTable({
       locked?: boolean;
       portrait?: string | null;
       variants?: PanelVariant[];
+      owner?: string | null;
     },
   ) {
     dispatch(panelUpdateEvent(newCtx(), id, patch));
@@ -631,6 +686,24 @@ export function PlayTable({
     reader.readAsDataURL(file);
   }
 
+  /** 卓全体を .paradice として書き出す(シナリオ作成タブの導線)。 */
+  async function exportScenarioPack() {
+    try {
+      const pack = buildPack({
+        id: scene.id,
+        name: scene.title || "無題のシナリオ",
+        scenarios: [scene],
+        now: new Date().toISOString(),
+      });
+      const path = await exportPackToFile(pack);
+      if (path) toast(`📦 「${pack.name}」を書き出しました`);
+    } catch (e) {
+      toast(
+        `書き出しに失敗: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
   /* ===== シナリオテキストストック / カットイン(GM ローカル編集) ===== */
 
   function setTextStock(text: string) {
@@ -639,14 +712,14 @@ export function PlayTable({
   }
 
   const memoTimer = useRef<number | undefined>(undefined);
-  function setSharedMemo(text: string) {
-    setScene((s) => ({ ...s, sharedMemo: text }));
+  function setSharedMemos(memos: MemoPage[]) {
+    setScene((s) => ({ ...s, sharedMemos: memos }));
     setDirty(true);
     // 共有中はデバウンスして参加者へ(キーストローク毎に流さない)。
     if (roomRef.current) {
       window.clearTimeout(memoTimer.current);
       memoTimer.current = window.setTimeout(() => {
-        roomRef.current?.send({ type: "memo", text });
+        roomRef.current?.send({ type: "memo", memos });
       }, 600);
     }
   }
@@ -803,6 +876,39 @@ export function PlayTable({
     setPickId("");
   }
 
+  /**
+   * クリップボードのココフォリア駒データから駒を追加する。
+   * 他サイト(キャラクター保管所など)の「ココフォリア出力」をコピーして貼り付け。
+   */
+  async function pasteCcfoliaPanel() {
+    setError(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      const panel = parseCcfoliaCharacter(text, () => crypto.randomUUID());
+      if (!panel) {
+        setError(
+          "クリップボードにココフォリア形式のコマが見つかりません。対応サイトで「ココフォリア出力」をコピーしてからお試しください。",
+        );
+        return;
+      }
+      // ポートレートがあれば実寸幅で配置。
+      const size = panel.portrait
+        ? await probeImageWidth(panel.portrait).catch(() => undefined)
+        : undefined;
+      dispatch(
+        panelAddEvent(newCtx(), {
+          ...panel,
+          pos: spawnPos(),
+          ...(size ? { size } : {}),
+          ...(scene.activeSceneId ? { sceneId: scene.activeSceneId } : {}),
+        }),
+      );
+      toast(`🎭 「${panel.name}」をコマとして取り込みました`);
+    } catch (e) {
+      setError(`コマの貼り付けに失敗しました: ${String(e)}`);
+    }
+  }
+
   /** 発言者 id → 表示名 + 版(CoC 判定の閾値に使う)。 */
   function resolveSpeaker(speakerId: string): { name: string; edition: CoCEdition } {
     if (speakerId === "GM") return { name: "GM", edition: sceneEdition };
@@ -823,8 +929,12 @@ export function PlayTable({
       visibleTo?: string[];
       /** 発言者名の上書き。参加者が「自分(入室名)」として喋るとき使う。 */
       as?: string;
+      /** 発言の文字色(参加者は intent から、GM は自分の設定から)。 */
+      color?: string;
     },
   ) {
+    // 発言の文字色: 参加者の intent 指定を優先、無ければ GM 自身の設定色。
+    const msgColor = opts?.color ?? chatColor;
     // as 指定時はキャラ駒ではなく入室名そのものとして発言する(地の声)。
     const { name, edition } = opts?.as
       ? { name: opts.as, edition: sceneEdition }
@@ -851,12 +961,20 @@ export function PlayTable({
       }
     }
 
+    // チャパレ変数置換({共鳴} [強度] 等 → このキャラのデータ値)。判定/
+    // ダイス解釈の前段で行う。駒が見つからない発言(GM 等)は対象外。
+    const speakerPanel = scene.panels.find((x) => x.id === speakerId);
+    if (speakerPanel) {
+      raw = substituteVars(raw, panelVariables(speakerPanel));
+    }
+
     // システム固有コマンド(ダイスボット)を先に解釈。非該当は汎用へ。
     const botEv = diceBotRollEvent(newCtx(), name, raw, diceBot);
     if (botEv) {
       let ev: RollEvent = botEv;
       if (isSecret) ev = { ...ev, secret: true, visibleTo: [...viewers] };
       if (ch) ev = { ...ev, channel: ch };
+      if (msgColor) ev = { ...ev, color: msgColor };
       dispatch(ev);
       setMotion(ev);
       setError(null);
@@ -866,7 +984,7 @@ export function PlayTable({
     const cmd = parseDiceCommand(raw);
     try {
       if (cmd.kind === "none") {
-        dispatch(chatEvent(newCtx(), name, raw, ch));
+        dispatch({ ...chatEvent(newCtx(), name, raw, ch), color: msgColor });
         return;
       }
       let ev: RollEvent;
@@ -897,6 +1015,7 @@ export function PlayTable({
       if (ch) {
         ev = { ...ev, channel: ch };
       }
+      if (msgColor) ev = { ...ev, color: msgColor };
       dispatch(ev);
       setMotion(ev);
       setError(null);
@@ -928,6 +1047,7 @@ export function PlayTable({
           secret: intent.secret,
           visibleTo: intent.visibleTo,
           as: myName,
+          color: intent.color,
         });
         return;
       }
@@ -937,6 +1057,7 @@ export function PlayTable({
         channel: intent.channel,
         secret: intent.secret,
         visibleTo: intent.visibleTo,
+        color: intent.color,
       });
     } else if (intent.kind === "resource") {
       if (!ownsPanel(from, intent.panelId)) return;
@@ -960,8 +1081,19 @@ export function PlayTable({
       // 参加者は自分が登場させた駒だけ片付けられる(所有者一致を検証)。
       if (!ownsPanel(from, intent.panelId)) return;
       dispatch(panelRemoveEvent(newCtx(), intent.panelId));
+    } else if (intent.kind === "claim-char") {
+      // 「自分の駒にする」(ココフォリア的)。なりすまし防止のため owner は hello
+      // で記録した表示名で刻む。対象はキャラ駒(stats/resources あり)かつ非秘匿
+      // のみ(参加者に見えていない駒は奪えない)。
+      const claimer = memberNames.current.get(from);
+      if (!claimer) return;
+      const p = scene.panels.find((x) => x.id === intent.panelId);
+      if (!p || p.hidden) return;
+      const isChar = p.stats.length > 0 || p.resources.length > 0;
+      if (!isChar) return;
+      updatePanel(intent.panelId, { owner: claimer });
     } else if (intent.kind === "memo") {
-      setSharedMemo(intent.text);
+      setSharedMemos(intent.memos);
     }
   }
 
@@ -997,14 +1129,30 @@ export function PlayTable({
         const forNet = {
           ...s,
           panels: s.panels.filter((p) => !p.hidden),
+          // 先に末尾 N 件へ絞ってから秘匿フィルタ(全履歴を毎回走査しない)。
+          // 長時間卓で log が数千件でも、1 回の同期は末尾 N 件分で一定。
           log: (s.log ?? [])
+            .slice(-LOG_LIMIT)
             .filter((e) => {
               const actor = (e as { actor?: string }).actor;
               return !actor || !hiddenNames.has(actor);
-            })
-            .slice(-LOG_LIMIT),
+            }),
         };
-        await r.send({ type: "state", rev: revRef.current, scene: forNet });
+        // 画像(data URL)を分離: state は軽量(cas 参照)、画像実体は初出のものだけ送る。
+        const { lite, media } = splitSceneMedia(forNet);
+        // 画像は 1 枚ずつ送る。まとめて 1 通にすると数百チャンクの巨大メッセージになり、
+        // 再入室時(全画像を再送)に取りこぼして「画像が出ない」原因になる。1 枚ずつなら
+        // 1 枚の失敗が他に波及せず、sent に入れないので次のスナップショットで再送される。
+        for (const [k, v] of Object.entries(media)) {
+          if (sentMediaRef.current.has(k)) continue;
+          try {
+            await r.send({ type: "media", media: { [k]: v } });
+            sentMediaRef.current.add(k);
+          } catch {
+            // 失敗した画像は sent に入れず、次回スナップショットで再送する。
+          }
+        }
+        await r.send({ type: "state", rev: revRef.current, scene: lite });
       } while (st.queued);
     } finally {
       st.sending = false;
@@ -1017,6 +1165,9 @@ export function PlayTable({
       if (msg.type === "hello") {
         // 参加者名を記録(intent の所有権判定に使う)。
         memberNames.current.set(msg.from, msg.name);
+        // 新規参加者は画像を 1 枚も持っていないので、送信済みフラグを消して全画像を
+        // media で再送させる(cas 参照だけ届いて画像が解決できないのを防ぐ)。
+        sentMediaRef.current.clear();
         // 新規参加者へ現在の卓全体を送る(集約。hello 連投でも 1 本ずつ)。
         void sendSnapshotCoalesced();
         // 既に BGM を流しているなら再配信して、途中入室でも鳴るようにする
@@ -1039,6 +1190,14 @@ export function PlayTable({
     setNetBusy(true);
     setError(null);
     try {
+      // マルチ卓のホスト(参加コード発行)は PLAY プラン以上が必要。無料(basic)は
+      // 「参加のみ」。管理者(admin)はプラン不問で全機能可(ゲート免除・案内も出さない)。
+      // basic のときはエラー文ではなくプラン案内モーダルを出す。
+      const acct = await getMyAccount();
+      if (!acct.isAdmin && acct.plan === "basic") {
+        setPlanGateOpen(true);
+        return;
+      }
       // transform: 送信直前にメディアを Storage の URL へ逃がす(Realtime を軽く)。
       const r = await connectRoom(makeRoomCode(), "GM", {
         transform: sanitizeForNet,
@@ -1100,11 +1259,9 @@ export function PlayTable({
 
   function fireCutin(c: CutIn) {
     setCutin(c);
-    // 参加者にはローカルパスの soundPath は無意味なので外し、音は audio で配信。
-    roomRef.current?.send({
-      type: "cutin",
-      cutin: { ...c, soundPath: undefined, soundName: undefined },
-    });
+    // id だけ送る。参加者は自分の scene.cutins から画像を引く(data URL を丸ごと
+    // 送ると巨大になり Realtime を詰まらせてカットインが届かなくなるため)。
+    roomRef.current?.send({ type: "cutin", cutinId: c.id });
     if (c.soundPath) void broadcastAudio("se", c.soundPath);
   }
   function fireTelop(text: string) {
@@ -1132,7 +1289,8 @@ export function PlayTable({
     setCompose((c) => ({ ...c, text: "" }));
   }
 
-  async function save() {
+  /** 卓を保存する。成功すれば true(handleClose が見て続行する)。 */
+  async function save(): Promise<boolean> {
     setError(null);
     try {
       let p = savedPath;
@@ -1140,15 +1298,40 @@ export function PlayTable({
         await savePlayToPath(scene, p);
       } else {
         p = await savePlayAs(scene);
-        if (!p) return; // キャンセル
+        if (!p) return false; // 名前付け保存ダイアログでキャンセル
         setSavedPath(p);
       }
       onPersist(scene, p);
       setDirty(false);
       toast("✓ 卓を保存しました");
+      return true;
     } catch (e) {
       setError(`保存に失敗しました: ${String(e)}`);
+      return false;
     }
+  }
+
+  /** 卓を閉じる(未保存があれば 2 段階 confirm で保存/破棄を選んでもらう)。 */
+  async function handleClose() {
+    if (!dirty) {
+      onClose();
+      return;
+    }
+    // 第 1 段: 保存して閉じるか
+    const wantSave = window.confirm(
+      "卓に保存されていない変更があります。\n\n[OK] 保存して閉じる\n[キャンセル] 保存しない",
+    );
+    if (wantSave) {
+      const ok = await save();
+      if (ok) onClose();
+      // 失敗時(ダイアログキャンセル/書込失敗) は閉じない。
+      return;
+    }
+    // 第 2 段: 破棄して閉じるか
+    const wantDiscard = window.confirm(
+      "保存していない変更を破棄して閉じますか？\n\n[OK] 破棄して閉じる\n[キャンセル] 戻る",
+    );
+    if (wantDiscard) onClose();
   }
 
   return (
@@ -1193,6 +1376,13 @@ export function PlayTable({
               >
                 ＋キャラ
               </button>
+              <button
+                className="btn mini ibtn"
+                onClick={() => void pasteCcfoliaPanel()}
+                title="他サイト（キャラクター保管所など）の「ココフォリア出力」をコピーしてから押すと、コマとして取り込めます"
+              >
+                <ClipboardPaste size={14} /> コマ貼付
+              </button>
             </>
           )}
           <span className="ptable-spacer" />
@@ -1211,21 +1401,21 @@ export function PlayTable({
           {!playerMode && (
             <>
               <button
-                className={`btn mini ibtn ${room ? "btn-primary" : ""}`}
+                className={`play-share-btn ${room ? "live" : ""}`}
                 onClick={() => void startShare()}
                 disabled={netBusy}
                 title={
                   room
                     ? `共有中（コード ${room.code}）— クリックで詳細`
-                    : "ネットワーク共有を開始（参加コードを発行）"
+                    : "みんなで卓を立てて招待（参加コードを発行）"
                 }
               >
-                <Globe size={14} />
+                {room ? <Radio size={15} /> : <Share2 size={15} />}
                 {netBusy
                   ? "接続中…"
                   : room
                     ? `${room.code}・${Math.max(0, members.filter((n) => n !== "GM").length)}人`
-                    : "共有"}
+                    : "みんなで遊ぶ"}
               </button>
               {onCharacters && (
                 <button
@@ -1253,7 +1443,7 @@ export function PlayTable({
               >
                 {dirty ? "保存*" : "保存"}
               </button>
-              <button className="btn mini" onClick={onClose}>
+              <button className="btn mini" onClick={() => void handleClose()}>
                 閉じる
               </button>
             </>
@@ -1267,7 +1457,7 @@ export function PlayTable({
         </p>
       )}
 
-      {/* 共有ポップオーバー(参加コード / 参加者 / 終了)。 */}
+      {/* 共有ポップオーバー(参加コード / 参加者 / フレンド招待 / 終了)。 */}
       {sharePop && room && (
         <div className="share-pop">
           <div className="share-row">
@@ -1282,6 +1472,13 @@ export function PlayTable({
               title="コードをコピー"
             >
               コピー
+            </button>
+            <button
+              className="btn mini btn-primary"
+              onClick={() => setFriendInviteOpen(true)}
+              title="フレンドに参加コードを通知"
+            >
+              フレンドを招待…
             </button>
           </div>
           <p className="share-note">
@@ -1303,6 +1500,38 @@ export function PlayTable({
           </div>
         </div>
       )}
+
+      {/* 無料(basic・非admin)が共有を押したときのプラン案内。PLAY/Pro を選ぶと
+          自動でホスト(共有)を再開する。 */}
+      {planGateOpen && (
+        <PlayPlanGate
+          onClose={() => setPlanGateOpen(false)}
+          onUnlocked={() => {
+            setPlanGateOpen(false);
+            void startShare();
+          }}
+        />
+      )}
+
+      <FriendPickerModal
+        open={friendInviteOpen}
+        title="フレンドに卓を招待"
+        multi
+        onClose={() => setFriendInviteOpen(false)}
+        onSelect={async (ids) => {
+          if (!room || ids.length === 0) return;
+          try {
+            await Promise.all(
+              ids.map((id) =>
+                sendTableInvite(id, room.code, scene.title || "卓"),
+              ),
+            );
+            toast(`📨 ${ids.length} 人に招待を送信しました`);
+          } catch (e) {
+            toast(`招待の送信に失敗: ${String(e)}`);
+          }
+        }}
+      />
 
       {!playerMode && (
       <div className="ptable-body2">
@@ -1445,6 +1674,30 @@ export function PlayTable({
                 body: <ScenarioViewer playId={scene.id} />,
               },
               {
+                id: "scenario-build",
+                title: "シナリオ作成",
+                icon: <NotebookPen size={14} />,
+                defaultOpen: false,
+                body: (
+                  <ScenarioBuilderPanel
+                    scenario={scene.scenario}
+                    onChange={(next) =>
+                      setScene((s) => ({ ...s, scenario: next }))
+                    }
+                    scenes={scene.scenes ?? []}
+                    onChangeScene={(sceneId, patch) =>
+                      setScene((s) => ({
+                        ...s,
+                        scenes: (s.scenes ?? []).map((sc) =>
+                          sc.id === sceneId ? { ...sc, ...patch } : sc,
+                        ),
+                      }))
+                    }
+                    onExportPack={exportScenarioPack}
+                  />
+                ),
+              },
+              {
                 id: "cutin",
                 title: "カットイン",
                 icon: <Clapperboard size={14} />,
@@ -1514,6 +1767,9 @@ export function PlayTable({
               onAddImage={addImageObject}
               onUpdate={updatePanel}
               onRemove={(id) => dispatch(panelRemoveEvent(newCtx(), id))}
+              onOpenCharacters={onCharacters}
+              participants={members.filter((n) => n !== "GM")}
+              onTransfer={(panelId, owner) => updatePanel(panelId, { owner })}
             />
             {/* 立ち絵(直近の発言キャラ)。表示はこの端末ローカルで切替可。 */}
             <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />
@@ -1552,6 +1808,8 @@ export function PlayTable({
                       visibleTo={visibleTo}
                       channel={channel}
                       onChannelChange={setChannel}
+                      color={chatColor}
+                      onColorChange={changeChatColor}
                       onSpeakerChange={(id) =>
                         setCompose((c) => ({ ...c, speakerId: id }))
                       }
@@ -1579,8 +1837,12 @@ export function PlayTable({
                 body: (
                   <MemoPanel
                     playId={scene.id}
-                    shared={scene.sharedMemo ?? ""}
-                    onSharedChange={setSharedMemo}
+                    sharedMemos={
+                      scene.sharedMemos ?? [
+                        { id: "main", name: "メモ", text: scene.sharedMemo ?? "" },
+                      ]
+                    }
+                    onSharedMemosChange={setSharedMemos}
                   />
                 ),
               },
@@ -1687,6 +1949,8 @@ export function PlayTable({
                           visibleTo={visibleTo}
                           channel={channel}
                           onChannelChange={setChannel}
+                      color={chatColor}
+                      onColorChange={changeChatColor}
                           onSpeakerChange={(id) =>
                             setCompose((c) => ({ ...c, speakerId: id }))
                           }
@@ -1712,8 +1976,16 @@ export function PlayTable({
                     body: (
                       <MemoPanel
                         playId={scene.id}
-                        shared={scene.sharedMemo ?? ""}
-                        onSharedChange={setSharedMemo}
+                        sharedMemos={
+                          scene.sharedMemos ?? [
+                            {
+                              id: "main",
+                              name: "メモ",
+                              text: scene.sharedMemo ?? "",
+                            },
+                          ]
+                        }
+                        onSharedMemosChange={setSharedMemos}
                       />
                     ),
                   },
@@ -1739,8 +2011,8 @@ export function PlayTable({
           onClose={() => setMotion(null)}
         />
       )}
-      {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}
-      {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}
+      {cutin && <CutInOverlay cutin={cutin} onDone={clearCutin} />}
+      {telop && <TelopOverlay text={telop} onDone={clearTelop} />}
     </div>
   );
 }

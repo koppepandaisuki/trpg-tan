@@ -9,6 +9,9 @@ import { FavoritesSection } from "@/components/favorites/favorites-section";
 import { FollowingCreatorsSection } from "@/components/creator/following-creators-section";
 import { TopCreatorsSection } from "@/components/creator/top-creators-section";
 import { CreatorEntryCard } from "@/components/creator/creator-entry-card";
+import { CreatorApplyCta } from "@/components/store/creator-apply-cta";
+import { AppDownloadCta } from "@/components/store/app-download-cta";
+import { getCurrentUser } from "@/lib/session/get-user";
 import {
   listRecentProducts,
   listTopSellingProducts,
@@ -47,6 +50,11 @@ const RECOMMENDATION_CATEGORIES: ProductType[] = STORE_CATEGORIES.filter(
 ).map((c) => c.value);
 
 export default async function HomePage() {
+  // ログイン状態 + クリエイター/管理者かどうか(申請カードの出し分けに使う)。
+  const currentUser = await getCurrentUser();
+  const showCreatorApply =
+    !currentUser || (!currentUser.isCreator && !currentUser.isAdmin);
+
   // 売上上位 / 新着 / 好評 / 人気クリエイター / フィーチャー /
   // 各カテゴリの上位作品 をすべて並行 fetch
   const [
@@ -100,6 +108,9 @@ export default async function HomePage() {
       <TopHeader />
       <PageContainer className="space-y-10 py-8">
         <HomeHero hasProducts={hasProducts} />
+
+        {/* デスクトップアプリの DL 誘導(テスター配布期間)。常時表示。 */}
+        <AppDownloadCta />
 
         {/* Steam ライク大型カルーセル(TTTT): 売上上位 + 好評 + 新着 を
             組合せた注目作品を auto-rotate。実商品が 1 件もないときは
@@ -177,6 +188,12 @@ export default async function HomePage() {
         {/* 「クリエイターを探す」入口カード(EEEE)。CategoryGrid と並ぶ
             「人軸」の発見入口。 */}
         <CreatorEntryCard />
+
+        {/* 自分が出品側に回るための「クリエイター申請」カード。既に
+            creator/admin の人には出さない。 */}
+        {showCreatorApply && (
+          <CreatorApplyCta isLoggedIn={!!currentUser} />
+        )}
       </PageContainer>
     </>
   );

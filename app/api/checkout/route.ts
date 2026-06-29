@@ -4,6 +4,7 @@ import { canPurchase } from "@/lib/access/purchase-access";
 import { isSameOriginRequest } from "@/lib/api/origin";
 import { getStripe } from "@/lib/stripe/client";
 import { calculateApplicationFeeJpy } from "@/lib/stripe/fees";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * POST /api/checkout
@@ -32,8 +33,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Parse productId
-  let body: { productId?: unknown } = {};
+  // Parse productId + optional returnTo (desktop deep-link).
+  let body: { productId?: unknown; returnTo?: unknown } = {};
   try {
     body = await request.json();
   } catch {
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  // デスクトップから来た場合、success/cancel ページが paradice:// で
+  // アプリに戻れるよう return_to=desktop を URL に乗せる。
+  const isFromDesktop = body.returnTo === "desktop";
 
   // Authorization
   const decision = await canPurchase(user.id, productId);
@@ -59,9 +63,51 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+  // 無料(priceJpy=0)、または管理者は Stripe を通さない:
+  //   - 無料: Stripe の最低決済額(JPY ~50円)未満で必ず失敗する。
+  //          クリエイターの Stripe Connect 未設定でも無料配布したい。
+  //   - 管理者: 出品物のスクリーニング/動作確認のため Stripe 決済なしで
+  //          ライブラリへ取り込めるようにする(運用配慮)。
+  // admin client で purchases に paid 行を直接 insert し、success URL を
+  // 返してその場で完了させる。stripe_session_id は UNIQUE 制約があるので
+  // `free:{userId}:{productId}` 形式で再押下時の重複も防ぐ。
+  const isAdminBypass = user.isAdmin;
+  if (decision.product.priceJpy <= 0 || isAdminBypass) {
+    const admin = createAdminClient();
+    const now = new Date().toISOString();
+    // session_id は集計時に区別したいので「admin:」「free:」プレフィックス。
+    const prefix = isAdminBypass && decision.product.priceJpy > 0 ? "admin" : "free";
+    const { error: insErr } = await admin.from("purchases").insert({
+      user_id: user.id,
+      product_id: decision.product.id,
+      stripe_session_id: `${prefix}:${user.id}:${decision.product.id}`,
+      amount_jpy: 0,
+      currency: "jpy",
+      status: "paid",
+      paid_at: now,
+      creator_id: decision.product.creatorId,
+      application_fee_jpy: 0,
+    });
+    if (insErr && insErr.code !== "23505") {
+      // 23505 = unique_violation → 同時押下の race。実質「既に持ってる」と
+      // 同じなので成功扱いにする。他のエラーは 500。
+      console.error("[checkout/free] insert failed", insErr);
+      return NextResponse.json(
+        { ok: false, message: "受け取り処理に失敗しました" },
+        { status: 500 },
+      );
+    }
+    const successUrl = `${siteUrl}/checkout/success?free=1${isFromDesktop ? "&return_to=desktop" : ""}`;
+    return NextResponse.json(
+      { ok: true, url: successUrl },
+      { status: 200, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   // Create Stripe Checkout Session
   const stripe = getStripe();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
   // D-020 PR3: destination charge with platform fee.
   //   - application_fee_amount … プラットフォーム取り分(JPY 円整数)
@@ -71,8 +117,18 @@ export async function POST(request: NextRequest) {
   //
   //   返金時は Stripe が自動で application_fee も逆算返金する
   //   (reverse transfer)。アプリ側で別途処理は不要。
+  // クリエイターのプランで手数料率を出し分け(Pro は 30%→20% 優遇)。
+  // RLS を跨いで他者の profiles.plan を読むため admin client を使う。
+  const planAdmin = createAdminClient();
+  const { data: creatorRow } = await planAdmin
+    .from("profiles")
+    .select("plan")
+    .eq("id", decision.product.creatorId)
+    .maybeSingle();
+  const creatorPlan = creatorRow?.plan === "pro" ? "pro" : "basic";
   const applicationFeeJpy = calculateApplicationFeeJpy(
     decision.product.priceJpy,
+    creatorPlan,
   );
 
   try {
@@ -109,8 +165,10 @@ export async function POST(request: NextRequest) {
       },
       payment_intent_data: {
         application_fee_amount: applicationFeeJpy,
+        // priceJpy>0 では canPurchase の creator_not_onboarded ガードを通って
+        // いるので必ず非 null(型上は null 許容にしたため as で narrow)。
         transfer_data: {
-          destination: decision.product.creatorStripeAccountId,
+          destination: decision.product.creatorStripeAccountId as string,
         },
         // Mirror productId/userId so refund-related events (Phase 8) can
         // resolve the purchase without joining through the checkout session.
@@ -119,8 +177,8 @@ export async function POST(request: NextRequest) {
           userId: user.id,
         },
       },
-      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/checkout/cancel?slug=${encodeURIComponent(decision.product.slug)}`,
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}${isFromDesktop ? "&return_to=desktop" : ""}`,
+      cancel_url: `${siteUrl}/checkout/cancel?slug=${encodeURIComponent(decision.product.slug)}${isFromDesktop ? "&return_to=desktop" : ""}`,
     });
 
     if (!session.url) {

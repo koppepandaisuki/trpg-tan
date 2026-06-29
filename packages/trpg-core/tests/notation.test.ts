@@ -62,3 +62,38 @@ describe("rollNotation", () => {
     expect(r.total).toBe(5);
   });
 });
+
+describe("rollNotation(計算式)", () => {
+  const fixed = (v: number): RandomFn => () => (v - 1) / 6 + 1e-9; // d6 で常に v
+
+  it("乗算が効く(優先順位)", () => {
+    // 1d6(→3) + 2*3 = 9
+    const r = rollNotation("1d6+2*3", fixed(3));
+    expect(r.total).toBe(9);
+  });
+
+  it("括弧でくくると先に計算する", () => {
+    // (1d6+1)*2 = (3+1)*2 = 8
+    const r = rollNotation("(1d6+1)*2", fixed(3));
+    expect(r.total).toBe(8);
+  });
+
+  it("割り算は切り捨て", () => {
+    // 7/2 = 3, 1d6(→5)/2 = 2
+    expect(rollNotation("7/2").total).toBe(3);
+    expect(rollNotation("1d6/2", fixed(5)).total).toBe(2);
+  });
+
+  it("累乗は右結合", () => {
+    expect(rollNotation("2^3").total).toBe(8);
+    expect(rollNotation("2^3^2").total).toBe(512); // 2^(3^2)
+  });
+
+  it("剰余", () => {
+    expect(rollNotation("7%3").total).toBe(1);
+  });
+
+  it("0 除算はエラー", () => {
+    expect(() => rollNotation("1/0")).toThrow();
+  });
+});

@@ -1,6 +1,8 @@
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
+import { join } from "@tauri-apps/api/path";
 import { PLAY_SCHEMA_VERSION, type PlayScene } from "@trpg/core";
+import { getSessionsDir } from "./library-root";
 
 /**
  * セッション卓(.play = 1 セッション JSON)のローカル保存/読込と、索引。
@@ -11,10 +13,13 @@ import { PLAY_SCHEMA_VERSION, type PlayScene } from "@trpg/core";
 const FILTERS = [{ name: "TRPG Play", extensions: ["play"] }];
 
 export async function savePlayAs(scene: PlayScene): Promise<string | null> {
-  const path = await save({
-    defaultPath: `${sanitize(scene.title) || "session"}.play`,
-    filters: FILTERS,
-  });
+  // Save As ダイアログの既定パスをライブラリ root / sessions / に。
+  // ユーザーが別の場所に保存することは引き続き可能(ダイアログで任意選択)。
+  const defaultPath = await join(
+    await getSessionsDir(),
+    `${sanitize(scene.title) || "session"}.play`,
+  );
+  const path = await save({ defaultPath, filters: FILTERS });
   if (!path) return null;
   await writeTextFile(path, serialize(scene));
   return path;

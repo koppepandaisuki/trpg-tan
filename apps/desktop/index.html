@@ -10,6 +10,26 @@
         document.documentElement.dataset.theme =
           localStorage.getItem("trpg.theme.v1") || "light";
       } catch (e) {}
+      // 起動中に未捕捉の例外/Promise rejection が出たら、スプラッシュの
+      // 文言を「起動しています…」から実際のエラーに差し替える。React が
+      // マウントしないままスプラッシュが残り続ける症状(v0.1.1)を
+      // テスター側でも原因がわかるようにするためのフォールバック表示。
+      function __pdShowBootError(msg) {
+        try {
+          var boot = document.getElementById("boot");
+          if (!boot) return;
+          var cap = boot.querySelector(".cap");
+          if (cap) cap.textContent = "起動エラー: " + String(msg).slice(0, 300);
+        } catch (e) {}
+      }
+      window.addEventListener("error", function (e) {
+        __pdShowBootError((e && (e.message || e.filename)) || "unknown");
+      });
+      window.addEventListener("unhandledrejection", function (e) {
+        __pdShowBootError(
+          (e && e.reason && (e.reason.message || e.reason)) || "promise",
+        );
+      });
     </script>
     <style>
       /* 起動スプラッシュ。JS バンドル(数百KB)の読込〜React 初描画までの「白い

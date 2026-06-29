@@ -120,6 +120,7 @@ export default async function CreatorProfilePage({
                       summary={{
                         total: profile.stats.reviews.total,
                         positive: profile.stats.reviews.positive,
+                        avgStars: profile.stats.reviews.avgStars,
                         label: profile.stats.reviews.label,
                       }}
                       size="sm"

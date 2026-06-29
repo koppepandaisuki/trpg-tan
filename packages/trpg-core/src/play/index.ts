@@ -29,6 +29,10 @@ export {
   type SceneRemoveEvent,
   type TurnSetEvent,
   type LogClearEvent,
+  type ScenarioInfo,
+  type Handout,
+  type ScenarioNpc,
+  type MemoPage,
 } from "./types.js";
 export {
   createScene,
@@ -62,3 +66,5 @@ export {
   panelFromSheet,
   makeTokenPanel,
 } from "./panel.js";
+export { parseCcfoliaCharacter } from "./ccfolia.js";
+export { panelVariables, substituteVars } from "./vars.js";

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Users,
   MessageSquare,
@@ -6,19 +6,23 @@ import {
   Globe,
   UserPlus,
   SquarePen,
+  ClipboardPaste,
 } from "lucide-react";
 import {
   reduce,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
+  parseCcfoliaCharacter,
   type PlayScene,
   type Panel,
   type PanelResource,
+  type MemoPage,
   type RollEvent,
   type CutIn,
 } from "@trpg/core";
 import { getLibrary } from "./library";
+import { setDiagContext } from "./diag";
 import { downscaleImage, probeImageWidth } from "./play-thumb";
 import { readSheetFromPath, isGenericSheet } from "./storage";
 import { DiceMotion } from "./DiceMotion";
@@ -33,6 +37,7 @@ import { SideStack } from "./SideStack";
 import { CutInOverlay } from "./CutIn";
 import { TelopOverlay } from "./TextStock";
 import { connectRoom, type NetIntent, type Room } from "./net";
+import { resolveSceneMedia } from "./play-media";
 import { useLiveDrag } from "./use-live-drag";
 
 type Phase = "connecting" | "waiting" | "ready" | "closed" | "error";
@@ -90,6 +95,8 @@ export function PlayClient({
   const [motion, setMotion] = useState<RollEvent | null>(null);
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const [telop, setTelop] = useState<string | null>(null);
+  const clearCutin = useCallback(() => setCutin(null), []);
+  const clearTelop = useCallback(() => setTelop(null), []);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(true);
 
@@ -102,6 +109,18 @@ export function PlayClient({
   const [secret, setSecret] = useState(false);
   const [visibleTo, setVisibleTo] = useState<string[]>([]);
   const [channel, setChannel] = useState("main");
+  // 発言の文字色(この端末で記憶)。
+  const [chatColor, setChatColor] = useState(
+    () => localStorage.getItem("trpg.chat.color.v1") || "#cdd3e1",
+  );
+  function changeChatColor(c: string) {
+    setChatColor(c);
+    try {
+      localStorage.setItem("trpg.chat.color.v1", c);
+    } catch {
+      // 保存失敗は無視
+    }
+  }
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 音声(GM から配信される BGM/SE)。BGM は 1 本のループ要素、SE は単発。
@@ -121,6 +140,13 @@ export function PlayClient({
   const curBgmRef = useRef<{ src: string | null }>({ src: null });
 
   const roomRef = useRef<Room | null>(null);
+  // "cutin" メッセージのハンドラは接続時の closure で固定されるため、最新の scene を
+  // 参照するための ref(毎レンダーで更新)。
+  const sceneRef = useRef<PlayScene | null>(null);
+  sceneRef.current = scene;
+  // 画像束(key→URL/dataURL)。GM は state を "cas:<key>" 参照の軽量版で流し、画像実体は
+  // 別 media メッセージで送ってくる。ここに溜めて state の参照を実体へ復元する。
+  const mediaMapRef = useRef<Map<string, string>>(new Map());
   // 適用済み state の版。rev が進んだときだけ置き換える(broadcast の順序逆転で
   // 古い state が新しいのを潰すのを防ぐ)。
   const lastRevRef = useRef(-1);
@@ -169,19 +195,31 @@ export function PlayClient({
             lastRevRef.current = msg.rev;
             got = true;
             if (helloTimer) window.clearInterval(helloTimer);
-            // 自分の未反映操作(楽観)は権威の上に被せて即時性を保つ。
-            setScene(overlayOptimistic(msg.scene));
+            // 軽量 state の "cas:<key>" 参照を、受信済みの画像実体へ復元してから
+            // 楽観反映を被せる(まだ届いていない画像は参照のまま=後続 media で埋まる)。
+            setScene(
+              overlayOptimistic(resolveSceneMedia(msg.scene, mediaMapRef.current)),
+            );
             setPhase("ready");
+          } else if (msg.type === "media") {
+            // 画像束を受け取りキャッシュ。表示中 scene に残る未解決参照を埋める
+            // (解決済み URL や通常のログ文字列には触れないのでログは保持される)。
+            for (const [k, v] of Object.entries(msg.media)) {
+              mediaMapRef.current.set(k, v);
+            }
+            setScene((s) => (s ? resolveSceneMedia(s, mediaMapRef.current) : s));
           } else if (msg.type === "event") {
             // チャット/ダイスのみ即時(ログ即時表示＋ダイス演出)。状態は state が権威。
             setScene((s) => (s ? reduce(s, msg.ev) : s));
             if (msg.ev.kind === "roll") setMotion(msg.ev);
           } else if (msg.type === "cutin") {
-            setCutin(msg.cutin);
+            // id だけ届くので参加者の scene から画像を引く。
+            const c = sceneRef.current?.cutins?.find((x) => x.id === msg.cutinId);
+            if (c) setCutin(c);
           } else if (msg.type === "telop") {
             setTelop(msg.text);
           } else if (msg.type === "memo") {
-            setScene((s) => (s ? { ...s, sharedMemo: msg.text } : s));
+            setScene((s) => (s ? { ...s, sharedMemos: msg.memos } : s));
           } else if (msg.type === "audio") {
             handleAudio(msg.channel, msg.src);
           } else if (msg.type === "closed") {
@@ -220,6 +258,19 @@ export function PlayClient({
     // 参加コード/名前は入室時に固定。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, name]);
+
+  // 不具合報告に PLAY の文脈(参加者・卓・システム)を載せる。マウント中だけ登録。
+  useEffect(() => {
+    setDiagContext(() =>
+      [
+        "role: 参加者",
+        `name: ${name}`,
+        `room: ${code}`,
+        `play: ${scene?.id ?? "?"} / ${scene?.systemId ?? "?"}`,
+      ].join("\n"),
+    );
+    return () => setDiagContext(null);
+  }, [code, name, scene?.id, scene?.systemId]);
 
   // [ / ] でドロワー開閉(入力中は無効)。
   useEffect(() => {
@@ -391,6 +442,40 @@ export function PlayClient({
     sendIntent({ kind: "remove-char", panelId });
   }
 
+  /** GM/他人の駒を「自分の駒にする」(GM が owner を本人名で刻んで操作権を渡す)。 */
+  function claimCharacter(panelId: string) {
+    sendIntent({ kind: "claim-char", panelId });
+  }
+
+  /**
+   * クリップボードのココフォリア駒データを自分のキャラとして取り込む。
+   * GM へ add-char を送り、GM が owner を本人名で刻んで配信する(ホストと同じ取込み)。
+   */
+  async function pasteCcfoliaPanel() {
+    setAddErr(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      const panel = parseCcfoliaCharacter(text, () => crypto.randomUUID());
+      if (!panel) {
+        setAddErr(
+          "クリップボードにココフォリア形式のコマが見つかりません。対応サイトで「ココフォリア出力」をコピーしてからお試しください。",
+        );
+        return;
+      }
+      // ポートレートがあれば実寸幅で配置(送信前にこちらで解決)。
+      const size = panel.portrait
+        ? await probeImageWidth(panel.portrait, 700).catch(() => undefined)
+        : undefined;
+      sendIntent({
+        kind: "add-char",
+        panel: { ...panel, ...(size ? { size } : {}) },
+      });
+      setPicking(false);
+    } catch (e) {
+      setAddErr(`コマの貼り付けに失敗しました: ${String(e)}`);
+    }
+  }
+
   /** 画像ファイルを盤面オブジェクトとして追加(add-char 経由で GM が登場)。 */
   async function addImageObject(file: File) {
     const dataUrl = await new Promise<string | null>((resolve) => {
@@ -450,6 +535,7 @@ export function PlayClient({
       channel,
       secret,
       visibleTo: [...visibleTo],
+      color: chatColor,
     });
   }
   function fill(speakerId: string, text: string) {
@@ -531,11 +617,13 @@ export function PlayClient({
       note?: string;
       palette?: string;
       speed?: number;
+      size?: number;
+      height?: number;
       portrait?: string | null;
       variants?: { id: string; label: string; image: string }[];
     },
   ) {
-    // 参加者が触れるのは名前/メモ/パレット/速さ/差分のみ
+    // 参加者が触れるのは名前/メモ/パレット/速さ/差分/自分の駒のサイズのみ
     // (hidden/locked などの GM 専用フィールドは UI 側で出ない)。
     // 指定したフィールドだけ楽観反映(undefined は据え置き)。
     optimisticPanel(id, (p) => {
@@ -544,6 +632,8 @@ export function PlayClient({
       if (patch.note !== undefined) np.note = patch.note;
       if (patch.palette !== undefined) np.palette = patch.palette;
       if (patch.speed !== undefined) np.speed = patch.speed;
+      if (patch.size !== undefined) np.size = patch.size;
+      if (patch.height !== undefined) np.height = patch.height;
       if (patch.portrait !== undefined) np.portrait = patch.portrait;
       if (patch.variants !== undefined) np.variants = patch.variants;
       return np;
@@ -556,6 +646,8 @@ export function PlayClient({
         note: patch.note,
         palette: patch.palette,
         speed: patch.speed,
+        size: patch.size,
+        height: patch.height,
         portrait: patch.portrait,
         variants: patch.variants,
       },
@@ -564,11 +656,11 @@ export function PlayClient({
 
   // 共有メモ: 手元へ即反映しつつ、デバウンスして GM へ送る。
   const memoTimer = useRef<number | undefined>(undefined);
-  function setSharedMemo(text: string) {
-    setScene((s) => (s ? { ...s, sharedMemo: text } : s));
+  function setSharedMemos(memos: MemoPage[]) {
+    setScene((s) => (s ? { ...s, sharedMemos: memos } : s));
     window.clearTimeout(memoTimer.current);
     memoTimer.current = window.setTimeout(() => {
-      sendIntent({ kind: "memo", text });
+      sendIntent({ kind: "memo", memos });
     }, 600);
   }
 
@@ -618,9 +710,16 @@ export function PlayClient({
           <p className="muted" style={{ fontSize: 12 }}>
             参加コード: <code>{code}</code> / 名前: {name}
           </p>
-          <button className="btn mini" onClick={onClose}>
-            退出する
-          </button>
+          <div className="pclient-status-actions">
+            {onOpenCharacters && (
+              <button className="btn mini ibtn" onClick={onOpenCharacters}>
+                <SquarePen size={14} /> キャラシを作成
+              </button>
+            )}
+            <button className="btn mini" onClick={onClose}>
+              退出する
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -655,6 +754,15 @@ export function PlayClient({
             />
           </span>
           <span className="ptable-spacer" />
+          {onOpenCharacters && (
+            <button
+              className="btn mini ibtn"
+              onClick={onOpenCharacters}
+              title="卓を開いたままキャラシを作成・編集します"
+            >
+              <SquarePen size={14} /> キャラシ
+            </button>
+          )}
           <button className="btn mini" onClick={onClose}>
             退出
           </button>
@@ -669,6 +777,7 @@ export function PlayClient({
               panels={overlayLive(scene.panels)}
               activeSceneId={scene.activeSceneId}
               playerMode
+              viewerName={name}
               onMove={movePanel}
               onDragMove={sendDrag}
               onSetImage={() => {}}
@@ -676,6 +785,8 @@ export function PlayClient({
               onAddImage={() => {}}
               onUpdate={updatePanel}
               onRemove={() => {}}
+              onOpenCharacters={onOpenCharacters}
+              onClaim={claimCharacter}
             />
             <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />
             <BoardStatusBar cards={playerCards} turn={scene.turn} />
@@ -739,6 +850,14 @@ export function PlayClient({
                   onClick={openPicker}
                 >
                   <UserPlus size={14} /> 自分のキャラを追加
+                </button>
+                <button
+                  className="btn mini ibtn"
+                  style={{ width: "100%" }}
+                  onClick={pasteCcfoliaPanel}
+                  title="他サイト（キャラクター保管所など）の「ココフォリア出力」をコピーしてから押すと、自分のコマとして取り込めます"
+                >
+                  <ClipboardPaste size={14} /> ココフォリアのコマを取り込む
                 </button>
                 {onOpenCharacters && (
                   <button
@@ -841,6 +960,8 @@ export function PlayClient({
                         visibleTo={visibleTo}
                         channel={channel}
                         onChannelChange={setChannel}
+                        color={chatColor}
+                        onColorChange={changeChatColor}
                         onSpeakerChange={(id) =>
                           setCompose((c) => ({ ...c, speakerId: id }))
                         }
@@ -853,6 +974,7 @@ export function PlayClient({
                         onQuickRoll={(expr) => handleSend(compose.speakerId, expr)}
                         maskSecret
                         viewerName={name}
+                        viewerPanelNames={myCards.map((p) => p.name)}
                         inputRef={inputRef}
                       />
                     </div>
@@ -866,8 +988,12 @@ export function PlayClient({
                   body: (
                     <MemoPanel
                       playId={scene.id}
-                      shared={scene.sharedMemo ?? ""}
-                      onSharedChange={setSharedMemo}
+                      sharedMemos={
+                        scene.sharedMemos ?? [
+                          { id: "main", name: "メモ", text: scene.sharedMemo ?? "" },
+                        ]
+                      }
+                      onSharedMemosChange={setSharedMemos}
                     />
                   ),
                 },
@@ -892,8 +1018,8 @@ export function PlayClient({
           onClose={() => setMotion(null)}
         />
       )}
-      {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}
-      {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}
+      {cutin && <CutInOverlay cutin={cutin} onDone={clearCutin} />}
+      {telop && <TelopOverlay text={telop} onDone={clearTelop} />}
     </div>
   );
 }

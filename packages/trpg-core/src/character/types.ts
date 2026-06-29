@@ -39,8 +39,14 @@ export interface CharacterSheet {
     occupation: Record<string, number>;
     interest: Record<string, number>;
   };
-  /** 任意メモ */
+  /** 任意メモ(短いプレイ用メモ) */
   notes?: string;
+  /**
+   * バックストーリー(キャラ背景)。職業・家族・信念・過去の出来事など、
+   * 長文の人物設定をここに書く。notes とは別欄(notes は短いプレイ中
+   * メモ、backstory は読み物として残すロール用の背景)。
+   */
+  backstory?: string;
   meta: {
     createdAt: string; // ISO
     updatedAt: string; // ISO

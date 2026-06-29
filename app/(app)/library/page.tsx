@@ -2,8 +2,6 @@ import {
   ShoppingBag,
   LibraryBig,
   CheckCircle2,
-  Clock,
-  Ban,
   Receipt,
   Package,
   CalendarDays,
@@ -12,11 +10,10 @@ import {
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/store/empty-state";
-import { LibraryCard } from "@/components/library/library-card";
+import { LibraryBrowser } from "@/components/library/library-browser";
 import { requireUser } from "@/lib/session/require";
-import { listMyLibrary, type LibraryItem } from "@/lib/queries/library";
+import { listMyLibrary } from "@/lib/queries/library";
 import { formatPrice } from "@/lib/format/price";
 import { cn } from "@/lib/utils";
 
@@ -28,9 +25,6 @@ export default async function LibraryPage() {
 
   const available = items.filter((i) => i.availability === "available");
   const pending = items.filter((i) => i.availability === "no_file");
-  const suspended = items.filter(
-    (i) => i.availability === "suspended" || i.availability === "blocked",
-  );
 
   const totalSpent = items.reduce((sum, i) => sum + i.amountJpy, 0);
   // 直近の購入日(paidAt の最大値)。1 件もないときは null。
@@ -121,32 +115,7 @@ export default async function LibraryPage() {
             secondaryAction={{ href: "/", label: "ホームに戻る" }}
           />
         ) : (
-          <div className="space-y-8">
-            {available.length > 0 && (
-              <Section
-                title="利用可能"
-                icon={CheckCircle2}
-                tone="emerald"
-                items={available}
-              />
-            )}
-            {pending.length > 0 && (
-              <Section
-                title="準備中"
-                icon={Clock}
-                tone="amber"
-                items={pending}
-              />
-            )}
-            {suspended.length > 0 && (
-              <Section
-                title="配布停止中"
-                icon={Ban}
-                tone="slate"
-                items={suspended}
-              />
-            )}
-          </div>
+          <LibraryBrowser items={items} />
         )}
       </PageContainer>
     </>
@@ -207,41 +176,4 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-const SECTION_TONES = {
-  emerald: "text-emerald-700",
-  amber: "text-amber-700",
-  slate: "text-slate-600",
-} as const;
-
-function Section({
-  title,
-  icon: Icon,
-  tone,
-  items,
-}: {
-  title: string;
-  icon: LucideIcon;
-  tone: keyof typeof SECTION_TONES;
-  items: LibraryItem[];
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Icon className={`h-4 w-4 ${SECTION_TONES[tone]}`} aria-hidden />
-        <h2 className="text-sm font-semibold tracking-tight text-foreground">
-          {title}
-        </h2>
-        <Badge variant="muted" className="text-[10px]">
-          {items.length}
-        </Badge>
-      </div>
-      <ul className="space-y-3">
-        {items.map((item) => (
-          <LibraryCard key={item.purchaseId} item={item} />
-        ))}
-      </ul>
-    </div>
-  );
 }

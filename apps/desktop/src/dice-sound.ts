@@ -8,10 +8,20 @@
  *
  * AudioContext はユーザー操作(判定ボタン/Enter)起点で生成・resume するので
  * 自動再生ポリシーに引っかからない。失敗しても演出は壊さない。
+ *
+ * 出力は masterGain を経由して destination に繋ぐ。音量は volume-settings の
+ * 実効ダイス音量(master * dice、または muted=true なら 0)を反映し、
+ * 設定変更時に即座に再適用する。
  */
+
+import {
+  getEffectiveDiceVolume,
+  onVolumeChange,
+} from "./volume-settings";
 
 let ctx: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
+let masterGain: GainNode | null = null;
 
 function ensure(): AudioContext {
   if (!ctx) {
@@ -20,6 +30,12 @@ function ensure(): AudioContext {
       (window as unknown as { webkitAudioContext: typeof AudioContext })
         .webkitAudioContext;
     ctx = new AC();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = getEffectiveDiceVolume();
+    masterGain.connect(ctx.destination);
+    onVolumeChange(() => {
+      if (masterGain) masterGain.gain.value = getEffectiveDiceVolume();
+    });
     const len = Math.floor(ctx.sampleRate * 0.4);
     noise = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = noise.getChannelData(0);
@@ -27,6 +43,11 @@ function ensure(): AudioContext {
   }
   if (ctx.state === "suspended") void ctx.resume();
   return ctx;
+}
+
+/** 全ての発音の最終出力先。masterGain があればそれ、なければ destination。 */
+function out(ac: AudioContext): AudioNode {
+  return masterGain ?? ac.destination;
 }
 
 /**
@@ -63,7 +84,7 @@ function tone(
   g.gain.exponentialRampToValueAtTime(o.gain, o.at + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, o.at + o.dur);
   osc.connect(g);
-  g.connect(ac.destination);
+  g.connect(out(ac));
   osc.start(o.at);
   osc.stop(o.at + o.dur + 0.02);
 }
@@ -94,7 +115,7 @@ function clack(
   src.connect(bp);
   bp.connect(g);
   g.connect(pan);
-  pan.connect(ac.destination);
+  pan.connect(out(ac));
   src.start(at);
   src.stop(at + o.dur + 0.02);
 }

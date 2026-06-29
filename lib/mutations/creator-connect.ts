@@ -43,15 +43,24 @@ export async function attachStripeAccountId(
  * stripe_account_id を主キー的に使うため、対応する profile が見つからない
  * (= 当プラットフォーム経由ではない account)場合は updated: false を返す。
  * 呼び出し側は warn ログにすれば足りる(throw しない方が retry を誘発しない)。
+ *
+ * 注意: charges_enabled=true は実質「クリエイター申請の承認」相当なので、
+ * このタイミングで profiles.is_creator も同時に true にする(申請フロー
+ * の自動化)。false 化(charges 停止)では is_creator を落とさない(過去の
+ * 出品物の参照を維持するため)。
  */
 export async function syncCreatorChargesEnabled(
   stripeAccountId: string,
   chargesEnabled: boolean,
 ): Promise<{ updated: boolean }> {
   const admin = createAdminClient();
+  const patch: { stripe_charges_enabled: boolean; is_creator?: boolean } = {
+    stripe_charges_enabled: chargesEnabled,
+  };
+  if (chargesEnabled) patch.is_creator = true;
   const { data, error } = await admin
     .from("profiles")
-    .update({ stripe_charges_enabled: chargesEnabled })
+    .update(patch)
     .eq("stripe_account_id", stripeAccountId)
     .select("id");
 

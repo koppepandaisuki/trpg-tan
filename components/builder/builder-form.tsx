@@ -36,6 +36,7 @@ import { BuilderToolbar } from "./toolbar";
 import { SectionNav, type SectionNavItem } from "./section-nav";
 import { SidebarInfo } from "./sidebar-info";
 import { TagInput } from "./tag-input";
+import { CuratedTagPicker } from "./curated-tag-picker";
 import { UploadCover } from "./upload-cover";
 import { UploadProductFile } from "./upload-product-file";
 import { UploadScreenshots } from "./upload-screenshots";
@@ -328,6 +329,23 @@ export function BuilderForm({
               render={({ field }) => (
                 <>
                   <TagInput value={field.value} onChange={field.onChange} />
+                  {/* 編集部の正規セット。表記を揃えてストアの「テーマで探す」に
+                      引っかかりやすくする(人気タグとは別物)。 */}
+                  <CuratedTagPicker
+                    selectedTags={field.value}
+                    atMax={field.value.length >= TAGS_MAX_COUNT}
+                    onAdd={(tag) => {
+                      if (
+                        !field.value.includes(tag) &&
+                        field.value.length < TAGS_MAX_COUNT
+                      ) {
+                        field.onChange([...field.value, tag]);
+                      }
+                    }}
+                    onRemove={(tag) =>
+                      field.onChange(field.value.filter((t) => t !== tag))
+                    }
+                  />
                   <TagSuggestions
                     popularTags={popularTags ?? []}
                     selectedTags={field.value}

@@ -12,7 +12,12 @@ import {
   type SystemDefinition,
   type OccupationDef,
 } from "@trpg/core";
-import { saveSheet, loadSheetViaDialog, isTauri } from "./storage";
+import {
+  saveSheet,
+  saveSheetToPath,
+  loadSheetViaDialog,
+  isTauri,
+} from "./storage";
 import { OccupationIcon } from "./OccupationIcon";
 import { InfoTip } from "./InfoTip";
 import {
@@ -79,11 +84,21 @@ function makeCustomOccupation(
 interface CharacterSheetProps {
   /** 既存キャラを開くときの初期シート(新規なら null/未指定)*/
   initialSheet?: Sheet | null;
+  /** 既存キャラのファイルパス(ライブラリから開いたとき)。上書き保存に使う。*/
+  initialPath?: string | null;
   /** 保存に成功したとき(ライブラリ索引の更新用)*/
   onSaved?: (sheet: Sheet, path: string) => void;
 }
 
-export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
+export function CharacterSheet({
+  initialSheet,
+  initialPath,
+  onSaved,
+}: CharacterSheetProps) {
+  // 現在の保存先。あれば「保存」で上書き、無ければ別名保存ダイアログを出す。
+  const [currentPath, setCurrentPath] = useState<string | null>(
+    initialPath ?? null,
+  );
   const [systemId, setSystemId] = useState<SystemId>(() =>
     sysIdOf(initialSheet),
   );
@@ -93,6 +108,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
   );
   const [name, setName] = useState(initialSheet?.name ?? "");
   const [notes, setNotes] = useState(initialSheet?.notes ?? "");
+  const [backstory, setBackstory] = useState(initialSheet?.backstory ?? "");
   const [image, setImage] = useState<string | null>(
     initialSheet?.image ?? null,
   );
@@ -201,6 +217,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
         : null,
       allocation: { occupation: occAlloc, interest: intAlloc },
       notes,
+      backstory,
       meta: { createdAt, updatedAt: new Date().toISOString() },
     };
   }
@@ -212,6 +229,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setCreatedAt(sheet.meta?.createdAt ?? new Date().toISOString());
     setName(sheet.name ?? "");
     setNotes(sheet.notes ?? "");
+    setBackstory(sheet.backstory ?? "");
     setImage(sheet.image ?? null);
     setChars(sheet.characteristics ?? {});
     setOccupationId(
@@ -224,7 +242,35 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
     setCustomSkills(sheet.customSkills ?? []);
   }
 
+  /** 上書き保存。保存先が未確定(新規)なら別名保存にフォールバック。 */
   async function onSave() {
+    if (!isTauri()) {
+      setMessage("保存はデスクトップアプリ(tauri dev/build)でのみ利用できます");
+      return;
+    }
+    try {
+      const sheet = buildSheet();
+      if (currentPath) {
+        await saveSheetToPath(sheet, currentPath);
+        onSaved?.(sheet, currentPath);
+        setMessage("上書き保存しました");
+        return;
+      }
+      const path = await saveSheet(sheet);
+      if (path) {
+        setCurrentPath(path);
+        onSaved?.(sheet, path);
+        setMessage("保存しました(ライブラリに追加)");
+      } else {
+        setMessage("保存をキャンセルしました");
+      }
+    } catch (e) {
+      setMessage(`保存に失敗: ${String(e)}`);
+    }
+  }
+
+  /** 別名で保存(常にダイアログ)。以後はその新しいパスへ上書きする。 */
+  async function onSaveAs() {
     if (!isTauri()) {
       setMessage("保存はデスクトップアプリ(tauri dev/build)でのみ利用できます");
       return;
@@ -233,8 +279,9 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       const sheet = buildSheet();
       const path = await saveSheet(sheet);
       if (path) {
+        setCurrentPath(path);
         onSaved?.(sheet, path);
-        setMessage("保存しました(ライブラリに追加)");
+        setMessage("別名で保存しました");
       } else {
         setMessage("保存をキャンセルしました");
       }
@@ -252,6 +299,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
       const result = await loadSheetViaDialog();
       if (result) {
         applySheet(result.sheet);
+        setCurrentPath(result.path); // 以後はこのファイルへ上書きできる
         onSaved?.(result.sheet, result.path); // ライブラリにも索引を残す
         setMessage("読み込みました");
       }
@@ -283,8 +331,19 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
         <button className="btn" onClick={onImport}>
           インポート
         </button>
-        <button className="btn btn-primary" onClick={onSave}>
-          保存(.ccsheet)
+        <button className="btn" onClick={onSaveAs} title="別の名前/場所に保存">
+          別名で保存
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={onSave}
+          title={
+            currentPath
+              ? "同じファイルに上書き保存（ダイアログを出しません）"
+              : "保存先を選んで保存"
+          }
+        >
+          {currentPath ? "上書き保存" : "保存(.ccsheet)"}
         </button>
       </div>
       {message && <p className="muted">{message}</p>}
@@ -663,7 +722,7 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
         )}
       </div>
 
-      {/* メモ */}
+      {/* メモ(短いプレイ用メモ。背景は下のバックストーリー欄へ) */}
       <div className="card">
         <strong>メモ</strong>
         <textarea
@@ -671,7 +730,23 @@ export function CharacterSheet({ initialSheet, onSaved }: CharacterSheetProps) {
           rows={3}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="背景・所持品など"
+          placeholder="所持品・行動指針など短いメモ"
+          style={{ marginTop: 8, width: "100%", resize: "vertical" }}
+        />
+      </div>
+
+      {/* バックストーリー(人物背景。長文・ロール用) */}
+      <div className="card">
+        <strong>バックストーリー</strong>
+        <p className="muted" style={{ fontSize: 11, margin: "4px 0 0" }}>
+          家族・経歴・信念・過去の出来事など、読み物として残す人物設定。
+        </p>
+        <textarea
+          className="input"
+          rows={8}
+          value={backstory}
+          onChange={(e) => setBackstory(e.target.value)}
+          placeholder="例: 田舎町で生まれ育った..."
           style={{ marginTop: 8, width: "100%", resize: "vertical" }}
         />
       </div>

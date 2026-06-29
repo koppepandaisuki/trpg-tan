@@ -32,6 +32,22 @@ export async function revokeCreator(targetUserId: string): Promise<void> {
   if (error) throw classifyRpcError("revoke_creator", error);
 }
 
+export async function grantAdmin(targetUserId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_grant_admin", {
+    target_id: targetUserId,
+  });
+  if (error) throw classifyRpcError("grant_admin", error);
+}
+
+export async function revokeAdmin(targetUserId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_revoke_admin", {
+    target_id: targetUserId,
+  });
+  if (error) throw classifyRpcError("revoke_admin", error);
+}
+
 export async function setProductStatus(
   productId: string,
   newStatus: ProductStatus,

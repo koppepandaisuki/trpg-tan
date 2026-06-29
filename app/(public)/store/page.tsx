@@ -1,11 +1,19 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Search, PackageOpen, Store as StoreIcon, X, Tag } from "lucide-react";
+import {
+  Search,
+  PackageOpen,
+  Store as StoreIcon,
+  X,
+  Tag,
+  JapaneseYen,
+} from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CategoryTabs } from "@/components/store/category-tabs";
+import { CuratedTagRail } from "@/components/store/curated-tag-rail";
 import { WorkCard } from "@/components/store/work-card";
 import { EmptyState } from "@/components/store/empty-state";
 import { StorePagination } from "@/components/store/pagination";
@@ -14,6 +22,12 @@ import {
   type StoreSort,
 } from "@/lib/queries/products";
 import { parseCategoryParam, categoryLabel } from "@/lib/format/category";
+import {
+  parsePriceFilter,
+  priceFilterLabel,
+  STORE_PRICE_FILTERS,
+  type StorePriceFilter,
+} from "@/lib/format/price";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "ストア" };
@@ -23,6 +37,7 @@ interface StorePageProps {
     category?: string;
     tag?: string;
     q?: string;
+    price?: string;
     sort?: string;
     page?: string;
   };
@@ -50,59 +65,52 @@ export default async function StorePage({ searchParams }: StorePageProps) {
       ? searchParams.q.trim()
       : null;
   const sort = parseSort(searchParams.sort);
+  const price = parsePriceFilter(searchParams.price);
   const page = Number.parseInt(searchParams.page ?? "1", 10) || 1;
 
   const { items, totalPages, total } = await listPublishedProducts({
     category,
     tag,
     q,
+    price,
     sort,
     page,
   });
 
-  // ページネーション URL は category / tag / q / sort を全て維持しつつ
-  // page だけ差し替える。フィルタ + 検索 + ソートが組み合わさっても破綻しない。
-  const buildHref = (p: number): Route => {
+  // 全フィルタ(category / tag / q / price / sort / page)から /store URL を
+  // 組み立てる単一ヘルパ。各導線は現在の状態に override を被せて呼ぶことで、
+  // フィルタの取りこぼし(例: 価格だけ消える)を防ぐ。
+  const storeHref = (p: {
+    category?: string | null;
+    tag?: string | null;
+    q?: string | null;
+    price?: StorePriceFilter | null;
+    sort?: StoreSort;
+    page?: number;
+  }): Route => {
     const params = new URLSearchParams();
-    if (category) params.set("category", category);
-    if (tag) params.set("tag", tag);
-    if (q) params.set("q", q);
-    if (sort === "rating") params.set("sort", "rating");
-    if (p > 1) params.set("page", String(p));
+    if (p.category) params.set("category", p.category);
+    if (p.tag) params.set("tag", p.tag);
+    if (p.q) params.set("q", p.q);
+    if (p.price) params.set("price", p.price);
+    if (p.sort === "rating") params.set("sort", "rating");
+    if (p.page && p.page > 1) params.set("page", String(p.page));
     const qs = params.toString();
     return (qs ? `/store?${qs}` : "/store") as Route;
   };
 
-  // 「タグフィルタを外す」URL は他の filter / q / sort を維持
-  const removeTagHref: Route = (() => {
-    const params = new URLSearchParams();
-    if (category) params.set("category", category);
-    if (q) params.set("q", q);
-    if (sort === "rating") params.set("sort", "rating");
-    const qs = params.toString();
-    return (qs ? `/store?${qs}` : "/store") as Route;
-  })();
-
-  // 「検索を解除」URL は他の filter / sort を維持
-  const removeQueryHref: Route = (() => {
-    const params = new URLSearchParams();
-    if (category) params.set("category", category);
-    if (tag) params.set("tag", tag);
-    if (sort === "rating") params.set("sort", "rating");
-    const qs = params.toString();
-    return (qs ? `/store?${qs}` : "/store") as Route;
-  })();
-
-  // ソート切替 URL は page をリセットして 1 ページ目に戻す
-  const buildSortHref = (s: StoreSort): Route => {
-    const params = new URLSearchParams();
-    if (category) params.set("category", category);
-    if (tag) params.set("tag", tag);
-    if (q) params.set("q", q);
-    if (s === "rating") params.set("sort", "rating");
-    const qs = params.toString();
-    return (qs ? `/store?${qs}` : "/store") as Route;
-  };
+  // ページネーション: page だけ差し替え、他は維持。
+  const buildHref = (p: number): Route =>
+    storeHref({ category, tag, q, price, sort, page: p });
+  // タグ / 検索 / 価格を個別に外す導線(他は維持、page はリセット)。
+  const removeTagHref = storeHref({ category, tag: null, q, price, sort });
+  const removeQueryHref = storeHref({ category, tag, q: null, price, sort });
+  const removePriceHref = storeHref({ category, tag, q, price: null, sort });
+  // ソート / 価格切替(page はリセットして 1 ページ目へ)。
+  const buildSortHref = (s: StoreSort): Route =>
+    storeHref({ category, tag, q, price, sort: s });
+  const buildPriceHref = (pr: StorePriceFilter): Route =>
+    storeHref({ category, tag, q, price: pr, sort });
 
   return (
     <>
@@ -152,6 +160,18 @@ export default async function StorePage({ searchParams }: StorePageProps) {
                       <X className="h-3 w-3" aria-hidden />
                     </Link>
                   )}
+                  {/* 価格フィルタ chip。クリックで外せる */}
+                  {price && (
+                    <Link
+                      href={removePriceHref}
+                      className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
+                      aria-label={`価格「${priceFilterLabel(price)}」のフィルタを外す`}
+                    >
+                      <JapaneseYen className="h-3 w-3" aria-hidden />
+                      <span>{priceFilterLabel(price)}</span>
+                      <X className="h-3 w-3" aria-hidden />
+                    </Link>
+                  )}
                   <Badge variant="muted" className="text-[10px]">
                     {total} 件
                   </Badge>
@@ -167,6 +187,50 @@ export default async function StorePage({ searchParams }: StorePageProps) {
         <div>
           <CategoryTabs current={category} />
         </div>
+
+        {/* テーマで探す(キュレーション探索タグ)。カテゴリ(商品タイプ)とは
+            別軸で、遊びやすさ・時間・人数・雰囲気からタグ検索に飛ばす。 */}
+        <CuratedTagRail current={tag} />
+
+        {/* 価格で絞り込み(無料 / 価格帯)。category / sort とは独立。 */}
+        <nav
+          aria-label="価格で絞り込み"
+          className="flex flex-wrap items-center gap-2 text-xs"
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            価格
+          </span>
+          <Link
+            href={removePriceHref}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition",
+              price === null
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+            )}
+            aria-current={price === null ? "page" : undefined}
+          >
+            すべて
+          </Link>
+          {STORE_PRICE_FILTERS.map((f) => {
+            const isActive = price === f.value;
+            return (
+              <Link
+                key={f.value}
+                href={buildPriceHref(f.value)}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition",
+                  isActive
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                {f.label}
+              </Link>
+            );
+          })}
+        </nav>
 
         {/* ソート切替(新着順 / 好評順)。フィルタ + ソートは独立に
             選べる。category-tabs と並ぶが、別行で「2 つの軸」感を明示。 */}
@@ -235,6 +299,18 @@ export default async function StorePage({ searchParams }: StorePageProps) {
                 primaryAction={{
                   href: "/store",
                   label: "すべての作品を見る",
+                }}
+                secondaryAction={{ href: "/", label: "ホームに戻る" }}
+              />
+            ) : price ? (
+              // 価格絞り込みで 0 件 → 価格条件を外す導線
+              <EmptyState
+                icon={Search}
+                title={`「${priceFilterLabel(price)}」の作品が見つかりませんでした`}
+                description="価格の条件を変えるか、外してすべての価格帯から探してみてください。"
+                primaryAction={{
+                  href: removePriceHref,
+                  label: "価格条件を外す",
                 }}
                 secondaryAction={{ href: "/", label: "ホームに戻る" }}
               />

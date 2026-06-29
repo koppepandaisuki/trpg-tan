@@ -14,6 +14,11 @@ import {
   removeCustomSystem,
 } from "./systems-store";
 import { exportPackToFile, publishPack } from "./pack";
+import { openUrl } from "@tauri-apps/plugin-opener";
+
+const WEB_BASE = (
+  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
 import { getPlayIndex, readPlayFromPath } from "./play-storage";
 import { getLibrary } from "./library";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
@@ -115,8 +120,10 @@ export function SystemBuilder({
       });
       setPubOpen(false);
       toast(
-        `🛒 「${g.pack.name}」を下書きとして出品しました。クリエイターページ（web）で表紙・価格を確認して公開してください（商品 ${r.slug}）`,
+        "🛒 下書きを作成しました。ブラウザで表紙を設定して公開してください。",
       );
+      // 仕上げ(表紙・価格確認・公開)の web ページを直接開く。
+      void openUrl(`${WEB_BASE}/creator/products/${r.productId}/edit`);
     } catch (e) {
       toast(`出品に失敗: ${e instanceof Error ? e.message : String(e)}`);
     } finally {

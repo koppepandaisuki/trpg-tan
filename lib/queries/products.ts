@@ -7,6 +7,7 @@ import type {
   FileFormat,
 } from "./types";
 import { fetchReviewSummariesByProductIds } from "./reviews";
+import { priceFilterRange, type StorePriceFilter } from "@/lib/format/price";
 
 /**
  * Page size for the store grid. Confirmed in Phase 4 design.
@@ -91,6 +92,8 @@ export async function listPublishedProducts(opts?: {
   tag?: string | null;
   /** タイトル部分一致検索(ilike)。空文字は無視。 */
   q?: string | null;
+  /** 価格絞り込みブラケット(無料 / 価格帯)。null は絞り込みなし。 */
+  price?: StorePriceFilter | null;
   page?: number;
   sort?: StoreSort;
 }): Promise<ListResult> {
@@ -101,6 +104,7 @@ export async function listPublishedProducts(opts?: {
   const to = from + pageSize - 1;
   const sort: StoreSort = opts?.sort ?? "published";
   const q = opts?.q?.trim() || null;
+  const price = opts?.price ?? null;
 
   // tag フィルタ + 検索(q)はどちらも「該当する product_id 集合」を
   // 計算して、最終的に AND(intersection)で絞り込む。
@@ -149,6 +153,7 @@ export async function listPublishedProducts(opts?: {
       pageSize,
       category: opts?.category ?? null,
       filteredIds,
+      price,
     });
   }
 
@@ -165,6 +170,11 @@ export async function listPublishedProducts(opts?: {
   }
   if (filteredIds !== null) {
     query = query.in("id", filteredIds);
+  }
+  if (price) {
+    const { min, max } = priceFilterRange(price);
+    query = query.gte("price_jpy", min);
+    if (max !== null) query = query.lte("price_jpy", max);
   }
 
   const { data: rows, count, error } = await query;
@@ -312,8 +322,10 @@ async function listByRating(args: {
   category: ProductType | null;
   /** tag / 検索の AND を適用した product_id 集合。null なら絞り込みなし。*/
   filteredIds: string[] | null;
+  /** 価格絞り込みブラケット。null は絞り込みなし。*/
+  price: StorePriceFilter | null;
 }): Promise<ListResult> {
-  const { page, pageSize, category, filteredIds } = args;
+  const { page, pageSize, category, filteredIds, price } = args;
   const supabase = createClient();
 
   // Step 1: 全 published products(filter 適用済)を slim select
@@ -324,6 +336,11 @@ async function listByRating(args: {
     .limit(5000);
   if (category) idQuery = idQuery.eq("product_type", category);
   if (filteredIds !== null) idQuery = idQuery.in("id", filteredIds);
+  if (price) {
+    const { min, max } = priceFilterRange(price);
+    idQuery = idQuery.gte("price_jpy", min);
+    if (max !== null) idQuery = idQuery.lte("price_jpy", max);
+  }
 
   const { data: idRows, error: idErr } = await idQuery;
   if (idErr) {
@@ -343,15 +360,15 @@ async function listByRating(args: {
   // Step 2: review summary を一括取得
   const reviewMap = await fetchReviewSummariesByProductIds(allIds);
 
-  // Step 3: 並び替え
+  // Step 3: 並び替え(平均星 desc → 件数 desc → 新着 desc)
   const sortedIds = [...allIds].sort((a, b) => {
     const ra = reviewMap.get(a);
     const rb = reviewMap.get(b);
-    const ratioA = ra && ra.total > 0 ? ra.positive / ra.total : -1;
-    const ratioB = rb && rb.total > 0 ? rb.positive / rb.total : -1;
-    if (ratioA !== ratioB) return ratioB - ratioA;
-    const countA = ra?.positive ?? 0;
-    const countB = rb?.positive ?? 0;
+    const starA = ra && ra.total > 0 ? ra.avgStars : -1;
+    const starB = rb && rb.total > 0 ? rb.avgStars : -1;
+    if (starA !== starB) return starB - starA;
+    const countA = ra?.total ?? 0;
+    const countB = rb?.total ?? 0;
     if (countA !== countB) return countB - countA;
     // published_at desc(新しい順を最後の tiebreak に)
     return (publishedMap.get(b) ?? "").localeCompare(

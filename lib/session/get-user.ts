@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { autoGrantCreatorIfWhitelisted } from "@/lib/mutations/alpha-creator";
 import { autoGrantAdminIfWhitelisted } from "@/lib/mutations/alpha-admin";
+import { normalizePlan, type UserPlan } from "@/lib/plan";
 
 /**
  * Minimal current-user shape used across the app.
@@ -21,6 +22,8 @@ export type CurrentUser = {
    * - D-020 PR2 で profiles に列追加(0010 migration)
    */
   stripeChargesEnabled: boolean;
+  /** 料金プラン(0030/0031 migration)。basic / play(PLAY解放) / pro。 */
+  plan: UserPlan;
 };
 
 /**
@@ -47,7 +50,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("display_name, is_creator, is_admin, stripe_charges_enabled")
+    .select("display_name, is_creator, is_admin, stripe_charges_enabled, plan")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -91,5 +94,6 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     isCreator,
     isAdmin,
     stripeChargesEnabled: profile?.stripe_charges_enabled ?? false,
+    plan: normalizePlan(profile?.plan),
   };
 });

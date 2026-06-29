@@ -1,47 +1,46 @@
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import { useMyProfile } from "./useMyProfile";
-import { signInWithGoogle } from "./auth";
-import { supabaseConfigured } from "./supabase";
+import { useEffect, useState } from "react";
+import { ChevronDown, UserRound, ShieldCheck } from "lucide-react";
+import { useLocalProfile } from "./local-profile";
+import { getMyAccount } from "./account-remote";
 
 /**
- * 右上のアカウントチップ。ログイン中はメールではなく「アイコン + 表示名」を出し、
- * クリックで設定画面(アカウントタブ)を開く。未ログイン時はログインボタン。
+ * 右上のアカウントチップ。ログインの本名 / メールではなく、端末ローカルの
+ * ニックネーム + アバター(未設定はゲストアイコン)を出す。クリックで設定画面
+ * (アカウントタブ)を開く。ログイン操作自体は設定の中に集約した。
+ *
+ * 管理者(web アカウントが admin)のときは「ADMIN」バッジを出す。管理者は
+ * プラン不問で全機能を使える(PLAY ホスト等のゲート免除)。
  */
 export function AccountMenu({ onOpen }: { onOpen: () => void }) {
-  const { ready, loggedIn, name, avatarUrl, initial } = useMyProfile();
-  const [busy, setBusy] = useState(false);
+  const { nickname, avatar } = useLocalProfile();
+  const label = nickname.trim() || "ゲスト";
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  if (!supabaseConfigured) {
-    return (
-      <span className="muted" style={{ fontSize: 11 }}>
-        ログイン未設定
-      </span>
-    );
-  }
-  if (!ready) return <span className="muted" style={{ fontSize: 11 }}>…</span>;
-
-  if (!loggedIn) {
-    return (
-      <button
-        className="btn mini btn-primary"
-        disabled={busy}
-        onClick={() => {
-          setBusy(true);
-          void signInWithGoogle().finally(() => setBusy(false));
-        }}
-      >
-        {busy ? "ブラウザを開いています…" : "Google でログイン"}
-      </button>
-    );
-  }
+  useEffect(() => {
+    let alive = true;
+    void getMyAccount().then((a) => {
+      if (alive) setIsAdmin(a.isAdmin);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
-    <button className="acct-chip" onClick={onOpen} title="アカウント・設定">
+    <button
+      className="acct-chip"
+      onClick={onOpen}
+      title={isAdmin ? "管理者 — プロフィール・設定" : "プロフィール・設定"}
+    >
       <span className="acct-av">
-        {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{initial}</span>}
+        {avatar ? <img src={avatar} alt="" /> : <UserRound size={16} aria-hidden />}
       </span>
-      <span className="acct-name">{name}</span>
+      <span className="acct-name">{label}</span>
+      {isAdmin && (
+        <span className="acct-admin" title="管理者（プラン不問で全機能）">
+          <ShieldCheck size={12} aria-hidden /> ADMIN
+        </span>
+      )}
       <ChevronDown size={14} className="acct-caret" />
     </button>
   );

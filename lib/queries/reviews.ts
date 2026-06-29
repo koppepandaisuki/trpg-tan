@@ -23,6 +23,9 @@ export interface ReviewReply {
 
 export interface ReviewItem {
   id: string;
+  /** 5 段階の星評価(1..5)。*/
+  stars: number;
+  /** 後方互換の二択(stars>=4 を高評価とみなす)。*/
   rating: ReviewRating;
   comment: string;
   createdAt: string;
@@ -46,8 +49,18 @@ export interface ReviewSummary {
   negative: number;
   /** positive ratio(0–1)。total = 0 のときは null */
   positiveRatio: number | null;
-  /** Steam 風の総合評価ラベル */
+  /** 平均星(1–5)。total = 0 のときは null */
+  avgStars: number | null;
+  /** 平均星から導く Steam 風の総合評価ラベル */
   label: ReviewLabel;
+}
+
+/** 後方互換: 旧 rating しか無い行のための星フォールバック。*/
+function starsOf(row: { stars: number | null; rating: string }): number {
+  if (typeof row.stars === "number" && row.stars >= 1 && row.stars <= 5) {
+    return row.stars;
+  }
+  return row.rating === "positive" ? 5 : 2;
 }
 
 export type ReviewLabel =
@@ -76,7 +89,7 @@ export async function getProductReviews(
 
   const { data: reviewRows, error } = await supabase
     .from("product_reviews")
-    .select("id, user_id, rating, comment, created_at, updated_at")
+    .select("id, user_id, stars, rating, comment, created_at, updated_at")
     .eq("product_id", productId)
     .order("created_at", { ascending: false });
 
@@ -108,6 +121,7 @@ export async function getProductReviews(
     const profile = profileMap.get(r.user_id);
     return {
       id: r.id,
+      stars: starsOf(r),
       rating: r.rating as ReviewRating,
       comment: r.comment ?? "",
       createdAt: r.created_at,
@@ -218,7 +232,7 @@ export async function getReviewSummary(
 
   const { data: rows, error } = await supabase
     .from("product_reviews")
-    .select("rating")
+    .select("stars, rating")
     .eq("product_id", productId);
 
   if (error) {
@@ -228,18 +242,23 @@ export async function getReviewSummary(
 
   let positive = 0;
   let negative = 0;
+  let starSum = 0;
+  const total = (rows ?? []).length;
   for (const r of rows ?? []) {
-    if (r.rating === "positive") positive++;
-    else if (r.rating === "negative") negative++;
+    const s = starsOf(r);
+    starSum += s;
+    if (s >= 4) positive++;
+    else if (s <= 2) negative++;
   }
-  const total = positive + negative;
+  const avgStars = total === 0 ? null : starSum / total;
 
   return {
     total,
     positive,
     negative,
     positiveRatio: total === 0 ? null : positive / total,
-    label: computeReviewLabel(positive, total),
+    avgStars,
+    label: computeStarLabel(avgStars, total),
   };
 }
 
@@ -254,7 +273,7 @@ export async function getMyReview(
   const supabase = createClient();
   const { data, error } = await supabase
     .from("product_reviews")
-    .select("id, user_id, rating, comment, created_at, updated_at")
+    .select("id, user_id, stars, rating, comment, created_at, updated_at")
     .eq("product_id", productId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -268,6 +287,7 @@ export async function getMyReview(
   // displayName / avatar / reply / helpful は本人フォームには不要なので簡略
   return {
     id: data.id,
+    stars: starsOf(data),
     rating: data.rating as ReviewRating,
     comment: data.comment ?? "",
     createdAt: data.created_at,
@@ -280,29 +300,60 @@ export async function getMyReview(
 }
 
 /**
- * Steam 風の総合評価ラベルを算出。
+ * 指定ユーザーが既にレビュー済みの product_id 集合を一括取得。
+ * ライブラリで「レビューを書く / レビュー済み・編集」を出し分けるのに使う。
  *
- * 基準(Steam を参考に簡略化):
- *   - 5 件未満: 「評価不足」(α 期間中は緩めに 5 件で確定)
- *   - positive ratio:
- *     95%+: 圧倒的に好評
- *     80–94%: 非常に好評
- *     70–79%: ほぼ好評
- *     40–69%: 賛否両論
- *     20–39%: やや不評
- *     5–19%: 不評
- *     0–4%: 圧倒的に不評
+ * product_reviews は公開 read(0016)なので user_id 一致でそのまま引ける。
+ * 0 件 / 空 productIds は空 Set を返す(呼び出し側は has() で扱う)。
  */
-function computeReviewLabel(positive: number, total: number): ReviewLabel {
-  if (total === 0) return "評価なし";
-  if (total < 5) return "評価不足";
-  const ratio = positive / total;
-  if (ratio >= 0.95) return "圧倒的に好評";
-  if (ratio >= 0.8) return "非常に好評";
-  if (ratio >= 0.7) return "ほぼ好評";
-  if (ratio >= 0.4) return "賛否両論";
-  if (ratio >= 0.2) return "やや不評";
-  if (ratio >= 0.05) return "不評";
+export async function fetchMyReviewedProductIds(
+  userId: string,
+  productIds: string[],
+): Promise<Set<string>> {
+  const result = new Set<string>();
+  if (productIds.length === 0) return result;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("product_reviews")
+    .select("product_id")
+    .eq("user_id", userId)
+    .in("product_id", productIds);
+
+  if (error) {
+    console.error("[fetchMyReviewedProductIds] failed", error);
+    return result;
+  }
+  for (const r of data ?? []) result.add(r.product_id);
+  return result;
+}
+
+/**
+ * 平均星(1–5)から Steam 風の総合評価ラベルを算出。
+ *
+ * 基準:
+ *   - 0 件: 評価なし / 3 件未満: 評価不足(星は二択より情報量が多いので緩め)
+ *   - 平均星:
+ *     4.5+: 圧倒的に好評
+ *     4.0–4.49: 非常に好評
+ *     3.5–3.99: ほぼ好評
+ *     2.5–3.49: 賛否両論
+ *     2.0–2.49: やや不評
+ *     1.5–1.99: 不評
+ *     〜1.49: 圧倒的に不評
+ */
+export function computeStarLabel(
+  avgStars: number | null,
+  total: number,
+): ReviewLabel {
+  if (total === 0 || avgStars === null) return "評価なし";
+  if (total < 3) return "評価不足";
+  if (avgStars >= 4.5) return "圧倒的に好評";
+  if (avgStars >= 4.0) return "非常に好評";
+  if (avgStars >= 3.5) return "ほぼ好評";
+  if (avgStars >= 2.5) return "賛否両論";
+  if (avgStars >= 2.0) return "やや不評";
+  if (avgStars >= 1.5) return "不評";
   return "圧倒的に不評";
 }
 
@@ -312,6 +363,7 @@ function emptySummary(): ReviewSummary {
     positive: 0,
     negative: 0,
     positiveRatio: null,
+    avgStars: null,
     label: "評価なし",
   };
 }
@@ -326,17 +378,22 @@ function emptySummary(): ReviewSummary {
  */
 export async function fetchReviewSummariesByProductIds(
   productIds: string[],
-): Promise<Map<string, { total: number; positive: number; label: ReviewLabel }>> {
+): Promise<
+  Map<
+    string,
+    { total: number; positive: number; avgStars: number; label: ReviewLabel }
+  >
+> {
   const result = new Map<
     string,
-    { total: number; positive: number; label: ReviewLabel }
+    { total: number; positive: number; avgStars: number; label: ReviewLabel }
   >();
   if (productIds.length === 0) return result;
 
   const supabase = createClient();
   const { data, error } = await supabase
     .from("product_reviews")
-    .select("product_id, rating")
+    .select("product_id, stars, rating")
     .in("product_id", productIds);
 
   if (error) {
@@ -344,20 +401,31 @@ export async function fetchReviewSummariesByProductIds(
     return result;
   }
 
-  // product_id ごとに positive / total を集計
-  const counts = new Map<string, { positive: number; total: number }>();
+  // product_id ごとに 平均星 / positive / total を集計
+  const counts = new Map<
+    string,
+    { positive: number; total: number; starSum: number }
+  >();
   for (const row of data ?? []) {
-    const c = counts.get(row.product_id) ?? { positive: 0, total: 0 };
+    const c = counts.get(row.product_id) ?? {
+      positive: 0,
+      total: 0,
+      starSum: 0,
+    };
+    const s = starsOf(row);
     c.total++;
-    if (row.rating === "positive") c.positive++;
+    c.starSum += s;
+    if (s >= 4) c.positive++;
     counts.set(row.product_id, c);
   }
 
   for (const [id, c] of counts.entries()) {
+    const avgStars = c.total === 0 ? 0 : c.starSum / c.total;
     result.set(id, {
       total: c.total,
       positive: c.positive,
-      label: computeReviewLabel(c.positive, c.total),
+      avgStars,
+      label: computeStarLabel(avgStars, c.total),
     });
   }
   return result;

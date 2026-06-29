@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   PLATFORM_FEE_RATE,
+  PRO_PLATFORM_FEE_RATE,
+  feeRateForPlan,
   calculateApplicationFeeJpy,
 } from "@/lib/stripe/fees";
 
@@ -46,5 +48,29 @@ describe("calculateApplicationFeeJpy", () => {
   it("returns 0 for NaN / non-finite (defensive)", () => {
     expect(calculateApplicationFeeJpy(Number.NaN)).toBe(0);
     expect(calculateApplicationFeeJpy(Number.POSITIVE_INFINITY)).toBe(0);
+  });
+});
+
+describe("Pro plan fee", () => {
+  it("PRO_PLATFORM_FEE_RATE is 20%", () => {
+    expect(PRO_PLATFORM_FEE_RATE).toBe(0.2);
+  });
+
+  it("feeRateForPlan: pro=20% / basic(+unknown)=30%", () => {
+    expect(feeRateForPlan("pro")).toBe(0.2);
+    expect(feeRateForPlan("basic")).toBe(0.3);
+    expect(feeRateForPlan(null)).toBe(0.3);
+    expect(feeRateForPlan(undefined)).toBe(0.3);
+    expect(feeRateForPlan("garbage")).toBe(0.3);
+  });
+
+  it("calculateApplicationFeeJpy applies the plan rate", () => {
+    // 1000 円: basic=300 / pro=200
+    expect(calculateApplicationFeeJpy(1000, "basic")).toBe(300);
+    expect(calculateApplicationFeeJpy(1000, "pro")).toBe(200);
+    // 既定(plan 省略)は basic 挙動を維持。
+    expect(calculateApplicationFeeJpy(1000)).toBe(300);
+    // free は plan に関わらず 0。
+    expect(calculateApplicationFeeJpy(0, "pro")).toBe(0);
   });
 });

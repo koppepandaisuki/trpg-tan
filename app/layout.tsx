@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
+import { AmbientBackground } from "@/components/layout/ambient-background";
 import { TestModeBanner } from "@/components/banner/test-mode-banner";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { WelcomeTour } from "@/components/onboarding/welcome-tour";
@@ -83,6 +84,13 @@ export const metadata: Metadata = {
   category: "Marketplace",
 };
 
+// このサイトはライト専用デザイン。`<meta name="color-scheme" content="only light">`
+// を出力し、OS / ブラウザの自動ダーク化による配色反転(可読性崩れ)を防ぐ。
+// globals.css の :root { color-scheme: only light } と二重で宣言。
+export const viewport: Viewport = {
+  colorScheme: "only light",
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja" className={notoSansJp.variable}>
@@ -90,6 +98,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           コンテンツが短いページでもフッターを画面下に貼り付け、
           長いページではコンテンツの下に自然に流れる。 */}
       <body className="flex min-h-screen flex-col bg-background">
+        {/* 背景の控えめな装飾(サイコロ・キラキラ)。body 背景の上・本文の下。 */}
+        <AmbientBackground />
+
         {/* α 期間 + Stripe Test mode のとき、画面最上部に告知バナーを表示。
             Live mode 切替時に自動で消える(STRIPE_SECRET_KEY のプレフィクス判定)。 */}
         <TestModeBanner />

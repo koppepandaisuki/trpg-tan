@@ -195,17 +195,15 @@ export function HomeCarousel({ items }: HomeCarouselProps) {
 function InfoPane({ item }: { item: CarouselItem }) {
   return (
     <div className="space-y-2.5 border-t border-border bg-card p-3 text-xs">
-      {/* レビュー */}
-      <div className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          評価
-        </p>
-        {item.reviewSummary && item.reviewSummary.total > 0 ? (
+      {/* レビュー(評価が無いものは見出しごと何も出さない)*/}
+      {item.reviewSummary && item.reviewSummary.total > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            評価
+          </p>
           <ReviewBadge summary={item.reviewSummary} size="sm" />
-        ) : (
-          <span className="text-[11px] text-muted-foreground">評価なし</span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* 発行元(creator)*/}
       <div className="space-y-1">

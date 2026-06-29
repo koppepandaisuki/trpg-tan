@@ -10,6 +10,7 @@ import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { ReturnToDesktop } from "@/components/checkout/return-to-desktop";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
@@ -17,7 +18,7 @@ export const metadata = {
 };
 
 interface PageProps {
-  searchParams: { session_id?: string };
+  searchParams: { session_id?: string; return_to?: string; free?: string };
 }
 
 /**
@@ -35,6 +36,8 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
     // Development-only trace. Not surfaced to the user.
     console.info("[checkout/success] session_id", searchParams.session_id);
   }
+  const isDesktopReturn = searchParams.return_to === "desktop";
+  const isFree = searchParams.free === "1";
 
   return (
     <>
@@ -52,11 +55,14 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
 
             <div className="relative z-10 space-y-2">
               <h1 className="text-xl font-semibold tracking-tight">
-                ご購入手続きを受け付けました
+                {isFree
+                  ? "ライブラリに追加しました"
+                  : "ご購入手続きを受け付けました"}
               </h1>
               <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-                決済結果を確認しています。購入内容はまもなくライブラリに反映されます。
-                通常は数秒で反映されますが、まれに少し時間がかかることがあります。
+                {isFree
+                  ? "無料作品をライブラリに追加しました。今すぐダウンロードして遊べます。"
+                  : "決済結果を確認しています。購入内容はまもなくライブラリに反映されます。通常は数秒で反映されますが、まれに少し時間がかかることがあります。"}
               </p>
             </div>
 
@@ -82,20 +88,27 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
               </ol>
             </div>
 
-            <div className="relative z-10 flex w-full flex-col gap-2 pt-2 sm:max-w-xs">
-              <Link
-                href="/library"
-                className={cn(buttonVariants({ variant: "primary" }))}
-              >
-                ライブラリを開く
-              </Link>
-              <Link
-                href="/store"
-                className={cn(buttonVariants({ variant: "outline" }))}
-              >
-                ストアへ戻る
-              </Link>
-            </div>
+            {isDesktopReturn ? (
+              <ReturnToDesktop
+                kind="complete"
+                sessionId={searchParams.session_id}
+              />
+            ) : (
+              <div className="relative z-10 flex w-full flex-col gap-2 pt-2 sm:max-w-xs">
+                <Link
+                  href="/library"
+                  className={cn(buttonVariants({ variant: "primary" }))}
+                >
+                  ライブラリを開く
+                </Link>
+                <Link
+                  href="/store"
+                  className={cn(buttonVariants({ variant: "outline" }))}
+                >
+                  ストアへ戻る
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </PageContainer>

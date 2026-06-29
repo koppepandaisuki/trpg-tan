@@ -1,0 +1,76 @@
+name: release-desktop
+
+# タグ v*(例: v0.1.1)を push すると、Windows 版デスクトップアプリをビルド・
+# 署名し、GitHub Release(下書き)にインストーラ + latest.json(自動更新マニフェスト)
+# を公開する。Release を「Publish」した時点で、既存ユーザーの起動時チェックが
+# 新バージョンを検知して更新する。
+#
+# 必要な Secrets(リポジトリ Settings → Secrets and variables → Actions):
+#   - TAURI_SIGNING_PRIVATE_KEY           … `tauri signer generate` の秘密鍵
+#   - TAURI_SIGNING_PRIVATE_KEY_PASSWORD  … 同パスワード(無しなら空で登録)
+# 公開鍵は apps/desktop/src-tauri/tauri.conf.json の plugins.updater.pubkey に記入。
+#
+# リリース手順:
+#   1. apps/desktop/src-tauri/tauri.conf.json の "version" を上げる
+#   2. commit して `git tag vX.Y.Z` → `git push origin vX.Y.Z`
+#   3. Actions 完了後、作成された下書き Release を確認して Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # Release 作成 / アセット upload に必要
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build, sign & create release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Vite に渡す env(beforeBuildCommand `pnpm --filter desktop build` が
+          # 継承する)。未登録の secret は空文字になる(GitHub の仕様)が、
+          # supabase.ts はダミー URL でフォールバックするので起動は止まらない。
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_WEB_BASE_URL: ${{ secrets.VITE_WEB_BASE_URL }}
+          VITE_DISCORD_WEBHOOK_URL: ${{ secrets.VITE_DISCORD_WEBHOOK_URL }}
+        with:
+          # src-tauri を含むディレクトリ(モノレポ)。
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "パラDa-iCE ${{ github.ref_name }}"
+          releaseBody: "自動更新対応リリース。変更点を編集してから Publish してください。"
+          # 下書きで作成 → 内容を確認してから手動 Publish(誤公開を防ぐ)。
+          releaseDraft: true
+          prerelease: false

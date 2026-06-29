@@ -1,5 +1,5 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import type { PlayEvent, PlayScene, CutIn, Panel } from "@trpg/core";
+import type { PlayEvent, PlayScene, Panel, MemoPage } from "@trpg/core";
 import { supabase } from "./supabase";
 
 /**
@@ -28,10 +28,20 @@ export type NetMsg =
   | { type: "state"; rev: number; scene: PlayScene }
   /** 即時イベント(チャット/ダイスのみ)。ログ即時表示＋ダイス演出用。状態は state が権威。 */
   | { type: "event"; ev: PlayEvent }
+  /**
+   * 画像束(key→data URL or 公開 URL)。state は画像を "cas:<key>" 参照に置き換えた
+   * 軽量版を流し、画像実体は初出のものだけこの media で別送する(駒移動のたびに
+   * 1〜2MB を再送せず、参加者のラグを防ぐ)。state より前に送られる。
+   */
+  | { type: "media"; media: Record<string, string> }
   | { type: "intent"; from: string; intent: NetIntent }
-  | { type: "cutin"; cutin: CutIn }
+  /**
+   * カットイン発火。参加者は id で自分の scene.cutins から画像を引く(image を
+   * 丸ごと送ると data URL が巨大になり Realtime を詰まらせるため送らない)。
+   */
+  | { type: "cutin"; cutinId: string }
   | { type: "telop"; text: string }
-  | { type: "memo"; text: string }
+  | { type: "memo"; memos: MemoPage[] }
   /**
    * 音声(GM のローカル音源を data URL で配信)。
    *   - channel "bgm": ループ再生。src=null で停止。
@@ -49,14 +59,18 @@ export type NetIntent =
       channel: string;
       secret: boolean;
       visibleTo: string[];
+      /** 発言の文字色(CSS color)。 */
+      color?: string;
     }
   | { kind: "resource"; panelId: string; resourceKey: string; delta: number }
   | { kind: "move"; panelId: string; x: number; y: number }
-  | { kind: "memo"; text: string }
+  | { kind: "memo"; memos: MemoPage[] }
   /** 参加者が自分のキャラを登場させる(GM が owner を刻んで panel-add)。 */
   | { kind: "add-char"; panel: Panel }
   /** 参加者が自分の登場させた駒を片付ける(GM が所有者一致を検証)。 */
   | { kind: "remove-char"; panelId: string }
+  /** 参加者が GM/他人のキャラ駒を「自分の駒にする」(GM が owner を送信者名で刻む)。 */
+  | { kind: "claim-char"; panelId: string }
   | {
       kind: "panel-update";
       panelId: string;
@@ -65,6 +79,9 @@ export type NetIntent =
         note?: string;
         palette?: string;
         speed?: number;
+        /** 自分の駒のサイズ変更(円形駒は size のみ、画像は size+height)。 */
+        size?: number;
+        height?: number;
         portrait?: string | null;
         variants?: { id: string; label: string; image: string }[];
       };

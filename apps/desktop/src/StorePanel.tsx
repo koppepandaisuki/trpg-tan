@@ -21,8 +21,14 @@ import {
   LibraryBig,
   LayoutGrid,
   Boxes,
+  Trophy,
+  ChevronRight,
+  Star,
+  Trash2,
+  User as UserIcon,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { toast } from "./Toasts";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { SkelGrid, SkelStoreHome } from "./Skeleton";
@@ -36,6 +42,9 @@ import {
   fetchStoreCreators,
   fetchScreenshotUrls,
   fetchMyPurchasedIds,
+  fetchMyReview,
+  submitReview,
+  deleteMyReview,
   formatPriceJpy,
   webProductUrl,
   type StoreItem,
@@ -45,6 +54,7 @@ import {
   type StoreReviewSummary,
   type FeaturedItem,
   type StoreCreator,
+  type TopCreatorEntry,
 } from "./store-remote";
 
 /**
@@ -75,7 +85,10 @@ const CATEGORY_ICON: Record<RemoteProductType, ReactNode> = {
   bgm_audio: <Music size={14} />,
 };
 
-/** 「カテゴリで探す」カード(Web ホームと同じラベル / 説明 / 配色)。 */
+/**
+ * 「カテゴリで探す」のサブカード(Web ホームと同じラベル / 説明 / 配色)。
+ * フルパッケージは“目玉”として上の大型カードに分離するので、ここには含めない。
+ */
 const CAT_CARDS: {
   key: RemoteProductType;
   icon: ReactNode;
@@ -83,13 +96,59 @@ const CAT_CARDS: {
   sub: string;
   tone: string;
 }[] = [
-  { key: "full_package", icon: <Boxes size={17} />, label: "フルパッケージ", sub: "買ってすぐ遊べる完成品ゲーム", tone: "blue" },
   { key: "scenario", icon: <FileText size={17} />, label: "シナリオ", sub: "ストーリーと舞台設定", tone: "green" },
   { key: "rulebook", icon: <BookOpen size={17} />, label: "ルールブック", sub: "ハウスルール・追加システム", tone: "green" },
   { key: "map", icon: <MapIcon size={17} />, label: "マップ・バトルマップ", sub: "戦闘マップ・地図", tone: "gold" },
   { key: "character_art", icon: <Palette size={17} />, label: "アートワーク", sub: "立ち絵・アートワーク", tone: "rose" },
   { key: "bgm_audio", icon: <Music size={17} />, label: "BGM・効果音", sub: "BGM・効果音", tone: "violet" },
 ];
+
+/** セクション見出しのアクセント色(アイコンチップの色味)。 */
+type SecTone = "sky" | "mint" | "gold" | "rose" | "violet" | "coral";
+
+/** カテゴリ別ストリップの見出し色(catcard の配色と対応)。 */
+const CAT_TONE: Record<RemoteProductType, SecTone> = {
+  full_package: "sky",
+  scenario: "sky",
+  rulebook: "mint",
+  map: "gold",
+  character_art: "rose",
+  bgm_audio: "violet",
+};
+
+/**
+ * ストアホーム共通のセクション見出し。アイコンチップ + タイトル + 補足 +
+ * 右端アクション。全セクションで同じ語彙にすることでリズムと階層を作る。
+ */
+function SecHead({
+  icon,
+  tone,
+  title,
+  sub,
+  action,
+}: {
+  icon: ReactNode;
+  tone: SecTone;
+  title: string;
+  sub?: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="sec-head">
+      <span className={`sec-ic tone-${tone}`}>{icon}</span>
+      <div className="sec-headcopy">
+        <h3 className="sec-title">{title}</h3>
+        {sub && <p className="sec-sub muted">{sub}</p>}
+      </div>
+      {action && (
+        <button className="sec-action" onClick={action.onClick}>
+          {action.label}
+          <ChevronRight size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
 
 function reviewTone(label: string): string {
   if (label.includes("好評")) return "ok";
@@ -98,13 +157,76 @@ function reviewTone(label: string): string {
   return "none";
 }
 
-function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
-  if (!review || review.total === 0) {
-    return <span className="store-rev none">評価なし</span>;
-  }
+/** 星の表示(平均星を 0.5 刻みで塗り分け)。size は px。 */
+function StarsDisplay({ value, size = 14 }: { value: number; size?: number }) {
   return (
-    <span className={`store-rev ${reviewTone(review.label)}`}>
-      {review.label}（{review.total}）
+    <span className="stars-row" aria-label={`${value.toFixed(1)} / 5`}>
+      {[1, 2, 3, 4, 5].map((i) => {
+        const fill = Math.max(0, Math.min(1, value - (i - 1)));
+        return (
+          <span
+            key={i}
+            className="star-cell"
+            style={{ width: size, height: size }}
+          >
+            <Star className="star-bg" size={size} strokeWidth={1.5} />
+            <span className="star-fg" style={{ width: `${fill * 100}%` }}>
+              <Star size={size} strokeWidth={1.5} />
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/** 星の入力(1..5 をクリック / ホバー)。 */
+function StarsInput({
+  value,
+  onChange,
+  size = 26,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  size?: number;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const shown = hover ?? value;
+  return (
+    <span className="stars-row input">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={i}
+          type="button"
+          className={`star-btn ${shown >= i ? "on" : ""}`}
+          onMouseEnter={() => setHover(i)}
+          onMouseLeave={() => setHover(null)}
+          onClick={() => onChange(i)}
+          aria-label={`${i} つ星`}
+          title={`${i} つ星`}
+        >
+          <Star size={size} strokeWidth={1.5} />
+        </button>
+      ))}
+    </span>
+  );
+}
+
+const STAR_WORD: Record<number, string> = {
+  1: "いまひとつ",
+  2: "もう少し",
+  3: "ふつう",
+  4: "良かった",
+  5: "最高！",
+};
+
+function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
+  // 評価が無いもの(0 件)は何も表示しない。
+  if (!review || review.total === 0) return null;
+  return (
+    <span className={`store-rev star ${reviewTone(review.label)}`} title={review.label}>
+      <Star size={12} className="store-rev-star" />
+      {review.avgStars.toFixed(1)}（{review.total}）
     </span>
   );
 }
@@ -158,9 +280,7 @@ function HeroCarousel({
 
   return (
     <section className="feat">
-      <div className="strip-head">
-        <h3>注目＆おすすめ</h3>
-      </div>
+      <SecHead icon={<Sparkles size={16} />} tone="coral" title="注目＆おすすめ" />
       <div className="feat-row">
         {/* 左ピーク(前の作品) */}
         {n > 1 && (
@@ -335,6 +455,7 @@ function HoverCover({
 
 function Strip({
   icon,
+  tone,
   title,
   items,
   purchased,
@@ -342,6 +463,7 @@ function Strip({
   onMore,
 }: {
   icon: ReactNode;
+  tone: SecTone;
   title: string;
   items: StoreItem[];
   purchased: Set<string>;
@@ -351,16 +473,12 @@ function Strip({
   if (items.length === 0) return null;
   return (
     <section className="strip">
-      <div className="strip-head">
-        <h3 className="ibtn">
-          {icon} {title}
-        </h3>
-        {onMore && (
-          <button className="strip-more" onClick={onMore}>
-            すべて見る →
-          </button>
-        )}
-      </div>
+      <SecHead
+        icon={icon}
+        tone={tone}
+        title={title}
+        action={onMore ? { label: "すべて見る", onClick: onMore } : undefined}
+      />
       <div className="strip-row">
         {items.map((it) => (
           <button
@@ -381,6 +499,101 @@ function Strip({
             </span>
           </button>
         ))}
+      </div>
+    </section>
+  );
+}
+
+/* ===== ホーム: 人気クリエイター TOP 3(Web ホームと同じデザイン) ===== */
+
+const RANK_LABEL: Record<number, string> = { 1: "1", 2: "2", 3: "3" };
+
+function TopCreators({
+  entries,
+  onOpenCreator,
+  onOpenProduct,
+  onSeeAll,
+}: {
+  entries: TopCreatorEntry[];
+  onOpenCreator: (c: { id: string; displayName: string }) => void;
+  onOpenProduct: (it: StoreItem) => void;
+  onSeeAll: () => void;
+}) {
+  return (
+    <section className="topcre">
+      <SecHead
+        icon={<Trophy size={16} />}
+        tone="gold"
+        title="人気クリエイター"
+        sub={`購入数の多いクリエイター TOP ${entries.length}`}
+        action={{ label: "すべて見る", onClick: onSeeAll }}
+      />
+      <div className="topcre-grid">
+        {entries.map((e) => {
+          const name = e.creator.displayName || "（無名）";
+          return (
+            <div key={e.creator.id} className={`topcre-card rank-${e.rank}`}>
+              <button
+                className="topcre-main"
+                onClick={() =>
+                  onOpenCreator({ id: e.creator.id, displayName: name })
+                }
+                title={`${name} の作品を見る`}
+              >
+                <span className="topcre-av-wrap">
+                  {e.creator.avatarUrl ? (
+                    <img
+                      className="topcre-av"
+                      src={e.creator.avatarUrl}
+                      alt=""
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="topcre-av ph">
+                      <UserIcon size={22} />
+                    </span>
+                  )}
+                  <span className="topcre-rank">{RANK_LABEL[e.rank] ?? e.rank}</span>
+                </span>
+                <span className="topcre-meta">
+                  <b className="topcre-name">{name}</b>
+                  <span className="topcre-sales">累計購入 {e.totalSales} 件</span>
+                </span>
+              </button>
+
+              <button
+                className="topcre-best"
+                onClick={() => onOpenProduct(e.topProduct)}
+                title={e.topProduct.title}
+              >
+                <span className="topcre-best-label">ベストセラー作品</span>
+                <span className="topcre-best-row">
+                  <span className="topcre-best-cover">
+                    {e.topProduct.coverUrl ? (
+                      <img src={e.topProduct.coverUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className="store-noimg">No Image</span>
+                    )}
+                  </span>
+                  <span className="topcre-best-info">
+                    <span className="topcre-best-title">
+                      {e.topProduct.title}
+                    </span>
+                    <span className="topcre-best-foot">
+                      <span className="work-badge">
+                        {PRODUCT_TYPE_LABEL[e.topProduct.productType] ??
+                          e.topProduct.productType}
+                      </span>
+                      <span className="store-price small">
+                        {formatPriceJpy(e.topProduct.priceJpy)}
+                      </span>
+                    </span>
+                  </span>
+                </span>
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -438,6 +651,77 @@ export function StorePanel({
   const [detail, setDetail] = useState<StoreDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [mainImage, setMainImage] = useState<string | null>(null);
+
+  // 詳細でのレビュー投稿(購入済み + ログイン時のみ)。
+  const [reviewStars, setReviewStars] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [hasMyReview, setHasMyReview] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewMsg, setReviewMsg] = useState<string | null>(null);
+
+  // 詳細を開いて購入済みなら、自分のレビューを読み込んで初期値に。
+  useEffect(() => {
+    const uid = session?.user.id;
+    setReviewMsg(null);
+    if (!detail || !uid || !purchased.has(detail.id)) {
+      setReviewStars(0);
+      setReviewComment("");
+      setHasMyReview(false);
+      return;
+    }
+    let alive = true;
+    void fetchMyReview(detail.id, uid).then((mr) => {
+      if (!alive) return;
+      setReviewStars(mr?.stars ?? 0);
+      setReviewComment(mr?.comment ?? "");
+      setHasMyReview(Boolean(mr));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail?.id, session?.user.id, purchased]);
+
+  async function submitMyReview() {
+    const uid = session?.user.id;
+    if (!uid || !detail) return;
+    if (reviewStars < 1) {
+      setReviewMsg("星をタップして評価を選んでください");
+      return;
+    }
+    setReviewBusy(true);
+    setReviewMsg(null);
+    try {
+      await submitReview(detail.id, uid, reviewStars, reviewComment);
+      setHasMyReview(true);
+      const d = await fetchStoreDetail(detail.id);
+      if (d) setDetail(d);
+      setReviewMsg("レビューを投稿しました。ありがとうございます！");
+    } catch (e) {
+      setReviewMsg(e instanceof Error ? e.message : "投稿に失敗しました");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
+  async function removeMyReview() {
+    const uid = session?.user.id;
+    if (!uid || !detail) return;
+    setReviewBusy(true);
+    setReviewMsg(null);
+    try {
+      await deleteMyReview(detail.id, uid);
+      setReviewStars(0);
+      setReviewComment("");
+      setHasMyReview(false);
+      const d = await fetchStoreDetail(detail.id);
+      if (d) setDetail(d);
+    } catch (e) {
+      setReviewMsg(e instanceof Error ? e.message : "削除に失敗しました");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
 
   // ロゴ / ストアタブのクリックでホームへ巻き戻す。
   useEffect(() => {
@@ -600,18 +884,66 @@ export function StorePanel({
               <h3 className="store-sec">
                 レビュー <ReviewBadge review={detail.review} />
               </h3>
+
+              {/* 投稿フォーム(購入済み + ログイン時のみ。押し付けない控えめ導線)*/}
+              {session && isPurchased && (
+                <div className="rev-editor">
+                  <p className="rev-editor-label">
+                    {hasMyReview
+                      ? "あなたのレビューを編集"
+                      : "プレイした感想を星で評価"}
+                  </p>
+                  <div className="rev-editor-stars">
+                    <StarsInput value={reviewStars} onChange={setReviewStars} />
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      {reviewStars > 0 ? STAR_WORD[reviewStars] : "星をタップ"}
+                    </span>
+                  </div>
+                  <textarea
+                    className="input rev-editor-text"
+                    rows={2}
+                    maxLength={2000}
+                    placeholder="コメント(任意、最大 2000 文字)"
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                  />
+                  <div className="rev-editor-actions">
+                    <button
+                      className="btn btn-primary mini"
+                      disabled={reviewBusy || reviewStars < 1}
+                      onClick={() => void submitMyReview()}
+                    >
+                      {reviewBusy ? "送信中…" : hasMyReview ? "更新する" : "投稿する"}
+                    </button>
+                    {hasMyReview && (
+                      <button
+                        className="btn mini"
+                        disabled={reviewBusy}
+                        onClick={() => void removeMyReview()}
+                        title="レビューを削除"
+                      >
+                        <Trash2 size={14} /> 削除
+                      </button>
+                    )}
+                    {reviewMsg && (
+                      <span className="muted" style={{ fontSize: 11.5 }}>
+                        {reviewMsg}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {detail.reviews.length === 0 ? (
                 <p className="muted" style={{ fontSize: 12.5 }}>
-                  まだレビューはありません。レビューの投稿は Web 版から行えます。
+                  まだレビューはありません。購入してプレイした人が、最初の星評価を付けられます。
                 </p>
               ) : (
                 <div className="store-reviews">
                   {detail.reviews.map((r) => (
                     <div key={r.id} className="store-review">
                       <div className="store-review-head">
-                        <span className={`store-thumb ${r.rating}`}>
-                          {r.rating === "positive" ? "👍" : "👎"}
-                        </span>
+                        <StarsDisplay value={r.stars} size={13} />
                         <b>{r.user.displayName || "ユーザー"}</b>
                         <span className="muted" style={{ fontSize: 11 }}>
                           {new Date(r.createdAt).toLocaleDateString("ja-JP")}
@@ -650,17 +982,38 @@ export function StorePanel({
                       <LibraryBig size={15} /> ライブラリで開く
                     </button>
                   </>
+                ) : !session ? (
+                  <>
+                    <button
+                      className="btn btn-primary ibtn"
+                      onClick={() => {
+                        toast(
+                          "購入にはログインが必要です。右上のアカウントメニューからログインしてください",
+                        );
+                      }}
+                    >
+                      <ShoppingCart size={15} /> ログインして購入
+                    </button>
+                    <p className="store-buynote">
+                      ストアの閲覧はログイン無しで自由にできます。購入や
+                      ダウンロードにはアカウントが必要です。
+                    </p>
+                  </>
                 ) : (
                   <>
                     <button
                       className="btn btn-primary ibtn"
                       onClick={() => void openUrl(webProductUrl(detail.slug))}
                     >
-                      <ShoppingCart size={15} /> Webストアで購入
+                      <ShoppingCart size={15} />{" "}
+                      {detail.priceJpy === 0
+                        ? "無料で入手"
+                        : "Webストアで購入"}
                     </button>
                     <p className="store-buynote">
-                      決済はブラウザ(Web版)で行います。購入後、アプリの
-                      「購入」タブに反映されます。
+                      {detail.priceJpy === 0
+                        ? "ブラウザでワンクリックでライブラリに追加します。"
+                        : "決済はブラウザ(Web版)で行います。購入後、アプリの「購入」タブに反映されます。"}
                     </p>
                   </>
                 )}
@@ -923,16 +1276,35 @@ export function StorePanel({
                 onOpen={(it) => void openDetail(it)}
               />
 
-              {/* カテゴリで探す(Web ホームと同じカード) */}
+              {/* カテゴリで探す(Web ホームと同じデザイン) */}
               <section className="catsec">
-                <div className="strip-head">
-                  <h3 className="ibtn">
-                    <LayoutGrid size={16} /> カテゴリで探す
-                  </h3>
-                </div>
-                <p className="catsec-sub muted">
-                  ジャンルから作品を絞り込んで探せます
-                </p>
+                <SecHead
+                  icon={<LayoutGrid size={16} />}
+                  tone="sky"
+                  title="カテゴリで探す"
+                  sub="ジャンルから作品を絞り込んで探せます"
+                />
+
+                {/* 目玉: フルパッケージ(完成品ゲーム一式) */}
+                <button
+                  className="catfeat"
+                  onClick={() => browseWith({ category: "full_package" })}
+                >
+                  <span className="catfeat-ic">
+                    <Boxes size={24} />
+                  </span>
+                  <span className="catfeat-copy">
+                    <span className="catfeat-titlerow">
+                      <span className="catfeat-badge">目玉</span>
+                      <span className="catfeat-title">フルパッケージ</span>
+                    </span>
+                    <span className="catfeat-sub muted">
+                      買ってすぐ遊べる、完成品のゲーム一式（システム＋シナリオ）。ダウンロードして取り込むだけ。
+                    </span>
+                  </span>
+                  <span className="catfeat-arrow">→</span>
+                </button>
+
                 <div className="catcards">
                   {CAT_CARDS.map((c) => (
                     <button
@@ -950,6 +1322,21 @@ export function StorePanel({
                   ))}
                 </div>
               </section>
+
+              {/* 人気クリエイター TOP 3(Web ホームと同じデザイン) */}
+              {home.topCreators.length > 0 && (
+                <TopCreators
+                  entries={home.topCreators}
+                  onOpenCreator={(c) =>
+                    browseWith({ creator: { id: c.id, name: c.displayName } })
+                  }
+                  onOpenProduct={(it) => void openDetail(it)}
+                  onSeeAll={() => {
+                    setDetail(null);
+                    setView("creators");
+                  }}
+                />
+              )}
 
               {/* クリエイターを探す */}
               <button
@@ -973,6 +1360,7 @@ export function StorePanel({
 
               <Strip
                 icon={<Flame size={16} />}
+                tone="coral"
                 title="急上昇"
                 items={home.trending}
                 purchased={purchased}
@@ -980,6 +1368,7 @@ export function StorePanel({
               />
               <Strip
                 icon={<Sparkles size={16} />}
+                tone="sky"
                 title="新着"
                 items={home.recent}
                 purchased={purchased}
@@ -988,6 +1377,7 @@ export function StorePanel({
               />
               <Strip
                 icon={<ThumbsUp size={16} />}
+                tone="mint"
                 title="好評な作品"
                 items={home.topRated}
                 purchased={purchased}
@@ -998,6 +1388,7 @@ export function StorePanel({
                 <Strip
                   key={cat}
                   icon={CATEGORY_ICON[cat]}
+                  tone={CAT_TONE[cat]}
                   title={PRODUCT_TYPE_LABEL[cat] ?? cat}
                   items={catItems}
                   purchased={purchased}

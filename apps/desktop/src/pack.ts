@@ -1,4 +1,4 @@
-import { appLocalDataDir, join } from "@tauri-apps/api/path";
+import { join } from "@tauri-apps/api/path";
 import { mkdir, writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
@@ -12,6 +12,7 @@ import { supabase } from "./supabase";
 import { upsertCustomSystem } from "./systems-store";
 import { getPlayIndex, upsertPlayIndex } from "./play-storage";
 import { getLibrary, upsertEntry, buildGenericEntry } from "./library";
+import { getPacksDir } from "./library-root";
 
 const WEB_BASE = (
   import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
@@ -76,7 +77,9 @@ export async function importPack(pack: TrpgPack): Promise<ImportResult> {
 
   if (pack.system) upsertCustomSystem(pack.system);
 
-  const dir = await join(await appLocalDataDir(), "packs", safeName(pack.id));
+  // ライブラリ root / packs / <id> に展開(設定でユーザーが root を
+  // 変えていれば追従する)。
+  const dir = await join(await getPacksDir(), safeName(pack.id));
   if (pack.scenarios?.length || pack.sheets?.length) {
     await mkdir(dir, { recursive: true });
   }
@@ -140,17 +143,20 @@ export interface PublishResult {
 
 /**
  * アプリ内出品。下書き(draft)の full_package 商品を作り、.paradice を Storage に
- * アップロードする。公開(published)は作者がクリエイターページで確認のうえ行う。
+ * アップロードする。表紙(cover)を渡すと同時にアップロードして cover_path を
+ * 確定する。公開(published)は作者がクリエイターページで確認のうえ行う。
  */
 export async function publishPack(
   pack: TrpgPack,
   meta: { title: string; priceJpy: number; description?: string },
+  cover?: { blob: Blob; contentType: string },
 ): Promise<PublishResult> {
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token;
   if (!token) throw new Error("ログインが必要です");
 
   // 1. 下書き商品を作成 + アップロード token 取得(Bearer。CORS 回避で tauri fetch)。
+  //    表紙を出すなら coverContentType を渡し、covers 用 token も受け取る。
   const res = await tauriFetch(`${WEB_BASE}/api/creator/pack/publish`, {
     method: "POST",
     headers: {
@@ -162,6 +168,7 @@ export async function publishPack(
       priceJpy: meta.priceJpy,
       description: meta.description,
       systemLabel: pack.system?.name,
+      coverContentType: cover?.contentType,
     }),
   });
   let info: {
@@ -171,6 +178,8 @@ export async function publishPack(
     slug?: string;
     path?: string;
     token?: string;
+    coverPath?: string | null;
+    coverToken?: string | null;
   };
   try {
     info = (await res.json()) as typeof info;
@@ -189,6 +198,18 @@ export async function publishPack(
       contentType: "application/json",
     });
   if (upErr) throw new Error(`アップロードに失敗しました: ${upErr.message}`);
+
+  // 3. 表紙(任意)。失敗しても本体出品は成立済みなので throw せず警告に留める。
+  if (cover && info.coverPath && info.coverToken) {
+    const { error: covErr } = await supabase.storage
+      .from("covers")
+      .uploadToSignedUrl(info.coverPath, info.coverToken, cover.blob, {
+        contentType: cover.contentType,
+      });
+    if (covErr) {
+      console.warn("[publishPack] cover upload failed:", covErr.message);
+    }
+  }
 
   return { productId: info.productId, slug: info.slug ?? "" };
 }

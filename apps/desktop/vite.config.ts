@@ -6,6 +6,12 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
+  // Tauri 2 の WebView は tauri://localhost/ から HTML を読む。base を
+  // 既定の "/" にしておくと、絶対パス /assets/xxx.js が WebView の
+  // 環境によっては解決できず、JS バンドルが読み込まれず React が
+  // マウントしないままスプラッシュで止まる(v0.1.1 で発生)。
+  // 相対パスにしておけば確実。
+  base: "./",
   // ルート(Web)の postcss/tailwind 設定を継承しないよう、空の postcss を明示。
   // デスクトップは素の CSS で完結させる。
   css: {

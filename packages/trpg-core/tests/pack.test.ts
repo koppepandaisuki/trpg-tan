@@ -78,4 +78,41 @@ describe("pack", () => {
     expect(urls).toContain("https://cdn.example.com/play/m.mp3");
     expect(urls.some((u) => u.startsWith("data:"))).toBe(false);
   });
+
+  it("システム無しのシナリオパックも有効で、HO/NPC 画像 URL も集める", () => {
+    const sc = {
+      ...scene(),
+      scenario: {
+        synopsis: "あらすじ",
+        handouts: [
+          {
+            id: "h1",
+            label: "HO1",
+            title: "探索者A",
+            image: "https://cdn.example.com/play/ho1.png",
+          },
+        ],
+        npcs: [
+          {
+            id: "n1",
+            name: "館の主",
+            portrait: "https://cdn.example.com/play/npc1.png",
+          },
+        ],
+      },
+    };
+    // system 無し(CoC 組込狙い)でも有効。
+    const pack = buildPack({
+      id: "p",
+      name: "悪霊の家",
+      scenarios: [sc as never],
+    });
+    const r = parsePack(serializePack(pack));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.pack.system).toBeUndefined();
+
+    const urls = collectPackMediaUrls(pack);
+    expect(urls).toContain("https://cdn.example.com/play/ho1.png");
+    expect(urls).toContain("https://cdn.example.com/play/npc1.png");
+  });
 });

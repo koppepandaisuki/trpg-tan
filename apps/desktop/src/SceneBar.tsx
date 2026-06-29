@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { SceneInfo } from "@trpg/core";
 
@@ -27,6 +27,10 @@ export function SceneBar({
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  // 折りたたみ時のシーン選択は自前ドロップダウン(native <select> は WebView で
+  // テーマによって表示が壊れるため)。
+  const [ddOpen, setDdOpen] = useState(false);
+  const ddRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(COLLAPSE_KEY) === "1";
@@ -34,6 +38,25 @@ export function SceneBar({
       return false;
     }
   });
+
+  // ドロップダウンの外側クリック / Escape で閉じる。
+  useEffect(() => {
+    if (!ddOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (ddRef.current && !ddRef.current.contains(e.target as Node)) {
+        setDdOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDdOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [ddOpen]);
 
   function toggleCollapse() {
     setCollapsed((v) => {
@@ -77,19 +100,50 @@ export function SceneBar({
           <ChevronRight size={14} />
         </button>
         <span className="scenebar-label">シーン</span>
-        <select
-          className="input scene-select"
-          value={activeId ?? ""}
-          onChange={(e) => onSelect(e.target.value)}
-          title="シーンを切替"
-        >
-          {scenes.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-              {s.bgmId ? " ♪" : ""}
-            </option>
-          ))}
-        </select>
+        <div className="scene-dd" ref={ddRef}>
+          <button
+            type="button"
+            className="scene-dd-btn"
+            onClick={() => setDdOpen((v) => !v)}
+            title="シーンを切替"
+            aria-haspopup="listbox"
+            aria-expanded={ddOpen}
+          >
+            <span className="scene-dd-cur">
+              {scenes.find((s) => s.id === activeId)?.name || "(シーン)"}
+            </span>
+            {scenes.find((s) => s.id === activeId)?.bgmId && (
+              <span className="scene-bgm" aria-hidden>
+                ♪
+              </span>
+            )}
+            <ChevronDown size={13} className="scene-dd-caret" />
+          </button>
+          {ddOpen && (
+            <div className="scene-dd-list" role="listbox">
+              {scenes.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="option"
+                  aria-selected={s.id === activeId}
+                  className={`scene-dd-opt ${s.id === activeId ? "active" : ""}`}
+                  onClick={() => {
+                    onSelect(s.id);
+                    setDdOpen(false);
+                  }}
+                >
+                  <span className="scene-dd-opt-name">{s.name}</span>
+                  {s.bgmId && (
+                    <span className="scene-bgm" aria-hidden>
+                      ♪
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <span className="scene-count muted">{scenes.length}</span>
         <button
           type="button"

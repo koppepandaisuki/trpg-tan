@@ -256,10 +256,97 @@ export async function sanitizeForNet(msg: NetMsg): Promise<NetMsg> {
     case "event":
       return { ...msg, ev: await sanitizeEvent(msg.ev) };
     case "cutin":
-      return { ...msg, cutin: { ...msg.cutin, image: await up(msg.cutin.image) } };
+      // id のみ送るので変換不要。
+      return msg;
+    case "media": {
+      // 画像束(key→data URL)。各 data URL を Storage の URL に逃がす(ログイン時)。
+      const out: Record<string, string> = {};
+      await Promise.all(
+        Object.entries(msg.media).map(async ([k, v]) => {
+          out[k] = await up(v);
+        }),
+      );
+      return { ...msg, media: out };
+    }
     case "audio":
       return msg.src ? { ...msg, src: await up(msg.src) } : msg;
     default:
       return msg;
   }
+}
+
+/* ===== state の画像分離(CAS: 内容アドレス参照) =====
+ *
+ * 問題: state(スナップショット)に画像 data URL を毎回丸ごと載せると、未ログインや
+ * アップロード失敗時に 1〜2MB の JSON を駒移動のたびに送ることになり、参加者側に
+ * 大きなラグが出る(送信に数秒 → その間の操作が後ろへ積まれる)。
+ *
+ * 対策: scene 内の data URL を short な参照キー("cas:<key>")へ置き換えた「軽量
+ * state」と、key→data URL の「画像束(media)」に分離する。state は毎回軽量に流し、
+ * 画像は別メッセージで「初めて出た画像だけ」送る(= 駒移動では画像を再送しない)。
+ * 同じ画像(複数の駒で使い回す立ち絵など)は同じ key になり 1 回しか送られない。
+ */
+
+/** オブジェクトを再帰走査し、文字列だけ fn で変換した新オブジェクトを返す。 */
+function mapStrings(v: unknown, fn: (s: string) => string): unknown {
+  if (typeof v === "string") return fn(v);
+  if (Array.isArray(v)) return v.map((x) => mapStrings(x, fn));
+  if (v && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(v)) out[k] = mapStrings(val, fn);
+    return out;
+  }
+  return v;
+}
+
+/**
+ * data URL → 短い参照キー(同期・簡易ハッシュ。長さも混ぜて衝突を抑える)。
+ *
+ * 重要: 画像 data URL は巨大(数百KB〜数MB)で、splitSceneMedia は state 変更の
+ * たび(+定期)に全画像へ casKey を掛ける。毎回 1 文字ずつハッシュし直すと、卓に
+ * 画像が増えるほど 1 回の同期が重くなり「後半ほど反映が遅い」原因になる。
+ * 同じ文字列(= 同じ画像)は結果を memo して再ハッシュを避ける(値で keyed なので
+ * 同一画像なら 2 回目以降は O(1))。卓を跨いで肥大しないよう上限を設ける。
+ */
+const keyCache = new Map<string, string>();
+function casKey(s: string): string {
+  const cached = keyCache.get(s);
+  if (cached !== undefined) return cached;
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  const key = `${(h >>> 0).toString(36)}_${s.length.toString(36)}`;
+  if (keyCache.size > 512) keyCache.clear();
+  keyCache.set(s, key);
+  return key;
+}
+
+/**
+ * scene 内の画像(data URL)を取り出し、本体は "cas:<key>" 参照へ置き換える。
+ * 返り値 media は key→data URL。state を軽量に保ち、画像を別送・差分化するための前処理。
+ */
+export function splitSceneMedia(scene: PlayScene): {
+  lite: PlayScene;
+  media: Record<string, string>;
+} {
+  const media: Record<string, string> = {};
+  const lite = mapStrings(scene, (s) => {
+    if (s.startsWith("data:")) {
+      const key = casKey(s);
+      media[key] = s;
+      return `cas:${key}`;
+    }
+    return s;
+  }) as PlayScene;
+  return { lite, media };
+}
+
+/** "cas:<key>" 参照を media マップの実体(URL/data URL)へ復元する。 */
+export function resolveSceneMedia(
+  lite: PlayScene,
+  mediaMap: Map<string, string>,
+): PlayScene {
+  return mapStrings(lite, (s) => {
+    if (s.startsWith("cas:")) return mediaMap.get(s.slice(4)) ?? s;
+    return s;
+  }) as PlayScene;
 }
