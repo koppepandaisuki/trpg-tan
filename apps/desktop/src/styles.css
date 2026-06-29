@@ -9928,6 +9928,24 @@ button:disabled {
   filter: brightness(1.05);
 }
 
+/* ダークモード配慮: カード地(暗い --surface)に対して濃すぎる accent 文字色を
+   一段明るくして可読性を確保する(JoinPromo の価格 / プラン案内の見出し・価格)。 */
+[data-theme="dark"] .join-promo-price {
+  color: #38bdf8;
+}
+[data-theme="dark"] .pg-cyan .pg-code,
+[data-theme="dark"] .pg-cyan .pg-price {
+  color: #22d3ee;
+}
+[data-theme="dark"] .pg-sky .pg-code,
+[data-theme="dark"] .pg-sky .pg-price {
+  color: #38bdf8;
+}
+[data-theme="dark"] .pg-indigo .pg-code,
+[data-theme="dark"] .pg-indigo .pg-price {
+  color: #818cf8;
+}
+
 /* 参加者: 音量コントロール + 自動再生ブロック解除ボタン。 */
 .pclient-vol {
   display: inline-flex;
