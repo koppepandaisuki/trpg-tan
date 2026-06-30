@@ -56,7 +56,7 @@ export async function getTopCreators(limit: number = 3): Promise<TopCreatorEntry
   const { data: productRows, error: prodErr } = await supabase
     .from("products")
     .select(
-      "id, slug, title, product_type, price_jpy, cover_path, system_label, published_at, creator_id",
+      "id, slug, title, product_type, price_jpy, discount_percent, cover_path, system_label, published_at, creator_id",
     )
     .eq("status", "published")
     .in("id", productIds);
@@ -123,6 +123,7 @@ export async function getTopCreators(limit: number = 3): Promise<TopCreatorEntry
       title: topRow.title,
       productType: topRow.product_type as ProductType,
       priceJpy: topRow.price_jpy,
+      discountPercent: topRow.discount_percent ?? 0,
       coverPath: topRow.cover_path,
       systemLabel: topRow.system_label,
       publishedAt: topRow.published_at,

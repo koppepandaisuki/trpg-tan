@@ -74,6 +74,14 @@ const baseFields = {
     .int("価格は整数で入力してください")
     .min(0, "価格は0円以上で入力してください")
     .max(10000000, "価格は10,000,000円以下で入力してください"),
+  // 割引率(0..100)。100 = 実質無料配布。定価(priceJpy)は据え置き、表示は
+  // 「定価の取り消し線 + 割引後価格」。決済も割引後の実効価格で行う。
+  discountPercent: z.coerce
+    .number({ invalid_type_error: "割引率は数値で入力してください" })
+    .int("割引率は整数で入力してください")
+    .min(0, "割引率は0%以上で入力してください")
+    .max(100, "割引率は100%以下で入力してください")
+    .default(0),
   systemLabel: z.string().max(100).default(""),
   players: z.string().max(50).default(""),
   playtime: z.string().max(50).default(""),

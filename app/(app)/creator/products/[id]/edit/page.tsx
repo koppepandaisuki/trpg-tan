@@ -46,6 +46,7 @@ export default async function EditProductPage({
     productType: product.productType,
     fileFormat: product.fileFormat,
     priceJpy: product.priceJpy,
+    discountPercent: product.discountPercent,
     systemLabel: product.systemLabel ?? "",
     players: product.players ?? "",
     playtime: product.playtime ?? "",

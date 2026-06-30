@@ -18,6 +18,7 @@ const DEFAULTS: BuilderFormValues = {
   productType: "scenario",
   fileFormat: "pdf",
   priceJpy: 0,
+  discountPercent: 0,
   systemLabel: "",
   players: "",
   playtime: "",

@@ -41,6 +41,8 @@ export interface StoreItem {
   title: string;
   productType: RemoteProductType;
   priceJpy: number;
+  /** 割引率(0..100)。100 = 無料配布。実効価格は salePriceJpy() で算出。*/
+  discountPercent: number;
   coverUrl: string | null;
   systemLabel: string | null;
   publishedAt: string;
@@ -178,7 +180,7 @@ async function fetchProfiles(ids: string[]): Promise<Map<string, ProfileLite>> {
 }
 
 const LIST_COLUMNS =
-  "id, slug, title, product_type, price_jpy, cover_path, system_label, published_at, creator_id";
+  "id, slug, title, product_type, price_jpy, discount_percent, cover_path, system_label, published_at, creator_id";
 
 type ListRow = {
   id: string;
@@ -186,6 +188,7 @@ type ListRow = {
   title: string;
   product_type: string;
   price_jpy: number;
+  discount_percent: number;
   cover_path: string | null;
   system_label: string | null;
   published_at: string;
@@ -204,6 +207,7 @@ async function toStoreItems(rows: ListRow[]): Promise<StoreItem[]> {
     title: r.title,
     productType: r.product_type as RemoteProductType,
     priceJpy: r.price_jpy,
+    discountPercent: r.discount_percent ?? 0,
     coverUrl: coverUrl(r.cover_path),
     systemLabel: r.system_label,
     publishedAt: r.published_at,
@@ -391,6 +395,7 @@ export async function fetchStoreDetail(
         "product_type",
         "file_format",
         "price_jpy",
+        "discount_percent",
         "cover_path",
         "system_label",
         "players",
@@ -413,6 +418,7 @@ export async function fetchStoreDetail(
       product_type: string;
       file_format: string;
       price_jpy: number;
+      discount_percent: number;
       cover_path: string | null;
       system_label: string | null;
       players: string | null;
@@ -447,6 +453,7 @@ export async function fetchStoreDetail(
     productType: row.product_type as RemoteProductType,
     fileFormat: row.file_format as RemoteFileFormat,
     priceJpy: row.price_jpy,
+    discountPercent: row.discount_percent ?? 0,
     coverUrl: coverUrl(row.cover_path),
     systemLabel: row.system_label,
     players: row.players,
@@ -921,6 +928,22 @@ export async function fetchMyPurchasedIds(userId: string): Promise<Set<string>> 
 /** 価格表示(0 円は「無料」)。 */
 export function formatPriceJpy(jpy: number): string {
   return jpy === 0 ? "無料" : `¥${jpy.toLocaleString("ja-JP")}`;
+}
+
+/**
+ * 割引後の実効価格(円・整数)。discountPercent は 0..100。
+ *   salePriceJpy(1000, 30) -> 700 / salePriceJpy(500, 100) -> 0(無料配布)
+ * web 側 lib/format/price.ts の salePriceJpy と同じ計算(決済と表示で一致させる)。
+ */
+export function salePriceJpy(priceJpy: number, discountPercent: number): number {
+  const d = Math.min(100, Math.max(0, Math.round(discountPercent || 0)));
+  if (d <= 0) return priceJpy;
+  return Math.max(0, Math.round((priceJpy * (100 - d)) / 100));
+}
+
+/** 割引が効いているか(率が 1 以上 かつ 定価が有料)。 */
+export function hasDiscount(priceJpy: number, discountPercent: number): boolean {
+  return priceJpy > 0 && discountPercent > 0;
 }
 
 /**

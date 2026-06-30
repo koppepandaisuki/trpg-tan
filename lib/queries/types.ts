@@ -39,6 +39,8 @@ export type ProductListItem = {
   title: string;
   productType: ProductType;
   priceJpy: number;
+  /** 割引率(0..100)。100 = 無料配布。実効価格は salePriceJpy() で算出。*/
+  discountPercent: number;
   coverPath: string | null;
   systemLabel: string | null;
   publishedAt: string;
@@ -64,6 +66,8 @@ export type ProductDetail = {
   productType: ProductType;
   fileFormat: FileFormat;
   priceJpy: number;
+  /** 割引率(0..100)。100 = 無料配布。実効価格は salePriceJpy() で算出。*/
+  discountPercent: number;
   coverPath: string | null;
   systemLabel: string | null;
   players: string | null;
