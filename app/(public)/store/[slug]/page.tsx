@@ -48,6 +48,7 @@ import {
 } from "@/lib/queries/products";
 import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
 import { formatPrice, isFree } from "@/lib/format/price";
+import { PriceTag } from "@/components/store/price-tag";
 import { publicAvatarUrl, publicCoverUrl } from "@/lib/format/storage";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { isAlreadyPurchased } from "@/lib/access/purchase-access";
@@ -556,9 +557,15 @@ function PurchaseOptionsCard({
             購入オプション
           </h3>
 
-          {/* 価格(主役) */}
-          <div className="mb-4 text-3xl font-bold tracking-tight">
-            {formatPrice(product.priceJpy)}
+          {/* 価格(主役)。割引・セール期間に対応。 */}
+          <div className="mb-4 tracking-tight">
+            <PriceTag
+              priceJpy={product.priceJpy}
+              discountPercent={product.discountPercent}
+              discountStartsAt={product.discountStartsAt}
+              discountEndsAt={product.discountEndsAt}
+              size="lg"
+            />
           </div>
 
           <PurchaseCta product={product} state={ctaState} />

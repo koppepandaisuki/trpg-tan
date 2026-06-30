@@ -41,6 +41,9 @@ export type ProductListItem = {
   priceJpy: number;
   /** 割引率(0..100)。100 = 無料配布。実効価格は salePriceJpy() で算出。*/
   discountPercent: number;
+  /** セール開始/終了(ISO)。null は無期限。期間内のみ割引が有効。*/
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
   coverPath: string | null;
   systemLabel: string | null;
   publishedAt: string;
@@ -68,6 +71,9 @@ export type ProductDetail = {
   priceJpy: number;
   /** 割引率(0..100)。100 = 無料配布。実効価格は salePriceJpy() で算出。*/
   discountPercent: number;
+  /** セール開始/終了(ISO)。null は無期限。期間内のみ割引が有効。*/
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
   coverPath: string | null;
   systemLabel: string | null;
   players: string | null;

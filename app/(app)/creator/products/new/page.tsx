@@ -19,6 +19,8 @@ const DEFAULTS: BuilderFormValues = {
   fileFormat: "pdf",
   priceJpy: 0,
   discountPercent: 0,
+  discountStartsAt: null,
+  discountEndsAt: null,
   systemLabel: "",
   players: "",
   playtime: "",

@@ -80,6 +80,9 @@ export default async function HomePage() {
     coverUrl: publicCoverUrl(p.coverPath),
     productType: p.productType,
     priceJpy: p.priceJpy,
+    discountPercent: p.discountPercent,
+    discountStartsAt: p.discountStartsAt,
+    discountEndsAt: p.discountEndsAt,
     reviewSummary: p.reviewSummary ?? null,
     creator: {
       id: p.creator.id,

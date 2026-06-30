@@ -47,6 +47,8 @@ import {
   submitReview,
   deleteMyReview,
   formatPriceJpy,
+  salePriceJpy,
+  effectiveDiscountPercent,
   webProductUrl,
   type StoreItem,
   type StoreDetail,
@@ -232,6 +234,38 @@ function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
   );
 }
 
+/**
+ * 価格表示(割引・セール期間対応)。Steam 風に「-XX% / 定価(取り消し線) / 割引後」。
+ * 割引が効いていない(率0 or 期間外 or 無料)ときは普通の価格だけ。
+ */
+function PriceTag({
+  item,
+  size,
+}: {
+  item: Pick<
+    StoreItem,
+    "priceJpy" | "discountPercent" | "discountStartsAt" | "discountEndsAt"
+  >;
+  size?: "lg";
+}) {
+  const eff = effectiveDiscountPercent(
+    item.discountPercent,
+    item.discountStartsAt,
+    item.discountEndsAt,
+  );
+  const onSale = item.priceJpy > 0 && eff > 0;
+  const now = formatPriceJpy(onSale ? salePriceJpy(item.priceJpy, eff) : item.priceJpy);
+  const cls = size === "lg" ? "price-now lg" : "price-now";
+  if (!onSale) return <span className={cls}>{now}</span>;
+  return (
+    <span className="price-sale">
+      <span className="price-off">-{eff}%</span>
+      <span className="price-strike">{formatPriceJpy(item.priceJpy)}</span>
+      <span className={cls}>{now}</span>
+    </span>
+  );
+}
+
 /* ===== ホーム: 「注目＆おすすめ」カルーセル(Steam 型) =====
  *  - 中央: 大きなカバー(右パネルのスクショにホバーすると差し替わる)
  *  - 右: 作品名 / 評価 / スクショ 2×2 の情報パネル
@@ -312,7 +346,9 @@ function HeroCarousel({
                   )}
                   {cur.creator.displayName || "（無名）"}
                 </span>
-                <span className="hero-price">{formatPriceJpy(cur.priceJpy)}</span>
+                <span className="hero-price">
+                  <PriceTag item={cur} size="lg" />
+                </span>
                 {purchased.has(cur.id) && (
                   <span className="store-owned-chip static">✓ 購入済み</span>
                 )}
@@ -495,7 +531,7 @@ function Strip({
             />
             <span className="strip-title">{it.title}</span>
             <span className="strip-foot">
-              <span className="store-price small">{formatPriceJpy(it.priceJpy)}</span>
+              <PriceTag item={it} />
               <ReviewBadge review={it.review} />
             </span>
           </button>
@@ -971,7 +1007,9 @@ export function StorePanel({
             {/* 右: 購入 / メタ */}
             <aside className="store-side">
               <div className="store-buybox">
-                <span className="store-price">{formatPriceJpy(detail.priceJpy)}</span>
+                <span className="store-price">
+                  <PriceTag item={detail} size="lg" />
+                </span>
                 <ReviewBadge review={detail.review} />
                 {isPurchased ? (
                   <>
@@ -1510,9 +1548,7 @@ export function StorePanel({
                     )}
                   </span>
                   <span className="store-card-foot">
-                    <span className="store-price small">
-                      {formatPriceJpy(it.priceJpy)}
-                    </span>
+                    <PriceTag item={it} />
                     <ReviewBadge review={it.review} />
                   </span>
                 </div>

@@ -20,6 +20,7 @@ import {
   publishAction,
   type SaveResult,
 } from "@/app/(app)/creator/products/actions";
+import { salePriceJpy } from "@/lib/format/price";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -376,6 +377,16 @@ export function BuilderForm({
           >
             <Field label="価格" required error={errors.priceJpy?.message}>
               <PriceControl form={form} />
+            </Field>
+
+            <Field
+              label="割引・セール（任意）"
+              error={
+                errors.discountPercent?.message ??
+                errors.discountEndsAt?.message
+              }
+            >
+              <DiscountControl form={form} />
             </Field>
 
             <Field
@@ -789,6 +800,110 @@ function PriceControl({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/** ISO 文字列 ↔ <input type="datetime-local"> のローカル値を相互変換。 */
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
+function localInputToIso(v: string): string | null {
+  if (!v) return null;
+  const d = new Date(v); // datetime-local はローカル時刻として解釈される
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/**
+ * 割引率(0..100)とセール期間(任意)の入力。
+ * 100% にすると無料配布になる。期間を空にすると無期限セール。
+ * 価格が 0(無料)のときは割引の意味がないので案内だけ出す。
+ */
+function DiscountControl({
+  form,
+}: {
+  form: ReturnType<typeof useForm<BuilderFormValues>>;
+}) {
+  const price = form.watch("priceJpy") ?? 0;
+  const percent = form.watch("discountPercent") ?? 0;
+
+  if (price <= 0) {
+    return (
+      <p className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+        無料(¥0)の作品には割引は適用されません。有料に設定すると割引・セールを
+        設定できます。
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          step={1}
+          inputMode="numeric"
+          className="max-w-[110px]"
+          {...form.register("discountPercent", { valueAsNumber: true })}
+        />
+        <span className="text-sm">% OFF</span>
+        {percent >= 100 ? (
+          <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+            実質無料配布
+          </span>
+        ) : percent > 0 ? (
+          <span className="text-xs text-muted-foreground">
+            割引後 ¥{salePriceJpy(price, percent).toLocaleString("ja-JP")}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Controller
+          control={form.control}
+          name="discountStartsAt"
+          render={({ field }) => (
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              開始（空＝今すぐ）
+              <Input
+                type="datetime-local"
+                value={isoToLocalInput(field.value ?? null)}
+                onChange={(e) => field.onChange(localInputToIso(e.target.value))}
+              />
+            </label>
+          )}
+        />
+        <Controller
+          control={form.control}
+          name="discountEndsAt"
+          render={({ field }) => (
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              終了（空＝無期限）
+              <Input
+                type="datetime-local"
+                value={isoToLocalInput(field.value ?? null)}
+                onChange={(e) => field.onChange(localInputToIso(e.target.value))}
+              />
+            </label>
+          )}
+        />
+      </div>
+
+      <p className="rounded-md border border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+        <strong className="text-foreground">割引</strong>は定価に対する値引きで、
+        ストアでは「定価の取り消し線＋割引後価格」で表示されます。
+        <strong className="text-foreground">100%</strong> にすると
+        <strong className="text-foreground">無料配布</strong>になります（決済不要）。
+        期間を指定すると、その間だけ割引が有効になります。
+      </p>
     </div>
   );
 }

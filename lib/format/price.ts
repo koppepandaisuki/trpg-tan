@@ -43,6 +43,42 @@ export function hasDiscount(priceJpy: number, discountPercent: number): boolean 
 }
 
 /**
+ * 割引の期間判定。startsAt / endsAt は ISO 文字列 or null。
+ *   両方 null → 常に有効。starts のみ → その時刻以降。ends のみ → その時刻まで。
+ * now はテスト用に差し替え可(既定は現在時刻)。
+ */
+export function isDiscountActive(
+  startsAt: string | null | undefined,
+  endsAt: string | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (startsAt) {
+    const s = Date.parse(startsAt);
+    if (!Number.isNaN(s) && now < s) return false;
+  }
+  if (endsAt) {
+    const e = Date.parse(endsAt);
+    if (!Number.isNaN(e) && now > e) return false;
+  }
+  return true;
+}
+
+/**
+ * 「今」効いている実効割引率。率が 0 以下、または期間外なら 0(=定価)。
+ * 価格表示・決済の両方でこの結果を salePriceJpy に渡す(唯一の真実)。
+ */
+export function effectiveDiscountPercent(
+  discountPercent: number,
+  startsAt: string | null | undefined,
+  endsAt: string | null | undefined,
+  now: number = Date.now(),
+): number {
+  const d = Math.min(100, Math.max(0, Math.round(discountPercent || 0)));
+  if (d <= 0) return 0;
+  return isDiscountActive(startsAt, endsAt, now) ? d : 0;
+}
+
+/**
  * ストアの価格絞り込みブラケット。?price=... で受け取り、products の
  * price_jpy 範囲で絞る。client/server 双方で使うため純データに保つ。
  */

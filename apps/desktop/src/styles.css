@@ -8889,7 +8889,9 @@ button:disabled {
 .feat-main {
   position: relative;
   background: #10314a;
-  aspect-ratio: 16 / 8.4;
+  /* カルーセルを低めに(開いた瞬間に全体＋下の段が見えるよう縮小)。 */
+  aspect-ratio: 16 / 6.6;
+  max-height: 320px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9068,6 +9070,53 @@ button:disabled {
   font-size: 17px;
   font-weight: 800;
   color: #fff;
+}
+
+/* ===== 価格表示(割引・セール) PriceTag ===== */
+.price-now {
+  font-weight: 800;
+  color: var(--text);
+}
+.price-now.lg {
+  font-size: 18px;
+}
+.price-sale {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.price-sale .price-now {
+  color: #059669;
+}
+.price-off {
+  background: #059669;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.price-strike {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  font-size: 12px;
+}
+/* ヒーロー(暗い背景)では取り消し線・割引後を明るく。 */
+.hero-price .price-now,
+.hero-price .price-now.lg {
+  color: #fff;
+}
+.hero-price .price-sale .price-now {
+  color: #34d399;
+}
+.hero-price .price-strike {
+  color: rgba(255, 255, 255, 0.7);
+}
+[data-theme="dark"] .price-sale .price-now {
+  color: #34d399;
+}
+[data-theme="dark"] .price-off {
+  background: #10b981;
 }
 .store-owned-chip.static {
   position: static;

@@ -102,7 +102,7 @@ export async function getCreatorProfile(
   const { data: productRows, error: productsErr } = await supabase
     .from("products")
     .select(
-      "id, slug, title, product_type, price_jpy, discount_percent, cover_path, system_label, published_at",
+      "id, slug, title, product_type, price_jpy, discount_percent, discount_starts_at, discount_ends_at, cover_path, system_label, published_at",
     )
     .eq("creator_id", id)
     .eq("status", "published")
@@ -133,6 +133,8 @@ export async function getCreatorProfile(
     productType: r.product_type as ProductType,
     priceJpy: r.price_jpy,
     discountPercent: r.discount_percent ?? 0,
+    discountStartsAt: r.discount_starts_at ?? null,
+    discountEndsAt: r.discount_ends_at ?? null,
     coverPath: r.cover_path,
     systemLabel: r.system_label,
     publishedAt: r.published_at,

@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { salePriceJpy } from "@/lib/format/price";
+import { salePriceJpy, effectiveDiscountPercent } from "@/lib/format/price";
 
 /**
  * Purchase access checks.
@@ -28,7 +28,7 @@ export type ProductForCheckout = {
   title: string;
   /** 定価(円)。表示・記録用。実際の請求は salePriceJpy(priceJpy, discountPercent)。*/
   priceJpy: number;
-  /** 割引率(0..100)。100 = 無料配布。*/
+  /** 「今」効いている実効割引率(0..100。期間外なら 0)。100 = 無料配布。*/
   discountPercent: number;
   productType: string;
   creatorId: string;
@@ -72,7 +72,8 @@ export async function canPurchase(
   const { data: product, error } = await supabase
     .from("products")
     .select(
-      `id, slug, title, price_jpy, discount_percent, product_type, creator_id, status,
+      `id, slug, title, price_jpy, discount_percent, discount_starts_at, discount_ends_at,
+       product_type, creator_id, status,
        profiles!products_creator_id_fkey ( stripe_account_id, stripe_charges_enabled )`,
     )
     .eq("id", productId)
@@ -113,7 +114,14 @@ export async function canPurchase(
   // 「割引率 100%」での無料配布もここに含まれる(Stripe の最低決済額未満で必ず
   // 失敗する + クリエイターの Connect 未設定でも配布したい)。
   // checkout 側で direct insert に分岐するため、ここでは ok を返す。
-  const discountPercent = product.discount_percent ?? 0;
+  // 期間を加味した「今」効いている実効割引率。期間外なら 0(定価)。
+  // この値を ProductForCheckout.discountPercent として返すので、checkout 側は
+  // salePriceJpy(priceJpy, discountPercent) でそのまま実効価格を出せる。
+  const discountPercent = effectiveDiscountPercent(
+    product.discount_percent ?? 0,
+    product.discount_starts_at ?? null,
+    product.discount_ends_at ?? null,
+  );
   const effectivePrice = salePriceJpy(product.price_jpy, discountPercent);
   if (effectivePrice <= 0) {
     return {

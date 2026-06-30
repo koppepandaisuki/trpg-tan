@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { formatPrice, isFree, salePriceJpy, hasDiscount } from "@/lib/format/price";
+import {
+  formatPrice,
+  isFree,
+  salePriceJpy,
+  hasDiscount,
+  isDiscountActive,
+  effectiveDiscountPercent,
+} from "@/lib/format/price";
 
 describe("formatPrice", () => {
   it("returns 「無料」 for zero", () => {
@@ -60,5 +67,47 @@ describe("hasDiscount", () => {
     expect(hasDiscount(1000, 30)).toBe(true);
     expect(hasDiscount(1000, 0)).toBe(false);
     expect(hasDiscount(0, 50)).toBe(false); // 無料作品に割引は無意味
+  });
+});
+
+describe("isDiscountActive", () => {
+  const now = Date.parse("2026-07-01T12:00:00Z");
+
+  it("is always active when no period is set", () => {
+    expect(isDiscountActive(null, null, now)).toBe(true);
+  });
+
+  it("respects the start boundary", () => {
+    expect(isDiscountActive("2026-07-02T00:00:00Z", null, now)).toBe(false); // 未開始
+    expect(isDiscountActive("2026-06-30T00:00:00Z", null, now)).toBe(true);
+  });
+
+  it("respects the end boundary", () => {
+    expect(isDiscountActive(null, "2026-06-30T00:00:00Z", now)).toBe(false); // 終了済み
+    expect(isDiscountActive(null, "2026-07-31T00:00:00Z", now)).toBe(true);
+  });
+
+  it("requires now to be within both bounds", () => {
+    expect(
+      isDiscountActive("2026-06-30T00:00:00Z", "2026-07-31T00:00:00Z", now),
+    ).toBe(true);
+  });
+});
+
+describe("effectiveDiscountPercent", () => {
+  const now = Date.parse("2026-07-01T12:00:00Z");
+
+  it("returns the rate inside the window, 0 outside", () => {
+    expect(effectiveDiscountPercent(30, null, null, now)).toBe(30);
+    expect(
+      effectiveDiscountPercent(30, "2026-07-02T00:00:00Z", null, now),
+    ).toBe(0); // まだ始まっていない
+    expect(
+      effectiveDiscountPercent(30, null, "2026-06-30T00:00:00Z", now),
+    ).toBe(0); // 終了済み
+  });
+
+  it("returns 0 for non-positive rates regardless of window", () => {
+    expect(effectiveDiscountPercent(0, null, null, now)).toBe(0);
   });
 });

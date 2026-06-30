@@ -57,6 +57,38 @@ export const fileFormatEnum = z.enum(["pdf", "image_zip", "audio", "pack"]);
 // Schemas
 // ---------------------------------------------------------------------
 
+/**
+ * 任意の日時(ISO 文字列) or null。フォームの空文字・undefined は null に寄せる。
+ * 値があるときは Date.parse できることだけ確認する(厳密な ISO 形式は要求しない
+ * — datetime-local 由来の値も toISOString 済みで来る想定)。
+ */
+const isoDateOrNull = z
+  .preprocess(
+    (v) => (v === "" || v === undefined ? null : v),
+    z.string().nullable(),
+  )
+  .refine((v) => v === null || !Number.isNaN(Date.parse(v)), {
+    message: "日時の形式が正しくありません",
+  })
+  .default(null);
+
+/** セール終了は開始より後でなければならない(両方指定時のみ)。 */
+function refineDiscountPeriod<
+  T extends { discountStartsAt: string | null; discountEndsAt: string | null },
+>(data: T, ctx: z.RefinementCtx) {
+  if (
+    data.discountStartsAt &&
+    data.discountEndsAt &&
+    Date.parse(data.discountEndsAt) <= Date.parse(data.discountStartsAt)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["discountEndsAt"],
+      message: "セール終了は開始より後にしてください",
+    });
+  }
+}
+
 const baseFields = {
   title: z
     .string()
@@ -82,6 +114,10 @@ const baseFields = {
     .min(0, "割引率は0%以上で入力してください")
     .max(100, "割引率は100%以下で入力してください")
     .default(0),
+  // セール期間(任意)。空文字 → null。両方 null は無期限セール。
+  // フォームは ISO 文字列(toISOString)で送る。
+  discountStartsAt: isoDateOrNull,
+  discountEndsAt: isoDateOrNull,
   systemLabel: z.string().max(100).default(""),
   players: z.string().max(50).default(""),
   playtime: z.string().max(50).default(""),
@@ -95,22 +131,24 @@ const baseFields = {
 };
 
 /** Lenient — used by 「下書き保存」 */
-export const draftSchema = z.object(baseFields);
+export const draftSchema = z.object(baseFields).superRefine(refineDiscountPeriod);
 
 /** Strict — used by 「公開して保存」. Additional required fields kick in here. */
-export const publishSchema = z.object({
-  ...baseFields,
-  // title and priceJpy are already enforced.
-  description: z
-    .string()
-    .trim()
-    .min(1, "公開には説明文の入力が必要です")
-    .max(10000),
-  tags: z
-    .array(tagSchema)
-    .min(1, "公開にはタグを1つ以上設定してください")
-    .max(TAGS_MAX_COUNT),
-});
+export const publishSchema = z
+  .object({
+    ...baseFields,
+    // title and priceJpy are already enforced.
+    description: z
+      .string()
+      .trim()
+      .min(1, "公開には説明文の入力が必要です")
+      .max(10000),
+    tags: z
+      .array(tagSchema)
+      .min(1, "公開にはタグを1つ以上設定してください")
+      .max(TAGS_MAX_COUNT),
+  })
+  .superRefine(refineDiscountPeriod);
 
 export type ProductInput = z.infer<typeof draftSchema>;
 export type PublishProductInput = z.infer<typeof publishSchema>;

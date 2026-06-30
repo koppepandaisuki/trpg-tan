@@ -43,6 +43,9 @@ export interface StoreItem {
   priceJpy: number;
   /** 割引率(0..100)。100 = 無料配布。実効価格は salePriceJpy() で算出。*/
   discountPercent: number;
+  /** セール開始/終了(ISO)。null は無期限。期間内のみ割引が有効。*/
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
   coverUrl: string | null;
   systemLabel: string | null;
   publishedAt: string;
@@ -180,7 +183,7 @@ async function fetchProfiles(ids: string[]): Promise<Map<string, ProfileLite>> {
 }
 
 const LIST_COLUMNS =
-  "id, slug, title, product_type, price_jpy, discount_percent, cover_path, system_label, published_at, creator_id";
+  "id, slug, title, product_type, price_jpy, discount_percent, discount_starts_at, discount_ends_at, cover_path, system_label, published_at, creator_id";
 
 type ListRow = {
   id: string;
@@ -189,6 +192,8 @@ type ListRow = {
   product_type: string;
   price_jpy: number;
   discount_percent: number;
+  discount_starts_at: string | null;
+  discount_ends_at: string | null;
   cover_path: string | null;
   system_label: string | null;
   published_at: string;
@@ -208,6 +213,8 @@ async function toStoreItems(rows: ListRow[]): Promise<StoreItem[]> {
     productType: r.product_type as RemoteProductType,
     priceJpy: r.price_jpy,
     discountPercent: r.discount_percent ?? 0,
+    discountStartsAt: r.discount_starts_at ?? null,
+    discountEndsAt: r.discount_ends_at ?? null,
     coverUrl: coverUrl(r.cover_path),
     systemLabel: r.system_label,
     publishedAt: r.published_at,
@@ -396,6 +403,8 @@ export async function fetchStoreDetail(
         "file_format",
         "price_jpy",
         "discount_percent",
+        "discount_starts_at",
+        "discount_ends_at",
         "cover_path",
         "system_label",
         "players",
@@ -419,6 +428,8 @@ export async function fetchStoreDetail(
       file_format: string;
       price_jpy: number;
       discount_percent: number;
+      discount_starts_at: string | null;
+      discount_ends_at: string | null;
       cover_path: string | null;
       system_label: string | null;
       players: string | null;
@@ -454,6 +465,8 @@ export async function fetchStoreDetail(
     fileFormat: row.file_format as RemoteFileFormat,
     priceJpy: row.price_jpy,
     discountPercent: row.discount_percent ?? 0,
+    discountStartsAt: row.discount_starts_at ?? null,
+    discountEndsAt: row.discount_ends_at ?? null,
     coverUrl: coverUrl(row.cover_path),
     systemLabel: row.system_label,
     players: row.players,
@@ -944,6 +957,38 @@ export function salePriceJpy(priceJpy: number, discountPercent: number): number 
 /** 割引が効いているか(率が 1 以上 かつ 定価が有料)。 */
 export function hasDiscount(priceJpy: number, discountPercent: number): boolean {
   return priceJpy > 0 && discountPercent > 0;
+}
+
+/** セール期間内か(両方 null は常に有効)。web lib/format/price.ts と同じ判定。 */
+export function isDiscountActive(
+  startsAt: string | null | undefined,
+  endsAt: string | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (startsAt) {
+    const s = Date.parse(startsAt);
+    if (!Number.isNaN(s) && now < s) return false;
+  }
+  if (endsAt) {
+    const e = Date.parse(endsAt);
+    if (!Number.isNaN(e) && now > e) return false;
+  }
+  return true;
+}
+
+/**
+ * 「今」効いている実効割引率。率 0 以下 or 期間外なら 0(=定価)。
+ * 表示は salePriceJpy(price, effectiveDiscountPercent(...)) で実効価格を出す。
+ */
+export function effectiveDiscountPercent(
+  discountPercent: number,
+  startsAt: string | null | undefined,
+  endsAt: string | null | undefined,
+  now: number = Date.now(),
+): number {
+  const d = Math.min(100, Math.max(0, Math.round(discountPercent || 0)));
+  if (d <= 0) return 0;
+  return isDiscountActive(startsAt, endsAt, now) ? d : 0;
 }
 
 /**

@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ReviewBadge } from "@/components/review/review-badge";
 import { useSwipe } from "@/hooks/use-swipe";
 import { categoryLabel } from "@/lib/format/category";
-import { formatPrice } from "@/lib/format/price";
+import { PriceTag } from "./price-tag";
 import type { ProductListItem } from "@/lib/queries/types";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +44,9 @@ export interface CarouselItem {
   coverUrl: string | null;
   productType: ProductListItem["productType"];
   priceJpy: number;
+  discountPercent: number;
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
   reviewSummary: ProductListItem["reviewSummary"];
   creator: {
     id: string;
@@ -240,8 +243,13 @@ function InfoPane({ item }: { item: CarouselItem }) {
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           価格
         </p>
-        <p className="text-base font-bold tracking-tight">
-          {formatPrice(item.priceJpy)}
+        <p className="tracking-tight">
+          <PriceTag
+            priceJpy={item.priceJpy}
+            discountPercent={item.discountPercent}
+            discountStartsAt={item.discountStartsAt}
+            discountEndsAt={item.discountEndsAt}
+          />
         </p>
       </div>
     </div>
@@ -327,8 +335,14 @@ function CarouselSlide({
         <h2 className="line-clamp-2 text-xl font-bold tracking-tight drop-shadow-md sm:text-2xl lg:text-3xl">
           {item.title}
         </h2>
-        <p className="mt-1.5 text-base font-semibold tracking-tight sm:text-lg">
-          {formatPrice(item.priceJpy)}
+        <p className="mt-1.5 tracking-tight">
+          <PriceTag
+            priceJpy={item.priceJpy}
+            discountPercent={item.discountPercent}
+            discountStartsAt={item.discountStartsAt}
+            discountEndsAt={item.discountEndsAt}
+            size="lg"
+          />
         </p>
       </div>
     </Link>
