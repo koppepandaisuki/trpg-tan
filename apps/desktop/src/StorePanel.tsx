@@ -1529,24 +1529,10 @@ export function StorePanel({
                   owned={purchased.has(it.id)}
                   className="store-cover"
                 />
+                {/* Steam 型: ほぼサムネ + 下に価格。作者/レビュー/タグ等は
+                    クリック後の詳細パネルにまとめて表示する。 */}
                 <div className="store-card-body">
                   <span className="store-card-title">{it.title}</span>
-                  <span className="store-card-creator">
-                    {it.creator.avatarUrl ? (
-                      <img src={it.creator.avatarUrl} alt="" loading="lazy" />
-                    ) : (
-                      <span className="store-avatar-ph small">👤</span>
-                    )}
-                    {it.creator.displayName || "（無名）"}
-                  </span>
-                  <span className="store-card-badges">
-                    <span className="work-badge">
-                      {PRODUCT_TYPE_LABEL[it.productType] ?? it.productType}
-                    </span>
-                    {it.systemLabel && (
-                      <span className="work-badge">{it.systemLabel}</span>
-                    )}
-                  </span>
                   <span className="store-card-foot">
                     <PriceTag item={it} />
                     <ReviewBadge review={it.review} />

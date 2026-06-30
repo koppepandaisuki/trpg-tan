@@ -8344,7 +8344,7 @@ button:disabled {
 /* --- 一覧グリッド --- */
 .store-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
   gap: 14px;
   padding: 14px 16px 20px;
 }
@@ -8375,7 +8375,8 @@ button:disabled {
 }
 .store-cover {
   position: relative;
-  aspect-ratio: 16 / 10;
+  /* Steam のヘッダーカプセルと同じ横長比(460x215)で固定。 */
+  aspect-ratio: 460 / 215;
   background: var(--surface-3);
   display: flex;
   align-items: center;
@@ -8407,19 +8408,18 @@ button:disabled {
 .store-card-body {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 10px 12px 12px;
+  gap: 6px;
+  padding: 8px 10px 10px;
 }
 .store-card-title {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  line-height: 1.35;
+  /* Steam 風: ほぼサムネにするのでタイトルは 1 行に収める。 */
+  white-space: nowrap;
   overflow: hidden;
-  min-height: 2.6em;
+  text-overflow: ellipsis;
 }
 .store-card-creator {
   display: flex;
@@ -8461,6 +8461,7 @@ button:disabled {
   justify-content: space-between;
   gap: 6px;
   margin-top: 2px;
+  min-height: 22px;
 }
 .store-price {
   font-size: 19px;
