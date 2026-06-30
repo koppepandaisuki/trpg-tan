@@ -9158,7 +9158,8 @@ button:disabled {
   scroll-snap-type: x proximity;
 }
 .strip-card {
-  flex: 0 0 188px;
+  /* グリッドカードと同じ横長サムネに合わせて少し広げる。 */
+  flex: 0 0 232px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -9184,7 +9185,8 @@ button:disabled {
 .strip-cover {
   position: relative;
   display: block;
-  aspect-ratio: 16 / 10;
+  /* Steam のヘッダーカプセル比(460x215)で固定。グリッドカードと統一。 */
+  aspect-ratio: 460 / 215;
   background: var(--surface-3);
 }
 .strip-cover img {
@@ -9203,13 +9205,12 @@ button:disabled {
   font-size: 12.5px;
   font-weight: 700;
   color: var(--text);
-  line-height: 1.4;
+  line-height: 1.35;
   padding: 0 10px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  /* グリッドカードと同様 1 行に収める(ほぼサムネ)。 */
+  white-space: nowrap;
   overflow: hidden;
-  min-height: 2.6em;
+  text-overflow: ellipsis;
 }
 .strip-foot {
   display: flex;
