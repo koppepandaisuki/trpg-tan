@@ -857,13 +857,13 @@ export function PlayTable({
       const base = isGenericSheet(sheet)
         ? panelFromGeneric({ id: crypto.randomUUID(), sheet })
         : panelFromSheet({ id: crypto.randomUUID(), sheet });
-      // ポートレートがあれば実寸(自然な幅)で配置。
-      const size = base.portrait ? await probeImageWidth(base.portrait) : undefined;
+      // 駒サイズは固定(140)。実寸だと画像ごとにバラバラで盤面が乱れるため、
+      // 追加時は必ず同じ大きさで出す(あとから個別リサイズは可能)。
       dispatch(
         panelAddEvent(newCtx(), {
           ...base,
           pos: spawnPos(),
-          ...(size ? { size } : {}),
+          size: 140,
         }),
       );
       // 卓のシステムを「最初に登場したキャラ」のシステムに合わせる。これが

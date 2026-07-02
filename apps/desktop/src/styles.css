@@ -4181,6 +4181,33 @@ body {
 .ss-sec.dragging {
   opacity: 0.45;
 }
+/* ⧉ フロート化: 同じノードを fixed で浮かせる(アンマウントしない)。 */
+.ss-sec.floating {
+  position: fixed;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  background: var(--surface);
+}
+.ss-sec.floating .ss-head {
+  cursor: move;
+}
+.ss-float {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.ss-float:hover {
+  color: var(--primary-deep);
+  background: var(--surface-3);
+}
 .ss-head {
   display: flex;
   align-items: center;
@@ -8347,6 +8374,128 @@ button:disabled {
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
   gap: 14px;
   padding: 14px 16px 20px;
+}
+
+/* ===== ブラウズ: 右サイドバー(絞り込み)付きレイアウト ===== */
+.browse-flex {
+  display: flex;
+  flex-direction: row-reverse; /* サイドバーを右に */
+  gap: 0;
+  align-items: flex-start;
+}
+.browse-main {
+  flex: 1;
+  min-width: 0;
+}
+.store-filters {
+  flex: 0 0 232px;
+  position: sticky;
+  top: 0;
+  margin: 14px 16px 20px 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sf-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sf-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.sf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sf-chip {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.sf-chip.active {
+  background: var(--primary-deep, #0369a1);
+  border-color: var(--primary-deep, #0369a1);
+  color: #fff;
+  font-weight: 700;
+}
+.sf-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  user-select: none;
+}
+.sf-clear {
+  align-self: flex-start;
+}
+@media (max-width: 900px) {
+  .browse-flex {
+    flex-direction: column;
+  }
+  .store-filters {
+    position: static;
+    flex: none;
+    width: auto;
+    margin: 14px 16px 0;
+  }
+}
+
+/* ウィッシュ(ハート)。カード右上に重ねる。 */
+.store-cardwrap {
+  position: relative;
+}
+.store-cardwrap .store-card {
+  width: 100%;
+}
+.wish-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(10, 25, 40, 0.45);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+.store-cardwrap:hover .wish-btn,
+.wish-btn.on {
+  opacity: 1;
+}
+.wish-btn.on {
+  color: #fb7185;
+  border-color: rgba(251, 113, 133, 0.7);
+}
+
+/* 小分類チップ(細分化)は一段小さく */
+.store-cat.sub {
+  font-size: 11px;
+  padding: 3px 10px;
+  opacity: 0.9;
 }
 .store-grid.dim {
   opacity: 0.55;

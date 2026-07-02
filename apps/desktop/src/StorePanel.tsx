@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -8,6 +9,7 @@ import {
 import {
   Store,
   Search,
+  Heart,
   FileText,
   BookOpen,
   Map as MapIcon,
@@ -30,6 +32,7 @@ import {
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "./Toasts";
 import { requireLogin } from "./LoginGate";
+import { useWishlist, toggleWish } from "./wishlist";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { SkelGrid, SkelStoreHome } from "./Skeleton";
@@ -51,6 +54,7 @@ import {
   effectiveDiscountPercent,
   saleEndsInLabel,
   webProductUrl,
+  type StorePriceBand,
   type StoreItem,
   type StoreDetail,
   type StoreHome,
@@ -78,6 +82,51 @@ const CATEGORIES: { key: RemoteProductType | null; label: string }[] = [
   { key: "map", label: "マップ" },
   { key: "bgm_audio", label: "BGM/音声" },
 ];
+
+/**
+ * ブラウズのカテゴリ再編: 大分類(作品 / キャラ / 素材) → 小分類(product_type)。
+ * DB の product_type は変えず UI レベルでグループ化する。マップ・BGM は「素材」。
+ */
+type CatGroup = {
+  key: string;
+  label: string;
+  /** null = すべて。 */
+  types: RemoteProductType[] | null;
+  subs: { key: RemoteProductType; label: string }[];
+};
+const CAT_GROUPS: CatGroup[] = [
+  { key: "all", label: "すべて", types: null, subs: [] },
+  {
+    key: "works",
+    label: "作品",
+    types: ["full_package", "scenario", "rulebook"],
+    subs: [
+      { key: "full_package", label: "フルパッケージ" },
+      { key: "scenario", label: "シナリオ" },
+      { key: "rulebook", label: "ルールブック" },
+    ],
+  },
+  {
+    key: "chara",
+    label: "キャラ",
+    types: ["character_art"],
+    subs: [],
+  },
+  {
+    key: "assets",
+    label: "素材",
+    types: ["map", "bgm_audio"],
+    subs: [
+      { key: "map", label: "マップ" },
+      { key: "bgm_audio", label: "BGM/音声" },
+    ],
+  },
+];
+
+/** product_type が属する大分類のキー。 */
+function groupOfType(t: RemoteProductType): string {
+  return CAT_GROUPS.find((g) => g.types?.includes(t))?.key ?? "all";
+}
 
 /** ジャンルのアイコン(lucide。Web 側と同じ語彙)。 */
 const CATEGORY_ICON: Record<RemoteProductType, ReactNode> = {
@@ -685,12 +734,28 @@ export function StorePanel({
   const [creators, setCreators] = useState<StoreCreator[] | null>(null);
   const [creatorsLoading, setCreatorsLoading] = useState(false);
 
-  // 一覧(ブラウズ)の条件。
-  const [category, setCategory] = useState<RemoteProductType | null>(
+  // 一覧(ブラウズ)の条件。カテゴリは 大分類(groupKey) + 小分類(subType) の2段。
+  const [groupKey, setGroupKey] = useState<string>(
+    initialCategory ? groupOfType(initialCategory) : "all",
+  );
+  const [subType, setSubType] = useState<RemoteProductType | null>(
     initialCategory,
   );
+  const cats = useMemo<RemoteProductType[] | null>(() => {
+    if (subType) return [subType];
+    return CAT_GROUPS.find((g) => g.key === groupKey)?.types ?? null;
+  }, [groupKey, subType]);
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
+  // 右サイドバー: 作品名のみの絞り込み / 価格帯 / セール中 / ウィッシュのみ。
+  const [titleQInput, setTitleQInput] = useState("");
+  const [titleQ, setTitleQ] = useState("");
+  const [priceBand, setPriceBand] = useState<StorePriceBand | null>(null);
+  const [saleOnly, setSaleOnly] = useState(false);
+  const [wishOnly, setWishOnly] = useState(false);
+  const wishIds = useWishlist();
+  // ウィッシュ絞り込みの再取得キー(絞り込み OFF のときはハート操作で再取得しない)。
+  const wishKey = wishOnly ? [...wishIds].sort().join(",") : "";
   const [creatorFilter, setCreatorFilter] = useState<{
     id: string;
     name: string;
@@ -827,9 +892,13 @@ export function StorePanel({
     setError(null);
     try {
       const res = await fetchStore({
-        category,
+        categories: cats,
         q,
+        titleQ,
         creatorId: creatorFilter?.id ?? null,
+        priceBand,
+        saleOnly,
+        onlyIds: wishOnly ? [...wishIds] : null,
         sort,
         page,
       });
@@ -841,7 +910,9 @@ export function StorePanel({
     } finally {
       setLoading(false);
     }
-  }, [category, q, creatorFilter, sort, page]);
+    // wishKey: ウィッシュ絞り込み中のみハート変更で再取得(OFF 時は無反応)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cats, q, titleQ, creatorFilter, priceBand, saleOnly, wishOnly, wishKey, sort, page]);
 
   useEffect(() => {
     if (view === "browse") void loadBrowse();
@@ -877,22 +948,42 @@ export function StorePanel({
 
   function browseWith(opts: {
     category?: RemoteProductType | null;
+    /** 大分類キー("works"/"chara"/"assets")。category より優先。 */
+    group?: string;
     q?: string;
     creator?: { id: string; name: string } | null;
     sort?: StoreSort;
   }) {
     setDetail(null);
-    setCategory(opts.category ?? null);
+    if (opts.group) {
+      setGroupKey(opts.group);
+      setSubType(null);
+    } else if (opts.category) {
+      setGroupKey(groupOfType(opts.category));
+      setSubType(opts.category);
+    } else {
+      setGroupKey("all");
+      setSubType(null);
+    }
     setQ(opts.q ?? "");
     setQInput(opts.q ?? "");
     setCreatorFilter(opts.creator ?? null);
+    // サイドバーの絞り込みは新しいブラウズ開始時にリセット(予測可能に)。
+    setTitleQ("");
+    setTitleQInput("");
+    setPriceBand(null);
+    setSaleOnly(false);
+    setWishOnly(false);
     if (opts.sort) setSort(opts.sort);
     setPage(1);
     setView("browse");
   }
 
   function search() {
-    browseWith({ category, q: qInput, creator: creatorFilter, sort });
+    setDetail(null);
+    setQ(qInput);
+    setPage(1);
+    setView("browse");
   }
 
   if (!supabaseConfigured) {
@@ -1204,19 +1295,6 @@ export function StorePanel({
           <Search size={14} /> 検索
         </button>
       </div>
-      {view === "browse" && (
-        <select
-          className="input store-sort"
-          value={sort}
-          onChange={(e) => {
-            setSort(e.target.value as StoreSort);
-            setPage(1);
-          }}
-        >
-          <option value="published">新着順</option>
-          <option value="rating">好評順</option>
-        </select>
-      )}
     </div>
   );
 
@@ -1294,16 +1372,16 @@ export function StorePanel({
     return (
       <div className="store">
         {header}
-        {/* ジャンルナビ */}
+        {/* ジャンルナビ(大分類: 作品 / キャラ / 素材)。細分化はブラウズ側で。 */}
         <div className="store-cats">
-          {CATEGORIES.filter((c) => c.key).map((c) => (
+          {CAT_GROUPS.filter((g) => g.types).map((g) => (
             <button
-              key={c.label}
+              key={g.key}
               className="store-cat ibtn"
-              onClick={() => browseWith({ category: c.key })}
+              onClick={() => browseWith({ group: g.key })}
             >
-              {c.key && CATEGORY_ICON[c.key]}
-              {c.label}
+              {CATEGORY_ICON[g.types![0]]}
+              {g.label}
             </button>
           ))}
           <button className="store-cat" onClick={() => browseWith({})}>
@@ -1484,16 +1562,31 @@ export function StorePanel({
         <button className="store-cat" onClick={() => setView("home")}>
           ← ホーム
         </button>
-        {CATEGORIES.map((c) => (
+        {/* 大分類: すべて / 作品 / キャラ / 素材 */}
+        {CAT_GROUPS.map((g) => (
           <button
-            key={c.label}
-            className={`store-cat ${category === c.key ? "active" : ""}`}
+            key={g.key}
+            className={`store-cat ${groupKey === g.key ? "active" : ""}`}
             onClick={() => {
-              setCategory(c.key);
+              setGroupKey(g.key);
+              setSubType(null);
               setPage(1);
             }}
           >
-            {c.label}
+            {g.label}
+          </button>
+        ))}
+        {/* 小分類(細分化): 選択中の大分類にサブがあるときだけ */}
+        {(CAT_GROUPS.find((g) => g.key === groupKey)?.subs ?? []).map((s) => (
+          <button
+            key={s.key}
+            className={`store-cat sub ${subType === s.key ? "active" : ""}`}
+            onClick={() => {
+              setSubType((cur) => (cur === s.key ? null : s.key));
+              setPage(1);
+            }}
+          >
+            {s.label}
           </button>
         ))}
         {q && (
@@ -1534,67 +1627,205 @@ export function StorePanel({
         </p>
       )}
 
-      <div className="store-body">
-        {loading && items === null && <SkelGrid count={10} />}
+      <div className="store-body browse-flex">
+        {/* 右サイドバー: 名前検索 / 並び替え / 価格帯 / セール中 / ウィッシュ */}
+        <aside className="store-filters">
+          <div className="sf-sec">
+            <p className="sf-title">作品名で絞り込み</p>
+            <input
+              className="input"
+              value={titleQInput}
+              placeholder="作品名の一部"
+              onChange={(e) => setTitleQInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setTitleQ(titleQInput);
+                  setPage(1);
+                }
+              }}
+              onBlur={() => {
+                if (titleQInput !== titleQ) {
+                  setTitleQ(titleQInput);
+                  setPage(1);
+                }
+              }}
+            />
+          </div>
 
-        {items && items.length === 0 && (
-          <EmptyState
-            title="該当する作品がありません"
-            hint="検索条件やカテゴリを変えて探してみてください。"
-            action={{ label: "条件をクリア", onClick: () => browseWith({}) }}
-          />
-        )}
+          <div className="sf-sec">
+            <p className="sf-title">並び替え</p>
+            <select
+              className="input"
+              value={sort}
+              onChange={(e) => {
+                setSort(e.target.value as StoreSort);
+                setPage(1);
+              }}
+            >
+              <option value="published">新着順</option>
+              <option value="rating">評価が高い順</option>
+              <option value="price_asc">価格が安い順</option>
+              <option value="price_desc">価格が高い順</option>
+            </select>
+          </div>
 
-        {items && items.length > 0 && (
-          <div className={`store-grid ${loading ? "dim" : ""}`}>
-            {items.map((it) => (
-              <button
-                key={it.id}
-                className="store-card"
-                onClick={() => void openDetail(it)}
-                disabled={detailLoading}
-                title={it.title}
-              >
-                <HoverCover
-                  item={it}
-                  owned={purchased.has(it.id)}
-                  className="store-cover"
-                />
-                {/* Steam 型: ほぼサムネ + 下に価格。作者/レビュー/タグ等は
-                    クリック後の詳細パネルにまとめて表示する。 */}
-                <div className="store-card-body">
-                  <span className="store-card-title">{it.title}</span>
-                  <span className="store-card-foot">
-                    <PriceTag item={it} />
-                    <ReviewBadge review={it.review} />
-                  </span>
+          <div className="sf-sec">
+            <p className="sf-title">価格</p>
+            <div className="sf-chips">
+              {(
+                [
+                  [null, "すべて"],
+                  ["free", "無料"],
+                  ["u500", "〜500円"],
+                  ["mid", "500〜1,000円"],
+                  ["o1000", "1,000円〜"],
+                ] as [StorePriceBand | null, string][]
+              ).map(([band, label]) => (
+                <button
+                  key={label}
+                  className={`sf-chip ${priceBand === band ? "active" : ""}`}
+                  onClick={() => {
+                    setPriceBand(band);
+                    setPage(1);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="sf-sec">
+            <label className="sf-check">
+              <input
+                type="checkbox"
+                checked={saleOnly}
+                onChange={(e) => {
+                  setSaleOnly(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              🔥 セール中のみ
+            </label>
+            <label className="sf-check">
+              <input
+                type="checkbox"
+                checked={wishOnly}
+                onChange={(e) => {
+                  setWishOnly(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              <Heart size={12} /> ウィッシュリストのみ
+              {wishIds.size > 0 && (
+                <span className="muted">({wishIds.size})</span>
+              )}
+            </label>
+          </div>
+
+          {(titleQ || priceBand || saleOnly || wishOnly) && (
+            <button
+              className="btn mini sf-clear"
+              onClick={() => {
+                setTitleQ("");
+                setTitleQInput("");
+                setPriceBand(null);
+                setSaleOnly(false);
+                setWishOnly(false);
+                setPage(1);
+              }}
+            >
+              絞り込みをクリア
+            </button>
+          )}
+        </aside>
+
+        <div className="browse-main">
+          {loading && items === null && <SkelGrid count={10} />}
+
+          {items && items.length === 0 && (
+            <EmptyState
+              title="該当する作品がありません"
+              hint="検索条件やカテゴリを変えて探してみてください。"
+              action={{ label: "条件をクリア", onClick: () => browseWith({}) }}
+            />
+          )}
+
+          {items && items.length > 0 && (
+            <div className={`store-grid ${loading ? "dim" : ""}`}>
+              {items.map((it) => (
+                <div key={it.id} className="store-cardwrap">
+                  <button
+                    className="store-card"
+                    onClick={() => void openDetail(it)}
+                    disabled={detailLoading}
+                    title={it.title}
+                  >
+                    <HoverCover
+                      item={it}
+                      owned={purchased.has(it.id)}
+                      className="store-cover"
+                    />
+                    {/* Steam 型: ほぼサムネ + 下に価格。作者/レビュー/タグ等は
+                        クリック後の詳細パネルにまとめて表示する。 */}
+                    <div className="store-card-body">
+                      <span className="store-card-title">{it.title}</span>
+                      <span className="store-card-foot">
+                        <PriceTag item={it} />
+                        <ReviewBadge review={it.review} />
+                      </span>
+                    </div>
+                  </button>
+                  {/* ウィッシュ(ハート)。カードは <button> なので兄弟として重ねる。 */}
+                  <button
+                    className={`wish-btn ${wishIds.has(it.id) ? "on" : ""}`}
+                    title={
+                      wishIds.has(it.id)
+                        ? "ウィッシュリストから外す"
+                        : "ウィッシュリストに追加"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const added = toggleWish(it.id);
+                      toast(
+                        added
+                          ? "♥ ウィッシュリストに追加しました"
+                          : "ウィッシュリストから外しました",
+                      );
+                    }}
+                  >
+                    <Heart
+                      size={15}
+                      fill={wishIds.has(it.id) ? "currentColor" : "none"}
+                    />
+                  </button>
                 </div>
-              </button>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {items && totalPages > 1 && (
-          <div className="store-pager">
-            <button
-              className="btn mini"
-              disabled={page <= 1 || loading}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              ← 前へ
-            </button>
-            <span className="muted" style={{ fontSize: 12 }}>
-              {page} / {totalPages}
-            </span>
-            <button
-              className="btn mini"
-              disabled={page >= totalPages || loading}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              次へ →
-            </button>
-          </div>
-        )}
+          {items && totalPages > 1 && (
+            <div className="store-pager">
+              <button
+                className="btn mini"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                ← 前へ
+              </button>
+              <span className="muted" style={{ fontSize: 12 }}>
+                {page} / {totalPages}
+              </span>
+              <button
+                className="btn mini"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                次へ →
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -14,7 +14,10 @@ import type { RemoteProductType, RemoteFileFormat } from "./library-remote";
 
 export const STORE_PAGE_SIZE = 24;
 
-export type StoreSort = "published" | "rating";
+export type StoreSort = "published" | "rating" | "price_asc" | "price_desc";
+
+/** 価格帯フィルタ(定価ベース。web の StorePriceFilter と同じ区分)。 */
+export type StorePriceBand = "free" | "u500" | "mid" | "o1000";
 
 export type ReviewLabel =
   | "圧倒的に好評"
@@ -267,13 +270,72 @@ async function resolveSearchIds(q: string): Promise<string[]> {
 }
 
 /** ストア一覧(カテゴリ / 検索 / 作者 / 並び順 / ページ)。 */
-export async function fetchStore(opts: {
+export type StoreFilterOpts = {
   category?: RemoteProductType | null;
+  /** 複数カテゴリ(グループ絞り込み: 素材=map+bgm_audio 等)。category より優先。 */
+  categories?: RemoteProductType[] | null;
   q?: string | null;
+  /** 作品名のみの絞り込み(右サイドバーの名前検索。q とは AND)。 */
+  titleQ?: string | null;
   creatorId?: string | null;
+  /** ウィッシュリスト絞り込み(ローカル保存の id 群)。 */
+  onlyIds?: string[] | null;
+  priceBand?: StorePriceBand | null;
+  /** 「今」セール中(discount_percent>0 かつ期間内)のみ。 */
+  saleOnly?: boolean;
   sort?: StoreSort;
   page?: number;
-}): Promise<StoreListResult> {
+};
+
+/** 共通フィルタを PostgREST クエリへ適用(published / rating 両経路で共用)。 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyStoreFilters<T extends any>(query: T, opts: StoreFilterOpts): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = query as any;
+  const cats =
+    opts.categories && opts.categories.length > 0
+      ? opts.categories
+      : opts.category
+        ? [opts.category]
+        : null;
+  if (cats) q = cats.length === 1 ? q.eq("product_type", cats[0]) : q.in("product_type", cats);
+  if (opts.creatorId) q = q.eq("creator_id", opts.creatorId);
+  if (opts.titleQ?.trim()) {
+    // % と _ は LIKE のワイルドカードなのでエスケープ。
+    const esc = opts.titleQ.trim().replace(/[%_]/g, (m) => `\\${m}`);
+    q = q.ilike("title", `%${esc}%`);
+  }
+  if (opts.onlyIds) {
+    q = q.in("id", opts.onlyIds.length > 0 ? opts.onlyIds : ["-"]);
+  }
+  if (opts.priceBand) {
+    switch (opts.priceBand) {
+      case "free":
+        q = q.eq("price_jpy", 0);
+        break;
+      case "u500":
+        q = q.gte("price_jpy", 1).lte("price_jpy", 500);
+        break;
+      case "mid":
+        q = q.gte("price_jpy", 501).lte("price_jpy", 1000);
+        break;
+      case "o1000":
+        q = q.gte("price_jpy", 1001);
+        break;
+    }
+  }
+  if (opts.saleOnly) {
+    const now = new Date().toISOString();
+    // 複数の .or() は AND で結合される: 率>0 AND (開始null or 開始<=now) AND (終了null or 終了>=now)
+    q = q
+      .gt("discount_percent", 0)
+      .or(`discount_starts_at.is.null,discount_starts_at.lte.${now}`)
+      .or(`discount_ends_at.is.null,discount_ends_at.gte.${now}`);
+  }
+  return q as T;
+}
+
+export async function fetchStore(opts: StoreFilterOpts): Promise<StoreListResult> {
   const page = Math.max(1, opts.page ?? 1);
   const pageSize = STORE_PAGE_SIZE;
   const sort = opts.sort ?? "published";
@@ -288,25 +350,25 @@ export async function fetchStore(opts: {
   }
 
   if (sort === "rating") {
-    return fetchByRating({
-      page,
-      pageSize,
-      category: opts.category ?? null,
-      searchIds,
-      creatorId: opts.creatorId ?? null,
-    });
+    return fetchByRating({ page, pageSize, searchIds, opts });
   }
 
   const from = (page - 1) * pageSize;
   let query = supabase
     .from("products")
     .select(LIST_COLUMNS, { count: "exact" })
-    .eq("status", "published")
-    .order("published_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(from, from + pageSize - 1);
-  if (opts.category) query = query.eq("product_type", opts.category);
-  if (opts.creatorId) query = query.eq("creator_id", opts.creatorId);
+    .eq("status", "published");
+  if (sort === "price_asc" || sort === "price_desc") {
+    query = query
+      .order("price_jpy", { ascending: sort === "price_asc" })
+      .order("published_at", { ascending: false });
+  } else {
+    query = query
+      .order("published_at", { ascending: false })
+      .order("created_at", { ascending: false });
+  }
+  query = query.range(from, from + pageSize - 1);
+  query = applyStoreFilters(query, opts);
   if (searchIds !== null) query = query.in("id", searchIds);
 
   const { data: rows, count, error } = await query;
@@ -325,19 +387,17 @@ export async function fetchStore(opts: {
 async function fetchByRating(args: {
   page: number;
   pageSize: number;
-  category: RemoteProductType | null;
   searchIds: string[] | null;
-  creatorId?: string | null;
+  opts: StoreFilterOpts;
 }): Promise<StoreListResult> {
-  const { page, pageSize, category, searchIds } = args;
+  const { page, pageSize, searchIds } = args;
 
   let idQuery = supabase
     .from("products")
     .select("id, published_at")
     .eq("status", "published")
     .limit(5000);
-  if (category) idQuery = idQuery.eq("product_type", category);
-  if (args.creatorId) idQuery = idQuery.eq("creator_id", args.creatorId);
+  idQuery = applyStoreFilters(idQuery, args.opts);
   if (searchIds !== null) idQuery = idQuery.in("id", searchIds);
 
   const { data: idRows, error } = await idQuery;
@@ -595,8 +655,8 @@ export async function fetchTopRatedItems(limit: number): Promise<StoreItem[]> {
   const res = await fetchByRating({
     page: 1,
     pageSize: limit,
-    category: null,
     searchIds: null,
+    opts: {},
   });
   const hasRating = res.items.some((it) => it.review && it.review.total > 0);
   return hasRating ? res.items : [];
@@ -710,9 +770,12 @@ export async function fetchStoreHome(): Promise<StoreHome> {
       fetchTopRatedItems(12),
       fetchTopCreators(3),
       ...HOME_CATEGORIES.map((c) =>
-        fetchByRating({ page: 1, pageSize: 8, category: c, searchIds: null }).then(
-          (r) => r.items,
-        ),
+        fetchByRating({
+          page: 1,
+          pageSize: 8,
+          searchIds: null,
+          opts: { category: c },
+        }).then((r) => r.items),
       ),
     ]);
   return {
