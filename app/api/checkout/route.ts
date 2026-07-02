@@ -73,6 +73,24 @@ export async function POST(request: NextRequest) {
     decision.product.discountPercent,
   );
 
+  // Stripe の JPY 最低決済額は ¥50。1〜49 円は必ず Stripe 側で失敗するので、
+  // 生のカードエラーではなく明確なメッセージで先に止める(validator でも同じ
+  // 組合せを保存時に弾いているが、既存データ・期間開始による変動に備えた最終防衛)。
+  if (effectivePriceJpy > 0 && effectivePriceJpy < 50) {
+    console.warn("[checkout] below Stripe minimum", {
+      productId: decision.product.id,
+      effectivePriceJpy,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        message:
+          "この作品は現在購入できません(割引後価格が決済可能な最低金額を下回っています)",
+      },
+      { status: 400 },
+    );
+  }
+
   // 無料(実効価格=0)、または管理者は Stripe を通さない:
   //   - 無料: Stripe の最低決済額(JPY ~50円)未満で必ず失敗する。
   //          クリエイターの Stripe Connect 未設定でも無料配布したい。

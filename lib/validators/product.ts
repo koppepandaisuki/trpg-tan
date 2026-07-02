@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { salePriceJpy } from "@/lib/format/price";
 
 /**
  * Product input schemas.
@@ -74,7 +75,12 @@ const isoDateOrNull = z
 
 /** セール終了は開始より後でなければならない(両方指定時のみ)。 */
 function refineDiscountPeriod<
-  T extends { discountStartsAt: string | null; discountEndsAt: string | null },
+  T extends {
+    discountStartsAt: string | null;
+    discountEndsAt: string | null;
+    priceJpy: number;
+    discountPercent: number;
+  },
 >(data: T, ctx: z.RefinementCtx) {
   if (
     data.discountStartsAt &&
@@ -85,6 +91,17 @@ function refineDiscountPeriod<
       code: z.ZodIssueCode.custom,
       path: ["discountEndsAt"],
       message: "セール終了は開始より後にしてください",
+    });
+  }
+  // Stripe の JPY 最低決済額は ¥50。割引後価格が 1〜49 円になる組合せは決済が
+  // 必ず失敗するため保存時に弾く(100% なら無料配布で OK)。
+  const sale = salePriceJpy(data.priceJpy, data.discountPercent);
+  if (sale > 0 && sale < 50) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["discountPercent"],
+      message:
+        "割引後の価格が¥50未満になります(決済不可)。割引率を下げるか、100%(無料配布)にしてください",
     });
   }
 }

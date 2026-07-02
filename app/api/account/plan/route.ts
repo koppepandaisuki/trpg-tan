@@ -3,6 +3,7 @@ import { createBearerClient } from "@/lib/supabase/bearer";
 import { setUserPlanTester } from "@/lib/mutations/plan";
 import { normalizePlan } from "@/lib/plan";
 import { isAlphaAdminEmail } from "@/lib/access/alpha-whitelist";
+import { isPlanBillingConfigured } from "@/lib/stripe/subscription";
 
 /**
  * GET/POST /api/account/plan — デスクトップアプリ用の料金プラン取得/設定。
@@ -58,6 +59,27 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "認証が必要です" },
       { status: 401 },
     );
+  }
+  // 本番課金(Stripe Price ID)が構成されたら、テスター切替は管理者限定にする。
+  // これを怠ると「課金開始後も誰でも無料で pro にできる」API が残ってしまう。
+  if (isPlanBillingConfigured()) {
+    const { data: prof } = await auth.client
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+    const admin =
+      Boolean(prof?.is_admin) || isAlphaAdminEmail(auth.user.email ?? "");
+    if (!admin) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "テスター用のプラン切替は終了しました。料金ページからお申し込みください",
+        },
+        { status: 403 },
+      );
+    }
   }
   let body: { plan?: unknown };
   try {

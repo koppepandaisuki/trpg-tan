@@ -22,6 +22,13 @@ export async function selectPlanTesterAction(
   plan: string,
 ): Promise<{ ok: true; plan: UserPlan } | { ok: false; error: string }> {
   const user = await requireUser();
+  // 本番課金が構成されたらテスター切替は管理者限定(無料で pro になれる穴を塞ぐ)。
+  if (isPlanBillingConfigured() && !user.isAdmin) {
+    return {
+      ok: false,
+      error: "テスター用のプラン切替は終了しました。上のボタンからお申し込みください",
+    };
+  }
   try {
     const next = await setUserPlanTester(user.id, plan);
     revalidatePath("/pricing");
@@ -49,6 +56,9 @@ export async function startCheckoutAction(
     return { ok: false, reason: "not_configured", error: "課金は準備中です" };
   }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  // redirect() は例外を投げて遷移を実現するため、try/catch の内側で呼ぶと
+  // 自分の catch に食われて「失敗しました」になる。URL を受けて外で redirect する。
+  let checkoutUrl: string;
   try {
     const customer = await getOrCreateCustomerId(user.id, user.email ?? null);
     const session = await getStripe().checkout.sessions.create({
@@ -68,11 +78,12 @@ export async function startCheckoutAction(
         error: "Checkout URL を取得できませんでした",
       };
     }
-    redirect(session.url);
+    checkoutUrl = session.url;
   } catch (err) {
     console.error("[startCheckoutAction] failed", err);
     return { ok: false, reason: "server_error", error: "申し込み処理に失敗しました" };
   }
+  redirect(checkoutUrl);
 }
 
 /**
@@ -95,14 +106,17 @@ export async function openPortalAction(): Promise<{
     return { ok: false, error: "有効なご契約が見つかりません" };
   }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  // startCheckoutAction と同じ理由で redirect は try の外で行う。
+  let portalUrl: string;
   try {
     const portal = await getStripe().billingPortal.sessions.create({
       customer: customerId,
       return_url: `${siteUrl}/pricing`,
     });
-    redirect(portal.url);
+    portalUrl = portal.url;
   } catch (err) {
     console.error("[openPortalAction] failed", err);
     return { ok: false, error: "管理ページを開けませんでした" };
   }
+  redirect(portalUrl);
 }
