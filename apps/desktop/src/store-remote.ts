@@ -977,6 +977,26 @@ export function isDiscountActive(
 }
 
 /**
+ * セール終了までの残り時間ラベル。終了日時なし/終了済みは null。
+ *   3日以上 → 「あと3日」 / 24h未満 → 「あと5時間」 / 1h未満 → 「まもなく終了」
+ * 購入直前の「今買う理由」(緊急性)を作る。Steam のセール表記と同じ発想。
+ */
+export function saleEndsInLabel(
+  endsAt: string | null | undefined,
+  now: number = Date.now(),
+): string | null {
+  if (!endsAt) return null;
+  const e = Date.parse(endsAt);
+  if (Number.isNaN(e)) return null;
+  const ms = e - now;
+  if (ms <= 0) return null;
+  const hours = ms / 3_600_000;
+  if (hours < 1) return "まもなく終了";
+  if (hours < 24) return `あと${Math.floor(hours)}時間`;
+  return `あと${Math.ceil(hours / 24)}日`;
+}
+
+/**
  * 「今」効いている実効割引率。率 0 以下 or 期間外なら 0(=定価)。
  * 表示は salePriceJpy(price, effectiveDiscountPercent(...)) で実効価格を出す。
  */

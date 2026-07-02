@@ -49,6 +49,7 @@ import {
   formatPriceJpy,
   salePriceJpy,
   effectiveDiscountPercent,
+  saleEndsInLabel,
   webProductUrl,
   type StoreItem,
   type StoreDetail,
@@ -234,6 +235,23 @@ function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
   );
 }
 
+/** 「今」の実効価格(割引・期間込み)。購入ボタンの文言や無料判定はこれを使う。 */
+function effPriceOf(
+  it: Pick<
+    StoreItem,
+    "priceJpy" | "discountPercent" | "discountStartsAt" | "discountEndsAt"
+  >,
+): number {
+  return salePriceJpy(
+    it.priceJpy,
+    effectiveDiscountPercent(
+      it.discountPercent,
+      it.discountStartsAt,
+      it.discountEndsAt,
+    ),
+  );
+}
+
 /**
  * 価格表示(割引・セール期間対応)。Steam 風に「-XX% / 定価(取り消し線) / 割引後」。
  * 割引が効いていない(率0 or 期間外 or 無料)ときは普通の価格だけ。
@@ -257,11 +275,14 @@ function PriceTag({
   const now = formatPriceJpy(onSale ? salePriceJpy(item.priceJpy, eff) : item.priceJpy);
   const cls = size === "lg" ? "price-now lg" : "price-now";
   if (!onSale) return <span className={cls}>{now}</span>;
+  // 大サイズ(詳細・ヒーロー)ではセールの残り時間も出して「今買う理由」を作る。
+  const endsIn = size === "lg" ? saleEndsInLabel(item.discountEndsAt) : null;
   return (
     <span className="price-sale">
       <span className="price-off">-{eff}%</span>
       <span className="price-strike">{formatPriceJpy(item.priceJpy)}</span>
       <span className={cls}>{now}</span>
+      {endsIn && <span className="price-endsin">🔥 セール{endsIn}</span>}
     </span>
   );
 }
@@ -689,6 +710,16 @@ export function StorePanel({
   const [detailLoading, setDetailLoading] = useState(false);
   const [mainImage, setMainImage] = useState<string | null>(null);
 
+  // Esc で詳細を閉じて一覧へ戻る(マウス往復を省く)。
+  useEffect(() => {
+    if (!detail) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setDetail(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detail]);
+
   // 詳細でのレビュー投稿(購入済み + ログイン時のみ)。
   const [reviewStars, setReviewStars] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
@@ -1027,14 +1058,14 @@ export function StorePanel({
                       className="btn btn-primary ibtn"
                       onClick={() =>
                         requireLogin(
-                          detail.priceJpy === 0
+                          effPriceOf(detail) === 0
                             ? "ダウンロードにはログインが必要です。"
                             : "購入にはログインが必要です。",
                         )
                       }
                     >
                       <ShoppingCart size={15} /> ログインして
-                      {detail.priceJpy === 0 ? "入手" : "購入"}
+                      {effPriceOf(detail) === 0 ? "入手" : "購入"}
                     </button>
                     <p className="store-buynote">
                       ストアの閲覧はログイン無しで自由にできます。購入や
@@ -1048,12 +1079,12 @@ export function StorePanel({
                       onClick={() => void openUrl(webProductUrl(detail.slug))}
                     >
                       <ShoppingCart size={15} />{" "}
-                      {detail.priceJpy === 0
+                      {effPriceOf(detail) === 0
                         ? "無料で入手"
-                        : "Webストアで購入"}
+                        : `${formatPriceJpy(effPriceOf(detail))} で購入`}
                     </button>
                     <p className="store-buynote">
-                      {detail.priceJpy === 0
+                      {effPriceOf(detail) === 0
                         ? "ブラウザでワンクリックでライブラリに追加します。"
                         : "決済はブラウザ(Web版)で行います。購入後、アプリの「購入」タブに反映されます。"}
                     </p>

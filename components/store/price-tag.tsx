@@ -12,12 +12,29 @@ import { cn } from "@/lib/utils";
  * discountStartsAt/EndsAt は ISO or null。サーバ now とクライアント now の差は
  * 境界の数秒だけで実害なし(請求は checkout がサーバ now で再判定する)。
  */
+/**
+ * セール終了までの残りラベル(「あと3日」等)。終了なし/終了済みは null。
+ * 購入直前の「今買う理由」(緊急性)を作る。
+ */
+function saleEndsInLabel(endsAt: string | null, now = Date.now()): string | null {
+  if (!endsAt) return null;
+  const e = Date.parse(endsAt);
+  if (Number.isNaN(e)) return null;
+  const ms = e - now;
+  if (ms <= 0) return null;
+  const hours = ms / 3_600_000;
+  if (hours < 1) return "まもなく終了";
+  if (hours < 24) return `あと${Math.floor(hours)}時間`;
+  return `あと${Math.ceil(hours / 24)}日`;
+}
+
 export function PriceTag({
   priceJpy,
   discountPercent = 0,
   discountStartsAt = null,
   discountEndsAt = null,
   size = "md",
+  showEndsIn = false,
   className,
 }: {
   priceJpy: number;
@@ -25,6 +42,8 @@ export function PriceTag({
   discountStartsAt?: string | null;
   discountEndsAt?: string | null;
   size?: "sm" | "md" | "lg";
+  /** セール終了までの残り時間チップを出す(商品詳細など主役の価格向け)。 */
+  showEndsIn?: boolean;
   className?: string;
 }) {
   const eff = effectiveDiscountPercent(
@@ -46,8 +65,10 @@ export function PriceTag({
     );
   }
 
+  const endsIn = showEndsIn ? saleEndsInLabel(discountEndsAt) : null;
+
   return (
-    <span className={cn("inline-flex items-center gap-2", className)}>
+    <span className={cn("inline-flex flex-wrap items-center gap-2", className)}>
       <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white">
         -{eff}%
       </span>
@@ -55,6 +76,11 @@ export function PriceTag({
         {formatPrice(priceJpy)}
       </span>
       <span className={cn("font-bold text-emerald-600", nowSize)}>{now}</span>
+      {endsIn && (
+        <span className="rounded-full border border-amber-400/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+          🔥 セール{endsIn}
+        </span>
+      )}
     </span>
   );
 }
