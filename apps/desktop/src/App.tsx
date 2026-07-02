@@ -62,6 +62,7 @@ import {
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
 import { NewCharacterMenu } from "./NewCharacterMenu";
+import { SheetSystemPicker } from "./SheetSystemPicker";
 import diceMark from "./assets/dice.png";
 
 // 日程調整ツール(web)の作成ページ。ロビーから既定ブラウザで開く。匿名でも作れる
@@ -165,6 +166,10 @@ export function App() {
   );
   // PLAY 中にキャラシを卓の上へオーバーレイ表示する(卓は閉じない)。
   const [charOverlay, setCharOverlay] = useState(false);
+  // キャラページ: false = システム選択(ピッカー) / true = エディタ表示。
+  const [charEditorOpen, setCharEditorOpen] = useState(false);
+  // ピッカーで選んだ CoC の版(新規作成時にエディタへ渡す)。
+  const [cocSystemId, setCocSystemId] = useState<"coc7" | "coc6">("coc7");
   const [library, setLibrary] = useState<LibraryEntry[]>(() => getLibrary());
   const [active, setActive] = useState<{
     sheet: Sheet | null;
@@ -382,13 +387,15 @@ export function App() {
     setPlayIndex((idx) => removePlayIndex(idx, id));
   }
 
-  function newCharacter() {
+  function newCharacter(systemId?: "coc7" | "coc6") {
     setSession(null);
     setJoining(null);
     setPage("characters");
     setDrawerOpen(false);
     setActiveGeneric(null);
+    if (systemId) setCocSystemId(systemId);
     setActive({ sheet: null, key: `new-${Date.now()}` });
+    setCharEditorOpen(true);
     setError(null);
   }
 
@@ -400,6 +407,7 @@ export function App() {
     setDrawerOpen(false);
     setActiveGeneric(null);
     setActive({ sheet, key: `import-${Date.now()}` });
+    setCharEditorOpen(true);
     setError(null);
     toast(`📥 「${sheet.name}」を取り込みました。保存で確定します`);
   }
@@ -411,6 +419,7 @@ export function App() {
     setPage("characters");
     setDrawerOpen(false);
     setActiveGeneric({ def, sheet: null, key: `gnew-${Date.now()}` });
+    setCharEditorOpen(true);
     setError(null);
   }
 
@@ -437,6 +446,7 @@ export function App() {
         setActiveGeneric(null);
         setActive({ sheet, key: `${entry.id}-${Date.now()}`, path: entry.path });
       }
+      setCharEditorOpen(true);
       setError(null);
     } catch (e) {
       setError(`開けませんでした(移動/削除された可能性): ${String(e)}`);
@@ -526,20 +536,30 @@ export function App() {
         )}
       </aside>
       <section className="chars-editor">
-        {activeGeneric ? (
+        {!charEditorOpen ? (
+          /* まず「どのシステムで作るか」を選ぶ(クリックでエディタへ直行)。 */
+          <SheetSystemPicker
+            onPickCoC={(sid) => newCharacter(sid)}
+            onPickGeneric={newGenericCharacter}
+            onImported={openImportedSheet}
+          />
+        ) : activeGeneric ? (
           <GenericSheetEditor
             key={activeGeneric.key}
             def={activeGeneric.def}
             initial={activeGeneric.sheet}
             initialPath={activeGeneric.path}
             onSaved={handleGenericSaved}
+            onBack={() => setCharEditorOpen(false)}
           />
         ) : (
           <CharacterSheet
             key={active.key}
             initialSheet={active.sheet}
+            initialSystemId={cocSystemId}
             initialPath={active.path}
             onSaved={handleSaved}
+            onBack={() => setCharEditorOpen(false)}
           />
         )}
       </section>

@@ -7280,6 +7280,242 @@ button:disabled {
   align-items: center;
   gap: 4px;
 }
+/* ===== キャラシ作成: システム選択ピッカー ===== */
+.syspick {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px 24px 40px;
+}
+.syspick-hero {
+  text-align: center;
+  margin-bottom: 22px;
+}
+.syspick-spark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  margin-bottom: 8px;
+}
+.syspick-hero h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+.syspick-hero p {
+  margin: 0 auto;
+  max-width: 520px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.syspick-sec {
+  margin: 22px 2px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.syspick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.syspick-grid.featured {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.syspick-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+.syspick-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.syspick-card.featured {
+  padding: 20px 18px;
+  border-width: 2px;
+}
+.syspick-card.sp-coc7 {
+  border-color: rgba(14, 165, 233, 0.55);
+  background: linear-gradient(160deg, rgba(14, 165, 233, 0.08), var(--surface) 55%);
+}
+.syspick-card.sp-coc6 {
+  border-color: rgba(99, 102, 241, 0.45);
+  background: linear-gradient(160deg, rgba(99, 102, 241, 0.07), var(--surface) 55%);
+}
+.sp-ic {
+  font-size: 24px;
+  line-height: 1;
+}
+.sp-name {
+  font-size: 14.5px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sp-sub {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--primary-deep);
+}
+.sp-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.sp-tag {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+.sp-go {
+  margin-top: auto;
+  padding-top: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--primary-deep);
+}
+.syspick-card.sp-import.open {
+  cursor: default;
+  gap: 8px;
+}
+.sp-import-actions {
+  display: flex;
+  gap: 8px;
+  align-self: flex-end;
+}
+.sp-import-err {
+  margin: 0;
+  font-size: 11px;
+  color: #dc2626;
+}
+.syspick-foot {
+  margin-top: 26px;
+  font-size: 11.5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ===== キャラシエディタ共通: sticky ツールバー + セクションナビ ===== */
+.sheet-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.sheet-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sheet-sysbadge {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--primary-deep);
+  white-space: nowrap;
+}
+.sheet-edtabs .tab {
+  padding: 3px 10px;
+  font-size: 11.5px;
+}
+.sheet-name-preview {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet-nav {
+  position: sticky;
+  top: 45px;
+  z-index: 19;
+  display: flex;
+  gap: 6px;
+  padding: 6px 0 8px;
+  background: var(--bg);
+  overflow-x: auto;
+}
+.sheet-nav-chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sheet-nav-chip:hover {
+  color: var(--primary-deep);
+  border-color: var(--border-strong);
+}
+/* ナビからのジャンプ先が sticky バーに隠れないよう余白を確保 */
+.cs-editor .card {
+  scroll-margin-top: 92px;
+}
+/* 能力値/派生値タイルを見やすく(値を主役に) */
+.cs-editor .stat {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: var(--surface-2);
+}
+.cs-editor .stat .k {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.cs-editor .stat .v {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text);
+}
+/* 汎用エディタの gse-head を sticky 化したときの下地 */
+.gse .sheet-topbar {
+  margin: 0 0 10px;
+}
+
 .newchar-import {
   display: flex;
   flex-direction: column;

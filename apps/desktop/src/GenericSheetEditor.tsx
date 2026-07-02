@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import {
   newGenericSheet,
   renderPaletteTemplate,
@@ -18,6 +19,7 @@ export function GenericSheetEditor({
   initial,
   initialPath,
   onSaved,
+  onBack,
 }: {
   /** 由来システム(再生成ボタン等で参照。開けないときは null)。 */
   def: SystemDef | null;
@@ -26,6 +28,8 @@ export function GenericSheetEditor({
   /** 既存キャラのファイルパス(ライブラリから開いたとき)。上書き保存に使う。 */
   initialPath?: string | null;
   onSaved: (sheet: GenericSheet, path: string) => void;
+  /** 「← システム選択」に戻る。*/
+  onBack?: () => void;
 }) {
   const [sheet, setSheet] = useState<GenericSheet>(() => {
     if (initial) return initial;
@@ -100,9 +104,30 @@ export function GenericSheetEditor({
     patch({ palette: renderPaletteTemplate(def.palette ?? [], sheet) });
   }
 
+  // Ctrl+S / Cmd+S で保存。依存なしで毎レンダー貼り直し(常に最新の save)。
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void save();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   return (
     <div className="gse">
-      <div className="gse-head">
+      <div className="gse-head sheet-topbar">
+        {onBack && (
+          <button
+            className="btn mini sheet-back"
+            onClick={onBack}
+            title="システム選択に戻る"
+          >
+            <ArrowLeft size={14} /> システム選択
+          </button>
+        )}
         <span className="gse-sys">
           {def?.icon ?? "🎲"} {sheet.systemName}
         </span>

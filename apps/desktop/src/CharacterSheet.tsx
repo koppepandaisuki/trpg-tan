@@ -1,4 +1,5 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import {
   getSystem,
   generateAllCharacteristics,
@@ -84,23 +85,29 @@ function makeCustomOccupation(
 interface CharacterSheetProps {
   /** 既存キャラを開くときの初期シート(新規なら null/未指定)*/
   initialSheet?: Sheet | null;
+  /** 新規作成時の版(システムピッカーで選択)。initialSheet があればそちら優先。*/
+  initialSystemId?: SystemId;
   /** 既存キャラのファイルパス(ライブラリから開いたとき)。上書き保存に使う。*/
   initialPath?: string | null;
   /** 保存に成功したとき(ライブラリ索引の更新用)*/
   onSaved?: (sheet: Sheet, path: string) => void;
+  /** 「← システム選択」に戻る。*/
+  onBack?: () => void;
 }
 
 export function CharacterSheet({
   initialSheet,
+  initialSystemId,
   initialPath,
   onSaved,
+  onBack,
 }: CharacterSheetProps) {
   // 現在の保存先。あれば「保存」で上書き、無ければ別名保存ダイアログを出す。
   const [currentPath, setCurrentPath] = useState<string | null>(
     initialPath ?? null,
   );
   const [systemId, setSystemId] = useState<SystemId>(() =>
-    sysIdOf(initialSheet),
+    initialSheet ? sysIdOf(initialSheet) : (initialSystemId ?? "coc7"),
   );
   const [id, setId] = useState<string>(() => initialSheet?.id ?? freshId());
   const [createdAt, setCreatedAt] = useState<string>(
@@ -308,48 +315,100 @@ export function CharacterSheet({
     }
   }
 
+  // Ctrl+S / Cmd+S で保存(WebView 既定の動作を抑止)。
+  // 依存を持たせず毎レンダーで貼り直し、常に最新の onSave を呼ぶ。
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void onSave();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   return (
-    <div className="app">
-      {/* ヘッダー + ツールバー */}
-      <div className="hero">
-        <h1>キャラクターシート</h1>
-        <span className="tag ok">@trpg/core</span>
-      </div>
-      <div className="row" style={{ marginBottom: 8 }}>
-        <div className="tabs">
+    <div className="app cs-editor">
+      {/* sticky ツールバー: 戻る / システム / 保存系。スクロールしても常に手元に。 */}
+      <div className="sheet-topbar">
+        {onBack && (
+          <button
+            className="btn mini sheet-back"
+            onClick={onBack}
+            title="システム選択に戻る"
+          >
+            <ArrowLeft size={14} /> システム選択
+          </button>
+        )}
+        <span className="sheet-sysbadge">🐙 {system.label}</span>
+        <div className="tabs sheet-edtabs">
           {(["coc7", "coc6"] as SystemId[]).map((sid) => (
             <button
               key={sid}
               className={`tab ${systemId === sid ? "active" : ""}`}
               onClick={() => resetCharacter(sid)}
+              title="版を切り替える(入力はリセットされます)"
             >
-              {getSystem(sid)!.label}
+              {sid === "coc7" ? "7版" : "6版"}
             </button>
           ))}
         </div>
+        <span className="sheet-name-preview" title={name || "(名前未設定)"}>
+          {name || "(名前未設定)"}
+        </span>
         <div style={{ flex: 1 }} />
-        <button className="btn" onClick={onImport}>
+        <button className="btn mini" onClick={onImport}>
           インポート
         </button>
-        <button className="btn" onClick={onSaveAs} title="別の名前/場所に保存">
+        <button
+          className="btn mini"
+          onClick={onSaveAs}
+          title="別の名前/場所に保存"
+        >
           別名で保存
         </button>
         <button
-          className="btn btn-primary"
+          className="btn mini btn-primary"
           onClick={onSave}
           title={
             currentPath
-              ? "同じファイルに上書き保存（ダイアログを出しません）"
-              : "保存先を選んで保存"
+              ? "同じファイルに上書き保存 (Ctrl+S)"
+              : "保存先を選んで保存 (Ctrl+S)"
           }
         >
-          {currentPath ? "上書き保存" : "保存(.ccsheet)"}
+          {currentPath ? "上書き保存" : "保存"}
         </button>
       </div>
+
+      {/* セクションへのジャンプ */}
+      <nav className="sheet-nav" aria-label="シート内の移動">
+        {[
+          ["cs-basic", "基本"],
+          ["cs-stats", "能力値"],
+          ["cs-derived", "派生値"],
+          ["cs-occ", "職業"],
+          ["cs-skills", "技能"],
+          ["cs-memo", "メモ"],
+        ].map(([sid, label]) => (
+          <button
+            key={sid}
+            className="sheet-nav-chip"
+            onClick={() =>
+              document
+                .getElementById(sid)
+                ?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
       {message && <p className="muted">{message}</p>}
 
       {/* 基本情報 + ポートレート */}
-      <div className="card">
+      <div className="card" id="cs-basic">
         <div className="basic">
           <div className="portrait">
             {image ? (
@@ -387,7 +446,7 @@ export function CharacterSheet({
       </div>
 
       {/* 能力値 */}
-      <div className="card">
+      <div className="card" id="cs-stats">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <strong>
             能力値
@@ -441,7 +500,7 @@ export function CharacterSheet({
       </div>
 
       {/* 派生値 */}
-      <div className="card">
+      <div className="card" id="cs-derived">
         <strong>
           派生値
           <InfoTip text={DERIVED_SECTION_HINT} />
@@ -465,7 +524,7 @@ export function CharacterSheet({
       </div>
 
       {/* 職業 */}
-      <div className="card">
+      <div className="card" id="cs-occ">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <strong>職業</strong>
           {occupationId && (
@@ -542,7 +601,7 @@ export function CharacterSheet({
       </div>
 
       {/* 技能割り振り */}
-      <div className="card">
+      <div className="card" id="cs-skills">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <strong>
             技能
@@ -723,7 +782,7 @@ export function CharacterSheet({
       </div>
 
       {/* メモ(短いプレイ用メモ。背景は下のバックストーリー欄へ) */}
-      <div className="card">
+      <div className="card" id="cs-memo">
         <strong>メモ</strong>
         <textarea
           className="input"

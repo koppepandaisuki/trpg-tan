@@ -1,13 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, ChevronDown, Globe } from "lucide-react";
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
-import {
-  sheetFromVampireBlood,
-  vampireBloodJsonUrl,
-  type SystemDef,
-  type CharacterSheet,
-} from "@trpg/core";
+import { type SystemDef, type CharacterSheet } from "@trpg/core";
 import { getAllSystems } from "./systems-store";
+import { importVampireBloodSheet } from "./vampire-import";
 
 /**
  * 「＋ 新規」キャラクター作成メニュー。CoC を特別扱いせず、追加済みの全システム
@@ -78,22 +73,10 @@ export function NewCharacterMenu({
   }
 
   async function runImport() {
-    const jsonUrl = vampireBloodJsonUrl(importUrl);
-    if (!jsonUrl) {
-      setImportErr("URL が正しくありません(例: https://charasheet.vampire-blood.net/12345)");
-      return;
-    }
     setImportBusy(true);
     setImportErr(null);
     try {
-      // CORS 回避のため tauri-plugin-http(Rust 側)で取得。
-      const res = await tauriFetch(jsonUrl);
-      if (!res.ok) throw new Error(`取得に失敗しました (${res.status})`);
-      const json = (await res.json()) as Record<string, unknown>;
-      const sheet = sheetFromVampireBlood(json, {
-        id: crypto.randomUUID(),
-        now: new Date().toISOString(),
-      });
+      const sheet = await importVampireBloodSheet(importUrl);
       setOpen(false);
       setImportOpen(false);
       setImportUrl("");
