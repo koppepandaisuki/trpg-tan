@@ -124,9 +124,13 @@ export interface Room {
 /** 6 桁の参加コードを作る(紛らわしい文字は除外)。 */
 export function makeRoomCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  // Math.random は予測可能性があるため、参加コード(部外者の飛び込み防止)には
+  // 暗号学的乱数を使う。32 文字集合なので % による偏りもない(2^32 % 32 = 0)。
+  const rand = new Uint32Array(6);
+  crypto.getRandomValues(rand);
   let s = "";
   for (let i = 0; i < 6; i++) {
-    s += chars[Math.floor(Math.random() * chars.length)];
+    s += chars[rand[i] % chars.length];
   }
   return s;
 }

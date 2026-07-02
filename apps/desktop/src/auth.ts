@@ -71,6 +71,10 @@ export async function signInWithGoogle(): Promise<void> {
 
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
+  // プランのオフライン用キャッシュを破棄(前アカウントの権限を持ち越さない)。
+  // 循環 import を避けるため動的 import。
+  const { clearAccountCache } = await import("./account-remote");
+  clearAccountCache();
 }
 
 // 同じ認可コードを複数経路(getCurrent / onOpenUrl / deep-link-url イベント)で

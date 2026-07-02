@@ -47,7 +47,7 @@ import {
   listProductsByCreator,
 } from "@/lib/queries/products";
 import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
-import { formatPrice, isFree } from "@/lib/format/price";
+import { isFree } from "@/lib/format/price";
 import { PriceTag } from "@/components/store/price-tag";
 import { publicAvatarUrl, publicCoverUrl } from "@/lib/format/storage";
 import { getCurrentUser } from "@/lib/session/get-user";

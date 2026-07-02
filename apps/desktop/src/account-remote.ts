@@ -53,8 +53,49 @@ function normalizePlan(p: unknown): UserPlan {
 export type MyAccount = { plan: UserPlan; isAdmin: boolean; loggedIn: boolean };
 
 /**
- * 現在のアカウント情報(プラン + 管理者か + ログイン有無)を取得。未ログイン/失敗時は
- * { plan:"basic", isAdmin:false, loggedIn:false }。管理者はプラン不問で全機能を使える。
+ * 最後に取得できたアカウント情報のローカルキャッシュ。
+ * オフライン/API 一時障害のとき課金ユーザーが basic に「誤降格」して
+ * PLAY ホスト等がゲートされるのを防ぐ(ネットワーク失敗時のみ使用)。
+ */
+const ACCOUNT_CACHE_KEY = "paradice.account.cache";
+
+function readAccountCache(): MyAccount | null {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_CACHE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<MyAccount>;
+    return {
+      plan: normalizePlan(v.plan),
+      isAdmin: Boolean(v.isAdmin),
+      loggedIn: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeAccountCache(acct: MyAccount) {
+  try {
+    localStorage.setItem(ACCOUNT_CACHE_KEY, JSON.stringify(acct));
+  } catch {
+    // storage 不可(容量等)でも致命ではない。
+  }
+}
+
+/** サインアウト時に呼ぶ(前アカウントのプランを次のログインへ持ち越さない)。 */
+export function clearAccountCache() {
+  try {
+    localStorage.removeItem(ACCOUNT_CACHE_KEY);
+  } catch {
+    // no-op
+  }
+}
+
+/**
+ * 現在のアカウント情報(プラン + 管理者か + ログイン有無)を取得。
+ * - 未ログイン(token なし) → { plan:"basic", isAdmin:false, loggedIn:false }。
+ * - API がエラー応答(401 等) → basic(サーバの判断を尊重)。
+ * - ネットワーク失敗(オフライン等) → 最後に成功したキャッシュがあればそれを返す。
  * loggedIn は「未ログイン」と「ログイン済み basic」を区別するために使う
  * (未ログインはプラン案内ではなくログイン誘導を出す)。
  */
@@ -72,14 +113,18 @@ export async function getMyAccount(): Promise<MyAccount> {
       admin?: boolean;
     };
     if (res.ok && body.ok) {
-      return {
+      const acct: MyAccount = {
         plan: normalizePlan(body.plan),
         isAdmin: Boolean(body.admin),
         loggedIn: true,
       };
+      writeAccountCache(acct);
+      return acct;
     }
   } catch {
-    // 取得失敗は未加入扱い(画面は出す)。token はあるのでログイン済み。
+    // ネットワーク失敗(オフライン等)。最後に成功した値があればそれで継続する。
+    const cached = readAccountCache();
+    if (cached) return cached;
   }
   return { plan: "basic", isAdmin: false, loggedIn: true };
 }
