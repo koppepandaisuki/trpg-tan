@@ -1,11 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Check, Crown, Sparkles } from "lucide-react";
-import { setMyPlanTester, type UserPlan } from "./account-remote";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import {
+  getMyAccount,
+  setMyPlanTester,
+  startPlanCheckout,
+  type UserPlan,
+} from "./account-remote";
 
 /**
  * マルチ卓のホストが無料(basic)のときに出すプラン案内モーダル。/pricing と同じ
- * 配色(シアン→スカイ→インディゴ)の 3 カードで、その場でプランを切り替えられる
- * (テスト期間中は課金なし)。PLAY/Pro を選ぶと onUnlocked が呼ばれ、共有を再開する。
+ * 配色(シアン→スカイ→インディゴ)の 3 カード。
+ *
+ * PLAY/Pro を選ぶと Settings の PlanSection と同じ実課金フローに乗る:
+ *   1. startPlanCheckout → Stripe Checkout を外部ブラウザで開く。
+ *      決済完了は paradice://subscription/complete で戻り、ウィンドウの
+ *      フォーカス復帰時にプランを再取得して自動で onUnlocked(共有再開)。
+ *   2. 課金未構成(テスト環境)は従来どおり setMyPlanTester にフォールバック。
  * 管理者には出さない(呼び出し側でゲート免除)。
  */
 type GatePlan = {
@@ -56,6 +67,26 @@ export function PlayPlanGate({
 }) {
   const [busy, setBusy] = useState<UserPlan | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // ブラウザで決済中(戻り待ち)。true の間はフォーカス復帰でプランを再取得する。
+  const [awaiting, setAwaiting] = useState(false);
+
+  // 決済ページを開いた後、アプリに戻ってきたら(deep-link 完了 or 手動で戻る)
+  // プランを確認し、有効になっていればそのまま共有を再開する。
+  useEffect(() => {
+    if (!awaiting) return;
+    async function check() {
+      try {
+        const acct = await getMyAccount();
+        if (acct.isAdmin || acct.plan === "play" || acct.plan === "pro") {
+          onUnlocked();
+        }
+      } catch {
+        // 取得失敗は次のフォーカスで再試行。
+      }
+    }
+    window.addEventListener("focus", check);
+    return () => window.removeEventListener("focus", check);
+  }, [awaiting, onUnlocked]);
 
   async function choose(p: GatePlan) {
     if (p.key === "basic") {
@@ -65,9 +96,19 @@ export function PlayPlanGate({
     setBusy(p.key);
     setErr(null);
     try {
-      const next = await setMyPlanTester(p.key);
-      if (next === "play" || next === "pro") onUnlocked();
-      else onClose();
+      const r = await startPlanCheckout(p.key);
+      if (r.ok) {
+        // 外部ブラウザで Stripe Checkout。完了後はフォーカス復帰時に自動解放。
+        await openUrl(r.url);
+        setAwaiting(true);
+      } else if (r.reason === "not_configured") {
+        // 課金未構成(テスト環境): 従来のテスター切替にフォールバック。
+        const next = await setMyPlanTester(p.key);
+        if (next === "play" || next === "pro") onUnlocked();
+        else onClose();
+      } else {
+        setErr(r.message);
+      }
     } catch (e) {
       setErr(
         e instanceof Error
@@ -126,11 +167,11 @@ export function PlayPlanGate({
               </ul>
               <button
                 className="pg-btn"
-                disabled={busy !== null}
+                disabled={busy !== null || awaiting}
                 onClick={() => void choose(pl)}
               >
                 {busy === pl.key
-                  ? "切替中…"
+                  ? "処理中…"
                   : pl.key === "basic"
                     ? "このまま無料で"
                     : "このプランにする"}
@@ -140,9 +181,18 @@ export function PlayPlanGate({
         </div>
 
         {err && <p className="plan-gate-err">{err}</p>}
-        <p className="plan-gate-foot">
-          自動決済は準備中です。今は動作確認用に課金なしで切り替わります。
-        </p>
+        {awaiting && (
+          <p className="plan-gate-foot" style={{ fontWeight: 700 }}>
+            🌐 ブラウザで決済ページを開きました。お支払いが完了すると
+            自動でロックが外れ、共有を開始できます。
+          </p>
+        )}
+        {!awaiting && (
+          <p className="plan-gate-foot">
+            決済は外部ブラウザで安全に行われます（テスト環境では課金なしで
+            切り替わります）。
+          </p>
+        )}
       </div>
     </div>
   );
