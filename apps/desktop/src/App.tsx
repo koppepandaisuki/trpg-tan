@@ -392,6 +392,18 @@ export function App() {
     setError(null);
   }
 
+  /** キャラクター保管所などから取り込んだシートをエディタで開く(未保存)。 */
+  function openImportedSheet(sheet: Sheet) {
+    setSession(null);
+    setJoining(null);
+    setPage("characters");
+    setDrawerOpen(false);
+    setActiveGeneric(null);
+    setActive({ sheet, key: `import-${Date.now()}` });
+    setError(null);
+    toast(`📥 「${sheet.name}」を取り込みました。保存で確定します`);
+  }
+
   /** ビルダーから「このシステムでキャラ作成」。 */
   function newGenericCharacter(def: SystemDef) {
     setSession(null);
@@ -497,6 +509,7 @@ export function App() {
           <NewCharacterMenu
             onNewCoC={newCharacter}
             onNewGeneric={newGenericCharacter}
+            onImported={openImportedSheet}
           />
         </div>
         {library.length === 0 ? (

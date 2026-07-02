@@ -44,6 +44,7 @@ import {
   startPlanCheckout,
   openPlanPortal,
   setMyPlanTester,
+  redeemCode,
   type UserPlan,
 } from "./account-remote";
 import { supabaseConfigured } from "./supabase";
@@ -315,6 +316,8 @@ function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
 
       <PlanSection planSig={planSig} />
 
+      <RedeemSection />
+
       <Section title="ログアウト" desc="この端末からサインアウトします。">
         <button className="btn acct-logout" onClick={() => void signOut()}>
           <LogOut size={15} /> ログアウト
@@ -441,6 +444,74 @@ function PlanSection({ planSig = 0 }: { planSig?: number }) {
       </div>
       {msg && (
         <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>
+          {msg}
+        </p>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * リデームコード入力。特定のコードでプラン付与やアプリ内ゴールドを受け取る
+ * (キャンペーン・テスター特典・サポート対応用)。
+ */
+function RedeemSection() {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
+
+  async function apply() {
+    const c = code.trim();
+    if (!c) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await redeemCode(c);
+      setOk(true);
+      setMsg(
+        r.kind === "gold" && r.goldBalance !== undefined
+          ? `${r.message}(残高 ${r.goldBalance.toLocaleString("ja-JP")} G)`
+          : r.message,
+      );
+      setCode("");
+      toast(`🎁 ${r.message}`);
+    } catch (e) {
+      setOk(false);
+      setMsg(e instanceof Error ? e.message : "引き換えに失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section
+      title="コード入力"
+      desc="キャンペーン等で配布されたコードを入力すると、特典(プランやゴールド)を受け取れます。"
+    >
+      <div style={{ display: "flex", gap: 8, maxWidth: 380 }}>
+        <input
+          className="input"
+          value={code}
+          placeholder="例: LAUNCH2026"
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && void apply()}
+          style={{ flex: 1, textTransform: "uppercase" }}
+          maxLength={64}
+        />
+        <button
+          className="btn btn-primary"
+          disabled={busy || !code.trim()}
+          onClick={() => void apply()}
+        >
+          {busy ? "確認中…" : "引き換える"}
+        </button>
+      </div>
+      {msg && (
+        <p
+          className={ok ? "tag ok" : "tag fail"}
+          style={{ marginTop: 8, fontSize: 11.5, display: "inline-block" }}
+        >
           {msg}
         </p>
       )}

@@ -7280,6 +7280,25 @@ button:disabled {
   align-items: center;
   gap: 4px;
 }
+.newchar-import {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 10px;
+}
+.newchar-import .input {
+  font-size: 12px;
+}
+.newchar-import-err {
+  margin: 0;
+  font-size: 11px;
+  color: #dc2626;
+}
+.newchar-import-hint {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
 .newchar-menu {
   position: fixed;
   z-index: 200;

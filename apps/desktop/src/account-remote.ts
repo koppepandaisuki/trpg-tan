@@ -201,6 +201,43 @@ export async function openPlanPortal(): Promise<CheckoutResult> {
   };
 }
 
+export type RedeemResult = {
+  kind: "plan_play" | "plan_pro" | "gold";
+  plan?: UserPlan;
+  amount?: number;
+  goldBalance?: number;
+  message: string;
+};
+
+/**
+ * リデームコードの引き換え(プラン付与 / ゴールド付与)。
+ * 失敗はサーバのメッセージ(無効/使用済み等)を Error で投げる。
+ */
+export async function redeemCode(code: string): Promise<RedeemResult> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("ログインが必要です。");
+  const res = await fetch(`${WEB_BASE}/api/redeem`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code }),
+  });
+  type RedeemResp = Partial<RedeemResult> & { ok?: boolean; message?: string };
+  let body: RedeemResp | null = null;
+  try {
+    body = (await res.json()) as RedeemResp;
+  } catch {
+    throw new Error(`サーバ応答が不正です (${res.status})`);
+  }
+  if (!res.ok || !body?.ok) {
+    throw new Error(body?.message ?? `引き換えに失敗しました (${res.status})`);
+  }
+  return body as RedeemResult;
+}
+
 /**
  * テスター用にプランを設定(課金なし)。本人の JWT を Bearer で送り、サーバーが
  * 本人のプランのみ更新する。Stripe Billing 実装後は購入フローに置き換える。
