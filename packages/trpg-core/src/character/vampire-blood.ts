@@ -1,6 +1,7 @@
 import type { CharacterSheet } from "./types.js";
 import { createEmptySheet } from "./types.js";
 import { coc6 } from "../systems/coc/coc6.js";
+import { coc7 } from "../systems/coc/coc7.js";
 
 /**
  * キャラクター保管所(charasheet.vampire-blood.net)の JSON からの取り込み。
@@ -106,10 +107,10 @@ function normLabel(s: string): string {
   return s.replace(/（/g, "(").replace(/）/g, ")").replace(/\s+/g, "").trim();
 }
 
-/** 保管所ラベル → 当アプリの coc6 カタログの技能 key。 */
-function catalogKeyByLabel(): Map<string, string> {
+/** 保管所ラベル → 当アプリのカタログ(版別)の技能 key。 */
+function catalogKeyByLabel(system: typeof coc6 | typeof coc7): Map<string, string> {
   const m = new Map<string, string>();
-  for (const s of coc6.skills) m.set(normLabel(s.label), s.key);
+  for (const s of system.skills) m.set(normLabel(s.label), s.key);
   return m;
 }
 
@@ -122,9 +123,10 @@ export function sheetFromVampireBlood(
   params: { id: string; now: string },
 ): CharacterSheet {
   const game = str(json.game);
+  if (game === "coc7") return sheetFromVampireBloodCoc7(json, params);
   if (game !== "coc") {
     throw new Error(
-      "このシートは対応していません(現在はクトゥルフ神話TRPG 6版のみ取り込めます)",
+      "このシートは対応していません(クトゥルフ神話TRPG 6版/7版のみ取り込めます)",
     );
   }
 
@@ -158,7 +160,7 @@ export function sheetFromVampireBlood(
   if (backstory) sheet.backstory = backstory;
 
   // 技能: 初期値(D)と合計(P)が異なる行 = 振ってある技能だけ取り込む。
-  const byLabel = catalogKeyByLabel();
+  const byLabel = catalogKeyByLabel(coc6);
   const custom: NonNullable<CharacterSheet["customSkills"]> = [];
   const specialties: Record<string, string> = {};
 
@@ -189,6 +191,83 @@ export function sheetFromVampireBlood(
         custom.push({ key: ckey, label, value: total });
         sheet.skills[ckey] = total;
       }
+    }
+  }
+  if (custom.length > 0) sheet.customSkills = custom;
+  if (Object.keys(specialties).length > 0) sheet.skillSpecialties = specialties;
+
+  return sheet;
+}
+
+/**
+ * 保管所の 新クトゥルフ(7版) ネイティブシート(game="coc7") → CharacterSheet(coc7)。
+ *
+ * 7版シートのキー(実シート 5544074 で確認):
+ *   NA1..NA9 = STR, CON, POW, DEX, APP, SIZ, INT, EDU, 幸運(いずれも 1..99 の7版スケール
+ *   — 当アプリの coc7 も 0..99 なのでそのまま取り込める)。
+ *   SAN_Left/SAN_Max/SAN_start、Luck_Left/Luck_start。
+ *   技能は6版の5カテゴリ構造ではなく統合並列配列:
+ *     SKAN(技能名) / SKAD(初期値) / SKAP(合計) / SKAM(専門分野)。
+ */
+function sheetFromVampireBloodCoc7(
+  json: Json,
+  params: { id: string; now: string },
+): CharacterSheet {
+  const sheet = createEmptySheet({
+    id: params.id,
+    systemId: "coc7",
+    now: params.now,
+    name: str(json.pc_name) || "(名前未設定)",
+  });
+
+  const order = ["STR", "CON", "POW", "DEX", "APP", "SIZ", "INT", "EDU"];
+  order.forEach((key, i) => {
+    const v = num(json[`NA${i + 1}`]);
+    if (v > 0) sheet.characteristics[key] = v;
+  });
+
+  const shuzoku = str(json.shuzoku).trim();
+  if (shuzoku) sheet.occupationName = shuzoku;
+  const memoBits: string[] = [];
+  const age = str(json.age).trim();
+  const sex = str(json.sex).trim();
+  if (age) memoBits.push(`年齢: ${age}`);
+  if (sex) memoBits.push(`性別: ${sex}`);
+  const sanLeft = num(json.SAN_Left);
+  const sanMax = num(json.SAN_Max);
+  if (sanMax > 0) memoBits.push(`SAN ${sanLeft}/${sanMax}(取込時)`);
+  // 幸運は当アプリの coc7 に欄がないためメモへ(NA9 = 初期値, Luck_Left = 現在値)。
+  const luck = num(json.Luck_Left) || num(json.NA9);
+  if (luck > 0) memoBits.push(`幸運 ${luck}(取込時)`);
+  sheet.notes = memoBits.join(" / ");
+  const backstory = str(json.pc_making_memo).trim();
+  if (backstory) sheet.backstory = backstory;
+
+  // 技能: 統合配列。合計(P)が初期値(D)と異なる行 = 振ってある技能だけ取り込む。
+  const byLabel = catalogKeyByLabel(coc7);
+  const names = arr(json.SKAN);
+  const inits = arr(json.SKAD);
+  const totals = arr(json.SKAP);
+  const specs = arr(json.SKAM);
+  const custom: NonNullable<CharacterSheet["customSkills"]> = [];
+  const specialties: Record<string, string> = {};
+
+  for (let i = 0; i < names.length; i++) {
+    const rawLabel = str(names[i]).trim();
+    if (!rawLabel) continue;
+    const total = num(totals[i]);
+    const init = num(inits[i]);
+    if (total <= 0 || total === init) continue;
+    const spec = str(specs[i]).trim();
+    const key = byLabel.get(normLabel(rawLabel));
+    if (key) {
+      sheet.skills[key] = total;
+      if (spec) specialties[key] = spec;
+    } else {
+      const label = spec ? `${rawLabel}(${spec})` : rawLabel;
+      const ckey = `vb7_${i}`;
+      custom.push({ key: ckey, label, value: total });
+      sheet.skills[ckey] = total;
     }
   }
   if (custom.length > 0) sheet.customSkills = custom;

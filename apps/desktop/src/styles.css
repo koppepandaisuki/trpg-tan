@@ -7322,6 +7322,44 @@ button:disabled {
   letter-spacing: 0.06em;
   color: var(--text-muted);
   text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+/* 最近使ったシステム: コンパクトな横並びピル */
+.syspick-recents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.syspick-recent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
+}
+.syspick-recent:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.syspick-recent .sp-ic {
+  font-size: 15px;
+}
+.syspick-recent .sp-go {
+  color: var(--text-muted);
+  font-size: 11px;
 }
 .syspick-grid {
   display: grid;
@@ -7492,6 +7530,18 @@ button:disabled {
 /* ナビからのジャンプ先が sticky バーに隠れないよう余白を確保 */
 .cs-editor .card {
   scroll-margin-top: 92px;
+}
+/* 技能カードのヘッダ(残ポイント表示)を topbar+ナビの下に sticky。
+   カードの padding(18px) ぶん左右に広げて表の上を覆う。 */
+.cs-editor .cs-skills-head {
+  position: sticky;
+  top: 88px;
+  z-index: 10;
+  margin: -18px -18px 0;
+  padding: 12px 18px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 /* 能力値/派生値タイルを見やすく(値を主役に) */
 .cs-editor .stat {

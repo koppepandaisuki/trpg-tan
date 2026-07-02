@@ -181,7 +181,7 @@ export function NewCharacterMenu({
                     <p className="newchar-import-err">{importErr}</p>
                   )}
                   <p className="muted newchar-import-hint">
-                    クトゥルフ6版のシートに対応。取り込み後はエディタで確認して保存してください。
+                    クトゥルフ6版/7版のシートに対応。取り込み後はエディタで確認して保存してください。
                   </p>
                 </div>
               )}

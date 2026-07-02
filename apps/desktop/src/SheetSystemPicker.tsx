@@ -1,8 +1,31 @@
 import { useState } from "react";
-import { Globe, FilePlus2, Sparkles } from "lucide-react";
+import { Globe, FilePlus2, Sparkles, History } from "lucide-react";
 import type { SystemDef, CharacterSheet } from "@trpg/core";
 import { getAllSystems } from "./systems-store";
 import { importVampireBloodSheet } from "./vampire-import";
+
+/** 最近使ったシステム(id 配列, 先頭が最新)。coc7/coc6 or 自作システムの id。 */
+const RECENT_KEY = "paradice.sheet.recentSystems";
+const RECENT_MAX = 4;
+
+function readRecents(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    const arr = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushRecent(id: string) {
+  try {
+    const next = [id, ...readRecents().filter((x) => x !== id)].slice(0, RECENT_MAX);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    // 保存失敗は無視(履歴は副次的)
+  }
+}
 
 /**
  * キャラシ作成の入口: まず「どのシステムのキャラを作るか」を選ぶ画面。
@@ -45,6 +68,30 @@ export function SheetSystemPicker({
 
   const systems = getAllSystems();
 
+  // 選択を記録してから遷移(次回ピッカーの先頭に出す)。
+  function pickCoC(sid: "coc7" | "coc6") {
+    pushRecent(sid);
+    onPickCoC(sid);
+  }
+  function pickGeneric(def: SystemDef) {
+    pushRecent(def.id);
+    onPickGeneric(def);
+  }
+
+  // 最近使ったシステムを表示用に解決(消された自作システムはスキップ)。
+  const recents = readRecents()
+    .map((id) => {
+      if (id === "coc7")
+        return { id, icon: "🐙", name: "クトゥルフ神話TRPG 第7版", pick: () => pickCoC("coc7") };
+      if (id === "coc6")
+        return { id, icon: "🐙", name: "クトゥルフ神話TRPG 第6版", pick: () => pickCoC("coc6") };
+      const def = systems.find((s) => s.id === id);
+      return def
+        ? { id, icon: def.icon ?? "🎲", name: def.name || "(名称未設定)", pick: () => pickGeneric(def) }
+        : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
   return (
     <div className="syspick">
       <div className="syspick-hero">
@@ -58,11 +105,29 @@ export function SheetSystemPicker({
         </p>
       </div>
 
+      {/* 最近使ったシステム(ワンクリックで再開) */}
+      {recents.length > 0 && (
+        <>
+          <h3 className="syspick-sec">
+            <History size={12} aria-hidden /> 最近使った
+          </h3>
+          <div className="syspick-recents">
+            {recents.map((r) => (
+              <button key={r.id} className="syspick-recent" onClick={r.pick}>
+                <span className="sp-ic">{r.icon}</span>
+                <span className="sp-name">{r.name}</span>
+                <span className="sp-go">→</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* 定番: クトゥルフ(大きめの2枚) */}
       <div className="syspick-grid featured">
         <button
           className="syspick-card featured sp-coc7"
-          onClick={() => onPickCoC("coc7")}
+          onClick={() => pickCoC("coc7")}
         >
           <span className="sp-ic">🐙</span>
           <span className="sp-name">クトゥルフ神話TRPG</span>
@@ -74,7 +139,7 @@ export function SheetSystemPicker({
         </button>
         <button
           className="syspick-card featured sp-coc6"
-          onClick={() => onPickCoC("coc6")}
+          onClick={() => pickCoC("coc6")}
         >
           <span className="sp-ic">🐙</span>
           <span className="sp-name">クトゥルフ神話TRPG</span>
@@ -95,7 +160,7 @@ export function SheetSystemPicker({
               <button
                 key={s.id}
                 className="syspick-card"
-                onClick={() => onPickGeneric(s)}
+                onClick={() => pickGeneric(s)}
               >
                 <span className="sp-ic">{s.icon ?? "🎲"}</span>
                 <span className="sp-name">{s.name || "(名称未設定)"}</span>
@@ -120,7 +185,7 @@ export function SheetSystemPicker({
             </span>
             <span className="sp-name">キャラクター保管所</span>
             <span className="sp-desc">
-              シートの URL を貼るだけで取り込み(クトゥルフ6版対応)。
+              シートの URL を貼るだけで取り込み(クトゥルフ6版/7版対応)。
             </span>
             <span className="sp-go">URL を入力 →</span>
           </button>

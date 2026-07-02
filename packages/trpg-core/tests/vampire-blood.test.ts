@@ -86,6 +86,81 @@ describe("sheetFromVampireBlood", () => {
   });
 });
 
+describe("sheetFromVampireBlood — coc7 (native 7th-edition sheet)", () => {
+  const params = { id: "test-id-7", now: "2026-07-02T00:00:00Z" };
+
+  /** ネイティブ7版シート(5544074 のキー構造)を模したサンプル。 */
+  function sample7(): Record<string, unknown> {
+    return {
+      game: "coc7",
+      pc_name: "山村泰星",
+      shuzoku: "大学院生",
+      age: "23",
+      sex: "男",
+      // STR, CON, POW, DEX, APP, SIZ, INT, EDU, 幸運 (7版スケール 1..99)
+      NA1: "55",
+      NA2: "30",
+      NA3: "55",
+      NA4: "35",
+      NA5: "55",
+      NA6: "60",
+      NA7: "40",
+      NA8: "75",
+      NA9: "40",
+      SAN_Left: "52",
+      SAN_Max: "99",
+      Luck_Left: "40",
+      // 統合技能配列: 目星(25→70 成長) / 図書館(20 のまま) / カスタム「陶芸」(5→60, 専門あり)
+      SKAN: ["目星", "図書館", "芸術/製作"],
+      SKAD: ["25", "20", "5"],
+      SKAP: ["70", "20", "60"],
+      SKAM: ["", "", "陶芸"],
+    };
+  }
+
+  it("maps a coc7 sheet with 7th-edition scale characteristics as-is", () => {
+    const s = sheetFromVampireBlood(sample7(), params);
+    expect(s.systemId).toBe("coc7");
+    expect(s.name).toBe("山村泰星");
+    expect(s.occupationName).toBe("大学院生");
+    expect(s.characteristics).toMatchObject({
+      STR: 55,
+      CON: 30,
+      POW: 55,
+      DEX: 35,
+      APP: 55,
+      SIZ: 60,
+      INT: 40,
+      EDU: 75,
+    });
+    expect(s.notes).toContain("SAN 52/99");
+    expect(s.notes).toContain("幸運 40");
+  });
+
+  it("imports grown skills from the unified arrays with specialties", () => {
+    const s = sheetFromVampireBlood(sample7(), params);
+    expect(s.skills.spot_hidden).toBe(70); // 目星(成長済み)
+    // 初期値のままの図書館は取り込まない
+    expect(s.skills.library_use).toBeUndefined();
+    // 「芸術/製作」はカタログにあり(art_craft)、専門(陶芸)も記録される
+    expect(s.skills.art_craft).toBe(60);
+    expect(s.skillSpecialties?.art_craft).toBe("陶芸");
+  });
+
+  it("keeps skills missing from the catalog as customSkills", () => {
+    const json = sample7();
+    json.SKAN = ["謎の独自技能"];
+    json.SKAD = ["5"];
+    json.SKAP = ["55"];
+    json.SKAM = ["特殊"];
+    const s = sheetFromVampireBlood(json, params);
+    const custom = s.customSkills ?? [];
+    expect(
+      custom.some((c) => c.label === "謎の独自技能(特殊)" && c.value === 55),
+    ).toBe(true);
+  });
+});
+
 describe("vampireBloodJsonUrl", () => {
   it("accepts bare ids and sheet URLs", () => {
     expect(vampireBloodJsonUrl("12345")).toBe(

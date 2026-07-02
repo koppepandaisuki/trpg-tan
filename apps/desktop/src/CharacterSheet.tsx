@@ -602,7 +602,8 @@ export function CharacterSheet({
 
       {/* 技能割り振り */}
       <div className="card" id="cs-skills">
-        <div className="row" style={{ justifyContent: "space-between" }}>
+        {/* 長い技能表をスクロールしても残ポイントが見えるよう sticky */}
+        <div className="cs-skills-head row" style={{ justifyContent: "space-between" }}>
           <strong>
             技能
             <InfoTip text={SKILL_SECTION_HINT} />
