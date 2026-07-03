@@ -7528,6 +7528,7 @@ button:disabled {
   border-color: var(--border-strong);
 }
 /* ナビからのジャンプ先が sticky バーに隠れないよう余白を確保 */
+.cs-editor [id^="cs-"],
 .cs-editor .card {
   scroll-margin-top: 92px;
 }
@@ -7544,6 +7545,393 @@ button:disabled {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 /* 能力値/派生値タイルを見やすく(値を主役に) */
+/* ── コスチュームステータス風レイアウト(NieR Re[in] 参考) ────────────
+   ヒーロー(職業チップ+大きな名前) / 左:大数字プレート / 中央:職業・技能 /
+   右:立ち絵。数値は NumStepper(−/＋長押し・Shift×5)で変更する。 */
+.cs-hero {
+  margin-top: 14px;
+  padding: 2px 2px 0;
+}
+.cs-hero-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cs-occ-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 800;
+  font-size: 13px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  flex: none;
+}
+.cs-occ-chip:hover {
+  opacity: 0.82;
+}
+.cs-occ-chip.empty {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px dashed var(--border-strong);
+}
+.cs-occ-chip .cs-occ-ic {
+  display: inline-flex;
+  font-size: 14px;
+}
+.cs-name-input {
+  flex: 1;
+  min-width: 220px;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  padding: 2px;
+}
+.cs-name-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+.cs-hero-rule {
+  position: relative;
+  height: 1px;
+  background: var(--border-strong);
+  margin: 8px 0;
+}
+.cs-hero-rule::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  transform: rotate(45deg);
+}
+.cs-hero-sub {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cs-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 300px;
+  gap: 0 18px;
+  align-items: start;
+  margin-top: 2px;
+}
+.cs-col-stats,
+.cs-col-main {
+  min-width: 0;
+}
+
+/* セクション見出し: 細線+菱形終端(参考画像の罫線装飾) */
+.cs-sec-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 2px 10px;
+  font-size: 12.5px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: var(--text);
+}
+.cs-col-stats .cs-sec-title:first-child {
+  margin-top: 16px;
+}
+.cs-sec-title .csl {
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+  position: relative;
+}
+.cs-sec-title .csl::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  transform: rotate(45deg);
+}
+
+/* 大数字プレート(戦力/HP…の枠) */
+.nstat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nstat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  box-shadow: var(--shadow-xs);
+}
+.nstat::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  pointer-events: none;
+  opacity: 0.55;
+}
+.nstat .nk {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+  min-width: 0;
+  z-index: 1;
+}
+.nstat .nk-ic {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--text);
+  flex: none;
+}
+.nstat .nk-key {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: 0.03em;
+}
+.nstat .nk-jp {
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.nstat .nv {
+  font-size: 24px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  z-index: 1;
+}
+.nstat-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 1;
+}
+.nstat-dice {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 3px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.nstat-dice:hover {
+  border-color: var(--border-strong);
+}
+
+/* −/＋ステッパー */
+.nstep {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.nstep-btn {
+  width: 26px;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  padding: 0;
+}
+.nstep-btn:hover:not(:disabled) {
+  background: var(--border);
+}
+.nstep-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.nstep-val {
+  width: 46px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+  font-weight: 900;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.nstep-val::-webkit-outer-spin-button,
+.nstep-val::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.nstep-val:focus {
+  background: var(--surface-2);
+}
+.nstep.big {
+  min-height: 34px;
+}
+.nstep.big .nstep-btn {
+  width: 30px;
+  font-size: 16px;
+}
+.nstep.big .nstep-val {
+  width: 56px;
+  font-size: 20px;
+}
+.nstep.warn {
+  border-color: #e5484d;
+}
+.nstep.warn .nstep-val {
+  color: #e5484d;
+}
+
+/* 右カラム: 立ち絵 */
+.cs-col-art {
+  position: sticky;
+  top: 92px;
+}
+.cs-art {
+  position: relative;
+  margin-top: 16px;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  box-shadow: var(--shadow-xs);
+}
+.cs-art::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.cs-art img {
+  display: block;
+  width: 100%;
+  max-height: 430px;
+  object-fit: contain;
+  border-radius: 2px;
+}
+.cs-art-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 280px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+.cs-art-empty .big {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  opacity: 0.45;
+}
+.cs-art-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+/* 技能表: ステッパー2列が入るぶん詰める */
+.cs-editor .skills th,
+.cs-editor .skills td {
+  padding: 6px 4px;
+}
+.cs-editor .skills th {
+  white-space: nowrap;
+}
+.cs-editor .skills td .nstep {
+  vertical-align: middle;
+}
+.cs-editor .skill-spec {
+  width: 92px;
+}
+
+/* 幅が足りないときは 立ち絵→横帯、さらに狭ければ1カラム */
+@media (max-width: 1240px) {
+  .cs-layout {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+  .cs-col-art {
+    position: static;
+    order: -1;
+    grid-column: 1 / -1;
+  }
+  .cs-art {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+  }
+  .cs-art img {
+    width: 110px;
+    max-height: 140px;
+  }
+  .cs-art-empty {
+    height: auto;
+    flex: 1;
+    padding: 6px 0;
+  }
+  .cs-art-actions {
+    margin-top: 0;
+  }
+}
+@media (max-width: 960px) {
+  .cs-layout {
+    grid-template-columns: 1fr;
+  }
+  .nstat-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}
+
 .cs-editor .stat {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

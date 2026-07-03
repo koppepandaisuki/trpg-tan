@@ -1,5 +1,18 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  ArrowLeft,
+  Heart,
+  Droplets,
+  Brain,
+  Sword,
+  Dumbbell,
+  Footprints,
+  Lightbulb,
+  Clover,
+  BookOpen,
+  Diamond,
+} from "lucide-react";
+import { NumStepper } from "./NumStepper";
 import {
   getSystem,
   generateAllCharacteristics,
@@ -43,6 +56,19 @@ function freshId(): string {
 
 const sysIdOf = (s?: Sheet | null): SystemId =>
   s?.systemId === "coc6" ? "coc6" : "coc7";
+
+/** 派生値タイルのアイコン(参考: ステータス画面風の枠付きプレート)。 */
+const DERIVED_ICONS: Record<string, ReactNode> = {
+  HP: <Heart size={13} />,
+  MP: <Droplets size={13} />,
+  SAN: <Brain size={13} />,
+  DB: <Sword size={13} />,
+  BUILD: <Dumbbell size={13} />,
+  MOV: <Footprints size={13} />,
+  IDEA: <Lightbulb size={13} />,
+  LUCK: <Clover size={13} />,
+  KNOW: <BookOpen size={13} />,
+};
 
 /** 技能カテゴリの表示順(いあきゃら風)。未分類は「その他」として最後。 */
 const SKILL_CAT_ORDER = ["戦闘", "探索", "行動", "技術", "対人", "知識"];
@@ -385,8 +411,7 @@ export function CharacterSheet({
       <nav className="sheet-nav" aria-label="シート内の移動">
         {[
           ["cs-basic", "基本"],
-          ["cs-stats", "能力値"],
-          ["cs-derived", "派生値"],
+          ["cs-stats", "ステータス"],
           ["cs-occ", "職業"],
           ["cs-skills", "技能"],
           ["cs-memo", "メモ"],
@@ -407,122 +432,124 @@ export function CharacterSheet({
 
       {message && <p className="muted">{message}</p>}
 
-      {/* 基本情報 + ポートレート */}
-      <div className="card" id="cs-basic">
-        <div className="basic">
-          <div className="portrait">
-            {image ? (
-              <img src={image} alt="ポートレート" />
-            ) : (
-              <span className="portrait-empty">画像なし</span>
-            )}
-            <div className="portrait-actions">
-              <label className="btn mini">
-                画像を選択
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={onPickImage}
-                  style={{ display: "none" }}
-                />
-              </label>
-              {image && (
-                <button className="btn mini" onClick={() => setImage(null)}>
-                  削除
-                </button>
-              )}
-            </div>
-          </div>
-          <label className="field" style={{ flex: 1 }}>
-            <span className="k">探索者名</span>
-            <input
-              className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="名前を入力"
-            />
-          </label>
-        </div>
-      </div>
-
-      {/* 能力値 */}
-      <div className="card" id="cs-stats">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <strong>
-            能力値
-            <InfoTip text={abilitySectionHint(edition)} />
-          </strong>
+      {/* ヒーロー: 職業チップ + 探索者名(コスチューム画面風の大見出し) */}
+      <div className="cs-hero" id="cs-basic">
+        <div className="cs-hero-row">
           <button
-            className="btn"
-            onClick={() => setChars(generateAllCharacteristics(system))}
+            type="button"
+            className={`cs-occ-chip ${occupation ? "" : "empty"}`}
+            onClick={() =>
+              document
+                .getElementById("cs-occ")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+            title="クリックで職業の選択へ"
           >
-            全部振り直す
+            {occupation ? (
+              <>
+                <span className="cs-occ-ic">
+                  {isCustomOcc ? "✏️" : <OccupationIcon id={occupation.id} />}
+                </span>
+                {occupation.name}
+              </>
+            ) : (
+              "職業未選択"
+            )}
           </button>
+          <input
+            className="cs-name-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="探索者名を入力"
+            aria-label="探索者名"
+          />
         </div>
-        <div className="grid">
-          {system.characteristics.map((c) => (
-            <div className="stat" key={c.key}>
-              {/* 能力値は英語表記で統一(和名は ? ヒントに退避)。 */}
-              <div className="k">
-                {c.key}{" "}
-                <InfoTip
-                  compact
-                  text={`${c.label}\n${CHARACTERISTIC_HINT[c.key] ?? ""}\n${abilityScale(edition)}`}
-                />
-              </div>
-              <div className="row" style={{ gap: 4 }}>
-                <input
-                  className="input num"
-                  type="number"
-                  value={chars[c.key] ?? 0}
-                  onChange={(e) =>
-                    setChars({ ...chars, [c.key]: Number(e.target.value) })
-                  }
-                />
-                {c.rollHint && (
-                  <button
-                    className="btn mini"
-                    title={`${c.rollHint} で振り直す`}
-                    onClick={() =>
-                      setChars({
-                        ...chars,
-                        [c.key]: rollCharacteristicValue(c.rollHint!),
-                      })
-                    }
-                  >
-                    🎲
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        <div className="cs-hero-rule" />
+        <p className="cs-hero-sub">
+          {system.label} — 左のステータスと下の技能を割り振って完成させましょう。
+        </p>
       </div>
 
-      {/* 派生値 */}
-      <div className="card" id="cs-derived">
-        <strong>
-          派生値
-          <InfoTip text={DERIVED_SECTION_HINT} />
-        </strong>
-        <div className="grid">
-          {system.derived.map((d) => {
-            const val = derived[d.key];
-            return (
-              <div className="stat" key={d.key}>
-                <div className="k">
-                  {d.label}{" "}
+      <div className="cs-layout">
+        {/* 左カラム: ステータス(派生値) + 能力値 */}
+        <div className="cs-col-stats" id="cs-stats">
+          <h4 className="cs-sec-title">
+            <span>ステータス</span>
+            <InfoTip compact text={DERIVED_SECTION_HINT} />
+            <i className="csl" />
+          </h4>
+          <div className="nstat-list">
+            {system.derived.map((d) => (
+              <div className="nstat" key={d.key}>
+                <span className="nk">
+                  <span className="nk-ic">
+                    {DERIVED_ICONS[d.key] ?? <Diamond size={13} />}
+                  </span>
+                  {d.label}
                   {DERIVED_HINT[d.key] && (
                     <InfoTip compact text={DERIVED_HINT[d.key]} />
                   )}
-                </div>
-                <div className="v">{String(val ?? "-")}</div>
+                </span>
+                <span className="nv">{String(derived[d.key] ?? "–")}</span>
               </div>
-            );
-          })}
-        </div>
-      </div>
+            ))}
+          </div>
 
+          <h4 className="cs-sec-title">
+            <span>能力値</span>
+            <InfoTip compact text={abilitySectionHint(edition)} />
+            <i className="csl" />
+            <button
+              className="btn mini"
+              onClick={() => setChars(generateAllCharacteristics(system))}
+              title="全能力値をダイスで振り直す"
+            >
+              🎲 全部振り直す
+            </button>
+          </h4>
+          <div className="nstat-list">
+            {system.characteristics.map((c) => (
+              <div className="nstat editable" key={c.key}>
+                <span className="nk">
+                  <span className="nk-key">{c.key}</span>
+                  <span className="nk-jp">{c.label}</span>
+                  <InfoTip
+                    compact
+                    text={`${CHARACTERISTIC_HINT[c.key] ?? ""}\n${abilityScale(edition)}`}
+                  />
+                </span>
+                <span className="nstat-edit">
+                  {c.rollHint && (
+                    <button
+                      type="button"
+                      className="nstat-dice"
+                      title={`${c.rollHint} で振り直す`}
+                      onClick={() =>
+                        setChars({
+                          ...chars,
+                          [c.key]: rollCharacteristicValue(c.rollHint!),
+                        })
+                      }
+                    >
+                      🎲
+                    </button>
+                  )}
+                  <NumStepper
+                    big
+                    value={chars[c.key] ?? 0}
+                    min={c.min ?? 0}
+                    max={c.max ?? 99}
+                    onChange={(v) => setChars({ ...chars, [c.key]: v })}
+                    ariaLabel={c.label}
+                  />
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 中央カラム: 職業 / 技能 / メモ */}
+        <div className="cs-col-main">
       {/* 職業 */}
       <div className="card" id="cs-occ">
         <div className="row" style={{ justifyContent: "space-between" }}>
@@ -668,36 +695,31 @@ export function CharacterSheet({
                   </td>
                   <td className="muted">{base}</td>
                   <td>
-                    <input
-                      className={`input num sm ${occWarn ? "occ-warn" : ""}`}
-                      type="number"
-                      min={0}
+                    <NumStepper
                       value={occAlloc[s.key] ?? 0}
+                      min={0}
+                      max={99}
+                      warn={occWarn}
                       title={
                         occWarn
                           ? "職業技能ではない技能に職業Pを振っています"
                           : undefined
                       }
-                      onChange={(e) =>
-                        setOccAlloc({
-                          ...occAlloc,
-                          [s.key]: Number(e.target.value),
-                        })
+                      onChange={(v) =>
+                        setOccAlloc({ ...occAlloc, [s.key]: v })
                       }
+                      ariaLabel={`${s.label}の職業ポイント`}
                     />
                   </td>
                   <td>
-                    <input
-                      className="input num sm"
-                      type="number"
-                      min={0}
+                    <NumStepper
                       value={intAlloc[s.key] ?? 0}
-                      onChange={(e) =>
-                        setIntAlloc({
-                          ...intAlloc,
-                          [s.key]: Number(e.target.value),
-                        })
+                      min={0}
+                      max={99}
+                      onChange={(v) =>
+                        setIntAlloc({ ...intAlloc, [s.key]: v })
                       }
+                      ariaLabel={`${s.label}の興味ポイント`}
                     />
                   </td>
                   <td>
@@ -745,16 +767,16 @@ export function CharacterSheet({
                       setCustomSkills(next);
                     }}
                   />
-                  <input
-                    className="input num sm"
-                    type="number"
-                    min={0}
+                  <NumStepper
                     value={c.value}
-                    onChange={(e) => {
+                    min={0}
+                    max={99}
+                    onChange={(v) => {
                       const next = [...customSkills];
-                      next[i] = { ...c, value: Number(e.target.value) };
+                      next[i] = { ...c, value: v };
                       setCustomSkills(next);
                     }}
+                    ariaLabel={`${c.label || "オリジナル技能"}の値`}
                   />
                   <span className="muted">%</span>
                   <button
@@ -809,6 +831,38 @@ export function CharacterSheet({
           placeholder="例: 田舎町で生まれ育った..."
           style={{ marginTop: 8, width: "100%", resize: "vertical" }}
         />
+      </div>
+        </div>
+
+        {/* 右カラム: 立ち絵(コスチューム画面の立ち絵ポジション) */}
+        <div className="cs-col-art">
+          <div className="cs-art">
+            {image ? (
+              <img src={image} alt="ポートレート" />
+            ) : (
+              <div className="cs-art-empty">
+                <span className="big">NO IMAGE</span>
+                立ち絵・ポートレートを設定できます
+              </div>
+            )}
+            <div className="cs-art-actions">
+              <label className="btn mini">
+                画像を選択
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={onPickImage}
+                  style={{ display: "none" }}
+                />
+              </label>
+              {image && (
+                <button className="btn mini" onClick={() => setImage(null)}>
+                  削除
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
