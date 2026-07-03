@@ -87,7 +87,8 @@ export async function POST(
     return NextResponse.json(
       {
         ok: false,
-        message: "対応していない画像形式です(PNG / JPEG / WebP のみ)",
+        message:
+          "対応していない形式です(画像: PNG / JPEG / WebP、動画: MP4 / WebM)",
       },
       { status: 400 },
     );

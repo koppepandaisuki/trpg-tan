@@ -12,7 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   SCREENSHOT_MAX_BYTES,
+  SCREENSHOT_VIDEO_MAX_BYTES,
   SCREENSHOTS_MAX_COUNT,
+  isVideoContentType,
 } from "@/lib/format/upload";
 
 /**
@@ -27,7 +29,7 @@ import {
  *
  * 親には「アップロード中フラグ」だけ通知して保存ボタンを抑止する。
  */
-const ACCEPT = "image/png,image/jpeg,image/webp";
+const ACCEPT = "image/png,image/jpeg,image/webp,video/mp4,video/webm";
 
 type SlotStatus =
   | "idle"
@@ -78,11 +80,14 @@ export function UploadScreenshots({
 
   async function uploadSlot(index: number, file: File) {
     // クライアント側 size 検証(バケット側も file_size_limit で防がれるが
-    // 早期フィードバック)
-    if (file.size > SCREENSHOT_MAX_BYTES) {
+    // 早期フィードバック)。動画は 50MB、画像は 5MB まで。
+    const maxBytes = isVideoContentType(file.type)
+      ? SCREENSHOT_VIDEO_MAX_BYTES
+      : SCREENSHOT_MAX_BYTES;
+    if (file.size > maxBytes) {
       updateSlot(index, {
         status: "error",
-        error: `ファイルサイズが上限(${formatBytes(SCREENSHOT_MAX_BYTES)})を超えています`,
+        error: `ファイルサイズが上限(${formatBytes(maxBytes)})を超えています`,
       });
       return;
     }
@@ -212,8 +217,10 @@ export function UploadScreenshots({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        商品詳細ページに表示される画像です。最大 {SCREENSHOTS_MAX_COUNT} 枚、
-        各 {formatBytes(SCREENSHOT_MAX_BYTES)} まで。
+        商品詳細ページのギャラリーに表示される画像 / 動画です。最大{" "}
+        {SCREENSHOTS_MAX_COUNT} 枠。画像(PNG / JPEG / WebP)は各{" "}
+        {formatBytes(SCREENSHOT_MAX_BYTES)}、動画(MP4 / WebM)は各{" "}
+        {formatBytes(SCREENSHOT_VIDEO_MAX_BYTES)} まで。
       </p>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {slots.map((slot, i) => (

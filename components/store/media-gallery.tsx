@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ImageIcon,
+  Play,
   X,
   ZoomIn,
 } from "lucide-react";
@@ -36,6 +37,11 @@ import { cn } from "@/lib/utils";
 export interface MediaItem {
   src: string;
   alt: string;
+}
+
+/** ギャラリー項目が動画か(スクショ枠の mp4 / webm)。 */
+function isVideoSrc(src: string): boolean {
+  return /\.(mp4|webm)(\?|#|$)/i.test(src);
 }
 
 interface MediaGalleryProps {
@@ -114,7 +120,23 @@ export function MediaGallery({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* メイン active 画像 */}
+      {/* メイン active メディア。動画はその場で再生(lightbox は画像のみ)。 */}
+      {isVideoSrc(active.src) ? (
+        <div
+          className={cn(
+            "relative block w-full overflow-hidden rounded-md bg-black",
+            aspect,
+          )}
+        >
+          <video
+            key={active.src}
+            src={active.src}
+            controls
+            preload="metadata"
+            className="h-full w-full object-contain"
+          />
+        </div>
+      ) : (
       <button
         type="button"
         onClick={() => {
@@ -155,6 +177,7 @@ export function MediaGallery({
           </span>
         )}
       </button>
+      )}
 
       {/* Thumbnail row(2 枚以上のときのみ) */}
       {total > 1 && (
@@ -168,21 +191,36 @@ export function MediaGallery({
                 type="button"
                 onClick={() => setActiveIndex(i)}
                 aria-pressed={i === activeIndex}
-                aria-label={`${i + 1} 番目の画像を選択`}
+                aria-label={`${i + 1} 番目の${isVideoSrc(it.src) ? "動画" : "画像"}を選択`}
                 className={cn(
-                  "group block w-full overflow-hidden rounded-sm border-2 transition-all aspect-[16/10] bg-muted",
+                  "group relative block w-full overflow-hidden rounded-sm border-2 transition-all aspect-[16/10] bg-muted",
                   i === activeIndex
                     ? "border-foreground opacity-100"
                     : "border-transparent opacity-60 hover:opacity-100",
                 )}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={it.src}
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
+                {isVideoSrc(it.src) ? (
+                  <>
+                    <video
+                      src={it.src}
+                      muted
+                      preload="metadata"
+                      className="pointer-events-none h-full w-full object-cover"
+                    />
+                    <Play
+                      aria-hidden
+                      className="absolute inset-0 m-auto h-5 w-5 text-white drop-shadow"
+                    />
+                  </>
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={it.src}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                )}
               </button>
             </li>
           ))}
@@ -244,13 +282,23 @@ export function MediaGallery({
             onTouchMove={swipe.onTouchMove}
             onTouchEnd={swipe.onTouchEnd}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={active.src}
-              alt={active.alt}
-              className="max-h-[85vh] max-w-full rounded-md object-contain shadow-2xl"
-              draggable={false}
-            />
+            {isVideoSrc(active.src) ? (
+              <video
+                key={active.src}
+                src={active.src}
+                controls
+                autoPlay
+                className="max-h-[85vh] max-w-full rounded-md object-contain shadow-2xl"
+              />
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={active.src}
+                alt={active.alt}
+                className="max-h-[85vh] max-w-full rounded-md object-contain shadow-2xl"
+                draggable={false}
+              />
+            )}
             {total > 1 && (
               <span className="rounded bg-black/60 px-3 py-1 text-xs font-medium text-white">
                 {activeIndex + 1} / {total}

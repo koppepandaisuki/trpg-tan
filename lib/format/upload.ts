@@ -91,17 +91,28 @@ export function mimeToAvatarExt(contentType: string): string | null {
 }
 
 /**
- * screenshots バケット用 MIME → ext。cover / avatar と同じ 3 種。
+ * screenshots バケット用 MIME → ext。画像 3 種 + 動画 2 種(0037 で許可)。
+ * ギャラリーは URL 拡張子で <img> / <video> を出し分ける。
  */
 const SCREENSHOT_MIME_TO_EXT: Readonly<Record<string, string>> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
 };
 
 export function mimeToScreenshotExt(contentType: string): string | null {
   if (!contentType) return null;
   return SCREENSHOT_MIME_TO_EXT[contentType.toLowerCase()] ?? null;
+}
+
+/** ギャラリー枠の動画 hard cap(バケット file_size_limit と一致 / 0037)。 */
+export const SCREENSHOT_VIDEO_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
+
+/** screenshots 枠に入れる Content-Type が動画か。 */
+export function isVideoContentType(contentType: string): boolean {
+  return contentType.toLowerCase().startsWith("video/");
 }
 
 /**

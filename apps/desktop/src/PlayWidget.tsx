@@ -128,6 +128,9 @@ export function PlayWidget({ widgetId }: { widgetId: string }) {
               color,
             })
           }
+          maskSecret={slice.viewer?.maskSecret}
+          viewerName={slice.viewer?.name}
+          viewerPanelNames={slice.viewer?.panelNames}
           diceBot={slice.diceBot}
           inputRef={inputRef}
         />
@@ -143,6 +146,8 @@ export function PlayWidget({ widgetId }: { widgetId: string }) {
             <PlayPanel
               key={p.id}
               panel={p}
+              playerMode={slice.playerMode}
+              allowRemove={slice.allowRemove}
               onResource={(panel, r, delta) =>
                 void sendIntent({
                   kind: "resource",
@@ -179,12 +184,15 @@ export function PlayWidget({ widgetId }: { widgetId: string }) {
                   patch: { speed },
                 })
               }
-              onToggleHidden={(panel) =>
-                void sendIntent({
-                  kind: "panel-update",
-                  panelId: panel.id,
-                  patch: { hidden: !panel.hidden },
-                })
+              onToggleHidden={
+                slice.playerMode
+                  ? undefined
+                  : (panel) =>
+                      void sendIntent({
+                        kind: "panel-update",
+                        panelId: panel.id,
+                        patch: { hidden: !panel.hidden },
+                      })
               }
             />
           ))

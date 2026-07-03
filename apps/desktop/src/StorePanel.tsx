@@ -28,11 +28,15 @@ import {
   Star,
   Trash2,
   User as UserIcon,
+  UserPlus,
+  UserCheck,
+  Play,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "./Toasts";
 import { requireLogin } from "./LoginGate";
 import { useWishlist, toggleWish } from "./wishlist";
+import { useFollows, toggleFollow } from "./follow-creators";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { SkelGrid, SkelStoreHome } from "./Skeleton";
@@ -42,6 +46,7 @@ import type { RemoteProductType } from "./library-remote";
 import {
   fetchStore,
   fetchStoreDetail,
+  fetchSimilarItems,
   fetchStoreHome,
   fetchStoreCreators,
   fetchScreenshotUrls,
@@ -282,6 +287,11 @@ function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
       {review.avgStars.toFixed(1)}（{review.total}）
     </span>
   );
+}
+
+/** ギャラリー URL が動画か(スクショ枠に mp4/webm を挿入できる)。 */
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|webm)(\?|#|$)/i.test(url);
 }
 
 /** 「今」の実効価格(割引・期間込み)。購入ボタンの文言や無料判定はこれを使う。 */
@@ -753,6 +763,9 @@ export function StorePanel({
   const [priceBand, setPriceBand] = useState<StorePriceBand | null>(null);
   const [saleOnly, setSaleOnly] = useState(false);
   const [wishOnly, setWishOnly] = useState(false);
+  const [followOnly, setFollowOnly] = useState(false);
+  const follows = useFollows();
+  const followKey = followOnly ? [...follows.keys()].sort().join(",") : "";
   const wishIds = useWishlist();
   // ウィッシュ絞り込みの再取得キー(絞り込み OFF のときはハート操作で再取得しない)。
   const wishKey = wishOnly ? [...wishIds].sort().join(",") : "";
@@ -774,6 +787,8 @@ export function StorePanel({
   const [detail, setDetail] = useState<StoreDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [mainImage, setMainImage] = useState<string | null>(null);
+  // 類似品(詳細の下部レール)。詳細を開いたときに非同期取得。
+  const [similar, setSimilar] = useState<StoreItem[]>([]);
 
   // Esc で詳細を閉じて一覧へ戻る(マウス往復を省く)。
   useEffect(() => {
@@ -899,6 +914,7 @@ export function StorePanel({
         priceBand,
         saleOnly,
         onlyIds: wishOnly ? [...wishIds] : null,
+        creatorIds: followOnly ? [...follows.keys()] : null,
         sort,
         page,
       });
@@ -910,9 +926,9 @@ export function StorePanel({
     } finally {
       setLoading(false);
     }
-    // wishKey: ウィッシュ絞り込み中のみハート変更で再取得(OFF 時は無反応)。
+    // wishKey/followKey: 絞り込み中のみ変更で再取得(OFF 時は無反応)。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cats, q, titleQ, creatorFilter, priceBand, saleOnly, wishOnly, wishKey, sort, page]);
+  }, [cats, q, titleQ, creatorFilter, priceBand, saleOnly, wishOnly, wishKey, followOnly, followKey, sort, page]);
 
   useEffect(() => {
     if (view === "browse") void loadBrowse();
@@ -939,6 +955,11 @@ export function StorePanel({
       }
       setDetail(d);
       setMainImage(d.coverUrl ?? d.screenshotUrls[0] ?? null);
+      // 類似品(同カテゴリの好評順)は非同期で遅れて出す。
+      setSimilar([]);
+      void fetchSimilarItems(d.productType, d.id)
+        .then(setSimilar)
+        .catch(() => {});
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -1014,11 +1035,15 @@ export function StorePanel({
 
         <div className="store-body">
           <div className="store-detail">
-            {/* 左: ギャラリー */}
+            {/* 左: ギャラリー(画像 / 動画) */}
             <div className="store-gallery">
               <div className="store-gmain">
                 {mainImage ? (
-                  <img src={mainImage} alt={detail.title} />
+                  isVideoUrl(mainImage) ? (
+                    <video src={mainImage} controls preload="metadata" />
+                  ) : (
+                    <img src={mainImage} alt={detail.title} />
+                  )
                 ) : (
                   <span className="store-noimg">No Image</span>
                 )}
@@ -1031,17 +1056,116 @@ export function StorePanel({
                       className={`store-gthumb ${mainImage === url ? "active" : ""}`}
                       onClick={() => setMainImage(url)}
                     >
-                      <img src={url} alt="" loading="lazy" />
+                      {isVideoUrl(url) ? (
+                        <span className="store-gthumb-video">
+                          <video src={url} muted preload="metadata" />
+                          <Play size={16} aria-hidden />
+                        </span>
+                      ) : (
+                        <img src={url} alt="" loading="lazy" />
+                      )}
                     </button>
                   ))}
                 </div>
               )}
 
+              {/* ウィッシュリスト / 開発者フォロー(Steam のアクション行) */}
+              <div className="sdx-actions">
+                <button
+                  className={`btn mini ibtn ${wishIds.has(detail.id) ? "sdx-on" : ""}`}
+                  onClick={() => {
+                    const added = toggleWish(detail.id);
+                    toast(
+                      added
+                        ? "♥ ウィッシュリストに追加しました"
+                        : "ウィッシュリストから外しました",
+                    );
+                  }}
+                >
+                  <Heart size={14} />{" "}
+                  {wishIds.has(detail.id)
+                    ? "ウィッシュリスト追加済み"
+                    : "ウィッシュリストに追加"}
+                </button>
+                <button
+                  className={`btn mini ibtn ${follows.has(detail.creator.id) ? "sdx-on" : ""}`}
+                  title="フォローした開発者の作品は右サイドバーの「フォロー中」で絞り込めます"
+                  onClick={() => {
+                    const nm = detail.creator.displayName || "（無名）";
+                    const added = toggleFollow(detail.creator.id, nm);
+                    toast(
+                      added
+                        ? `${nm} をフォローしました`
+                        : `${nm} のフォローを解除しました`,
+                    );
+                  }}
+                >
+                  {follows.has(detail.creator.id) ? (
+                    <>
+                      <UserCheck size={14} /> フォロー中
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={14} /> 開発者をフォロー
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 購入バー(Steam の「◯◯を購入する」) */}
+              <div className="sdx-buybar">
+                <div className="sdx-buybar-info">
+                  <strong className="sdx-buybar-title">
+                    {detail.title} を{effPriceOf(detail) === 0 ? "入手" : "購入"}する
+                  </strong>
+                </div>
+                <div className="sdx-buybar-cta">
+                  <PriceTag item={detail} size="lg" />
+                  {isPurchased ? (
+                    <button
+                      className="btn btn-primary ibtn"
+                      onClick={() => onGoLibrary?.()}
+                    >
+                      <LibraryBig size={15} /> ライブラリで開く
+                    </button>
+                  ) : !session ? (
+                    <button
+                      className="btn btn-primary ibtn"
+                      onClick={() =>
+                        requireLogin(
+                          effPriceOf(detail) === 0
+                            ? "ダウンロードにはログインが必要です。"
+                            : "購入にはログインが必要です。",
+                        )
+                      }
+                    >
+                      <ShoppingCart size={15} /> ログインして
+                      {effPriceOf(detail) === 0 ? "入手" : "購入"}
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-primary ibtn"
+                      onClick={() => void openUrl(webProductUrl(detail.slug))}
+                    >
+                      <ShoppingCart size={15} />{" "}
+                      {effPriceOf(detail) === 0
+                        ? "無料で入手"
+                        : `${formatPriceJpy(effPriceOf(detail))} で購入`}
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <h3 className="store-sec">作品について</h3>
               <p className="store-desc">{detail.description || "（説明なし）"}</p>
 
               <h3 className="store-sec">
-                レビュー <ReviewBadge review={detail.review} />
+                みんなのレビュー <ReviewBadge review={detail.review} />
+                {detail.review && detail.review.total > 0 && (
+                  <span className="muted" style={{ fontSize: 12, fontWeight: 600 }}>
+                    （{detail.review.total}件）
+                  </span>
+                )}
               </h3>
 
               {/* 投稿フォーム(購入済み + ログイン時のみ。押し付けない控えめ導線)*/}
@@ -1126,71 +1250,31 @@ export function StorePanel({
               )}
             </div>
 
-            {/* 右: 購入 / メタ */}
+            {/* 右: 情報ボックス(Steam の右上カプセル) / 仕様メタ */}
             <aside className="store-side">
-              <div className="store-buybox">
-                <span className="store-price">
-                  <PriceTag item={detail} size="lg" />
-                </span>
-                <ReviewBadge review={detail.review} />
-                {isPurchased ? (
-                  <>
-                    <span className="work-badge done store-owned">✓ 購入済み</span>
-                    <button
-                      className="btn btn-primary ibtn"
-                      onClick={() => onGoLibrary?.()}
-                    >
-                      <LibraryBig size={15} /> ライブラリで開く
-                    </button>
-                  </>
-                ) : !session ? (
-                  <>
-                    <button
-                      className="btn btn-primary ibtn"
-                      onClick={() =>
-                        requireLogin(
-                          effPriceOf(detail) === 0
-                            ? "ダウンロードにはログインが必要です。"
-                            : "購入にはログインが必要です。",
-                        )
-                      }
-                    >
-                      <ShoppingCart size={15} /> ログインして
-                      {effPriceOf(detail) === 0 ? "入手" : "購入"}
-                    </button>
-                    <p className="store-buynote">
-                      ストアの閲覧はログイン無しで自由にできます。購入や
-                      ダウンロードにはアカウントが必要です。
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      className="btn btn-primary ibtn"
-                      onClick={() => void openUrl(webProductUrl(detail.slug))}
-                    >
-                      <ShoppingCart size={15} />{" "}
-                      {effPriceOf(detail) === 0
-                        ? "無料で入手"
-                        : `${formatPriceJpy(effPriceOf(detail))} で購入`}
-                    </button>
-                    <p className="store-buynote">
-                      {effPriceOf(detail) === 0
-                        ? "ブラウザでワンクリックでライブラリに追加します。"
-                        : "決済はブラウザ(Web版)で行います。購入後、アプリの「購入」タブに反映されます。"}
-                    </p>
-                  </>
+              <div className="sdx-info">
+                {detail.coverUrl && (
+                  <div className="sdx-info-cover">
+                    <img src={detail.coverUrl} alt="" />
+                  </div>
                 )}
-              </div>
-
-              <div className="store-meta">
-                <div className="store-creator">
-                  {detail.creator.avatarUrl ? (
-                    <img src={detail.creator.avatarUrl} alt="" />
-                  ) : (
-                    <span className="store-avatar-ph">👤</span>
-                  )}
-                  <div>
+                {isPurchased && (
+                  <span className="work-badge done store-owned">✓ 購入済み</span>
+                )}
+                <p className="sdx-info-desc">
+                  {detail.description || "（説明なし）"}
+                </p>
+                <dl className="sdx-info-rows">
+                  <dt>レビュー:</dt>
+                  <dd>
+                    <ReviewBadge review={detail.review} />
+                  </dd>
+                  <dt>公開日:</dt>
+                  <dd>
+                    {new Date(detail.publishedAt).toLocaleDateString("ja-JP")}
+                  </dd>
+                  <dt>開発元:</dt>
+                  <dd>
                     <button
                       className="store-creator-link"
                       title="このクリエイターの作品を見る"
@@ -1203,14 +1287,39 @@ export function StorePanel({
                         })
                       }
                     >
+                      {detail.creator.avatarUrl ? (
+                        <img
+                          className="sdx-dev-avatar"
+                          src={detail.creator.avatarUrl}
+                          alt=""
+                        />
+                      ) : null}
                       {detail.creator.displayName || "（無名）"}
                     </button>
-                    {detail.creatorBio && (
-                      <p className="muted store-bio">{detail.creatorBio}</p>
-                    )}
+                  </dd>
+                </dl>
+                {detail.tags.length > 0 && (
+                  <div className="sdx-info-tags">
+                    <span className="sdx-info-tags-label">
+                      この作品の人気タグ:
+                    </span>
+                    <div className="store-tags">
+                      {detail.tags.map((t) => (
+                        <button
+                          key={t}
+                          className="store-tag"
+                          title={`タグ「${t}」で検索`}
+                          onClick={() => browseWith({ q: t })}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
+              </div>
 
+              <div className="store-meta">
                 <dl className="store-dl">
                   <dt>種別</dt>
                   <dd>{PRODUCT_TYPE_LABEL[detail.productType] ?? detail.productType}</dd>
@@ -1247,24 +1356,38 @@ export function StorePanel({
                   <dt>公開日</dt>
                   <dd>{new Date(detail.publishedAt).toLocaleDateString("ja-JP")}</dd>
                 </dl>
-
-                {detail.tags.length > 0 && (
-                  <div className="store-tags">
-                    {detail.tags.map((t) => (
-                      <button
-                        key={t}
-                        className="store-tag"
-                        title={`タグ「${t}」で検索`}
-                        onClick={() => browseWith({ q: t })}
-                      >
-                        #{t}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             </aside>
           </div>
+
+          {/* 類似品(同カテゴリの好評作品) */}
+          {similar.length > 0 && (
+            <div className="sdx-similar">
+              <h3 className="store-sec">類似の作品</h3>
+              <div className="sdx-similar-grid">
+                {similar.map((it) => (
+                  <button
+                    key={it.id}
+                    className="sdx-sim-card"
+                    onClick={() => void openDetail(it)}
+                    title={it.title}
+                  >
+                    <span className="sdx-sim-thumb">
+                      {it.coverUrl ? (
+                        <img src={it.coverUrl} alt="" loading="lazy" />
+                      ) : (
+                        <span className="store-noimg">No Image</span>
+                      )}
+                    </span>
+                    <span className="sdx-sim-title">{it.title}</span>
+                    <span className="sdx-sim-price">
+                      <PriceTag item={it} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1721,9 +1844,23 @@ export function StorePanel({
                 <span className="muted">({wishIds.size})</span>
               )}
             </label>
+            <label className="sf-check">
+              <input
+                type="checkbox"
+                checked={followOnly}
+                onChange={(e) => {
+                  setFollowOnly(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              <UserCheck size={12} /> フォロー中の開発者
+              {follows.size > 0 && (
+                <span className="muted">({follows.size})</span>
+              )}
+            </label>
           </div>
 
-          {(titleQ || priceBand || saleOnly || wishOnly) && (
+          {(titleQ || priceBand || saleOnly || wishOnly || followOnly) && (
             <button
               className="btn mini sf-clear"
               onClick={() => {
@@ -1732,6 +1869,7 @@ export function StorePanel({
                 setPriceBand(null);
                 setSaleOnly(false);
                 setWishOnly(false);
+                setFollowOnly(false);
                 setPage(1);
               }}
             >

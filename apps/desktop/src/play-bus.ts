@@ -29,6 +29,12 @@ export interface WidgetSlice {
   cards: Panel[];
   textStock: string;
   sharedMemos: MemoPage[];
+  /** 参加者(PlayClient)がホストのとき true: 駒 UI を参加者仕様にする。 */
+  playerMode?: boolean;
+  /** 参加者ビューで自分の駒の × (片付け)を出すか。 */
+  allowRemove?: boolean;
+  /** シークレットダイスの伏せ表示に使う視点情報(参加者のみ)。 */
+  viewer?: { maskSecret: boolean; name?: string; panelNames?: string[] };
 }
 
 /** 窓→メインへ送る操作。メインが既存ハンドラへ振り分ける。 */

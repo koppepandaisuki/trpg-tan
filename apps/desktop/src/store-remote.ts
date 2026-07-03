@@ -278,6 +278,8 @@ export type StoreFilterOpts = {
   /** 作品名のみの絞り込み(右サイドバーの名前検索。q とは AND)。 */
   titleQ?: string | null;
   creatorId?: string | null;
+  /** フォロー中クリエイター絞り込み(ローカル保存の id 群)。 */
+  creatorIds?: string[] | null;
   /** ウィッシュリスト絞り込み(ローカル保存の id 群)。 */
   onlyIds?: string[] | null;
   priceBand?: StorePriceBand | null;
@@ -300,6 +302,10 @@ function applyStoreFilters<T extends any>(query: T, opts: StoreFilterOpts): T {
         : null;
   if (cats) q = cats.length === 1 ? q.eq("product_type", cats[0]) : q.in("product_type", cats);
   if (opts.creatorId) q = q.eq("creator_id", opts.creatorId);
+  if (opts.creatorIds) {
+    // 空配列 = フォローが無い: 全件ではなく 0 件にする(onlyIds と同じ流儀)。
+    q = q.in("creator_id", opts.creatorIds.length > 0 ? opts.creatorIds : ["-"]);
+  }
   if (opts.titleQ?.trim()) {
     // % と _ は LIKE のワイルドカードなのでエスケープ。
     const esc = opts.titleQ.trim().replace(/[%_]/g, (m) => `\\${m}`);
@@ -381,6 +387,21 @@ export async function fetchStore(opts: StoreFilterOpts): Promise<StoreListResult
     page,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
   };
+}
+
+/** 類似品(同カテゴリの好評順、自身を除く)。詳細ページ下部のレール用。 */
+export async function fetchSimilarItems(
+  productType: RemoteProductType,
+  excludeId: string,
+  limit = 8,
+): Promise<StoreItem[]> {
+  const res = await fetchByRating({
+    page: 1,
+    pageSize: limit + 1, // 自身が混ざる分を見込んで 1 つ多めに取る
+    searchIds: null,
+    opts: { category: productType },
+  });
+  return res.items.filter((it) => it.id !== excludeId).slice(0, limit);
 }
 
 /** 好評順ソート(Web の listByRating と同じ手順を JS 集計で)。 */

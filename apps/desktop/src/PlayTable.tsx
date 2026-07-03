@@ -2073,7 +2073,20 @@ export function PlayTable({
 
           {/* 左ドロワー: キャラクター */}
           <aside className={`pdrawer left ${leftOpen ? "open" : ""}`}>
-            <div className="pdrawer-head ibtn"><Users size={14} /> キャラクター</div>
+            <div className="pdrawer-head ibtn">
+              <Users size={14} /> キャラクター
+              <button
+                className="ss-float ss-os"
+                title={
+                  osWin["chars"]
+                    ? "メインウィンドウに戻す"
+                    : "アプリ外の別ウィンドウに切り離す(別モニターに置ける)"
+                }
+                onClick={() => void toggleDetach("chars")}
+              >
+                {osWin["chars"] ? "⇤" : "⇗"}
+              </button>
+            </div>
             <div className="pdrawer-body ss-chars">
               {playerCards.length === 0 ? (
                 <p className="pside-empty muted">
@@ -2114,12 +2127,15 @@ export function PlayTable({
             <div className="pdrawer-body pdrawer-stack">
               <SideStack
                 storageKey={`trpg.play.stack-player.v1::${scene.id}`}
+                onDetach={(id) => void toggleDetach(id)}
                 sections={[
                   {
                     id: "chat",
                     title: "チャット / ログ",
                     icon: <MessageSquare size={14} />,
                     defaultHeight: 460,
+                    detachable: true,
+                    detached: !!osWin["chat"],
                     body: (
                       <div className="pside-log">
                         <LogView
@@ -2161,6 +2177,8 @@ export function PlayTable({
                     title: "メモ",
                     icon: <StickyNote size={14} />,
                     defaultOpen: false,
+                    detachable: true,
+                    detached: !!osWin["memo"],
                     body: (
                       <MemoPanel
                         playId={scene.id}

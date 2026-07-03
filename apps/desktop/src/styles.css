@@ -4266,6 +4266,188 @@ body {
   flex: 1;
 }
 
+/* ===== ストア詳細(Steam 風) ===== */
+.store-gmain video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.store-gthumb-video {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.store-gthumb-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.store-gthumb-video svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  color: #fff;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+}
+/* アクション行(ウィッシュ / フォロー) */
+.sdx-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.sdx-actions .sdx-on {
+  border-color: var(--primary-deep);
+  color: var(--primary-deep);
+}
+/* 購入バー(「◯◯を購入する」) */
+.sdx-buybar {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sdx-buybar-title {
+  font-size: 15px;
+}
+.sdx-buybar-cta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+/* 右上の情報ボックス(カバー / 説明 / 総評 / 開発元 / タグ) */
+.sdx-info {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow-xs);
+}
+.sdx-info-cover {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.sdx-info-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sdx-info-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sdx-info-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+.sdx-info-rows dt {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.sdx-info-rows dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sdx-dev-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.sdx-info-tags {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.sdx-info-tags-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+/* 類似品レール */
+.sdx-similar {
+  margin-top: 20px;
+}
+.sdx-similar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.sdx-sim-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+  overflow: hidden;
+  text-align: left;
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+.sdx-sim-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.sdx-sim-thumb {
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.sdx-sim-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sdx-sim-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 0 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sdx-sim-price {
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 /* ===== PLAY 切り離しウィンドウ(?widget=)の外殻 ===== */
 .pwidget {
   display: flex;
