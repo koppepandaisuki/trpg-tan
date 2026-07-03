@@ -14,7 +14,7 @@ import {
  *
  * PLAY/Pro を選ぶと Settings の PlanSection と同じ実課金フローに乗る:
  *   1. startPlanCheckout → Stripe Checkout を外部ブラウザで開く。
- *      決済完了は paradice://subscription/complete で戻り、ウィンドウの
+ *      決済完了は redice://subscription/complete で戻り、ウィンドウの
  *      フォーカス復帰時にプランを再取得して自動で onUnlocked(共有再開)。
  *   2. 課金未構成(テスト環境)は従来どおり setMyPlanTester にフォールバック。
  * 管理者には出さない(呼び出し側でゲート免除)。

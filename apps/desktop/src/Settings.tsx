@@ -364,7 +364,7 @@ function PlanSection({ planSig = 0 }: { planSig?: number }) {
     try {
       const r = await startPlanCheckout(p);
       if (r.ok) {
-        // 外部ブラウザで Stripe を開く。戻り先は paradice://subscription/complete。
+        // 外部ブラウザで Stripe を開く。戻り先は redice://subscription/complete。
         await openUrl(r.url);
         setMsg("ブラウザで決済ページを開きました。完了後に自動でプランが更新されます。");
       } else if (r.reason === "not_configured") {
@@ -1108,7 +1108,7 @@ function AboutTab() {
   ];
   return (
     <>
-      <Section title="パラDa-iCE デスクトップ版" desc="TRPG の卓・キャラ・素材をひとつに。">
+      <Section title="Re-dice デスクトップ版" desc="TRPG の卓・キャラ・素材をひとつに。">
         <p className="muted" style={{ fontSize: 12 }}>
           作った卓やキャラはこの端末に保存されます。購入物はストアからダウンロードして
           ライブラリに取り込めます。

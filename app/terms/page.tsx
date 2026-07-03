@@ -13,7 +13,7 @@ export default function TermsPage() {
   return (
     <LegalLayout title="利用規約" icon={FileText} lastUpdated="2026-06-05">
       <p>
-        本利用規約(以下「本規約」)は、パラDa-iCE TRPGサイト(以下「本サービス」)の
+        本利用規約(以下「本規約」)は、Re-dice TRPGサイト(以下「本サービス」)の
         利用条件を定めるものです。利用者は本規約に同意のうえ本サービスを利用するものとします。
       </p>
 

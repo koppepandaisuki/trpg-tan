@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 export const metadata = {
   title: "クリエイター",
   description:
-    "パラDa-iCE TRPGサイトで公開作品を持つクリエイターの一覧。作品数の多い順。",
+    "Re-dice TRPGサイトで公開作品を持つクリエイターの一覧。作品数の多い順。",
 };
 
 interface CreatorsPageProps {

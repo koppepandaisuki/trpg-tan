@@ -14,9 +14,9 @@ const notoSansJp = Noto_Sans_JP({
   display: "swap",
 });
 
-// ブランド名は「パラDa-iCE」(短) / 「パラDa-iCE TRPGサイト」(フル)。
+// ブランド名は「Re-dice」(短) / 「Re-dice TRPGサイト」(フル)。
 // title.template により、子ページが string で title を返せば自動で
-// `${ページ名} | パラDa-iCE` の suffix が付く(子側で長いサフィックスを
+// `${ページ名} | Re-dice` の suffix が付く(子側で長いサフィックスを
 // 書く必要が無くなり、ブランド名変更時の差分も layout に集約される)。
 //
 // 子ページで suffix を付けたくない場合は `title: { absolute: "..." }` で
@@ -30,7 +30,7 @@ const notoSansJp = Noto_Sans_JP({
 //    を Next.js が自動で参照する(再指定不要)
 //  - description は 130 字以内を意識(検索結果のスニペット切れ防止)
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://trpg-tan.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://re-dice.net";
 
 const DESCRIPTION =
   "シナリオ・ルールブック・マップ・BGM など、TRPG向け作品を販売・購入できるマーケットプレイス。クリエイターは α 期間中、自動で出品権限が付与されます。";
@@ -38,11 +38,11 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "パラDa-iCE TRPGサイト",
-    template: "%s | パラDa-iCE",
+    default: "Re-dice TRPGサイト",
+    template: "%s | Re-dice",
   },
   description: DESCRIPTION,
-  applicationName: "パラDa-iCE",
+  applicationName: "Re-dice",
   keywords: [
     "TRPG",
     "テーブルトークRPG",
@@ -51,13 +51,13 @@ export const metadata: Metadata = {
     "マップ",
     "BGM",
     "マーケットプレイス",
-    "パラDa-iCE",
+    "Re-dice",
     "クトゥルフ",
     "創作",
   ],
-  authors: [{ name: "パラDa-iCE" }],
-  creator: "パラDa-iCE",
-  publisher: "パラDa-iCE",
+  authors: [{ name: "Re-dice" }],
+  creator: "Re-dice",
+  publisher: "Re-dice",
   // 検索エンジンには通常表示(α 期間中は noindex でもよいが、現状は流入
   // 歓迎の方針なので index: true)。本番の Robots.txt と整合させる。
   robots: {
@@ -68,15 +68,15 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ja_JP",
     url: SITE_URL,
-    siteName: "パラDa-iCE TRPGサイト",
-    title: "パラDa-iCE TRPGサイト",
+    siteName: "Re-dice TRPGサイト",
+    title: "Re-dice TRPGサイト",
     description: DESCRIPTION,
     // 画像は app/opengraph-image.png を Next.js が自動付加するため、
     // ここでは明示しない(二重指定で URL 衝突を避ける)
   },
   twitter: {
     card: "summary_large_image",
-    title: "パラDa-iCE TRPGサイト",
+    title: "Re-dice TRPGサイト",
     description: DESCRIPTION,
     // 画像は app/twitter-image.png 経由(同上)
   },

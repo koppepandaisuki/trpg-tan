@@ -69,7 +69,7 @@ jobs:
           # src-tauri を含むディレクトリ(モノレポ)。
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
-          releaseName: "パラDa-iCE ${{ github.ref_name }}"
+          releaseName: "Re-dice ${{ github.ref_name }}"
           releaseBody: "自動更新対応リリース。変更点を編集してから Publish してください。"
           # 下書きで作成 → 内容を確認してから手動 Publish(誤公開を防ぐ)。
           releaseDraft: true

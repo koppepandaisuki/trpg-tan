@@ -140,7 +140,7 @@ type CheckoutResult =
 
 /**
  * Stripe Checkout セッションを作成して URL を返す。デスクトップはこの URL を
- * 外部ブラウザで開き、決済後 paradice://subscription/complete で戻ってくる。
+ * 外部ブラウザで開き、決済後 redice://subscription/complete で戻ってくる。
  */
 export async function startPlanCheckout(
   plan: UserPlan,

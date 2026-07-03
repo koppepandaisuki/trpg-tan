@@ -33,7 +33,7 @@ export interface ModerationResult {
 }
 
 const SYSTEM_PROMPT = [
-  "あなたは TRPG(テーブルトークRPG)素材のマーケットプレイス「パラDa-iCE」の",
+  "あなたは TRPG(テーブルトークRPG)素材のマーケットプレイス「Re-dice」の",
   "出品モデレーターです。出品の「タイトル・説明・タグ」を読み、ストアに掲載して",
   "よいかを一次判定します。",
   "",

@@ -140,7 +140,7 @@ export function LibraryPage({
   }, [userId, load]);
 
   // 外部(App)から refreshSignal が来たら fetch をやり直す。
-  // 例: アプリ内決済後の paradice://purchase/complete を受けた時など。
+  // 例: アプリ内決済後の redice://purchase/complete を受けた時など。
   useEffect(() => {
     if (refreshSignal !== undefined && userId) void load();
   }, [refreshSignal, userId, load]);

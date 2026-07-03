@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * トップページ最上部の hero。パラDa-iCE ブランド(青いダイス / 白い清潔感 /
+ * トップページ最上部の hero。Re-dice ブランド(青いダイス / 白い清潔感 /
  * 柔らかい光 / 小さな星のきらめき)。派手な装飾は避け、白い面 + 淡い青の
  * グラデーション + 少量の star sparkle で構成する。
  *

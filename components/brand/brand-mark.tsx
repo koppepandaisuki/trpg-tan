@@ -1,10 +1,10 @@
 import { cn } from "@/lib/utils";
 
 /**
- * パラDa-iCE のブランドロゴ。デスクトップアプリと同じ見た目に揃える:
- *  - アイコン = パラダイスのサイコロ画像(public/dice.png、背景透過)
- *  - 「パラ」 = 通常の文字色(foreground)
- *  - 「Da-iCE」= スカイ→シアンのグラデ文字(掛けことばを強調)
+ * Re-dice のブランドロゴ。デスクトップアプリと同じ見た目に揃える:
+ *  - アイコン = サイコロ画像(public/dice.png、背景透過)
+ *  - 「Re-」 = 通常の文字色(foreground)
+ *  - 「dice」= スカイ→シアンのグラデ文字(dice / dicere の掛けことば)
  *  - ウェイトは black(900)で、文字は画像でなくテキストなので滲まない
  *
  * 使い方:
@@ -68,9 +68,9 @@ export function BrandMark({
         )}
       />
       <span className={cn("font-black tracking-tight", TEXT_SIZE[size])}>
-        <span className="text-foreground">パラ</span>
+        <span className="text-foreground">Re-</span>
         <span className="bg-gradient-to-r from-sky-600 to-cyan-400 bg-clip-text text-transparent">
-          Da-iCE
+          dice
         </span>
       </span>
       {showSubtitle && (

@@ -67,7 +67,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps) {
   const product = await getPublishedProductBySlug(params.slug);
   if (!product) return { title: "作品が見つかりません" };
-  // title は string → root の title.template が「| パラDa-iCE」を自動付与
+  // title は string → root の title.template が「| Re-dice」を自動付与
   return {
     title: product.title,
     description: product.description.slice(0, 120),

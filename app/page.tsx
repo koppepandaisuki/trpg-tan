@@ -37,7 +37,7 @@ import type { ProductType } from "@/lib/queries/types";
  */
 
 // root layout の title.default に任せて、ホームでは独自 title を出さない
-// (「パラDa-iCE TRPGサイト」がブラウザタブに出る)。
+// (「Re-dice TRPGサイト」がブラウザタブに出る)。
 
 // 1 分で revalidate(ストアのフロントなので頻繁更新は不要)
 export const revalidate = 60;

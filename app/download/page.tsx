@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 export const metadata = {
   title: "アプリをダウンロード",
   description:
-    "パラDa-iCE デスクトップアプリ（Windows）のダウンロード。買った作品をそのまま卓へ。オンラインセッション・シナリオ作成・キャラクターシートが使えます。",
+    "Re-dice デスクトップアプリ（Windows）のダウンロード。買った作品をそのまま卓へ。オンラインセッション・シナリオ作成・キャラクターシートが使えます。",
 };
 
 /** GitHub Releases の最新版ページ。最新の setup.exe をここから取得する。 */
@@ -66,7 +66,7 @@ export default function DownloadPage() {
             </div>
             <div className="space-y-1">
               <h1 className="text-2xl font-bold tracking-tight">
-                パラDa-iCE デスクトップアプリ
+                Re-dice デスクトップアプリ
               </h1>
               <p className="text-sm text-muted-foreground">
                 買ったらそのまま卓へ。オンラインセッション・シナリオ作成・

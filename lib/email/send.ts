@@ -10,7 +10,7 @@ import "server-only";
  *
  * 必要な env:
  *   RESEND_API_KEY  Resend の API キー(re_...)。未設定なら送信スキップ。
- *   EMAIL_FROM      差出人("パラDa-iCE <noreply@yourdomain>")。未設定なら送信スキップ。
+ *   EMAIL_FROM      差出人("Re-dice <noreply@yourdomain>")。未設定なら送信スキップ。
  */
 
 const RESEND_API_URL = "https://api.resend.com/emails";

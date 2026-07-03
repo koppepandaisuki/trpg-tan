@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  // デスクトップから来た場合、success/cancel ページが paradice:// で
+  // デスクトップから来た場合、success/cancel ページが redice:// で
   // アプリに戻れるよう return_to=desktop を URL に乗せる。
   const isFromDesktop = body.returnTo === "desktop";
 

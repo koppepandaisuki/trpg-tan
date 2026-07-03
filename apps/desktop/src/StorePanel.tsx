@@ -1536,7 +1536,7 @@ export function StorePanel({
                   🎲
                 </span>
                 <div className="sbanner-copy">
-                  <strong className="sbanner-title">パラDa-iCE ストア</strong>
+                  <strong className="sbanner-title">Re-dice ストア</strong>
                   <span className="sbanner-sub">
                     シナリオ・マップ・素材がここに。買ったらそのまま卓へ。
                   </span>

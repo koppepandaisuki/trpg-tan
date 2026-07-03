@@ -63,7 +63,7 @@ import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
 import { NewCharacterMenu } from "./NewCharacterMenu";
 import { SheetSystemPicker } from "./SheetSystemPicker";
-import diceMark from "./assets/dice.png";
+import logoMark from "./assets/logo.png";
 
 // 日程調整ツール(web)の作成ページ。ロビーから既定ブラウザで開く。匿名でも作れる
 // (web 側がログイン任意)ため、ここはアプリの Bearer を介さず URL を開くだけ。
@@ -214,9 +214,9 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
   const [storeHomeSig, setStoreHomeSig] = useState(0);
-  // ライブラリ強制リフレッシュ(paradice://purchase/complete などで +1)。
+  // ライブラリ強制リフレッシュ(redice://purchase/complete などで +1)。
   const [librarySig, setLibrarySig] = useState(0);
-  // プラン再取得シグナル(paradice://subscription/complete などで +1)。
+  // プラン再取得シグナル(redice://subscription/complete などで +1)。
   const [planSig, setPlanSig] = useState(0);
   // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。PLAY 中も従う。
   const [theme, setTheme] = useState(
@@ -230,12 +230,12 @@ export function App() {
     }
   }, [theme]);
 
-  // deep-link(paradice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
+  // deep-link(redice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
   useEffect(() => {
     if (isTauri()) void initDeepLinkAuth();
   }, []);
 
-  // paradice://purchase/complete|cancel を購読。決済完了でライブラリへ
+  // redice://purchase/complete|cancel を購読。決済完了でライブラリへ
   // 自動移動 + 強制リフレッシュ。webhook 反映に数秒の遅延があるため
   // 初回 fetch で出なくても再度ボタン押下で再取得できる。
   useEffect(() => {
@@ -734,11 +734,8 @@ export function App() {
           onClick={() => goTo("store")}
           title="ストアのトップへ"
         >
-          <img src={diceMark} alt="" className="brand-dice" aria-hidden />
-          <span className="brand-word" aria-label="パラDa-iCE">
-            <span className="brand-para">パラ</span>
-            <span className="brand-daice">Da-iCE</span>
-          </span>
+          {/* 新ロゴ(ダイス+Re-dice ワードマーク一体の画像)。 */}
+          <img src={logoMark} alt="Re-dice" className="brand-logo" />
         </span>
         <nav className="topnav" role="tablist">
           {PAGES.map((p) => {

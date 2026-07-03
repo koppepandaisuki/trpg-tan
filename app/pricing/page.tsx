@@ -10,7 +10,7 @@ import { isPlanBillingConfigured } from "@/lib/stripe/subscription";
 export const metadata = {
   title: "料金プラン",
   description:
-    "パラDa-iCE の料金プラン。基本（無料）/ プレイ（PLAY解放）/ Pro（手数料優遇など）の3段階。",
+    "Re-dice の料金プラン。基本（無料）/ プレイ（PLAY解放）/ Pro（手数料優遇など）の3段階。",
 };
 
 const BASIC_PCT = Math.round(PLATFORM_FEE_RATE * 100);
@@ -126,7 +126,7 @@ export default async function PricingPage() {
               aria-hidden
             />
             <p className="text-sm font-bold tracking-widest text-sky-600">
-              パラDa-iCE
+              Re-dice
             </p>
             <h1 className="relative mt-1 inline-block text-4xl font-black tracking-tight sm:text-5xl">
               <span

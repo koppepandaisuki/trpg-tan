@@ -1100,7 +1100,7 @@ export function effectiveDiscountPercent(
  *
  * `?from=desktop` を付けることで、web 側 buy-button が checkout API に
  * `returnTo: "desktop"` を伝え、決済成功/キャンセル時に
- * paradice://purchase/* deep link でアプリへ自動で戻れる。
+ * redice://purchase/* deep link でアプリへ自動で戻れる。
  */
 export function webProductUrl(slug: string): string {
   const base = import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000";

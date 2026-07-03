@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 /**
  * 決済成功/キャンセル画面でデスクトップアプリに戻る導線。
  *
- *  - paradice:// deep link を発火してアプリに通知する
+ *  - redice:// deep link を発火してアプリに通知する
  *  - 1.2 秒待っても可視のままなら、戻れなかった可能性が高いので
  *    手動の「アプリに戻る」ボタンを表示する(ブラウザにより
  *    deep link 自動起動はブロックされうるため)。
@@ -29,13 +29,13 @@ export function ReturnToDesktop({
 
   const href = React.useMemo(() => {
     if (subPlan) {
-      return `paradice://subscription/complete?plan=${subPlan}`;
+      return `redice://subscription/complete?plan=${subPlan}`;
     }
     const q = new URLSearchParams();
     if (sessionId) q.set("session_id", sessionId);
     if (slug) q.set("slug", slug);
     const qs = q.toString();
-    return `paradice://purchase/${kind}${qs ? `?${qs}` : ""}`;
+    return `redice://purchase/${kind}${qs ? `?${qs}` : ""}`;
   }, [kind, sessionId, slug, subPlan]);
 
   React.useEffect(() => {

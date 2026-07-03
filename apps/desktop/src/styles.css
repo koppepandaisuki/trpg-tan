@@ -1,5 +1,5 @@
 /*
- * パラDa-iCE ブランド(青いダイス / 白い清潔感 / 柔らかい光)。
+ * Re-dice ブランド(青いダイス / 白い清潔感 / 柔らかい光)。
  * Web 側のトークンと同じ配色をデスクトップにも適用し、見た目を揃える。
  */
 :root {
@@ -2700,7 +2700,7 @@ body {
   gap: 6px;
 }
 
-/* ===== パラDa-iCE ダイス・モーション(物理転がり)===== */
+/* ===== Re-dice ダイス・モーション(物理転がり)===== */
 /* 非ブロッキング: 盤面操作を妨げない(読み上げカードのみ操作可)。 */
 .dm-overlay {
   position: fixed;
@@ -6957,8 +6957,22 @@ button:disabled {
 .topbar-brand:hover {
   filter: brightness(1.06);
 }
-/* ブランドマーク: ダイス(小さなアイコン)+ ベクターの文字ワードマーク。
-   文字は画像でなくテキストなので拡大しても滲まず「画像感」が出ない。 */
+/* ブランドマーク: 新ロゴ画像(ダイス+Re-dice ワードマーク一体)。
+   紺色の文字なので、ダークテーマでは反転して白抜きにする。 */
+.brand-logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 5px rgba(33, 152, 214, 0.25));
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.topbar-brand:hover .brand-logo {
+  transform: scale(1.03);
+}
+[data-theme="dark"] .brand-logo {
+  filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(125, 228, 211, 0.25));
+}
 .brand-dice {
   height: 30px;
   width: 30px;
@@ -6994,7 +7008,7 @@ button:disabled {
   margin-left: 1px;
 }
 /* VALORANT 風に「PLAY」を中央の主役に。ナビ全体をヘッダー中央へ寄せ、
-   左=ロゴ / 右=アカウントを両端に置く。配色はパラDa-iCE のスカイ→ミント。 */
+   左=ロゴ / 右=アカウントを両端に置く。配色はRe-dice のスカイ→ミント。 */
 .topnav {
   flex: 1;
   display: flex;

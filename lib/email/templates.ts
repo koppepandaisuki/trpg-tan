@@ -11,7 +11,7 @@ export interface EmailContent {
   text: string;
 }
 
-const BRAND = "パラDa-iCE";
+const BRAND = "Re-dice";
 
 function escapeHtml(s: string): string {
   return s
