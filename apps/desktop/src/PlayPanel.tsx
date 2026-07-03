@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Heart, Droplet, Brain, Diamond, Eye, EyeOff } from "lucide-react";
+import { Heart, Droplet, Brain, Diamond, Eye, EyeOff, BookOpen } from "lucide-react";
 import type { Panel, PanelResource, PanelStat } from "@trpg/core";
 
 /** HP/MP/SAN 等のリソースに添えるアイコン(色は CSS の .res-* で)。 */
@@ -249,8 +249,32 @@ export function PlayPanel({
         onSend={onSend}
         onEdit={onEditPalette}
       />
+
+      {/* キャラシから引き継いだ職業/メモ/背景(読むだけ。編集は駒の右クリック)。 */}
+      {panel.note?.trim() && <ProfileNote note={panel.note} />}
         </>
       )}
+    </div>
+  );
+}
+
+/** 駒の情報/メモ(キャラシのメモ・背景込み)を折りたたみで表示する。 */
+function ProfileNote({ note }: { note: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="ppanel-profile">
+      <button
+        className="ppanel-profile-head"
+        onClick={() => setOpen((v) => !v)}
+        title={open ? "閉じる" : "キャラシのメモ・背景を見る"}
+      >
+        <BookOpen size={12} aria-hidden />
+        <span className="ppanel-section">プロフィール</span>
+        <span className="ppanel-profile-caret" aria-hidden>
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+      {open && <div className="ppanel-profile-body">{note}</div>}
     </div>
   );
 }

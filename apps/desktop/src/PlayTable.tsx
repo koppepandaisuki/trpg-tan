@@ -92,13 +92,25 @@ import {
 } from "./net";
 import { useLiveDrag } from "./use-live-drag";
 import { getLibrary, systemLabel } from "./library";
-import { readSheetFromPath, isGenericSheet } from "./storage";
+import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { toast } from "./Toasts";
 import { savePlayAs, savePlayToPath } from "./play-storage";
 import { FriendPickerModal } from "./FriendsPanel";
 import { PlayPlanGate } from "./PlayPlanGate";
 import { sendTableInvite } from "./friends-remote";
 import { exportPackToFile } from "./pack";
+import {
+  WIDGET_DEFS,
+  emitSync,
+  onHello,
+  onWidgetIntent,
+  onRedock,
+  openWidgetWindow,
+  closeWidgetWindow,
+  closeAllWidgetWindows,
+  type WidgetSlice,
+  type WidgetIntent,
+} from "./play-bus";
 
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
 function newCtx() {
@@ -280,6 +292,149 @@ export function PlayTable({
     .sort((a, b) => (b.speed ?? -Infinity) - (a.speed ?? -Infinity));
   // 参加者ビューでは秘匿キャラを出さない。
   const playerCards = cards.filter((p) => !p.hidden);
+
+  /* ===== サイドバーの「アプリ外」切り離し(OS 別ウィンドウ / play-bus) ===== */
+  const [osWin, setOsWin] = useState<Record<string, boolean>>({});
+  const anyOsWin = Object.values(osWin).some(Boolean);
+
+  // 切り離し窓へ配信するスライス。盤面専用の重いフィールド(座標/差分画像等)は
+  // 落とす = 駒移動のたびに再配信しない(JSON 比較ガードも効く)。
+  const widgetSlice = useMemo<WidgetSlice>(() => {
+    const slimCards = scene.panels
+      .filter((p) => p.stats.length > 0 || p.resources.length > 0)
+      .sort((a, b) => (b.speed ?? -Infinity) - (a.speed ?? -Infinity))
+      .map(({ pos, size, height, layer, locked, sceneId, variants, ...rest }) => rest);
+    return {
+      playId: scene.id,
+      title: scene.title,
+      // diceBot(下で宣言される派生値)と同じ式。scene から直接導出する。
+      diceBot:
+        scene.diceBot ??
+        (scene.systemId === "coc6" || scene.systemId === "coc7"
+          ? "coc"
+          : "generic"),
+      log: scene.log.slice(-400),
+      speakers: [
+        { id: "GM", name: "GM" },
+        ...slimCards.map((p) => ({ id: p.id, name: p.name })),
+      ],
+      cards: slimCards,
+      textStock: scene.textStock ?? "",
+      sharedMemos: scene.sharedMemos ?? [
+        { id: "main", name: "メモ", text: scene.sharedMemo ?? "" },
+      ],
+    };
+  }, [scene]);
+  const sliceRef = useRef(widgetSlice);
+  sliceRef.current = widgetSlice;
+  const lastSyncJson = useRef("");
+  useEffect(() => {
+    if (!anyOsWin) return;
+    const json = JSON.stringify(widgetSlice);
+    if (json === lastSyncJson.current) return;
+    lastSyncJson.current = json;
+    void emitSync(widgetSlice);
+  }, [widgetSlice, anyOsWin]);
+
+  // 窓からの操作を既存ハンドラへ(最新クロージャを ref 経由で呼ぶ)。
+  const widgetIntentRef = useRef<(it: WidgetIntent) => void>(() => {});
+  widgetIntentRef.current = (it) => {
+    switch (it.kind) {
+      case "send":
+        handleSend(it.speakerId, it.raw, {
+          channel: it.channel,
+          secret: it.secret,
+          visibleTo: it.visibleTo,
+          color: it.color,
+        });
+        break;
+      case "fill":
+        fill(it.speakerId, it.text);
+        break;
+      case "resource": {
+        const p = scene.panels.find((x) => x.id === it.panelId);
+        const r = p?.resources.find((x) => x.key === it.resourceKey);
+        if (p && r) changeResource(p, r, it.delta);
+        break;
+      }
+      case "remove-panel": {
+        const p = scene.panels.find((x) => x.id === it.panelId);
+        if (p) removePanel(p);
+        break;
+      }
+      case "panel-update":
+        updatePanel(it.panelId, it.patch);
+        break;
+      case "stock-send":
+        playSeByName(it.se);
+        sendNow("GM", it.text);
+        break;
+      case "telop":
+        playSeByName(it.se);
+        fireTelop(it.text);
+        break;
+      case "stock-edit":
+        setTextStock(it.text);
+        break;
+      case "shared-memos":
+        setSharedMemos(it.memos);
+        break;
+    }
+  };
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let dead = false;
+    const uns: (() => void)[] = [];
+    const keep = (p: Promise<() => void>) => {
+      void p.then((u) => {
+        if (dead) u();
+        else uns.push(u);
+      });
+    };
+    keep(onHello(() => void emitSync(sliceRef.current)));
+    keep(onWidgetIntent((it) => widgetIntentRef.current(it)));
+    keep(onRedock((id) => setOsWin((w) => ({ ...w, [id]: false }))));
+    return () => {
+      dead = true;
+      uns.forEach((u) => u());
+    };
+  }, []);
+
+  // 卓を離れるときは切り離し窓も一緒に閉じる。
+  useEffect(
+    () => () => {
+      if (isTauri()) void closeAllWidgetWindows(Object.keys(WIDGET_DEFS));
+    },
+    [],
+  );
+
+  async function toggleDetach(id: string) {
+    const def = WIDGET_DEFS[id];
+    if (!def) return;
+    if (osWin[id]) {
+      setOsWin((w) => ({ ...w, [id]: false }));
+      void closeWidgetWindow(id);
+      return;
+    }
+    if (!isTauri()) {
+      toast("アプリ外への切り離しはデスクトップアプリでのみ使えます");
+      return;
+    }
+    setOsWin((w) => ({ ...w, [id]: true }));
+    try {
+      await openWidgetWindow(
+        id,
+        `${def.title} — ${scene.title || "卓"}`,
+        def,
+        () => setOsWin((w) => ({ ...w, [id]: false })),
+      );
+      void emitSync(sliceRef.current);
+    } catch (e) {
+      setOsWin((w) => ({ ...w, [id]: false }));
+      toast(`切り離しに失敗しました: ${String(e)}`);
+    }
+  }
 
   function dispatch(event: PlayEvent) {
     setScene((s) => reduce(s, event));
@@ -1558,6 +1713,7 @@ export function PlayTable({
         <aside className="pside">
           <SideStack
             storageKey={`trpg.play.stack-left.v1::${scene.id}`}
+            onDetach={(id) => void toggleDetach(id)}
             sections={[
               {
                 id: "table",
@@ -1633,6 +1789,8 @@ export function PlayTable({
                 id: "chars",
                 title: "キャラクター",
                 icon: <Users size={14} />,
+                detachable: true,
+                detached: !!osWin["chars"],
                 body: (
                   <div className="ss-chars">
                     {cards.length === 0 ? (
@@ -1669,6 +1827,8 @@ export function PlayTable({
                 title: "テキスト",
                 icon: <BookOpen size={14} />,
                 defaultOpen: false,
+                detachable: true,
+                detached: !!osWin["stock"],
                 body: (
                   <TextStockPanel
                     stock={scene.textStock ?? ""}
@@ -1690,6 +1850,8 @@ export function PlayTable({
                 title: "シナリオ",
                 icon: <ScrollText size={14} />,
                 defaultOpen: false,
+                detachable: true,
+                detached: !!osWin["scenario"],
                 body: <ScenarioViewer playId={scene.id} />,
               },
               {
@@ -1806,12 +1968,15 @@ export function PlayTable({
         <aside className="psider">
           <SideStack
             storageKey={`trpg.play.stack-right.v1::${scene.id}`}
+            onDetach={(id) => void toggleDetach(id)}
             sections={[
               {
                 id: "chat",
                 title: "チャット / ログ",
                 icon: <MessageSquare size={14} />,
                 defaultHeight: 480,
+                detachable: true,
+                detached: !!osWin["chat"],
                 body: (
                   <div className="pside-log">
                     <LogView
@@ -1853,6 +2018,8 @@ export function PlayTable({
                 title: "メモ",
                 icon: <StickyNote size={14} />,
                 defaultOpen: false,
+                detachable: true,
+                detached: !!osWin["memo"],
                 body: (
                   <MemoPanel
                     playId={scene.id}
@@ -1870,6 +2037,8 @@ export function PlayTable({
                 title: "ルールブック Q&A",
                 icon: <BookMarked size={14} />,
                 defaultOpen: false,
+                detachable: true,
+                detached: !!osWin["rulebook"],
                 body: <RulebookQA playId={scene.id} />,
               },
             ]}

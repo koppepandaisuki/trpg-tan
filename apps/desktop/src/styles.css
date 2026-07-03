@@ -2590,6 +2590,44 @@ body {
   padding-top: 8px;
   border-top: 1px dashed var(--border);
 }
+/* キャラシ由来のプロフィール(職業/メモ/背景)。読み物なので控えめに。 */
+.ppanel-profile {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+.ppanel-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 0;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ppanel-profile-head:hover {
+  color: var(--text);
+}
+.ppanel-profile-caret {
+  margin-left: auto;
+}
+.ppanel-profile-body {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow-y: auto;
+}
 .ppanel-palette-head {
   display: flex;
   align-items: center;
@@ -4207,6 +4245,75 @@ body {
 .ss-float:hover {
   color: var(--primary-deep);
   background: var(--surface-3);
+}
+/* ⇗(アプリ外へ切り離し)は ⧉ の左に並ぶため auto マージンはこちらに。 */
+.ss-float.ss-os {
+  margin-left: auto;
+}
+.ss-float.ss-os + .ss-float {
+  margin-left: 0;
+}
+/* OS 別ウィンドウ表示中のプレースホルダ。 */
+.ss-detached-ph {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+.ss-detached-ph p {
+  margin: 0;
+  font-size: 12px;
+  flex: 1;
+}
+
+/* ===== PLAY 切り離しウィンドウ(?widget=)の外殻 ===== */
+.pwidget {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+.pwidget-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex: none;
+}
+.pwidget-title {
+  font-size: 13px;
+}
+.pwidget-table {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pwidget-head .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.pwidget-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+}
+.pwidget-body .pside-log,
+.pwidget-log {
+  height: 100%;
+}
+.pwidget-wait {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12.5px;
 }
 .ss-head {
   display: flex;

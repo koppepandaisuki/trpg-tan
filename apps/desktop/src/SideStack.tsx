@@ -21,6 +21,10 @@ export interface SideSection {
   defaultOpen?: boolean;
   /** 初期高さ(px)。未指定は内容なり(auto)。 */
   defaultHeight?: number;
+  /** アプリ外(OS の別ウィンドウ)へ切り離せるか(onDetach 必須)。 */
+  detachable?: boolean;
+  /** OS 別ウィンドウで表示中(本体はプレースホルダに差し替わる)。 */
+  detached?: boolean;
   body: ReactNode;
 }
 
@@ -68,9 +72,12 @@ function clampPos(p: FloatPos): FloatPos {
 export function SideStack({
   storageKey,
   sections,
+  onDetach,
 }: {
   storageKey: string;
   sections: SideSection[];
+  /** detachable なセクションの「アプリ外へ切り離す / 戻す」トグル。 */
+  onDetach?: (id: string) => void;
 }) {
   const [state, setState] = useState<StackState>(() => load(storageKey));
   // 並べ替えドラッグ(ポインタ式)。HTML5 DnD は WebView で不安定なので使わない。
@@ -157,14 +164,10 @@ export function SideStack({
     setZOrder((z) => [...z.filter((x) => x !== id), id]);
   }
 
-  /* ===== 並べ替え(⠿ をポインタドラッグ / ドック中のみ) ===== */
+  /* ===== 並べ替え(ヘッダ or ⠿ をポインタドラッグ / ドック中のみ) ===== */
 
-  function startReorder(e: React.PointerEvent, id: string) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    // 各セクションの中点 Y を記録(ドラッグ中はこの座標で挿入先を判定)。
+  /** 並べ替えドラッグを開始する(挿入先判定用に各セクション中点を記録)。 */
+  function beginReorder(id: string) {
     // フロート中のものは飛ばす(流れに参加していない)。
     const mids = ordered
       .filter((s) => !floatOf(s.id))
@@ -177,14 +180,27 @@ export function SideStack({
     setDragging(id);
   }
 
+  function startReorder(e: React.PointerEvent, id: string) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    beginReorder(id);
+  }
+
   /** ポインタ位置 → 挿入先(この id の前に入れる。"__end__"=末尾)。 */
-  function reorderTarget(clientY: number): string {
-    const r = reorderRef.current;
-    if (!r) return "__end__";
+  function targetFrom(
+    r: { id: string; mids: { id: string; mid: number }[] },
+    clientY: number,
+  ): string {
     for (const m of r.mids) {
       if (m.id !== r.id && clientY < m.mid) return m.id;
     }
     return "__end__";
+  }
+  function reorderTarget(clientY: number): string {
+    const r = reorderRef.current;
+    return r ? targetFrom(r, clientY) : "__end__";
   }
 
   function onReorderMove(e: React.PointerEvent) {
@@ -198,7 +214,9 @@ export function SideStack({
     setDragging(null);
     setOverId(null);
     if (!r) return;
-    const target = reorderTarget(e.clientY);
+    // 注意: ref を null にした後なので reorderTarget() ではなく r から直接計算する
+    // (以前は常に "__end__" 扱いになり「末尾にしか動かせない」バグだった)。
+    const target = targetFrom(r, e.clientY);
     if (target === r.id) return;
     setState((st) => {
       const ids = ordered.map((s) => s.id).filter((id) => id !== r.id);
@@ -206,6 +224,60 @@ export function SideStack({
       ids.splice(at < 0 ? ids.length : at, 0, r.id);
       return { ...st, order: ids };
     });
+  }
+
+  /* ===== ヘッダのポインタ操作 =====
+     ドック中: 6px 動かすまではクリック(開閉)、超えたら並べ替えドラッグ。
+     フロート中: ドラッグで移動。⠿ グリップ経由の並べ替えも従来どおり使える。 */
+  const headDragRef = useRef<{
+    id: string;
+    x: number;
+    y: number;
+    active: boolean;
+  } | null>(null);
+
+  function onHeadDown(e: React.PointerEvent, s: SideSection) {
+    if (floatOf(s.id)) {
+      startMove(e, s.id);
+      return;
+    }
+    if (e.button !== 0) return;
+    e.preventDefault(); // ドラッグ中のテキスト選択を防ぐ(クリック開閉は up で処理)
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // 合成イベント等でポインタ未登録でも操作自体は続行できる
+    }
+    headDragRef.current = { id: s.id, x: e.clientX, y: e.clientY, active: false };
+  }
+
+  function onHeadMove(e: React.PointerEvent) {
+    if (moveRef.current) {
+      onMoveDrag(e);
+      return;
+    }
+    const hd = headDragRef.current;
+    if (!hd) return;
+    if (!hd.active) {
+      if (Math.abs(e.clientX - hd.x) + Math.abs(e.clientY - hd.y) < 6) return;
+      hd.active = true;
+      beginReorder(hd.id);
+    }
+    setOverId(reorderTarget(e.clientY));
+  }
+
+  function onHeadUp(e: React.PointerEvent, s: SideSection) {
+    if (moveRef.current) {
+      endMove();
+      return;
+    }
+    const hd = headDragRef.current;
+    headDragRef.current = null;
+    if (hd?.active) {
+      endReorder(e);
+    } else if (hd && !floatOf(s.id)) {
+      toggle(s.id, s.defaultOpen ?? true);
+    }
   }
 
   /* ===== フロート移動(ヘッダをポインタドラッグ) ===== */
@@ -292,16 +364,18 @@ export function SideStack({
           >
             <div
               className="ss-head"
-              onClick={() => {
-                if (!float) toggle(s.id, s.defaultOpen ?? true);
+              onPointerDown={(e) => onHeadDown(e, s)}
+              onPointerMove={onHeadMove}
+              onPointerUp={(e) => onHeadUp(e, s)}
+              onPointerCancel={() => {
+                headDragRef.current = null;
+                reorderRef.current = null;
+                setDragging(null);
+                setOverId(null);
               }}
-              onPointerDown={(e) => {
-                // フロート中はヘッダドラッグで移動。
-                if (float) startMove(e, s.id);
-              }}
-              onPointerMove={onMoveDrag}
-              onPointerUp={endMove}
-              title={float ? "ドラッグで移動" : "クリックで開閉"}
+              title={
+                float ? "ドラッグで移動" : "クリックで開閉 / ドラッグで並べ替え"
+              }
             >
               {!float && (
                 <span
@@ -327,38 +401,74 @@ export function SideStack({
                 </span>
               )}
               <span className="ss-title">{s.title}</span>
-              <button
-                className="ss-float"
-                title={float ? "サイドバーに戻す" : "ウィンドウとして切り離す"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleFloat(s);
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                {float ? "⇤" : "⧉"}
-              </button>
+              {s.detachable && onDetach && (
+                <button
+                  className="ss-float ss-os"
+                  title={
+                    s.detached
+                      ? "メインウィンドウに戻す"
+                      : "アプリ外の別ウィンドウに切り離す(別モニターに置ける)"
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDetach(s.id);
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {s.detached ? "⇤" : "⇗"}
+                </button>
+              )}
+              {!s.detached && (
+                <button
+                  className="ss-float"
+                  title={float ? "サイドバーに戻す" : "盤面の上に浮かせる(アプリ内)"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFloat(s);
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {float ? "⇤" : "⧉"}
+                </button>
+              )}
             </div>
 
-            {/* 閉じてもアンマウントしない(BGM 再生・入力中テキストを保持)。 */}
-            <div
-              id={`ss-body-${storageKey}-${s.id}`}
-              className="ss-body"
-              style={{
-                ...(float ? { height: float.h } : h ? { height: h } : {}),
-                ...(open || float ? {} : { display: "none" }),
-              }}
-            >
-              {s.body}
-            </div>
-            {(open || float) && (
-              <div
-                className="ss-resize"
-                onPointerDown={(e) => startResize(e, s)}
-                onPointerMove={onResizeMove}
-                onPointerUp={endResize}
-                title="ドラッグで高さを変更"
-              />
+            {/* OS 別ウィンドウ表示中はプレースホルダだけ出す。 */}
+            {s.detached ? (
+              <div className="ss-body ss-detached-ph">
+                <p className="muted">別ウィンドウで表示中</p>
+                {onDetach && (
+                  <button
+                    className="btn mini"
+                    onClick={() => onDetach(s.id)}
+                  >
+                    ⇤ 戻す
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* 閉じてもアンマウントしない(BGM 再生・入力中テキストを保持)。 */}
+                <div
+                  id={`ss-body-${storageKey}-${s.id}`}
+                  className="ss-body"
+                  style={{
+                    ...(float ? { height: float.h } : h ? { height: h } : {}),
+                    ...(open || float ? {} : { display: "none" }),
+                  }}
+                >
+                  {s.body}
+                </div>
+                {(open || float) && (
+                  <div
+                    className="ss-resize"
+                    onPointerDown={(e) => startResize(e, s)}
+                    onPointerMove={onResizeMove}
+                    onPointerUp={endResize}
+                    title="ドラッグで高さを変更"
+                  />
+                )}
+              </>
             )}
           </section>
         );
