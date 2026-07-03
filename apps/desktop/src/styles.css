@@ -6788,6 +6788,31 @@ button:disabled {
   color: var(--text-muted);
 }
 
+/* ☰ メニューポップオーバー(卓のタグ / アプリメニュー導線)。share-pop と同系。 */
+.menu-pop {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: var(--z-pop);
+  width: 300px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.menu-pop-title {
+  font-size: 13px;
+}
+.menu-pop .ttags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .share-pop {
   position: fixed;
   top: 56px;

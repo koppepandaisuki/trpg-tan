@@ -22,7 +22,6 @@ import {
   sceneRemoveEvent,
   turnSetEvent,
   logClearEvent,
-  buildPack,
   parseCcfoliaCharacter,
   panelVariables,
   substituteVars,
@@ -56,7 +55,6 @@ import {
   MessageSquare,
   StickyNote,
   BookMarked,
-  NotebookPen,
   ClipboardPaste,
 } from "lucide-react";
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -79,7 +77,6 @@ import { AssetsPanel } from "./AssetsPanel";
 import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
-import { ScenarioBuilderPanel } from "./ScenarioBuilderPanel";
 import { playSeFile } from "./SePanel";
 import { uploadAudioPath, sanitizeForNet, splitSceneMedia } from "./play-media";
 import { probeImageWidth } from "./play-thumb";
@@ -98,7 +95,6 @@ import { savePlayAs, savePlayToPath } from "./play-storage";
 import { FriendPickerModal } from "./FriendsPanel";
 import { PlayPlanGate } from "./PlayPlanGate";
 import { sendTableInvite } from "./friends-remote";
-import { exportPackToFile } from "./pack";
 import {
   WIDGET_DEFS,
   emitSync,
@@ -196,6 +192,8 @@ export function PlayTable({
   const { sendDrag, overlay: overlayLive } = useLiveDrag(room);
   const [members, setMembers] = useState<string[]>([]);
   const [sharePop, setSharePop] = useState(false);
+  // ☰ メニューポップオーバー(卓のタグ / アプリメニューへの導線)。
+  const [menuPop, setMenuPop] = useState(false);
   // 無料(basic・非admin)が共有を押したとき出すプラン案内モーダル。
   const [planGateOpen, setPlanGateOpen] = useState(false);
   const [friendInviteOpen, setFriendInviteOpen] = useState(false);
@@ -845,24 +843,6 @@ export function PlayTable({
       );
     };
     reader.readAsDataURL(file);
-  }
-
-  /** 卓全体を .paradice として書き出す(シナリオ作成タブの導線)。 */
-  async function exportScenarioPack() {
-    try {
-      const pack = buildPack({
-        id: scene.id,
-        name: scene.title || "無題のシナリオ",
-        scenarios: [scene],
-        now: new Date().toISOString(),
-      });
-      const path = await exportPackToFile(pack);
-      if (path) toast(`📦 「${pack.name}」を書き出しました`);
-    } catch (e) {
-      toast(
-        `書き出しに失敗: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
   }
 
   /* ===== シナリオテキストストック / カットイン(GM ローカル編集) ===== */
@@ -1604,8 +1584,8 @@ export function PlayTable({
               {onMenu && (
                 <button
                   className="btn mini ibtn"
-                  onClick={onMenu}
-                  title="メニュー（キャラ / 購入 / 卓）"
+                  onClick={() => setMenuPop((v) => !v)}
+                  title="メニュー（卓のタグ / アプリメニュー）"
                   aria-label="メニューを開く"
                 >
                   <Menu size={15} />
@@ -1675,6 +1655,66 @@ export function PlayTable({
         </div>
       )}
 
+      {/* ☰ メニューポップオーバー: 卓のタグ編集 + アプリメニューへの導線。
+          (卓のタグは以前は左サイドバーの1ブロックだったが、使用頻度が低いので
+          ここへ移動してサイドバーを軽くした。) */}
+      {menuPop && !playerMode && (
+        <div className="menu-pop">
+          <strong className="menu-pop-title">卓のタグ</strong>
+          <p className="share-note" style={{ marginTop: 2 }}>
+            ロビーのカードに表示されます(配信はされません)。
+          </p>
+          <div className="ttags">
+            <div className="ttags-chips">
+              {(scene.tags ?? []).map((t) => (
+                <span key={t} className="ttag">
+                  {t}
+                  <button
+                    className="ttag-x"
+                    aria-label={`${t} を削除`}
+                    onClick={() =>
+                      setTableTags((scene.tags ?? []).filter((x) => x !== t))
+                    }
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <input
+              className="input"
+              value={tagDraft}
+              onChange={(e) => setTagDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                const t = tagDraft.trim();
+                if (t && !(scene.tags ?? []).includes(t)) {
+                  setTableTags([...(scene.tags ?? []), t].slice(0, 8));
+                }
+                setTagDraft("");
+              }}
+              placeholder="タグを追加（Enter）例: 初心者歓迎"
+              maxLength={20}
+            />
+          </div>
+          <div className="share-row share-actions">
+            <button
+              className="btn mini"
+              onClick={() => {
+                setMenuPop(false);
+                onMenu?.();
+              }}
+            >
+              アプリメニュー（卓の切替 / 設定）…
+            </button>
+            <span style={{ flex: 1 }} />
+            <button className="btn mini" onClick={() => setMenuPop(false)}>
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 無料(basic・非admin)が共有を押したときのプラン案内。PLAY/Pro を選ぶと
           自動でホスト(共有)を再開する。 */}
       {planGateOpen && (
@@ -1715,52 +1755,6 @@ export function PlayTable({
             storageKey={`trpg.play.stack-left.v1::${scene.id}`}
             onDetach={(id) => void toggleDetach(id)}
             sections={[
-              {
-                id: "table",
-                title: "卓のタグ",
-                icon: <BookMarked size={14} />,
-                defaultOpen: false,
-                body: (
-                  <div className="ttags">
-                    <p className="pside-empty muted" style={{ marginTop: 0 }}>
-                      ロビーのカードに表示されます(配信はされません)。
-                    </p>
-                    <div className="ttags-chips">
-                      {(scene.tags ?? []).map((t) => (
-                        <span key={t} className="ttag">
-                          {t}
-                          <button
-                            className="ttag-x"
-                            aria-label={`${t} を削除`}
-                            onClick={() =>
-                              setTableTags(
-                                (scene.tags ?? []).filter((x) => x !== t),
-                              )
-                            }
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <input
-                      className="input"
-                      value={tagDraft}
-                      onChange={(e) => setTagDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key !== "Enter") return;
-                        const t = tagDraft.trim();
-                        if (t && !(scene.tags ?? []).includes(t)) {
-                          setTableTags([...(scene.tags ?? []), t].slice(0, 8));
-                        }
-                        setTagDraft("");
-                      }}
-                      placeholder="タグを追加（Enter）例: 初心者歓迎"
-                      maxLength={20}
-                    />
-                  </div>
-                ),
-              },
               {
                 id: "assets",
                 title: "アセット",
@@ -1853,30 +1847,6 @@ export function PlayTable({
                 detachable: true,
                 detached: !!osWin["scenario"],
                 body: <ScenarioViewer playId={scene.id} />,
-              },
-              {
-                id: "scenario-build",
-                title: "シナリオ作成",
-                icon: <NotebookPen size={14} />,
-                defaultOpen: false,
-                body: (
-                  <ScenarioBuilderPanel
-                    scenario={scene.scenario}
-                    onChange={(next) =>
-                      setScene((s) => ({ ...s, scenario: next }))
-                    }
-                    scenes={scene.scenes ?? []}
-                    onChangeScene={(sceneId, patch) =>
-                      setScene((s) => ({
-                        ...s,
-                        scenes: (s.scenes ?? []).map((sc) =>
-                          sc.id === sceneId ? { ...sc, ...patch } : sc,
-                        ),
-                      }))
-                    }
-                    onExportPack={exportScenarioPack}
-                  />
-                ),
               },
               {
                 id: "cutin",
