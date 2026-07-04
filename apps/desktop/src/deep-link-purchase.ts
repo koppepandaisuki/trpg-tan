@@ -30,16 +30,33 @@ export type PurchaseDeepLinkHandlers = {
   onComplete?: (info: { sessionId: string | null }) => void;
   onCancel?: (info: { slug: string | null }) => void;
   onSubscriptionComplete?: (info: { plan: string | null }) => void;
+  onGoldComplete?: (info: { amount: number | null }) => void;
 };
 
 function handleUrl(raw: string, handlers: PurchaseDeepLinkHandlers): void {
   const rest = stripScheme(raw);
-  if (!rest || (!rest.startsWith("purchase/") && !rest.startsWith("subscription/"))) return;
+  if (
+    !rest ||
+    (!rest.startsWith("purchase/") &&
+      !rest.startsWith("subscription/") &&
+      !rest.startsWith("gold/"))
+  )
+    return;
   try {
     const u = new URL(raw);
-    const scheme = rest.startsWith("subscription/") ? "subscription" : "purchase";
+    const scheme = rest.startsWith("subscription/")
+      ? "subscription"
+      : rest.startsWith("gold/")
+        ? "gold"
+        : "purchase";
     const kind = u.pathname.replace(/^\/+/, "");
-    if (scheme === "subscription" && kind === "complete") {
+    if (scheme === "gold" && kind === "complete") {
+      const amt = Number(u.searchParams.get("amount"));
+      const dedupKey = `gold:${amt}:${Date.now()}`;
+      if (processedSessions.has(dedupKey)) return;
+      processedSessions.add(dedupKey);
+      handlers.onGoldComplete?.({ amount: Number.isFinite(amt) ? amt : null });
+    } else if (scheme === "subscription" && kind === "complete") {
       const plan = u.searchParams.get("plan");
       const dedupKey = `sub:${plan}:${Date.now()}`;
       if (processedSessions.has(dedupKey)) return;

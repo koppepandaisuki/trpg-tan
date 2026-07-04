@@ -22,6 +22,7 @@ import {
   Bug,
   Send,
   Copy,
+  Coins,
 } from "lucide-react";
 import { hasWebhook, sendReport, collectReport } from "./diag";
 import {
@@ -30,6 +31,17 @@ import {
   resetLibraryRoot,
 } from "./library-root";
 import { toast } from "./Toasts";
+import {
+  getFullscreenPref,
+  setFullscreen,
+  subscribeFullscreen,
+} from "./window-settings";
+import {
+  fetchGold,
+  startGoldCheckout,
+  useGoldBalance,
+  type GoldTx,
+} from "./gold-remote";
 import { useMyProfile } from "./useMyProfile";
 import {
   useLocalProfile,
@@ -71,6 +83,7 @@ const WEB_BASE = (
 
 export type SettingsTab =
   | "account"
+  | "gold"
   | "display"
   | "sound"
   | "play"
@@ -80,6 +93,7 @@ export type SettingsTab =
 
 const TABS: { key: SettingsTab; label: string; icon: typeof UserCog }[] = [
   { key: "account", label: "アカウント", icon: UserCog },
+  { key: "gold", label: "ゴールド", icon: Coins },
   { key: "display", label: "画面・テーマ", icon: Monitor },
   { key: "sound", label: "サウンド", icon: Volume2 },
   { key: "play", label: "プレイ・マルチ", icon: Dices },
@@ -142,6 +156,7 @@ export function Settings({
 
           <div className="set2-content">
             {tab === "account" && <AccountTab planSig={planSig} />}
+            {tab === "gold" && <GoldTab />}
             {tab === "display" && (
               <DisplayTab theme={theme} onToggleTheme={onToggleTheme} />
             )}
@@ -608,6 +623,130 @@ function DeleteAccountSection() {
   );
 }
 
+const GOLD_TX_LABEL: Record<string, string> = {
+  redeem: "コード引き換え",
+  stripe_pack: "パック購入",
+  ai_usage: "AI 利用",
+  purchase: "作品",
+  tip_sent: "スーパーサンクス(送)",
+  tip_received: "スーパーサンクス(受)",
+  admin: "運営付与",
+  refund: "返金",
+};
+
+const GOLD_PACKS: { id: "p300" | "p1000" | "p3000"; gold: number; jpy: number }[] =
+  [
+    { id: "p300", gold: 300, jpy: 300 },
+    { id: "p1000", gold: 1000, jpy: 1000 },
+    { id: "p3000", gold: 3000, jpy: 3000 },
+  ];
+
+function GoldTab() {
+  const balance = useGoldBalance();
+  const [tx, setTx] = useState<GoldTx[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchGold()
+      .then((r) => {
+        if (alive) setTx(r.transactions);
+      })
+      .catch(() => {})
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function buy(pack: "p300" | "p1000" | "p3000") {
+    setBusy(pack);
+    try {
+      const r = await startGoldCheckout(pack);
+      if (r.ok) {
+        await openUrl(r.url);
+        toast("ブラウザで決済を開いています。完了するとアプリに反映されます。");
+      } else {
+        toast(r.message);
+      }
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "決済を開始できませんでした");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      <Section
+        title="ゴールド残高"
+        desc="アプリ内通貨。AI 利用・作品購入・スーパーサンクスに使えます。現金化はできません。"
+      >
+        <div className="gold-balance">
+          <Coins size={22} />
+          <strong>{balance === null ? "—" : balance.toLocaleString()}</strong>
+          <span className="muted">ゴールド</span>
+        </div>
+        {balance === null && (
+          <p className="muted" style={{ fontSize: 12 }}>
+            ログインすると残高が表示されます。
+          </p>
+        )}
+      </Section>
+
+      <Section
+        title="ゴールドを購入"
+        desc="1 ゴールド ＝ ¥1。決済は外部ブラウザ(Stripe)で行い、完了するとアプリに反映されます。"
+      >
+        <div className="gold-packs">
+          {GOLD_PACKS.map((p) => (
+            <button
+              key={p.id}
+              className="gold-pack"
+              onClick={() => void buy(p.id)}
+              disabled={busy !== null}
+            >
+              <Coins size={16} />
+              <b>{p.gold.toLocaleString()}</b>
+              <span className="muted">¥{p.jpy.toLocaleString()}</span>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="履歴" desc="直近のゴールドの増減。">
+        {loading ? (
+          <p className="muted" style={{ fontSize: 12 }}>
+            読み込み中…
+          </p>
+        ) : tx.length === 0 ? (
+          <p className="muted" style={{ fontSize: 12 }}>
+            まだ履歴はありません。
+          </p>
+        ) : (
+          <div className="gold-history">
+            {tx.map((t, i) => (
+              <div key={i} className="gold-tx">
+                <span className="gold-tx-kind">
+                  {GOLD_TX_LABEL[t.kind] ?? t.kind}
+                  {t.note && <em className="muted"> ・{t.note}</em>}
+                </span>
+                <span
+                  className={`gold-tx-amt ${t.amount >= 0 ? "plus" : "minus"}`}
+                >
+                  {t.amount >= 0 ? "+" : ""}
+                  {t.amount.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+    </>
+  );
+}
+
 function DisplayTab({
   theme,
   onToggleTheme,
@@ -615,23 +754,40 @@ function DisplayTab({
   theme: string;
   onToggleTheme: () => void;
 }) {
+  const [fs, setFs] = useState(() => getFullscreenPref());
+  useEffect(() => subscribeFullscreen(setFs), []);
   return (
-    <Section title="テーマ" desc="アプリ全体の配色を切り替えます(PLAY 中は常にダーク)。">
-      <div className="set2-seg">
-        <button
-          className={`set2-segbtn ${theme !== "dark" ? "on" : ""}`}
-          onClick={() => theme === "dark" && onToggleTheme()}
-        >
-          <Sun size={15} /> ライト
-        </button>
-        <button
-          className={`set2-segbtn ${theme === "dark" ? "on" : ""}`}
-          onClick={() => theme !== "dark" && onToggleTheme()}
-        >
-          <Moon size={15} /> ダーク
-        </button>
-      </div>
-    </Section>
+    <>
+      <Section title="テーマ" desc="アプリ全体の配色を切り替えます(PLAY 中は常にダーク)。">
+        <div className="set2-seg">
+          <button
+            className={`set2-segbtn ${theme !== "dark" ? "on" : ""}`}
+            onClick={() => theme === "dark" && onToggleTheme()}
+          >
+            <Sun size={15} /> ライト
+          </button>
+          <button
+            className={`set2-segbtn ${theme === "dark" ? "on" : ""}`}
+            onClick={() => theme !== "dark" && onToggleTheme()}
+          >
+            <Moon size={15} /> ダーク
+          </button>
+        </div>
+      </Section>
+      <Section
+        title="表示"
+        desc="ウィンドウをフルスクリーン(全画面)で表示します。F11 でも切り替えられます。"
+      >
+        <label className="set-row">
+          <input
+            type="checkbox"
+            checked={fs}
+            onChange={(e) => void setFullscreen(e.target.checked)}
+          />
+          <span>フルスクリーンで表示する</span>
+        </label>
+      </Section>
+    </>
   );
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
-import { BookMarked, Sparkles, Settings2, Square } from "lucide-react";
+import { BookMarked, Sparkles, Settings2, Square, Coins } from "lucide-react";
 import {
   askRulebookLLM,
   describeLLMError,
@@ -12,6 +12,7 @@ import {
   hasApiKey,
   LLM_MODELS,
 } from "./llm";
+import { aiComplete, refreshGold, useGoldBalance } from "./gold-remote";
 
 /**
  * ルールブック Q&A。GM のローカルファイル(txt / md)を登録し、質問すると
@@ -19,8 +20,12 @@ import {
  *
  *  - 検索モード(常時): 段落分割 + 語/2-gram スコアリングで関連箇所を抽出。
  *    本文はこの端末の外へ出ない。
- *  - AI 回答モード(任意): GM が自分の API キーを設定すると、検索でヒットした
- *    抜粋 + 質問だけを Claude に送って自然文の回答を生成する(全文は送らない)。
+ *  - AI 回答モード(任意):
+ *      * 運営 AI(既定): ログインするだけで使える。1 回ごとにゴールドを消費
+ *        (従量課金)。API キー不要で誰でも使える。
+ *      * 自前キー(上級者): 自分の Anthropic キーを設定すると無料で使え、
+ *        ストリーミング表示になる(キーはこの端末にのみ保存)。
+ *    どちらも検索でヒットした抜粋 + 質問だけを送る(全文は送らない)。
  */
 
 interface BookRef {
@@ -111,11 +116,14 @@ export function RulebookQA({ playId }: { playId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // AI 回答モード(キー設定済みのときだけ有効化できる)。
-  const [aiMode, setAiMode] = useState(() => hasApiKey());
+  // AI 回答モード。運営 AI(ゴールド)なら誰でも使えるので既定 ON。
+  const [aiMode, setAiMode] = useState(true);
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // 自前キーがあれば直叩き(無料・ストリーミング)、無ければ運営 AI(ゴールド)。
+  const [byok, setByok] = useState(() => hasApiKey());
+  const goldBalance = useGoldBalance();
 
   // 設定(API キー / モデル)。
   const [showSettings, setShowSettings] = useState(false);
@@ -124,6 +132,10 @@ export function RulebookQA({ playId }: { playId: string }) {
 
   useEffect(() => setBooks(loadBooks(playId)), [playId]);
   useEffect(() => () => abortRef.current?.abort(), []);
+  // 運営 AI 利用時の残高表示のため、初回に静かに取得。
+  useEffect(() => {
+    if (!hasApiKey()) void refreshGold();
+  }, []);
 
   function persist(list: BookRef[]) {
     setBooks(list);
@@ -137,7 +149,8 @@ export function RulebookQA({ playId }: { playId: string }) {
   function saveSettings() {
     setApiKey(keyInput);
     setModel(model);
-    if (!keyInput.trim()) setAiMode(false);
+    setByok(hasApiKey());
+    if (!keyInput.trim()) void refreshGold();
     setShowSettings(false);
   }
 
@@ -172,24 +185,43 @@ export function RulebookQA({ playId }: { playId: string }) {
       const found = searchBooks(contents, q);
       setHits(found);
 
-      // AI 回答モード: 抜粋 + 質問を Claude に送って自然文の回答を作る。
-      if (aiMode && hasApiKey() && found.length > 0) {
-        setStreaming(true);
-        setAiAnswer("");
-        const ctrl = new AbortController();
-        abortRef.current = ctrl;
-        try {
-          await askRulebookLLM(
-            q,
-            found.map((h) => ({ book: h.book, text: h.text })),
-            (delta) => setAiAnswer((a) => (a ?? "") + delta),
-            ctrl.signal,
-          );
-        } catch (e) {
-          if (!ctrl.signal.aborted) setError(describeLLMError(e));
-        } finally {
-          setStreaming(false);
-          abortRef.current = null;
+      if (aiMode && found.length > 0) {
+        const passages = found.map((h) => ({ book: h.book, text: h.text }));
+        if (byok) {
+          // 自前キー: 直接 Claude を叩く(無料・ストリーミング)。
+          setStreaming(true);
+          setAiAnswer("");
+          const ctrl = new AbortController();
+          abortRef.current = ctrl;
+          try {
+            await askRulebookLLM(
+              q,
+              passages,
+              (delta) => setAiAnswer((a) => (a ?? "") + delta),
+              ctrl.signal,
+            );
+          } catch (e) {
+            if (!ctrl.signal.aborted) setError(describeLLMError(e));
+          } finally {
+            setStreaming(false);
+            abortRef.current = null;
+          }
+        } else {
+          // 運営 AI: サーバ経由(ゴールド従量課金・一括表示)。
+          const r = await aiComplete(q, passages);
+          if (r.ok) {
+            setAiAnswer(r.text);
+          } else if (r.reason === "insufficient_gold") {
+            setError(
+              "ゴールドが不足しています。設定 →「ゴールド」でチャージするか、自分の API キーを設定すると無料で使えます。",
+            );
+          } else if (r.reason === "not_configured") {
+            setError("AI は現在準備中です。少し待ってお試しください。");
+          } else if (r.reason === "not_authenticated") {
+            setError("AI 回答にはログインが必要です(右上のアカウントから)。");
+          } else {
+            setError(r.message);
+          }
         }
       }
     } catch (e) {
@@ -236,21 +268,29 @@ export function RulebookQA({ playId }: { playId: string }) {
       <div className="rqa-aibar">
         <button
           className={`btn mini ibtn ${aiMode ? "btn-primary" : ""}`}
-          onClick={() => {
-            if (!hasApiKey()) {
-              setShowSettings(true);
-              return;
-            }
-            setAiMode((v) => !v);
-          }}
+          onClick={() => setAiMode((v) => !v)}
           title="検索でヒットした抜粋を Claude に渡して回答を生成します"
         >
           <Sparkles size={13} /> AI回答 {aiMode ? "ON" : "OFF"}
         </button>
+        {aiMode &&
+          (byok ? (
+            <span className="rqa-ai-mode muted" title="自分の API キーで無料利用中">
+              自前キー・無料
+            </span>
+          ) : (
+            <span
+              className="rqa-ai-mode ibtn"
+              title="運営の AI をゴールドで利用します(1 回ごとに消費)"
+            >
+              <Coins size={12} /> ゴールド
+              {goldBalance !== null && <b>・残 {goldBalance}</b>}
+            </span>
+          ))}
         <button
           className="btn mini ibtn"
           onClick={() => setShowSettings((v) => !v)}
-          title="API キー・モデルの設定"
+          title="API キー・モデルの設定(自前キーで無料利用)"
         >
           <Settings2 size={13} />
         </button>
@@ -258,8 +298,12 @@ export function RulebookQA({ playId }: { playId: string }) {
 
       {showSettings && (
         <div className="rqa-settings">
+          <p className="sysb-help muted" style={{ marginTop: 0 }}>
+            通常はキー設定不要です。ログインすれば運営の AI をゴールドで使えます。
+            自分の Anthropic キーを入れると<strong>無料</strong>＆ストリーミング表示になります。
+          </p>
           <label className="sysb-label">
-            Anthropic API キー（この端末にのみ保存）
+            Anthropic API キー（この端末にのみ保存・任意）
             <input
               className="input"
               type="password"

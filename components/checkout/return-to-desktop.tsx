@@ -19,15 +19,20 @@ export function ReturnToDesktop({
   sessionId,
   slug,
   subPlan,
+  goldAmount,
 }: {
   kind: "complete" | "cancel";
   sessionId?: string;
   slug?: string;
   subPlan?: string;
+  goldAmount?: number;
 }) {
   const [autoTried, setAutoTried] = React.useState(false);
 
   const href = React.useMemo(() => {
+    if (goldAmount) {
+      return `redice://gold/complete?amount=${goldAmount}`;
+    }
     if (subPlan) {
       return `redice://subscription/complete?plan=${subPlan}`;
     }
@@ -36,7 +41,7 @@ export function ReturnToDesktop({
     if (slug) q.set("slug", slug);
     const qs = q.toString();
     return `redice://purchase/${kind}${qs ? `?${qs}` : ""}`;
-  }, [kind, sessionId, slug, subPlan]);
+  }, [kind, sessionId, slug, subPlan, goldAmount]);
 
   React.useEffect(() => {
     // ブラウザのポップアップブロックに引っかからない手段で発火。

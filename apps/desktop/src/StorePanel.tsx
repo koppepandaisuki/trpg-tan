@@ -31,12 +31,19 @@ import {
   UserPlus,
   UserCheck,
   Play,
+  Coins,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "./Toasts";
 import { requireLogin } from "./LoginGate";
 import { useWishlist, toggleWish } from "./wishlist";
 import { useFollows, toggleFollow } from "./follow-creators";
+import {
+  purchaseWithGold,
+  sendTip,
+  refreshGold,
+  useGoldBalance,
+} from "./gold-remote";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { SkelGrid, SkelStoreHome } from "./Skeleton";
@@ -789,6 +796,61 @@ export function StorePanel({
   const [mainImage, setMainImage] = useState<string | null>(null);
   // 類似品(詳細の下部レール)。詳細を開いたときに非同期取得。
   const [similar, setSimilar] = useState<StoreItem[]>([]);
+  // ゴールド購入 / スーパーサンクス。
+  const goldBalance = useGoldBalance();
+  const [goldBusy, setGoldBusy] = useState(false);
+  const [tipOpen, setTipOpen] = useState(false);
+  const [tipAmount, setTipAmount] = useState(100);
+  const [tipMsg, setTipMsg] = useState("");
+  const [tipBusy, setTipBusy] = useState(false);
+
+  useEffect(() => {
+    void refreshGold();
+  }, []);
+
+  /** 作品をゴールドで購入(残高不足はチャージ導線を出す)。 */
+  async function buyWithGold() {
+    if (!detail) return;
+    setGoldBusy(true);
+    try {
+      const r = await purchaseWithGold(detail.id);
+      if (r.ok) {
+        setPurchased((s) => new Set(s).add(detail.id));
+        toast("✅ ゴールドで購入しました。ライブラリで開けます");
+      } else if (r.reason === "insufficient_gold") {
+        toast("ゴールドが不足しています。設定 →「ゴールド」でチャージできます");
+      } else {
+        toast(r.message);
+      }
+    } finally {
+      setGoldBusy(false);
+    }
+  }
+
+  /** スーパーサンクス送信。 */
+  async function sendThanks() {
+    if (!detail) return;
+    setTipBusy(true);
+    try {
+      const r = await sendTip(
+        detail.creator.id,
+        tipAmount,
+        detail.id,
+        tipMsg.trim() || undefined,
+      );
+      if (r.ok) {
+        toast(`💛 ${tipAmount} ゴールドを贈りました。応援ありがとうございます！`);
+        setTipOpen(false);
+        setTipMsg("");
+      } else if (r.reason === "insufficient_gold") {
+        toast("ゴールドが不足しています。設定 →「ゴールド」でチャージできます");
+      } else {
+        toast(r.message);
+      }
+    } finally {
+      setTipBusy(false);
+    }
+  }
 
   // Esc で詳細を閉じて一覧へ戻る(マウス往復を省く)。
   useEffect(() => {
@@ -1143,17 +1205,43 @@ export function StorePanel({
                       {effPriceOf(detail) === 0 ? "入手" : "購入"}
                     </button>
                   ) : (
-                    <button
-                      className="btn btn-primary ibtn"
-                      onClick={() => void openUrl(webProductUrl(detail.slug))}
-                    >
-                      <ShoppingCart size={15} />{" "}
-                      {effPriceOf(detail) === 0
-                        ? "無料で入手"
-                        : `${formatPriceJpy(effPriceOf(detail))} で購入`}
-                    </button>
+                    <>
+                      <button
+                        className="btn btn-primary ibtn"
+                        onClick={() => void openUrl(webProductUrl(detail.slug))}
+                      >
+                        <ShoppingCart size={15} />{" "}
+                        {effPriceOf(detail) === 0
+                          ? "無料で入手"
+                          : `${formatPriceJpy(effPriceOf(detail))} で購入`}
+                      </button>
+                      {effPriceOf(detail) > 0 && (
+                        <button
+                          className="btn ibtn"
+                          onClick={() => void buyWithGold()}
+                          disabled={goldBusy}
+                          title={
+                            goldBalance !== null
+                              ? `所持: ${goldBalance} ゴールド`
+                              : "ゴールドで購入"
+                          }
+                        >
+                          <Coins size={15} />{" "}
+                          {goldBusy
+                            ? "処理中…"
+                            : `${effPriceOf(detail).toLocaleString()} G で購入`}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
+                {!isPurchased && session && effPriceOf(detail) > 0 && (
+                  <p className="sdx-gold-note muted">
+                    <Coins size={11} /> ゴールドでも購入できます
+                    {goldBalance !== null && `（所持 ${goldBalance.toLocaleString()}）`}
+                    。ゴールドは AI 利用やクリエイター支援にも使えます。
+                  </p>
+                )}
               </div>
 
               <h3 className="store-sec">作品について</h3>
@@ -1317,6 +1405,23 @@ export function StorePanel({
                     </div>
                   </div>
                 )}
+
+                {/* スーパーサンクス(クリエイターへゴールドを贈る) */}
+                {session && detail.creator.id && (
+                  <button
+                    className="sdx-thanks-btn ibtn"
+                    onClick={() => {
+                      if (!session) {
+                        requireLogin("応援にはログインが必要です。");
+                        return;
+                      }
+                      setTipOpen(true);
+                    }}
+                    title="このクリエイターにゴールドで感謝を伝える"
+                  >
+                    <Heart size={14} /> スーパーサンクスで応援
+                  </button>
+                )}
               </div>
 
               <div className="store-meta">
@@ -1389,6 +1494,67 @@ export function StorePanel({
             </div>
           )}
         </div>
+
+        {/* スーパーサンクス・モーダル */}
+        {tipOpen && (
+          <div className="tip-overlay" onClick={() => setTipOpen(false)}>
+            <div className="tip-modal" onClick={(e) => e.stopPropagation()}>
+              <h3 className="tip-title">
+                <Heart size={16} /> スーパーサンクス
+              </h3>
+              <p className="muted" style={{ fontSize: 12.5 }}>
+                「{detail.creator.displayName || "（無名）"}」さんにゴールドで感謝を
+                伝えます。ゴールドはクリエイターの制作を支えます(現金化はできません)。
+              </p>
+              <div className="tip-amounts">
+                {[50, 100, 500, 1000].map((a) => (
+                  <button
+                    key={a}
+                    className={`tip-amt ${tipAmount === a ? "on" : ""}`}
+                    onClick={() => setTipAmount(a)}
+                  >
+                    {a} G
+                  </button>
+                ))}
+              </div>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                max={100000}
+                value={tipAmount}
+                onChange={(e) =>
+                  setTipAmount(Math.max(1, Math.floor(Number(e.target.value) || 0)))
+                }
+                aria-label="金額"
+              />
+              <textarea
+                className="input"
+                rows={2}
+                maxLength={200}
+                placeholder="応援メッセージ(任意・200 文字まで)"
+                value={tipMsg}
+                onChange={(e) => setTipMsg(e.target.value)}
+                style={{ resize: "vertical" }}
+              />
+              <p className="muted" style={{ fontSize: 11.5 }}>
+                所持: {goldBalance === null ? "—" : goldBalance.toLocaleString()} ゴールド
+              </p>
+              <div className="tip-actions">
+                <button className="btn mini" onClick={() => setTipOpen(false)}>
+                  やめる
+                </button>
+                <button
+                  className="btn mini btn-primary"
+                  onClick={() => void sendThanks()}
+                  disabled={tipBusy || tipAmount < 1}
+                >
+                  {tipBusy ? "送信中…" : `${tipAmount} G を贈る`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

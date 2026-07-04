@@ -7,6 +7,7 @@ import {
   type UpsertPurchaseInput,
 } from "@/lib/mutations/purchases";
 import { syncCreatorChargesEnabled } from "@/lib/mutations/creator-connect";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Webhook event handlers.
@@ -95,6 +96,13 @@ export function decideCheckoutOutcome(
 export async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
 ): Promise<void> {
+  // ゴールドパック購入は productId を持たず metadata.kind="gold_pack"。
+  // credit_gold RPC が session id の一意制約で冪等に付与する。
+  if (session.metadata?.kind === "gold_pack") {
+    await handleGoldPackCompleted(session);
+    return;
+  }
+
   const outcome = decideCheckoutOutcome(session);
 
   if (outcome.type === "ignore") {
@@ -107,6 +115,43 @@ export async function handleCheckoutCompleted(
     id: session.id,
     inserted,
     productId: outcome.input.productId,
+  });
+}
+
+/**
+ * ゴールドパック決済の付与。metadata の userId / gold を検証し、
+ * credit_gold(service_role)で加算する。ref_id = session.id で二重付与を防ぐ。
+ */
+async function handleGoldPackCompleted(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  if (session.payment_status !== "paid") {
+    console.info("[webhook] gold ignore", {
+      id: session.id,
+      reason: "payment_status_not_paid",
+    });
+    return;
+  }
+  const userId = session.metadata?.userId;
+  const gold = Number(session.metadata?.gold);
+  if (!userId || !Number.isFinite(gold) || gold <= 0) {
+    console.warn("[webhook] gold ignore: bad metadata", { id: session.id });
+    return;
+  }
+  const { data, error } = await createAdminClient().rpc("credit_gold", {
+    p_user: userId,
+    p_amount: Math.floor(gold),
+    p_kind: "stripe_pack",
+    p_ref: session.id,
+    p_note: "ゴールドパック購入",
+  });
+  if (error) {
+    throw new Error(`[webhook] gold credit failed: ${error.message}`);
+  }
+  console.info("[webhook] gold credited", {
+    id: session.id,
+    credited: data === true,
+    gold,
   });
 }
 

@@ -25,6 +25,7 @@ import {
   CalendarClock,
   ScrollText,
   Wrench,
+  Coins,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { AuthControl } from "./AuthControl";
@@ -60,6 +61,11 @@ import {
   type PlayIndexEntry,
 } from "./play-storage";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
+import {
+  applyFullscreenOnLaunch,
+  toggleFullscreen,
+} from "./window-settings";
+import { refreshGold, useGoldBalance } from "./gold-remote";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
 import { NewCharacterMenu } from "./NewCharacterMenu";
 import { SheetSystemPicker } from "./SheetSystemPicker";
@@ -218,6 +224,8 @@ export function App() {
   const [librarySig, setLibrarySig] = useState(0);
   // プラン再取得シグナル(redice://subscription/complete などで +1)。
   const [planSig, setPlanSig] = useState(0);
+  // ゴールド残高(ヘッダのチップ表示用。gold-remote が共有ストア)。
+  const gold = useGoldBalance();
   // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。PLAY 中も従う。
   const [theme, setTheme] = useState(
     () => localStorage.getItem("trpg.theme.v1") ?? "light",
@@ -233,6 +241,21 @@ export function App() {
   // deep-link(redice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
   useEffect(() => {
     if (isTauri()) void initDeepLinkAuth();
+  }, []);
+
+  // 保存済みのフルスクリーン設定を起動時に反映 + F11 でトグル。
+  useEffect(() => {
+    void applyFullscreenOnLaunch();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "F11") {
+        e.preventDefault();
+        void toggleFullscreen().then((on) =>
+          toast(on ? "⛶ フルスクリーン（F11 / 設定で戻せます）" : "フルスクリーンを解除しました"),
+        );
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // redice://purchase/complete|cancel を購読。決済完了でライブラリへ
@@ -258,8 +281,23 @@ export function App() {
         // webhook 反映ラグを吸収して 4 秒後にもう一度。
         window.setTimeout(() => setPlanSig((n) => n + 1), 4000);
       },
+      onGoldComplete: ({ amount }) => {
+        toast(
+          amount
+            ? `✅ ${amount.toLocaleString()} ゴールドを追加しました`
+            : "✅ ゴールドを追加しました",
+        );
+        // webhook 反映ラグを吸収して静かに再取得。
+        void refreshGold();
+        window.setTimeout(() => void refreshGold(), 4000);
+      },
     });
   }, []);
+
+  // 起動時とログイン状態変化でゴールド残高を取得(ヘッダ/設定に反映)。
+  useEffect(() => {
+    void refreshGold();
+  }, [planSig]);
 
   // テーマ適用。PLAY 中もユーザー設定(ライト / ダーク)に従う。
   useEffect(() => {
@@ -766,6 +804,15 @@ export function App() {
           >
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </button>
+          {gold !== null && (
+            <button
+              className="gold-chip"
+              onClick={() => openSettings("gold")}
+              title="ゴールド残高 — クリックで管理・チャージ"
+            >
+              <Coins size={13} /> {gold.toLocaleString()}
+            </button>
+          )}
           <AccountMenu onOpen={() => openSettings("account")} />
         </div>
       </header>
