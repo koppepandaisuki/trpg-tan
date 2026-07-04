@@ -6273,6 +6273,15 @@ button:disabled {
   align-items: center;
   gap: 5px;
 }
+.friends-inbox-msg {
+  margin: 2px 0 0;
+  padding: 6px 9px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .friends-inbox-actions {
   display: flex;
   gap: 5px;

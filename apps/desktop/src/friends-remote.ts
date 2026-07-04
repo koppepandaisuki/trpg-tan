@@ -15,7 +15,14 @@ export interface FriendUserPreview {
 
 export interface NotificationRow {
   id: string;
-  kind: "friend_request" | "friend_accepted" | "table_invite" | "schedule_invite";
+  kind:
+    | "friend_request"
+    | "friend_accepted"
+    | "table_invite"
+    | "schedule_invite"
+    | "tip_received"
+    | "product_review"
+    | "review_decision";
   payload: Record<string, unknown>;
   readAt: string | null;
   respondedAt: string | null;

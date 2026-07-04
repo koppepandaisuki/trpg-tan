@@ -10,6 +10,8 @@ import {
   Trash2,
   CalendarClock,
   Hash,
+  Heart,
+  Star,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { supabase, supabaseConfigured } from "./supabase";
@@ -642,6 +644,99 @@ function InboxTab({
                   onClick={() => void remove(n)}
                 >
                   <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          );
+        }
+        if (n.kind === "tip_received") {
+          const amount = Number(n.payload["amount"] ?? 0);
+          const message = String(n.payload["message"] ?? "");
+          return (
+            <div key={n.id} className="friends-inbox-row">
+              <p className="friends-inbox-title">
+                <Heart size={13} /> スーパーサンクス: {amount.toLocaleString()} G
+              </p>
+              <p className="muted" style={{ fontSize: 11 }}>
+                {from || "どなたか"} · {ts}
+              </p>
+              {message && (
+                <p style={{ fontSize: 12.5 }} className="friends-inbox-msg">
+                  「{message}」
+                </p>
+              )}
+              <div className="friends-inbox-actions">
+                <button
+                  className="btn mini"
+                  disabled={busyId === n.id}
+                  onClick={() => void remove(n)}
+                >
+                  <Trash2 size={12} /> 削除
+                </button>
+              </div>
+            </div>
+          );
+        }
+        if (n.kind === "review_decision") {
+          const title = String(n.payload["productTitle"] ?? "");
+          const decision = String(n.payload["decision"] ?? "");
+          const reason = String(n.payload["reason"] ?? "");
+          const label =
+            decision === "approved"
+              ? "承認されました"
+              : decision === "rejected"
+                ? "却下されました"
+                : "公開停止されました";
+          return (
+            <div key={n.id} className="friends-inbox-row">
+              <p className="friends-inbox-title">
+                <Check size={13} /> 審査結果: {title || "あなたの作品"}
+              </p>
+              <p className="muted" style={{ fontSize: 11 }}>
+                {label} · {ts}
+              </p>
+              {reason && (
+                <p style={{ fontSize: 12.5 }} className="friends-inbox-msg">
+                  {reason}
+                </p>
+              )}
+              <div className="friends-inbox-actions">
+                <button
+                  className="btn mini"
+                  disabled={busyId === n.id}
+                  onClick={() => void remove(n)}
+                >
+                  <Trash2 size={12} /> 削除
+                </button>
+              </div>
+            </div>
+          );
+        }
+        if (n.kind === "product_review") {
+          const title = String(n.payload["productTitle"] ?? "");
+          const stars = Number(n.payload["stars"] ?? 0);
+          const comment = String(n.payload["comment"] ?? "");
+          return (
+            <div key={n.id} className="friends-inbox-row">
+              <p className="friends-inbox-title">
+                <Star size={13} /> レビュー: {title || "あなたの作品"}
+              </p>
+              <p className="muted" style={{ fontSize: 11 }}>
+                {from || "購入者"} · {"★".repeat(Math.max(0, Math.min(5, stars)))} ·{" "}
+                {ts}
+              </p>
+              {comment && (
+                <p style={{ fontSize: 12.5 }} className="friends-inbox-msg">
+                  「{comment}」
+                </p>
+              )}
+              <div className="friends-inbox-actions">
+                <button
+                  className="btn mini"
+                  disabled={busyId === n.id}
+                  onClick={() => void remove(n)}
+                >
+                  <Trash2 size={12} /> 削除
                 </button>
               </div>
             </div>
