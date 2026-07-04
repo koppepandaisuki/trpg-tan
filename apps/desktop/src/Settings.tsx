@@ -41,6 +41,7 @@ import {
   startGoldCheckout,
   useGoldBalance,
   type GoldTx,
+  type GoldEarnings,
 } from "./gold-remote";
 import { useMyProfile } from "./useMyProfile";
 import {
@@ -644,6 +645,7 @@ const GOLD_PACKS: { id: "p300" | "p1000" | "p3000"; gold: number; jpy: number }[
 function GoldTab() {
   const balance = useGoldBalance();
   const [tx, setTx] = useState<GoldTx[]>([]);
+  const [earnings, setEarnings] = useState<GoldEarnings | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -651,7 +653,10 @@ function GoldTab() {
     let alive = true;
     void fetchGold()
       .then((r) => {
-        if (alive) setTx(r.transactions);
+        if (alive) {
+          setTx(r.transactions);
+          setEarnings(r.earnings);
+        }
       })
       .catch(() => {})
       .finally(() => alive && setLoading(false));
@@ -659,6 +664,10 @@ function GoldTab() {
       alive = false;
     };
   }, []);
+
+  const hasEarnings =
+    earnings !== null &&
+    (earnings.sales > 0 || earnings.tips > 0 || earnings.supporters > 0);
 
   async function buy(pack: "p300" | "p1000" | "p3000") {
     setBusy(pack);
@@ -714,6 +723,35 @@ function GoldTab() {
           ))}
         </div>
       </Section>
+
+      {hasEarnings && earnings && (
+        <Section
+          title="クリエイター収益"
+          desc="あなたの作品・応援で受け取ったゴールドの累計です(現金化はできません)。"
+        >
+          <div className="gold-earn">
+            <div className="gold-earn-cell">
+              <span className="gold-earn-label">作品売上</span>
+              <strong>{earnings.sales.toLocaleString()}</strong>
+              <span className="muted">ゴールド</span>
+            </div>
+            <div className="gold-earn-cell">
+              <span className="gold-earn-label">スーパーサンクス</span>
+              <strong>{earnings.tips.toLocaleString()}</strong>
+              <span className="muted">ゴールド</span>
+            </div>
+            <div className="gold-earn-cell">
+              <span className="gold-earn-label">応援</span>
+              <strong>{earnings.supporters.toLocaleString()}</strong>
+              <span className="muted">回</span>
+            </div>
+          </div>
+          <p className="muted" style={{ fontSize: 11.5 }}>
+            受け取ったゴールドは、AI 利用・作品購入・他のクリエイターへの
+            スーパーサンクスに使えます。
+          </p>
+        </Section>
+      )}
 
       <Section title="履歴" desc="直近のゴールドの増減。">
         {loading ? (

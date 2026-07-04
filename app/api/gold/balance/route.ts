@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [{ data: prof }, { data: tx }] = await Promise.all([
+  const [{ data: prof }, { data: tx }, { data: earn }] = await Promise.all([
     auth.client
       .from("profiles")
       .select("gold_balance")
@@ -52,12 +52,21 @@ export async function GET(request: NextRequest) {
       .select("amount, kind, note, created_at")
       .order("created_at", { ascending: false })
       .limit(50),
+    auth.client.rpc("gold_earnings"),
   ]);
+
+  // RPC は 1 行(table 関数)。未適用(migration 0039 前)でも壊れないよう null 許容。
+  const e = Array.isArray(earn) ? earn[0] : earn;
 
   return NextResponse.json(
     {
       ok: true,
       balance: prof?.gold_balance ?? 0,
+      earnings: {
+        sales: e?.total_sales ?? 0,
+        tips: e?.total_tips ?? 0,
+        supporters: e?.supporters ?? 0,
+      },
       transactions: (tx ?? []).map((t) => ({
         amount: t.amount,
         kind: t.kind,

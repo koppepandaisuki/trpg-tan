@@ -21,6 +21,16 @@ export type GoldTx = {
   createdAt: string;
 };
 
+/** クリエイター収益(受け取ったゴールドの集計)。 */
+export type GoldEarnings = {
+  /** 作品のゴールド売上(手数料差引後の受取ぶん)。 */
+  sales: number;
+  /** スーパーサンクス受領。 */
+  tips: number;
+  /** サンクスをくれた延べ回数。 */
+  supporters: number;
+};
+
 let currentBalance: number | null = null;
 const listeners = new Set<(bal: number | null) => void>();
 
@@ -36,16 +46,19 @@ async function authToken(): Promise<string> {
   return token;
 }
 
-/** 残高 + 直近履歴を取得。未ログインなら null 残高。 */
+const ZERO_EARNINGS: GoldEarnings = { sales: 0, tips: 0, supporters: 0 };
+
+/** 残高 + 収益集計 + 直近履歴を取得。未ログインなら null 残高。 */
 export async function fetchGold(): Promise<{
   balance: number;
+  earnings: GoldEarnings;
   transactions: GoldTx[];
 }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) {
     setBalance(null);
-    return { balance: 0, transactions: [] };
+    return { balance: 0, earnings: ZERO_EARNINGS, transactions: [] };
   }
   const res = await fetch(`${WEB_BASE}/api/gold/balance`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -53,11 +66,16 @@ export async function fetchGold(): Promise<{
   const body = (await res.json()) as {
     ok?: boolean;
     balance?: number;
+    earnings?: GoldEarnings;
     transactions?: GoldTx[];
   };
   if (!res.ok || !body.ok) throw new Error(`残高の取得に失敗 (${res.status})`);
   setBalance(body.balance ?? 0);
-  return { balance: body.balance ?? 0, transactions: body.transactions ?? [] };
+  return {
+    balance: body.balance ?? 0,
+    earnings: body.earnings ?? ZERO_EARNINGS,
+    transactions: body.transactions ?? [],
+  };
 }
 
 /** 残高だけ静かに再取得(表示更新用。失敗は無視)。 */

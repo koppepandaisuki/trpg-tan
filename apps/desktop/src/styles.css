@@ -10984,10 +10984,14 @@ button:disabled {
   gap: 12px;
   padding: 14px 16px 24px;
 }
+.creator-cardwrap {
+  position: relative;
+}
 .creator-card {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -10999,6 +11003,47 @@ button:disabled {
     transform var(--dur-2) var(--ease-out),
     box-shadow var(--dur-2) var(--ease-out),
     border-color var(--dur-2) var(--ease-out);
+}
+/* クリエイターカード右下のサンクス(応援)チップ。カードは button なので兄弟。 */
+.creator-thanks {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  z-index: 1;
+}
+.creator-thanks:hover {
+  border-color: #e26d8a;
+  color: #e26d8a;
+}
+.creator-thanks svg {
+  color: #e26d8a;
+}
+/* 絞り込みチップ横のサンクスボタン */
+.store-qchip-thanks {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #e26d8a;
+  background: transparent;
+  color: #e26d8a;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.store-qchip-thanks:hover {
+  background: rgba(226, 109, 138, 0.08);
 }
 .creator-card:hover {
   transform: translateY(-2px);
@@ -11894,6 +11939,34 @@ button:disabled {
 .gold-pack b {
   font-size: 17px;
 }
+/* クリエイター収益サマリ(3 セル) */
+.gold-earn {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gold-earn-cell {
+  flex: 1;
+  min-width: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.gold-earn-cell strong {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--gold, #e0a83a);
+}
+.gold-earn-label {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
 .gold-history {
   display: flex;
   flex-direction: column;

@@ -799,10 +799,25 @@ export function StorePanel({
   // ゴールド購入 / スーパーサンクス。
   const goldBalance = useGoldBalance();
   const [goldBusy, setGoldBusy] = useState(false);
-  const [tipOpen, setTipOpen] = useState(false);
+  // サンクスの相手(id + 表示名 + 任意で作品 id)。null = モーダル閉。
+  const [tipTarget, setTipTarget] = useState<{
+    id: string;
+    name: string;
+    productId?: string;
+  } | null>(null);
   const [tipAmount, setTipAmount] = useState(100);
   const [tipMsg, setTipMsg] = useState("");
   const [tipBusy, setTipBusy] = useState(false);
+
+  /** サンクス相手を開く(未ログインならログイン誘導)。 */
+  function openTip(target: { id: string; name: string; productId?: string }) {
+    if (!session) {
+      requireLogin("応援にはログインが必要です。");
+      return;
+    }
+    setTipMsg("");
+    setTipTarget(target);
+  }
 
   useEffect(() => {
     void refreshGold();
@@ -829,18 +844,18 @@ export function StorePanel({
 
   /** スーパーサンクス送信。 */
   async function sendThanks() {
-    if (!detail) return;
+    if (!tipTarget) return;
     setTipBusy(true);
     try {
       const r = await sendTip(
-        detail.creator.id,
+        tipTarget.id,
         tipAmount,
-        detail.id,
+        tipTarget.productId,
         tipMsg.trim() || undefined,
       );
       if (r.ok) {
         toast(`💛 ${tipAmount} ゴールドを贈りました。応援ありがとうございます！`);
-        setTipOpen(false);
+        setTipTarget(null);
         setTipMsg("");
       } else if (r.reason === "insufficient_gold") {
         toast("ゴールドが不足しています。設定 →「ゴールド」でチャージできます");
@@ -851,6 +866,68 @@ export function StorePanel({
       setTipBusy(false);
     }
   }
+
+  /** サンクス・モーダル(全ビュー共通。tipTarget があるときだけ描画)。 */
+  const tipModal =
+    tipTarget !== null ? (
+      <div className="tip-overlay" onClick={() => setTipTarget(null)}>
+        <div className="tip-modal" onClick={(e) => e.stopPropagation()}>
+          <h3 className="tip-title">
+            <Heart size={16} /> スーパーサンクス
+          </h3>
+          <p className="muted" style={{ fontSize: 12.5 }}>
+            「{tipTarget.name}」さんにゴールドで感謝を伝えます。ゴールドは
+            クリエイターの制作を支えます(現金化はできません)。
+          </p>
+          <div className="tip-amounts">
+            {[50, 100, 500, 1000].map((a) => (
+              <button
+                key={a}
+                className={`tip-amt ${tipAmount === a ? "on" : ""}`}
+                onClick={() => setTipAmount(a)}
+              >
+                {a} G
+              </button>
+            ))}
+          </div>
+          <input
+            className="input"
+            type="number"
+            min={1}
+            max={100000}
+            value={tipAmount}
+            onChange={(e) =>
+              setTipAmount(Math.max(1, Math.floor(Number(e.target.value) || 0)))
+            }
+            aria-label="金額"
+          />
+          <textarea
+            className="input"
+            rows={2}
+            maxLength={200}
+            placeholder="応援メッセージ(任意・200 文字まで)"
+            value={tipMsg}
+            onChange={(e) => setTipMsg(e.target.value)}
+            style={{ resize: "vertical" }}
+          />
+          <p className="muted" style={{ fontSize: 11.5 }}>
+            所持: {goldBalance === null ? "—" : goldBalance.toLocaleString()} ゴールド
+          </p>
+          <div className="tip-actions">
+            <button className="btn mini" onClick={() => setTipTarget(null)}>
+              やめる
+            </button>
+            <button
+              className="btn mini btn-primary"
+              onClick={() => void sendThanks()}
+              disabled={tipBusy || tipAmount < 1}
+            >
+              {tipBusy ? "送信中…" : `${tipAmount} G を贈る`}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
 
   // Esc で詳細を閉じて一覧へ戻る(マウス往復を省く)。
   useEffect(() => {
@@ -1406,17 +1483,17 @@ export function StorePanel({
                   </div>
                 )}
 
-                {/* スーパーサンクス(クリエイターへゴールドを贈る) */}
-                {session && detail.creator.id && (
+                {/* スーパーサンクス(クリエイターへゴールドを贈る。購入不要) */}
+                {detail.creator.id && (
                   <button
                     className="sdx-thanks-btn ibtn"
-                    onClick={() => {
-                      if (!session) {
-                        requireLogin("応援にはログインが必要です。");
-                        return;
-                      }
-                      setTipOpen(true);
-                    }}
+                    onClick={() =>
+                      openTip({
+                        id: detail.creator.id,
+                        name: detail.creator.displayName || "（無名）",
+                        productId: detail.id,
+                      })
+                    }
                     title="このクリエイターにゴールドで感謝を伝える"
                   >
                     <Heart size={14} /> スーパーサンクスで応援
@@ -1495,66 +1572,7 @@ export function StorePanel({
           )}
         </div>
 
-        {/* スーパーサンクス・モーダル */}
-        {tipOpen && (
-          <div className="tip-overlay" onClick={() => setTipOpen(false)}>
-            <div className="tip-modal" onClick={(e) => e.stopPropagation()}>
-              <h3 className="tip-title">
-                <Heart size={16} /> スーパーサンクス
-              </h3>
-              <p className="muted" style={{ fontSize: 12.5 }}>
-                「{detail.creator.displayName || "（無名）"}」さんにゴールドで感謝を
-                伝えます。ゴールドはクリエイターの制作を支えます(現金化はできません)。
-              </p>
-              <div className="tip-amounts">
-                {[50, 100, 500, 1000].map((a) => (
-                  <button
-                    key={a}
-                    className={`tip-amt ${tipAmount === a ? "on" : ""}`}
-                    onClick={() => setTipAmount(a)}
-                  >
-                    {a} G
-                  </button>
-                ))}
-              </div>
-              <input
-                className="input"
-                type="number"
-                min={1}
-                max={100000}
-                value={tipAmount}
-                onChange={(e) =>
-                  setTipAmount(Math.max(1, Math.floor(Number(e.target.value) || 0)))
-                }
-                aria-label="金額"
-              />
-              <textarea
-                className="input"
-                rows={2}
-                maxLength={200}
-                placeholder="応援メッセージ(任意・200 文字まで)"
-                value={tipMsg}
-                onChange={(e) => setTipMsg(e.target.value)}
-                style={{ resize: "vertical" }}
-              />
-              <p className="muted" style={{ fontSize: 11.5 }}>
-                所持: {goldBalance === null ? "—" : goldBalance.toLocaleString()} ゴールド
-              </p>
-              <div className="tip-actions">
-                <button className="btn mini" onClick={() => setTipOpen(false)}>
-                  やめる
-                </button>
-                <button
-                  className="btn mini btn-primary"
-                  onClick={() => void sendThanks()}
-                  disabled={tipBusy || tipAmount < 1}
-                >
-                  {tipBusy ? "送信中…" : `${tipAmount} G を贈る`}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {tipModal}
       </div>
     );
   }
@@ -1626,32 +1644,43 @@ export function StorePanel({
           {creators && creators.length > 0 && (
             <div className="creators-grid">
               {creators.map((c) => (
-                <button
-                  key={c.id}
-                  className="creator-card"
-                  onClick={() =>
-                    browseWith({
-                      creator: { id: c.id, name: c.displayName || "（無名）" },
-                    })
-                  }
-                  title={`${c.displayName || "（無名）"} の作品を見る`}
-                >
-                  {c.avatarUrl ? (
-                    <img className="creator-avatar" src={c.avatarUrl} alt="" />
-                  ) : (
-                    <span className="store-avatar-ph">👤</span>
-                  )}
-                  <span className="creator-meta">
-                    <b className="creator-name">{c.displayName || "（無名）"}</b>
-                    {c.bio && <span className="creator-bio muted">{c.bio}</span>}
-                    <span className="creator-count">作品 {c.workCount} 件</span>
-                  </span>
-                  <span className="catcard-arrow">→</span>
-                </button>
+                <div key={c.id} className="creator-cardwrap">
+                  <button
+                    className="creator-card"
+                    onClick={() =>
+                      browseWith({
+                        creator: { id: c.id, name: c.displayName || "（無名）" },
+                      })
+                    }
+                    title={`${c.displayName || "（無名）"} の作品を見る`}
+                  >
+                    {c.avatarUrl ? (
+                      <img className="creator-avatar" src={c.avatarUrl} alt="" />
+                    ) : (
+                      <span className="store-avatar-ph">👤</span>
+                    )}
+                    <span className="creator-meta">
+                      <b className="creator-name">{c.displayName || "（無名）"}</b>
+                      {c.bio && <span className="creator-bio muted">{c.bio}</span>}
+                      <span className="creator-count">作品 {c.workCount} 件</span>
+                    </span>
+                    <span className="catcard-arrow">→</span>
+                  </button>
+                  <button
+                    className="creator-thanks"
+                    onClick={() =>
+                      openTip({ id: c.id, name: c.displayName || "（無名）" })
+                    }
+                    title="このクリエイターにスーパーサンクスを贈る"
+                  >
+                    <Heart size={13} /> 応援
+                  </button>
+                </div>
               ))}
             </div>
           )}
         </div>
+        {tipModal}
       </div>
     );
   }
@@ -1894,18 +1923,29 @@ export function StorePanel({
           </span>
         )}
         {creatorFilter && (
-          <span className="store-qchip">
-            👤 {creatorFilter.name} の作品
+          <>
+            <span className="store-qchip">
+              👤 {creatorFilter.name} の作品
+              <button
+                onClick={() => {
+                  setCreatorFilter(null);
+                  setPage(1);
+                }}
+                title="作者の絞り込みを解除"
+              >
+                ×
+              </button>
+            </span>
             <button
-              onClick={() => {
-                setCreatorFilter(null);
-                setPage(1);
-              }}
-              title="作者の絞り込みを解除"
+              className="store-qchip-thanks"
+              onClick={() =>
+                openTip({ id: creatorFilter.id, name: creatorFilter.name })
+              }
+              title="このクリエイターにスーパーサンクスを贈る"
             >
-              ×
+              <Heart size={12} /> 応援する
             </button>
-          </span>
+          </>
         )}
         <span className="store-count muted">{items ? `${total} 件` : ""}</span>
       </div>
@@ -2131,6 +2171,7 @@ export function StorePanel({
           )}
         </div>
       </div>
+      {tipModal}
     </div>
   );
 }
