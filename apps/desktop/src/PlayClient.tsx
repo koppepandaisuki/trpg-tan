@@ -54,6 +54,7 @@ import {
   type WidgetIntent,
 } from "./play-bus";
 import { toast } from "./Toasts";
+import { replayToText } from "./replay-export";
 
 type Phase = "connecting" | "waiting" | "ready" | "closed" | "error";
 
@@ -697,6 +698,24 @@ export function PlayClient({
     void addImageObject(file);
   }
 
+  /** リプレイをクリップボードへコピー(参加者視点。見えない秘匿ロールは伏せる)。 */
+  async function copyLog() {
+    if (!scene) return;
+    const nameOf = (id?: string) =>
+      id ? (scene.panels.find((p) => p.id === id)?.name ?? id) : "メイン";
+    const mine = new Set([name, ...myCards.map((p) => p.name)]);
+    const canSee = (ev: { visibleTo?: string[] }) =>
+      (ev.visibleTo ?? []).some((n) => mine.has(n));
+    try {
+      await navigator.clipboard.writeText(
+        replayToText(scene.log, nameOf, canSee),
+      );
+      toast("📋 リプレイをコピーしました");
+    } catch {
+      toast("コピーできませんでした");
+    }
+  }
+
   // 発言者は「自分(入室名)」か自分のキャラのみ。駒が消えるなど無効になったら
   // 自分(地の声)へ戻す。"self" は常に有効。
   const myIds = myCards.map((p) => p.id).join(",");
@@ -1179,6 +1198,7 @@ export function PlayClient({
                         onVisibleToChange={setVisibleTo}
                         onSubmit={submitCompose}
                         onQuickRoll={(expr) => handleSend(compose.speakerId, expr)}
+                        onCopyLog={() => void copyLog()}
                         maskSecret
                         viewerName={name}
                         viewerPanelNames={myCards.map((p) => p.name)}

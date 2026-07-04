@@ -92,6 +92,7 @@ import { getLibrary, systemLabel } from "./library";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { toast } from "./Toasts";
 import { savePlayAs, savePlayToPath } from "./play-storage";
+import { replayToText, replayToHtml } from "./replay-export";
 import { FriendPickerModal } from "./FriendsPanel";
 import { PlayPlanGate } from "./PlayPlanGate";
 import { sendTableInvite } from "./friends-remote";
@@ -920,47 +921,48 @@ export function PlayTable({
     if (ok) dispatch(logClearEvent(newCtx()));
   }
 
+  /** ログのチャンネル/駒 id → 表示名(リプレイ書き出しの共通解決)。 */
+  function logNameOf(id?: string): string {
+    return id ? (scene.panels.find((p) => p.id === id)?.name ?? id) : "メイン";
+  }
+
   /** チャットログをテキストファイルへ書き出す(リプレイ保存)。 */
   async function exportLog() {
-    const nameOf = (id?: string) =>
-      id ? (scene.panels.find((p) => p.id === id)?.name ?? id) : "メイン";
-    const lines: string[] = [];
-    for (const ev of scene.log) {
-      const time = new Date(ev.ts).toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      if (ev.kind === "chat") {
-        lines.push(`[${time}][${nameOf(ev.channel)}] ${ev.actor}: ${ev.text}`);
-      } else if (ev.kind === "roll") {
-        const res = ev.detail
-          ? ev.detail
-          : ev.check
-            ? `${ev.check.isSuccess ? "成功" : "失敗"}(${ev.check.level})`
-            : ev.success !== undefined
-              ? ev.success
-                ? "成功"
-                : "失敗"
-              : "";
-        lines.push(
-          `[${time}][${nameOf(ev.channel)}] ${ev.actor}: 🎲 ${ev.label} [${ev.dice.join(",")}] = ${ev.total}${res ? ` ${res}` : ""}${ev.secret ? "（シークレット）" : ""}`,
-        );
-      } else if (ev.kind === "resource") {
-        lines.push(
-          `[${time}] ${ev.actor}: ${ev.label} ${ev.delta >= 0 ? "+" : ""}${ev.delta} → ${ev.current}`,
-        );
-      } else if (ev.kind === "system") {
-        lines.push(`[${time}] ${ev.text}`);
-      }
-    }
     try {
       const p = await saveDialog({
         defaultPath: `${scene.title || "session"}-log.txt`,
         filters: [{ name: "テキスト", extensions: ["txt"] }],
       });
-      if (p) await writeTextFile(p, lines.join("\n"));
+      if (p) await writeTextFile(p, replayToText(scene.log, logNameOf));
     } catch (e) {
       setError(`ログを書き出せませんでした: ${String(e)}`);
+    }
+  }
+
+  /** 整形リプレイ(HTML)を書き出す。 */
+  async function exportLogHtml() {
+    try {
+      const p = await saveDialog({
+        defaultPath: `${scene.title || "session"}-replay.html`,
+        filters: [{ name: "HTML", extensions: ["html"] }],
+      });
+      if (p)
+        await writeTextFile(
+          p,
+          replayToHtml(scene.log, logNameOf, scene.title || "セッション"),
+        );
+    } catch (e) {
+      setError(`リプレイを書き出せませんでした: ${String(e)}`);
+    }
+  }
+
+  /** ログをクリップボードへコピー(プレーンテキスト)。 */
+  async function copyLog() {
+    try {
+      await navigator.clipboard.writeText(replayToText(scene.log, logNameOf));
+      toast("📋 リプレイをコピーしました");
+    } catch {
+      setError("コピーできませんでした");
     }
   }
 
@@ -1975,6 +1977,8 @@ export function PlayTable({
                       onSubmit={submitCompose}
                       onQuickRoll={(expr) => handleSend(compose.speakerId, expr)}
                       onExport={() => void exportLog()}
+                      onExportHtml={() => void exportLogHtml()}
+                      onCopyLog={() => void copyLog()}
                       onClearLog={() => void clearLog()}
                       diceBot={diceBot}
                       onDiceBotChange={setDiceBot}
