@@ -21,10 +21,18 @@ export function isGoldPackId(v: unknown): v is GoldPackId {
   return typeof v === "string" && v in GOLD_PACKS;
 }
 
-/** AI 1 回あたりの消費ゴールド(env で調整可。既定 1)。 */
+/**
+ * AI 1 回あたりの消費ゴールド(env で調整可。既定 2)。
+ *
+ * 根拠: claude-haiku-4-5 は $1/$5 per MTok(入力/出力)。抜粋+質問+
+ * max_tokens=1024 の実コストは軽量な質問で ¥0.3、抜粋5件程度の中量な
+ * 質問で ¥0.8 程度(¥150/$1 換算)。1 ゴールド=¥1 の等価レートのため
+ * 既定 2 にすることで軽量〜中量は黒字を確保しつつプレイヤー負担は
+ * 実質無視できる水準(300ゴールドパックで150回分)に抑える。
+ */
 export function aiGoldCost(): number {
-  const raw = Number(process.env.AI_GOLD_COST ?? "1");
-  return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 1;
+  const raw = Number(process.env.AI_GOLD_COST ?? "2");
+  return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 2;
 }
 
 /** RPC の raise exception メッセージ → 利用者向け文言。 */

@@ -5,6 +5,7 @@
  * "supabase not configured" を投げる。呼び出し側は loggedIn を確認してから使う。
  */
 
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, supabaseConfigured } from "./supabase";
 
 export interface FriendUserPreview {
@@ -124,6 +125,26 @@ export async function sendScheduleInvite(
   if (error) throw new Error(error.message);
 }
 
+type NotificationRawRow = {
+  id: string;
+  kind: NotificationRow["kind"];
+  payload: Record<string, unknown> | null;
+  read_at: string | null;
+  responded_at: string | null;
+  created_at: string;
+};
+
+function toNotificationRow(r: NotificationRawRow): NotificationRow {
+  return {
+    id: r.id,
+    kind: r.kind,
+    payload: r.payload ?? {},
+    readAt: r.read_at,
+    respondedAt: r.responded_at,
+    createdAt: r.created_at,
+  };
+}
+
 /** 自分宛の通知一覧(新しい順)。limit はクライアント側で先頭 N 件。 */
 export async function listMyNotifications(
   limit = 40,
@@ -135,21 +156,51 @@ export async function listMyNotifications(
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(error.message);
-  return ((data ?? []) as {
-    id: string;
-    kind: NotificationRow["kind"];
-    payload: Record<string, unknown> | null;
-    read_at: string | null;
-    responded_at: string | null;
-    created_at: string;
-  }[]).map((r) => ({
-    id: r.id,
-    kind: r.kind,
-    payload: r.payload ?? {},
-    readAt: r.read_at,
-    respondedAt: r.responded_at,
-    createdAt: r.created_at,
-  }));
+  return ((data ?? []) as NotificationRawRow[]).map(toNotificationRow);
+}
+
+/**
+ * 自分宛の新着通知(INSERT)を Realtime で購読する。起動時ポーリングだけでは
+ * 数十秒のラグがあったため、Supabase Realtime の postgres_changes で即時
+ * 反映する(バッジ更新・トースト表示用)。RLS(notifications_select_own)が
+ * Realtime 配信にも適用されるため、filter は二重の絞り込み。
+ *
+ * 戻り値は購読解除関数。同一 userId のトピックが再接続等で残っていると
+ * `channel.on()` が「subscribe 後には呼べない」エラーになるため、生成前に
+ * 既存の同トピックチャンネルを撤去してから作り直す(net.ts と同じ対処)。
+ */
+export async function subscribeMyNotifications(
+  userId: string,
+  onInsert: (row: NotificationRow) => void,
+): Promise<() => void> {
+  if (!supabaseConfigured) return () => {};
+  const topic = `notifications_${userId}`;
+  const stale = supabase
+    .getChannels()
+    .filter((ch) => ch.topic === `realtime:${topic}`);
+  if (stale.length > 0) {
+    await Promise.all(stale.map((ch) => supabase.removeChannel(ch)));
+  }
+
+  const channel: RealtimeChannel = supabase.channel(topic);
+  channel
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "notifications",
+        filter: `user_id=eq.${userId}`,
+      },
+      (payload) => {
+        onInsert(toNotificationRow(payload.new as NotificationRawRow));
+      },
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }
 
 /** 未読件数(バッジ用)。 */

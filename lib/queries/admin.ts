@@ -28,6 +28,7 @@ export type AdminUserRow = {
   displayName: string;
   isCreator: boolean;
   isAdmin: boolean;
+  goldBalance: number;
   createdAt: string;
 };
 
@@ -51,9 +52,10 @@ export async function listUsersForAdmin(opts?: {
 
   let query = supabase
     .from("profiles")
-    .select("id, display_name, is_creator, is_admin, created_at", {
-      count: "exact",
-    })
+    .select(
+      "id, display_name, is_creator, is_admin, gold_balance, created_at",
+      { count: "exact" },
+    )
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -75,6 +77,7 @@ export async function listUsersForAdmin(opts?: {
     displayName: r.display_name ?? "",
     isCreator: !!r.is_creator,
     isAdmin: !!r.is_admin,
+    goldBalance: r.gold_balance ?? 0,
     createdAt: r.created_at,
   }));
 
