@@ -106,6 +106,22 @@ export async function POST(request: NextRequest) {
 
   // 4. 効果を適用。
   try {
+    if (rc.kind === "tester_access") {
+      const { error } = await admin
+        .from("profiles")
+        .update({ is_tester: true })
+        .eq("id", userId);
+      if (error) throw new Error(error.message);
+      return NextResponse.json(
+        {
+          ok: true,
+          kind: "tester_access",
+          message: "テスター権限を付与しました。Stripe を介さずプランを切り替えられます",
+        },
+        { status: 200, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
     if (rc.kind === "gold") {
       const { data: prof } = await admin
         .from("profiles")

@@ -50,7 +50,13 @@ function normalizePlan(p: unknown): UserPlan {
   return p === "pro" ? "pro" : p === "play" ? "play" : "basic";
 }
 
-export type MyAccount = { plan: UserPlan; isAdmin: boolean; loggedIn: boolean };
+export type MyAccount = {
+  plan: UserPlan;
+  isAdmin: boolean;
+  /** テスター権限(リデームコード「TESTER」で付与)。Stripe を介さずプラン切替可。 */
+  isTester: boolean;
+  loggedIn: boolean;
+};
 
 /**
  * 最後に取得できたアカウント情報のローカルキャッシュ。
@@ -67,6 +73,7 @@ function readAccountCache(): MyAccount | null {
     return {
       plan: normalizePlan(v.plan),
       isAdmin: Boolean(v.isAdmin),
+      isTester: Boolean(v.isTester),
       loggedIn: true,
     };
   } catch {
@@ -102,7 +109,8 @@ export function clearAccountCache() {
 export async function getMyAccount(): Promise<MyAccount> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  if (!token) return { plan: "basic", isAdmin: false, loggedIn: false };
+  if (!token)
+    return { plan: "basic", isAdmin: false, isTester: false, loggedIn: false };
   try {
     const res = await fetch(`${WEB_BASE}/api/account/plan`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -111,11 +119,13 @@ export async function getMyAccount(): Promise<MyAccount> {
       ok?: boolean;
       plan?: string;
       admin?: boolean;
+      tester?: boolean;
     };
     if (res.ok && body.ok) {
       const acct: MyAccount = {
         plan: normalizePlan(body.plan),
         isAdmin: Boolean(body.admin),
+        isTester: Boolean(body.tester),
         loggedIn: true,
       };
       writeAccountCache(acct);
@@ -126,7 +136,7 @@ export async function getMyAccount(): Promise<MyAccount> {
     const cached = readAccountCache();
     if (cached) return cached;
   }
-  return { plan: "basic", isAdmin: false, loggedIn: true };
+  return { plan: "basic", isAdmin: false, isTester: false, loggedIn: true };
 }
 
 /** 現在のプランだけ取得(未ログイン/失敗時は basic)。 */
@@ -202,7 +212,7 @@ export async function openPlanPortal(): Promise<CheckoutResult> {
 }
 
 export type RedeemResult = {
-  kind: "plan_play" | "plan_pro" | "gold";
+  kind: "plan_play" | "plan_pro" | "gold" | "tester_access";
   plan?: UserPlan;
   amount?: number;
   goldBalance?: number;

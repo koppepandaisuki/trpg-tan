@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { getVersion } from "@tauri-apps/api/app";
 import {
   UserCog,
   Monitor,
@@ -286,6 +287,8 @@ function AccountTab({ planSig = 0 }: { planSig?: number }) {
 function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
   const { ready, loggedIn } = useMyProfile();
   const [busy, setBusy] = useState(false);
+  // コード引き換え(テスター権限付与など)の直後に PlanSection を再取得させる。
+  const [redeemSig, setRedeemSig] = useState(0);
 
   if (!supabaseConfigured) {
     return (
@@ -330,9 +333,9 @@ function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
         desc="連携済みです。購入物をライブラリに取り込めます。本名・メールはアプリ内に表示・共有されません。"
       />
 
-      <PlanSection planSig={planSig} />
+      <PlanSection planSig={planSig + redeemSig} />
 
-      <RedeemSection />
+      <RedeemSection onRedeemed={() => setRedeemSig((n) => n + 1)} />
 
       <Section title="ログアウト" desc="この端末からサインアウトします。">
         <button className="btn acct-logout" onClick={() => void signOut()}>
@@ -354,12 +357,13 @@ const PLAN_OPTIONS: { key: UserPlan; label: string; price: string; desc: string 
 function PlanSection({ planSig = 0 }: { planSig?: number }) {
   const [plan, setPlan] = useState<UserPlan | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isTester, setIsTester] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     void getMyAccount()
-      .then((a) => { setPlan(a.plan); setIsAdmin(a.isAdmin); })
+      .then((a) => { setPlan(a.plan); setIsAdmin(a.isAdmin); setIsTester(a.isTester); })
       .catch(() => setPlan("basic"));
   }, [planSig]);
 
@@ -367,7 +371,7 @@ function PlanSection({ planSig = 0 }: { planSig?: number }) {
   useEffect(() => {
     function onFocus() {
       void getMyAccount()
-        .then((a) => { setPlan(a.plan); setIsAdmin(a.isAdmin); })
+        .then((a) => { setPlan(a.plan); setIsAdmin(a.isAdmin); setIsTester(a.isTester); })
         .catch(() => {});
     }
     window.addEventListener("focus", onFocus);
@@ -378,6 +382,13 @@ function PlanSection({ planSig = 0 }: { planSig?: number }) {
     setBusy(true);
     setMsg(null);
     try {
+      // テスター権限があれば Stripe を介さず即切替(本番課金の構成有無を問わない)。
+      if (isTester) {
+        const next = await setMyPlanTester(p);
+        setPlan(next);
+        setMsg("プランを変更しました(テスター権限・料金は発生しません)。");
+        return;
+      }
       const r = await startPlanCheckout(p);
       if (r.ok) {
         // 外部ブラウザで Stripe を開く。戻り先は redice://subscription/complete。
@@ -422,6 +433,11 @@ function PlanSection({ planSig = 0 }: { planSig?: number }) {
           🛡 管理者アカウント — プラン不問で、すべての機能（PLAY のホスト等）をご利用いただけます。
         </p>
       )}
+      {isTester && (
+        <p className="tag ok" style={{ display: "block", marginBottom: 8 }}>
+          🧪 テスター権限 — Stripe を介さずプランを無料で切り替えられます。
+        </p>
+      )}
       <div className="plan-rows">
         {PLAN_OPTIONS.map((p) => (
           <div key={p.key} className={`plan-row ${plan === p.key ? "on" : ""}`}>
@@ -435,7 +451,7 @@ function PlanSection({ planSig = 0 }: { planSig?: number }) {
             {plan === p.key ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
                 <span className="tag ok">利用中</span>
-                {p.key !== "basic" && (
+                {p.key !== "basic" && !isTester && (
                   <button
                     className="btn mini"
                     disabled={busy}
@@ -471,7 +487,7 @@ function PlanSection({ planSig = 0 }: { planSig?: number }) {
  * リデームコード入力。特定のコードでプラン付与やアプリ内ゴールドを受け取る
  * (キャンペーン・テスター特典・サポート対応用)。
  */
-function RedeemSection() {
+function RedeemSection({ onRedeemed }: { onRedeemed?: () => void }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -492,6 +508,8 @@ function RedeemSection() {
       );
       setCode("");
       toast(`🎁 ${r.message}`);
+      // プラン/テスター権限が変わった可能性があるので上のプラン欄を再取得させる。
+      onRedeemed?.();
     } catch (e) {
       setOk(false);
       setMsg(e instanceof Error ? e.message : "引き換えに失敗しました。");
@@ -1300,6 +1318,12 @@ function AboutTab() {
     { label: "プライバシーポリシー", path: "/privacy" },
     { label: "ヘルプ・よくある質問", path: "/help" },
   ];
+  const [version, setVersion] = useState<string | null>(null);
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch(() => setVersion(null));
+  }, []);
   return (
     <>
       <Section title="Re-dice デスクトップ版" desc="TRPG の卓・キャラ・素材をひとつに。">
@@ -1307,6 +1331,11 @@ function AboutTab() {
           作った卓やキャラはこの端末に保存されます。購入物はストアからダウンロードして
           ライブラリに取り込めます。
         </p>
+        {version && (
+          <p className="muted" style={{ fontSize: 10.5, marginTop: 6, opacity: 0.6 }}>
+            バージョン {version}
+          </p>
+        )}
       </Section>
       <Section title="規約・ヘルプ(web)">
         <div className="set2-links">

@@ -39,15 +39,17 @@ export async function GET(request: NextRequest) {
   }
   const { data } = await auth.client
     .from("profiles")
-    .select("plan, is_admin")
+    .select("plan, is_admin, is_tester")
     .eq("id", auth.user.id)
     .maybeSingle();
   // 管理者は profiles.is_admin、または α whitelist のメアド。管理者はプラン不問で
   // 全機能を使える(ゲート免除)ため、デスクトップへ admin フラグも返す。
   const admin =
     Boolean(data?.is_admin) || isAlphaAdminEmail(auth.user.email ?? "");
+  // テスター権限(リデームコード「TESTER」で付与)。Stripe を介さずプラン切替可。
+  const tester = Boolean(data?.is_tester);
   return NextResponse.json(
-    { ok: true, plan: normalizePlan(data?.plan), admin },
+    { ok: true, plan: normalizePlan(data?.plan), admin, tester },
     { status: 200, headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -60,17 +62,18 @@ export async function POST(request: NextRequest) {
       { status: 401 },
     );
   }
-  // 本番課金(Stripe Price ID)が構成されたら、テスター切替は管理者限定にする。
-  // これを怠ると「課金開始後も誰でも無料で pro にできる」API が残ってしまう。
+  // 本番課金(Stripe Price ID)が構成されたら、テスター切替は管理者 / テスター権限
+  // 限定にする。これを怠ると「課金開始後も誰でも無料で pro にできる」API が残る。
   if (isPlanBillingConfigured()) {
     const { data: prof } = await auth.client
       .from("profiles")
-      .select("is_admin")
+      .select("is_admin, is_tester")
       .eq("id", auth.user.id)
       .maybeSingle();
     const admin =
       Boolean(prof?.is_admin) || isAlphaAdminEmail(auth.user.email ?? "");
-    if (!admin) {
+    const tester = Boolean(prof?.is_tester);
+    if (!admin && !tester) {
       return NextResponse.json(
         {
           ok: false,

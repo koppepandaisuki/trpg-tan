@@ -22,8 +22,9 @@ export async function selectPlanTesterAction(
   plan: string,
 ): Promise<{ ok: true; plan: UserPlan } | { ok: false; error: string }> {
   const user = await requireUser();
-  // 本番課金が構成されたらテスター切替は管理者限定(無料で pro になれる穴を塞ぐ)。
-  if (isPlanBillingConfigured() && !user.isAdmin) {
+  // 本番課金が構成されたらテスター切替は管理者 / テスター権限限定
+  // (無料で pro になれる穴を塞ぐ。テスター権限はリデームコード「TESTER」で付与)。
+  if (isPlanBillingConfigured() && !user.isAdmin && !user.isTester) {
     return {
       ok: false,
       error: "テスター用のプラン切替は終了しました。上のボタンからお申し込みください",
