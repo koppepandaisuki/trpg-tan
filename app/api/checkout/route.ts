@@ -6,6 +6,11 @@ import { getStripe } from "@/lib/stripe/client";
 import { calculateApplicationFeeJpy } from "@/lib/stripe/fees";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { salePriceJpy } from "@/lib/format/price";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  tooManyRequestsResponse,
+} from "@/lib/api/rate-limit";
 
 /**
  * POST /api/checkout
@@ -32,6 +37,11 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "ログインが必要です" },
       { status: 401 },
     );
+  }
+
+  // クレジットマスター/有効性確認の乱用抑止(同一アカウントからの入力制限)。
+  if (!(await checkRateLimit(`checkout:${user.id}`, RATE_LIMITS.checkout))) {
+    return tooManyRequestsResponse();
   }
 
   // Parse productId + optional returnTo (desktop deep-link).

@@ -8,9 +8,11 @@ import { AvatarUpload } from "@/components/account/avatar-upload";
 import { PasswordChangeForm } from "@/components/account/password-change-form";
 import { EmailChangeForm } from "@/components/account/email-change-form";
 import { DeleteAccountForm } from "@/components/account/delete-account-form";
+import { MfaStatusPanel } from "@/components/account/mfa-status-panel";
 import { requireUser } from "@/lib/session/require";
 import { createClient } from "@/lib/supabase/server";
 import { publicAvatarUrl } from "@/lib/format/storage";
+import { listVerifiedTotpFactors } from "@/lib/mutations/mfa";
 import type { ProfileEditInput } from "@/lib/validators/profile";
 
 export const metadata = { title: "プロフィール設定" };
@@ -54,6 +56,7 @@ export default async function AccountSettingsPage() {
   };
 
   const avatarUrl = publicAvatarUrl(profileRow?.avatar_path ?? null);
+  const mfaFactors = await listVerifiedTotpFactors();
 
   return (
     <>
@@ -134,6 +137,25 @@ export default async function AccountSettingsPage() {
               </p>
             </div>
             <PasswordChangeForm />
+          </CardContent>
+        </Card>
+
+        {/* 二段階認証(任意)。不正ログイン対策の選択肢として提供。 */}
+        <Card className="shadow-sm">
+          <CardContent className="space-y-3 py-6">
+            <div>
+              <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                セキュリティ
+              </h2>
+              <p className="mt-0.5 text-base font-semibold tracking-tight">
+                二段階認証(任意)
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                ログイン時に認証アプリのコード入力を追加で求め、アカウントの
+                不正利用を防ぎます。
+              </p>
+            </div>
+            <MfaStatusPanel initialFactor={mfaFactors[0] ?? null} />
           </CardContent>
         </Card>
 

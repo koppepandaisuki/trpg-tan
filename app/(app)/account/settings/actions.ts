@@ -16,6 +16,14 @@ import {
   type ChangePasswordInput,
   type ChangeEmailInput,
 } from "@/lib/validators/auth";
+import {
+  enrollTotpFactor,
+  verifyTotpFactor,
+  unenrollTotpFactor,
+  type EnrollTotpResult,
+  type VerifyTotpResult,
+  type UnenrollTotpResult,
+} from "@/lib/mutations/mfa";
 
 /**
  * アバター画像の Storage への upload 完了後に、profiles.avatar_path を
@@ -213,6 +221,35 @@ export async function changeEmailAction(
   }
 
   return { ok: true, sentTo: newEmail };
+}
+
+/**
+ * 二段階認証(TOTP)の任意設定。一般ユーザーの本人確認強化の選択肢として
+ * 提供する(Stripe セキュリティチェックリスト「不正ログイン対策」対応)。
+ * admin は app/(app)/admin/mfa 側で別途必須化されている。
+ */
+export async function enrollMfaAction(): Promise<EnrollTotpResult> {
+  await requireUser();
+  return enrollTotpFactor();
+}
+
+export async function verifyMfaAction(input: {
+  factorId: string;
+  code: string;
+}): Promise<VerifyTotpResult> {
+  await requireUser();
+  const result = await verifyTotpFactor(input.factorId, input.code);
+  if (result.ok) revalidatePath("/account/settings");
+  return result;
+}
+
+export async function unenrollMfaAction(
+  factorId: string,
+): Promise<UnenrollTotpResult> {
+  await requireUser();
+  const result = await unenrollTotpFactor(factorId);
+  if (result.ok) revalidatePath("/account/settings");
+  return result;
 }
 
 /**

@@ -28,6 +28,10 @@ export const RATE_LIMITS = {
   purchaseGold: { limit: 30, windowSeconds: 60 },
   /** ゴールドパックの Checkout 作成。 */
   goldCheckout: { limit: 20, windowSeconds: 60 },
+  /** 作品購入(JPY)の Checkout 作成。クレジットマスター/有効性確認対策。 */
+  checkout: { limit: 20, windowSeconds: 60 },
+  /** 月額プラン(play/pro)の Checkout 作成。 */
+  planCheckout: { limit: 20, windowSeconds: 60 },
 } as const satisfies Record<string, RateRule>;
 
 /**
