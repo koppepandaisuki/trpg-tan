@@ -1,6 +1,41 @@
 import { describe, it, expect } from "vitest";
 import type Stripe from "stripe";
-import { decideCheckoutOutcome } from "@/lib/stripe/webhook";
+import { decideCheckoutOutcome, disputeAlertText } from "@/lib/stripe/webhook";
+
+describe("disputeAlertText", () => {
+  it("formats a created dispute with an action prompt", () => {
+    const out = disputeAlertText({
+      kind: "created",
+      id: "dp_123",
+      amountJpy: 1500,
+      reason: "fraudulent",
+      status: "needs_response",
+      chargeId: "ch_abc",
+    });
+    expect(out).toContain("🚨 チャージバック発生");
+    expect(out).toContain("¥1,500");
+    expect(out).toContain("fraudulent");
+    expect(out).toContain("ch_abc");
+    expect(out).toContain("dp_123");
+    expect(out).toContain("証拠提出");
+  });
+
+  it("formats a closed dispute without the action prompt", () => {
+    const out = disputeAlertText({
+      kind: "closed",
+      id: "dp_123",
+      amountJpy: 1500,
+      reason: "fraudulent",
+      status: "won",
+      chargeId: null,
+    });
+    expect(out).toContain("チャージバック確定");
+    expect(out).toContain("won");
+    expect(out).not.toContain("証拠提出");
+    // chargeId 無しの行は省略される。
+    expect(out).not.toContain("charge:");
+  });
+});
 
 /**
  * Build a Stripe.Checkout.Session fake just rich enough for the decision

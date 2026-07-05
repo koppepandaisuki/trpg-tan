@@ -8,6 +8,7 @@ import {
 } from "@/lib/mutations/purchases";
 import { syncCreatorChargesEnabled } from "@/lib/mutations/creator-connect";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { postOperatorAlert } from "@/lib/security/operator-alert";
 
 /**
  * Webhook event handlers.
@@ -313,4 +314,79 @@ export async function handleAccountUpdated(
     accountId: outcome.accountId,
     chargesEnabled: outcome.chargesEnabled,
   });
+}
+
+// ---------------------------------------------------------------------
+// charge.dispute.* (チャージバック)
+//
+// 実際の異議申し立て対応(証拠提出・返金判断)は Stripe ダッシュボードで行う
+// (docs/stripe-operations.md 参照)。ここでは運営が即座に気づけるよう Discord に
+// アラートを飛ばすだけ。ゴールドパックのチャージバックは閉じた経済なので被害は
+// 限定的だが、作品購入(Connect 出金済み)のチャージバックは要対応。
+// ---------------------------------------------------------------------
+
+export type DisputeKind = "created" | "closed";
+
+/** アラート本文を組み立てる純関数(Stripe 型に依存せずテスト可能)。 */
+export function disputeAlertText(input: {
+  kind: DisputeKind;
+  id: string;
+  amountJpy: number;
+  reason: string;
+  status: string;
+  chargeId: string | null;
+}): string {
+  const head =
+    input.kind === "created"
+      ? "🚨 チャージバック発生(要対応)"
+      : `📄 チャージバック確定: ${input.status}`;
+  const lines = [
+    head,
+    `金額: ¥${input.amountJpy.toLocaleString()}`,
+    `理由: ${input.reason}`,
+    `状態: ${input.status}`,
+    input.chargeId ? `charge: ${input.chargeId}` : null,
+    `dispute: ${input.id}`,
+    input.kind === "created"
+      ? "→ Stripe ダッシュボードで異議内容を確認し、証拠提出 or 受諾を判断してください。"
+      : null,
+  ].filter((l): l is string => l !== null);
+  return lines.join("\n");
+}
+
+function disputeInput(dispute: Stripe.Dispute, kind: DisputeKind) {
+  const chargeId =
+    typeof dispute.charge === "string"
+      ? dispute.charge
+      : (dispute.charge?.id ?? null);
+  return {
+    kind,
+    id: dispute.id,
+    // JPY は最小単位が円なので amount = 円。
+    amountJpy: dispute.amount ?? 0,
+    reason: dispute.reason ?? "unknown",
+    status: dispute.status ?? "unknown",
+    chargeId,
+  };
+}
+
+export async function handleDisputeCreated(
+  dispute: Stripe.Dispute,
+): Promise<void> {
+  console.warn("[webhook] charge.dispute.created", {
+    disputeId: dispute.id,
+    amount: dispute.amount,
+    reason: dispute.reason,
+  });
+  await postOperatorAlert(disputeAlertText(disputeInput(dispute, "created")));
+}
+
+export async function handleDisputeClosed(
+  dispute: Stripe.Dispute,
+): Promise<void> {
+  console.info("[webhook] charge.dispute.closed", {
+    disputeId: dispute.id,
+    status: dispute.status,
+  });
+  await postOperatorAlert(disputeAlertText(disputeInput(dispute, "closed")));
 }

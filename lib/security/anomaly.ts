@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { postOperatorAlert } from "@/lib/security/operator-alert";
 
 /**
  * 運営向け異常検知の日次ダイジェスト。
@@ -92,14 +93,6 @@ export function formatAnomalyDigest(report: AnomalyReport): string {
   return lines.join("\n").slice(0, 1900);
 }
 
-function alertWebhookUrl(): string | null {
-  return (
-    process.env.DISCORD_ALERT_WEBHOOK_URL ??
-    process.env.DISCORD_FEEDBACK_WEBHOOK_URL ??
-    null
-  );
-}
-
 export type AnomalyRunResult =
   | { ok: true; posted: boolean; flags: number }
   | { ok: false; message: string };
@@ -124,20 +117,6 @@ export async function runAnomalyReport(
     return { ok: false, message: e instanceof Error ? e.message : "unknown" };
   }
 
-  const url = alertWebhookUrl();
-  if (!url) {
-    return { ok: true, posted: false, flags: report.flags.length };
-  }
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: formatAnomalyDigest(report) }),
-    });
-    return { ok: true, posted: res.ok, flags: report.flags.length };
-  } catch (e) {
-    console.error("[anomaly] discord post failed", e);
-    return { ok: true, posted: false, flags: report.flags.length };
-  }
+  const posted = await postOperatorAlert(formatAnomalyDigest(report));
+  return { ok: true, posted, flags: report.flags.length };
 }
