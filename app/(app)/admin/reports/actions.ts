@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/session/require";
 import { createClient } from "@/lib/supabase/server";
-import { setProductStatus, AdminRpcError } from "@/lib/mutations/admin";
+import {
+  setProductStatus,
+  deleteReview,
+  AdminRpcError,
+} from "@/lib/mutations/admin";
 import { notifySuspension } from "@/lib/notify/review-notification";
 import { reportStatusSchema, type ReportStatus } from "@/lib/validators/report";
 
@@ -91,6 +95,56 @@ export async function suspendFromReportAction(
 
   revalidatePath("/admin/reports");
   revalidatePath("/admin/products");
+  revalidatePath("/store");
+  return { ok: true };
+}
+
+/**
+ * レビュー通報の処理状態を更新(open → reviewed / dismissed)。
+ * review_reports の RLS(review_reports_update_admin)が is_admin() を要求。
+ */
+export async function resolveReviewReportAction(
+  reportId: string,
+  newStatus: ReportStatus,
+): Promise<AdminActionResult> {
+  await requireAdmin();
+
+  const parsed = reportStatusSchema.safeParse(newStatus);
+  if (!parsed.success || parsed.data === "open") {
+    return { ok: false, message: "無効な状態です" };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("review_reports")
+    .update({ status: parsed.data })
+    .eq("id", reportId);
+
+  if (error) {
+    console.error("[resolveReviewReportAction] failed", error);
+    return { ok: false, message: "更新に失敗しました" };
+  }
+
+  revalidatePath("/admin/reports");
+  return { ok: true };
+}
+
+/**
+ * 通報されたレビューを削除する(モデレーション)。admin_delete_review RPC で
+ * レビューを消すと、cascade で当該 review_reports もキューから消える。
+ */
+export async function deleteReviewFromReportAction(
+  reviewId: string,
+): Promise<AdminActionResult> {
+  await requireAdmin();
+  try {
+    await deleteReview(reviewId);
+  } catch (e) {
+    if (e instanceof AdminRpcError) return { ok: false, message: e.message };
+    console.error("[deleteReviewFromReportAction] failed", e);
+    return { ok: false, message: "削除に失敗しました" };
+  }
+  revalidatePath("/admin/reports");
   revalidatePath("/store");
   return { ok: true };
 }

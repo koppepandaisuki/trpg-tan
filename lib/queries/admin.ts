@@ -356,8 +356,124 @@ export async function countOpenReports(): Promise<number> {
 }
 
 // =====================================================================
+// Review reports (review_reports) — レビュー本文のモデレーション
+// =====================================================================
+
+export type AdminReviewReportRow = {
+  id: string;
+  reviewId: string;
+  productId: string;
+  productTitle: string;
+  reviewComment: string;
+  reviewStars: number | null;
+  reporterLabel: string;
+  category: ReportCategory;
+  reason: string;
+  status: ReportStatus;
+  createdAt: string;
+};
+
+export async function listReviewReportsForAdmin(opts?: {
+  status?: ReportStatus | "all";
+  page?: number;
+}): Promise<AdminListResult<AdminReviewReportRow>> {
+  const supabase = createClient();
+  const page = Math.max(1, opts?.page ?? 1);
+  const pageSize = ADMIN_PAGE_SIZE_REPORTS;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from("review_reports")
+    .select("id, review_id, reporter_id, category, reason, status, created_at", {
+      count: "exact",
+    })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (opts?.status && opts.status !== "all") {
+    query = query.eq("status", opts.status);
+  }
+
+  const { data, count, error } = await query;
+  if (error) {
+    console.error("[listReviewReportsForAdmin] failed", error);
+    return emptyResult(page, pageSize);
+  }
+
+  const reviewIds = Array.from(new Set((data ?? []).map((r) => r.review_id)));
+  const reporterIds = Array.from(new Set((data ?? []).map((r) => r.reporter_id)));
+  const [reviewMap, nameMap] = await Promise.all([
+    fetchReviewContents(reviewIds),
+    fetchCreatorNames(reporterIds),
+  ]);
+  const productIds = Array.from(
+    new Set([...reviewMap.values()].map((v) => v.productId)),
+  );
+  const titleMap = await fetchProductTitles(productIds);
+
+  const items: AdminReviewReportRow[] = (data ?? []).map((r) => {
+    const rev = reviewMap.get(r.review_id);
+    const productId = rev?.productId ?? "";
+    return {
+      id: r.id,
+      reviewId: r.review_id,
+      productId,
+      productTitle: productId ? titleMap.get(productId) ?? "(取得不可)" : "(削除済)",
+      reviewComment: rev?.comment ?? "(本文取得不可)",
+      reviewStars: rev?.stars ?? null,
+      reporterLabel:
+        nameMap.get(r.reporter_id) || `${r.reporter_id.slice(0, 8)}…`,
+      category: r.category as ReportCategory,
+      reason: r.reason,
+      status: r.status as ReportStatus,
+      createdAt: r.created_at,
+    };
+  });
+
+  return buildResult(items, count ?? 0, page, pageSize);
+}
+
+/** 未対応のレビュー通報件数(nav バッジ用)。 */
+export async function countOpenReviewReports(): Promise<number> {
+  const supabase = createClient();
+  const { count, error } = await supabase
+    .from("review_reports")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open");
+  if (error) {
+    console.error("[countOpenReviewReports] failed", error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+// =====================================================================
 // Helpers
 // =====================================================================
+
+async function fetchReviewContents(
+  ids: string[],
+): Promise<Map<string, { productId: string; comment: string; stars: number | null }>> {
+  const result = new Map<
+    string,
+    { productId: string; comment: string; stars: number | null }
+  >();
+  if (ids.length === 0) return result;
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("product_reviews")
+    .select("id, product_id, comment, stars")
+    .in("id", ids);
+  for (const row of data ?? []) {
+    result.set(row.id, {
+      productId: row.product_id,
+      comment: row.comment ?? "",
+      stars: typeof row.stars === "number" ? row.stars : null,
+    });
+  }
+  return result;
+}
 
 async function fetchCreatorNames(ids: string[]): Promise<Map<string, string>> {
   const result = new Map<string, string>();

@@ -80,6 +80,19 @@ export async function setProductStatus(
 }
 
 /**
+ * 通報されたレビューを削除(モデレーション)。admin_delete_review RPC は
+ * security definer + is_admin 検証 + 監査ログ。cascade で当該レビューの
+ * review_reports / replies / votes も消える。
+ */
+export async function deleteReview(reviewId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_delete_review", {
+    target_review_id: reviewId,
+  });
+  if (error) throw classifyRpcError("delete_review", error);
+}
+
+/**
  * 審査キューの判定。approve=true で公開(published)、false で却下(draft に
  * 戻し、note を作者向けの理由として記録)。admin_review_product RPC を呼ぶ。
  */

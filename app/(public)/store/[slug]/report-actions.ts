@@ -54,3 +54,46 @@ export async function reportProductAction(
 
   return { ok: true };
 }
+
+/**
+ * レビュー(本文)を通報する Server Action。作品通報と同じ枠組み。
+ * 認証必須。unique(review_id, reporter_id) で二重通報を防ぐ。
+ */
+export async function reportReviewAction(
+  reviewId: string,
+  raw: ReportSubmitInput,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+
+  const parsed = reportSubmitSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "入力に誤りがあります",
+    };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.from("review_reports").insert({
+    review_id: reviewId,
+    reporter_id: user.id,
+    category: parsed.data.category,
+    reason: parsed.data.reason,
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return {
+        ok: false,
+        error: "このレビューはすでに通報済みです。ご協力ありがとうございます。",
+      };
+    }
+    console.error("[reportReviewAction] insert failed", error);
+    return {
+      ok: false,
+      error: "通報の送信に失敗しました。時間をおいて再度お試しください。",
+    };
+  }
+
+  return { ok: true };
+}
