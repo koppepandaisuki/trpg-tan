@@ -7,6 +7,9 @@ import {
   Save,
   MessageCircle,
   Trash2,
+  FileCode2,
+  FileText,
+  Copy,
 } from "lucide-react";
 import type { PlayEvent, CoCCheckResult } from "@trpg/core";
 import { QuickRollBar } from "./QuickRollBar";
@@ -65,6 +68,8 @@ export function LogView({
   onSubmit,
   onQuickRoll,
   onExport,
+  onExportHtml,
+  onCopyLog,
   onClearLog,
   maskSecret = false,
   viewerName,
@@ -92,8 +97,12 @@ export function LogView({
   onSubmit: () => void;
   /** クイックロール: 式を渡すと現在の発言者・設定で振る。未指定ならバー非表示。 */
   onQuickRoll?: (expr: string) => void;
-  /** チャットログをファイルへ書き出す(リプレイ保存)。 */
+  /** チャットログをテキストファイルへ書き出す(リプレイ保存)。 */
   onExport?: () => void;
+  /** チャットログを整形 HTML で書き出す。 */
+  onExportHtml?: () => void;
+  /** チャットログをクリップボードへコピー。 */
+  onCopyLog?: () => void;
   /** チャット/ログ履歴を全消去(GM のみ。未指定ならボタン非表示)。 */
   onClearLog?: () => void;
   /** 参加者ビュー: シークレットダイスの出目を伏せて表示する。 */
@@ -115,6 +124,7 @@ export function LogView({
 }) {
   const [filter, setFilter] = useState<LogFilter>("all");
   const [newestFirst, setNewestFirst] = useState(false);
+  const [exportMenu, setExportMenu] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   const shown = useMemo(() => {
@@ -187,14 +197,56 @@ export function LogView({
         >
           {newestFirst ? "↑ 新しい順" : "↓ 古い順"}
         </button>
-        {onExport && (
-          <button
-            className="plog-sort"
-            onClick={onExport}
-            title="ログをテキストファイルへ書き出し"
-          >
-            <Save size={14} />
-          </button>
+        {(onExport || onExportHtml || onCopyLog) && (
+          <div className="plog-export">
+            <button
+              className="plog-sort"
+              onClick={() => setExportMenu((v) => !v)}
+              title="リプレイを書き出し / コピー"
+            >
+              <Save size={14} />
+            </button>
+            {exportMenu && (
+              <>
+                <div
+                  className="plog-export-back"
+                  onClick={() => setExportMenu(false)}
+                />
+                <div className="plog-export-menu">
+                  {onExportHtml && (
+                    <button
+                      onClick={() => {
+                        setExportMenu(false);
+                        onExportHtml();
+                      }}
+                    >
+                      <FileCode2 size={13} /> 整形リプレイ(HTML)
+                    </button>
+                  )}
+                  {onExport && (
+                    <button
+                      onClick={() => {
+                        setExportMenu(false);
+                        onExport();
+                      }}
+                    >
+                      <FileText size={13} /> テキスト(.txt)
+                    </button>
+                  )}
+                  {onCopyLog && (
+                    <button
+                      onClick={() => {
+                        setExportMenu(false);
+                        onCopyLog();
+                      }}
+                    >
+                      <Copy size={13} /> クリップボードにコピー
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         )}
         {onClearLog && (
           <button

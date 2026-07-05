@@ -3,6 +3,11 @@ import { getCurrentUser } from "@/lib/session/get-user";
 import { isSameOriginRequest } from "@/lib/api/origin";
 import { feedbackInputSchema } from "@/lib/validators/feedback";
 import { decideFeedbackOutcome } from "@/lib/feedback/discord";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  tooManyRequestsResponse,
+} from "@/lib/api/rate-limit";
 
 /**
  * POST /api/feedback
@@ -41,6 +46,11 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "ログインが必要です" },
       { status: 401 },
     );
+  }
+
+  // Discord webhook フラッドの抑止(1 ユーザー 5 件/時)。
+  if (!(await checkRateLimit(`feedback:${user.id}`, RATE_LIMITS.feedback))) {
+    return tooManyRequestsResponse();
   }
 
   let body: unknown;

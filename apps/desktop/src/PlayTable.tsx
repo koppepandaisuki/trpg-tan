@@ -22,7 +22,6 @@ import {
   sceneRemoveEvent,
   turnSetEvent,
   logClearEvent,
-  buildPack,
   parseCcfoliaCharacter,
   panelVariables,
   substituteVars,
@@ -56,7 +55,6 @@ import {
   MessageSquare,
   StickyNote,
   BookMarked,
-  NotebookPen,
   ClipboardPaste,
 } from "lucide-react";
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -64,6 +62,7 @@ import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { DiceMotion } from "./DiceMotion";
 import { setDiagContext } from "./diag";
 import { getMyAccount } from "./account-remote";
+import { requireLogin } from "./LoginGate";
 import { PlayBoard } from "./PlayBoard";
 import { SceneBar } from "./SceneBar";
 import { PlayPanel } from "./PlayPanel";
@@ -78,7 +77,6 @@ import { AssetsPanel } from "./AssetsPanel";
 import { MemoPanel } from "./MemoPanel";
 import { RulebookQA } from "./RulebookQA";
 import { ScenarioViewer } from "./ScenarioViewer";
-import { ScenarioBuilderPanel } from "./ScenarioBuilderPanel";
 import { playSeFile } from "./SePanel";
 import { uploadAudioPath, sanitizeForNet, splitSceneMedia } from "./play-media";
 import { probeImageWidth } from "./play-thumb";
@@ -91,13 +89,25 @@ import {
 } from "./net";
 import { useLiveDrag } from "./use-live-drag";
 import { getLibrary, systemLabel } from "./library";
-import { readSheetFromPath, isGenericSheet } from "./storage";
+import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { toast } from "./Toasts";
 import { savePlayAs, savePlayToPath } from "./play-storage";
+import { replayToText, replayToHtml } from "./replay-export";
 import { FriendPickerModal } from "./FriendsPanel";
 import { PlayPlanGate } from "./PlayPlanGate";
 import { sendTableInvite } from "./friends-remote";
-import { exportPackToFile } from "./pack";
+import {
+  WIDGET_DEFS,
+  emitSync,
+  onHello,
+  onWidgetIntent,
+  onRedock,
+  openWidgetWindow,
+  closeWidgetWindow,
+  closeAllWidgetWindows,
+  type WidgetSlice,
+  type WidgetIntent,
+} from "./play-bus";
 
 /** イベント文脈(id/時刻)。乱数は @trpg/core 側の既定(Math.random)。 */
 function newCtx() {
@@ -183,6 +193,8 @@ export function PlayTable({
   const { sendDrag, overlay: overlayLive } = useLiveDrag(room);
   const [members, setMembers] = useState<string[]>([]);
   const [sharePop, setSharePop] = useState(false);
+  // ☰ メニューポップオーバー(卓のタグ / アプリメニューへの導線)。
+  const [menuPop, setMenuPop] = useState(false);
   // 無料(basic・非admin)が共有を押したとき出すプラン案内モーダル。
   const [planGateOpen, setPlanGateOpen] = useState(false);
   const [friendInviteOpen, setFriendInviteOpen] = useState(false);
@@ -280,6 +292,149 @@ export function PlayTable({
   // 参加者ビューでは秘匿キャラを出さない。
   const playerCards = cards.filter((p) => !p.hidden);
 
+  /* ===== サイドバーの「アプリ外」切り離し(OS 別ウィンドウ / play-bus) ===== */
+  const [osWin, setOsWin] = useState<Record<string, boolean>>({});
+  const anyOsWin = Object.values(osWin).some(Boolean);
+
+  // 切り離し窓へ配信するスライス。盤面専用の重いフィールド(座標/差分画像等)は
+  // 落とす = 駒移動のたびに再配信しない(JSON 比較ガードも効く)。
+  const widgetSlice = useMemo<WidgetSlice>(() => {
+    const slimCards = scene.panels
+      .filter((p) => p.stats.length > 0 || p.resources.length > 0)
+      .sort((a, b) => (b.speed ?? -Infinity) - (a.speed ?? -Infinity))
+      .map(({ pos, size, height, layer, locked, sceneId, variants, ...rest }) => rest);
+    return {
+      playId: scene.id,
+      title: scene.title,
+      // diceBot(下で宣言される派生値)と同じ式。scene から直接導出する。
+      diceBot:
+        scene.diceBot ??
+        (scene.systemId === "coc6" || scene.systemId === "coc7"
+          ? "coc"
+          : "generic"),
+      log: scene.log.slice(-400),
+      speakers: [
+        { id: "GM", name: "GM" },
+        ...slimCards.map((p) => ({ id: p.id, name: p.name })),
+      ],
+      cards: slimCards,
+      textStock: scene.textStock ?? "",
+      sharedMemos: scene.sharedMemos ?? [
+        { id: "main", name: "メモ", text: scene.sharedMemo ?? "" },
+      ],
+    };
+  }, [scene]);
+  const sliceRef = useRef(widgetSlice);
+  sliceRef.current = widgetSlice;
+  const lastSyncJson = useRef("");
+  useEffect(() => {
+    if (!anyOsWin) return;
+    const json = JSON.stringify(widgetSlice);
+    if (json === lastSyncJson.current) return;
+    lastSyncJson.current = json;
+    void emitSync(widgetSlice);
+  }, [widgetSlice, anyOsWin]);
+
+  // 窓からの操作を既存ハンドラへ(最新クロージャを ref 経由で呼ぶ)。
+  const widgetIntentRef = useRef<(it: WidgetIntent) => void>(() => {});
+  widgetIntentRef.current = (it) => {
+    switch (it.kind) {
+      case "send":
+        handleSend(it.speakerId, it.raw, {
+          channel: it.channel,
+          secret: it.secret,
+          visibleTo: it.visibleTo,
+          color: it.color,
+        });
+        break;
+      case "fill":
+        fill(it.speakerId, it.text);
+        break;
+      case "resource": {
+        const p = scene.panels.find((x) => x.id === it.panelId);
+        const r = p?.resources.find((x) => x.key === it.resourceKey);
+        if (p && r) changeResource(p, r, it.delta);
+        break;
+      }
+      case "remove-panel": {
+        const p = scene.panels.find((x) => x.id === it.panelId);
+        if (p) removePanel(p);
+        break;
+      }
+      case "panel-update":
+        updatePanel(it.panelId, it.patch);
+        break;
+      case "stock-send":
+        playSeByName(it.se);
+        sendNow("GM", it.text);
+        break;
+      case "telop":
+        playSeByName(it.se);
+        fireTelop(it.text);
+        break;
+      case "stock-edit":
+        setTextStock(it.text);
+        break;
+      case "shared-memos":
+        setSharedMemos(it.memos);
+        break;
+    }
+  };
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let dead = false;
+    const uns: (() => void)[] = [];
+    const keep = (p: Promise<() => void>) => {
+      void p.then((u) => {
+        if (dead) u();
+        else uns.push(u);
+      });
+    };
+    keep(onHello(() => void emitSync(sliceRef.current)));
+    keep(onWidgetIntent((it) => widgetIntentRef.current(it)));
+    keep(onRedock((id) => setOsWin((w) => ({ ...w, [id]: false }))));
+    return () => {
+      dead = true;
+      uns.forEach((u) => u());
+    };
+  }, []);
+
+  // 卓を離れるときは切り離し窓も一緒に閉じる。
+  useEffect(
+    () => () => {
+      if (isTauri()) void closeAllWidgetWindows(Object.keys(WIDGET_DEFS));
+    },
+    [],
+  );
+
+  async function toggleDetach(id: string) {
+    const def = WIDGET_DEFS[id];
+    if (!def) return;
+    if (osWin[id]) {
+      setOsWin((w) => ({ ...w, [id]: false }));
+      void closeWidgetWindow(id);
+      return;
+    }
+    if (!isTauri()) {
+      toast("アプリ外への切り離しはデスクトップアプリでのみ使えます");
+      return;
+    }
+    setOsWin((w) => ({ ...w, [id]: true }));
+    try {
+      await openWidgetWindow(
+        id,
+        `${def.title} — ${scene.title || "卓"}`,
+        def,
+        () => setOsWin((w) => ({ ...w, [id]: false })),
+      );
+      void emitSync(sliceRef.current);
+    } catch (e) {
+      setOsWin((w) => ({ ...w, [id]: false }));
+      toast(`切り離しに失敗しました: ${String(e)}`);
+    }
+  }
+
   function dispatch(event: PlayEvent) {
     setScene((s) => reduce(s, event));
     setDirty(true);
@@ -307,6 +462,11 @@ export function PlayTable({
 
   function setDiceBot(id: string) {
     setScene((s) => ({ ...s, diceBot: id }));
+    setDirty(true);
+  }
+  /** 卓のシステム(保存カードの表示・判定版・既定ダイス)を変更。 */
+  function setSystemId(id: string) {
+    setScene((s) => (s.systemId === id ? s : { ...s, systemId: id }));
     setDirty(true);
   }
 
@@ -686,24 +846,6 @@ export function PlayTable({
     reader.readAsDataURL(file);
   }
 
-  /** 卓全体を .paradice として書き出す(シナリオ作成タブの導線)。 */
-  async function exportScenarioPack() {
-    try {
-      const pack = buildPack({
-        id: scene.id,
-        name: scene.title || "無題のシナリオ",
-        scenarios: [scene],
-        now: new Date().toISOString(),
-      });
-      const path = await exportPackToFile(pack);
-      if (path) toast(`📦 「${pack.name}」を書き出しました`);
-    } catch (e) {
-      toast(
-        `書き出しに失敗: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
-  }
-
   /* ===== シナリオテキストストック / カットイン(GM ローカル編集) ===== */
 
   function setTextStock(text: string) {
@@ -779,47 +921,48 @@ export function PlayTable({
     if (ok) dispatch(logClearEvent(newCtx()));
   }
 
+  /** ログのチャンネル/駒 id → 表示名(リプレイ書き出しの共通解決)。 */
+  function logNameOf(id?: string): string {
+    return id ? (scene.panels.find((p) => p.id === id)?.name ?? id) : "メイン";
+  }
+
   /** チャットログをテキストファイルへ書き出す(リプレイ保存)。 */
   async function exportLog() {
-    const nameOf = (id?: string) =>
-      id ? (scene.panels.find((p) => p.id === id)?.name ?? id) : "メイン";
-    const lines: string[] = [];
-    for (const ev of scene.log) {
-      const time = new Date(ev.ts).toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      if (ev.kind === "chat") {
-        lines.push(`[${time}][${nameOf(ev.channel)}] ${ev.actor}: ${ev.text}`);
-      } else if (ev.kind === "roll") {
-        const res = ev.detail
-          ? ev.detail
-          : ev.check
-            ? `${ev.check.isSuccess ? "成功" : "失敗"}(${ev.check.level})`
-            : ev.success !== undefined
-              ? ev.success
-                ? "成功"
-                : "失敗"
-              : "";
-        lines.push(
-          `[${time}][${nameOf(ev.channel)}] ${ev.actor}: 🎲 ${ev.label} [${ev.dice.join(",")}] = ${ev.total}${res ? ` ${res}` : ""}${ev.secret ? "（シークレット）" : ""}`,
-        );
-      } else if (ev.kind === "resource") {
-        lines.push(
-          `[${time}] ${ev.actor}: ${ev.label} ${ev.delta >= 0 ? "+" : ""}${ev.delta} → ${ev.current}`,
-        );
-      } else if (ev.kind === "system") {
-        lines.push(`[${time}] ${ev.text}`);
-      }
-    }
     try {
       const p = await saveDialog({
         defaultPath: `${scene.title || "session"}-log.txt`,
         filters: [{ name: "テキスト", extensions: ["txt"] }],
       });
-      if (p) await writeTextFile(p, lines.join("\n"));
+      if (p) await writeTextFile(p, replayToText(scene.log, logNameOf));
     } catch (e) {
       setError(`ログを書き出せませんでした: ${String(e)}`);
+    }
+  }
+
+  /** 整形リプレイ(HTML)を書き出す。 */
+  async function exportLogHtml() {
+    try {
+      const p = await saveDialog({
+        defaultPath: `${scene.title || "session"}-replay.html`,
+        filters: [{ name: "HTML", extensions: ["html"] }],
+      });
+      if (p)
+        await writeTextFile(
+          p,
+          replayToHtml(scene.log, logNameOf, scene.title || "セッション"),
+        );
+    } catch (e) {
+      setError(`リプレイを書き出せませんでした: ${String(e)}`);
+    }
+  }
+
+  /** ログをクリップボードへコピー(プレーンテキスト)。 */
+  async function copyLog() {
+    try {
+      await navigator.clipboard.writeText(replayToText(scene.log, logNameOf));
+      toast("📋 リプレイをコピーしました");
+    } catch {
+      setError("コピーできませんでした");
     }
   }
 
@@ -851,15 +994,24 @@ export function PlayTable({
       const base = isGenericSheet(sheet)
         ? panelFromGeneric({ id: crypto.randomUUID(), sheet })
         : panelFromSheet({ id: crypto.randomUUID(), sheet });
-      // ポートレートがあれば実寸(自然な幅)で配置。
-      const size = base.portrait ? await probeImageWidth(base.portrait) : undefined;
+      // 駒サイズは固定(140)。実寸だと画像ごとにバラバラで盤面が乱れるため、
+      // 追加時は必ず同じ大きさで出す(あとから個別リサイズは可能)。
       dispatch(
         panelAddEvent(newCtx(), {
           ...base,
           pos: spawnPos(),
-          ...(size ? { size } : {}),
+          size: 140,
         }),
       );
+      // 卓のシステムを「最初に登場したキャラ」のシステムに合わせる。これが
+      // 保存カードの “卓名の下” の表示になる(従来は常に coc7 固定だった)。
+      // 既にキャラ駒があるときは触らない(システム混在・手動運用を尊重)。
+      const hadChar = scene.panels.some(
+        (p) => p.stats.length > 0 || p.resources.length > 0,
+      );
+      if (!hadChar && sheet.systemId && sheet.systemId !== scene.systemId) {
+        setSystemId(sheet.systemId);
+      }
       // システム付きキャラを取り込んだら、卓のダイスボットも自動で合わせる
       // (手動で選んでいた場合は上書きしない)。
       if (isGenericSheet(sheet) && sheet.diceBot && !scene.diceBot) {
@@ -1192,8 +1344,12 @@ export function PlayTable({
     try {
       // マルチ卓のホスト(参加コード発行)は PLAY プラン以上が必要。無料(basic)は
       // 「参加のみ」。管理者(admin)はプラン不問で全機能可(ゲート免除・案内も出さない)。
-      // basic のときはエラー文ではなくプラン案内モーダルを出す。
+      // 未ログインはログイン誘導、ログイン済み basic はプラン案内を出す。
       const acct = await getMyAccount();
+      if (!acct.loggedIn) {
+        requireLogin("「みんなで遊ぶ」(卓を立てる)にはログインが必要です。");
+        return;
+      }
       if (!acct.isAdmin && acct.plan === "basic") {
         setPlanGateOpen(true);
         return;
@@ -1430,8 +1586,8 @@ export function PlayTable({
               {onMenu && (
                 <button
                   className="btn mini ibtn"
-                  onClick={onMenu}
-                  title="メニュー（キャラ / 購入 / 卓）"
+                  onClick={() => setMenuPop((v) => !v)}
+                  title="メニュー（卓のタグ / アプリメニュー）"
                   aria-label="メニューを開く"
                 >
                   <Menu size={15} />
@@ -1501,6 +1657,66 @@ export function PlayTable({
         </div>
       )}
 
+      {/* ☰ メニューポップオーバー: 卓のタグ編集 + アプリメニューへの導線。
+          (卓のタグは以前は左サイドバーの1ブロックだったが、使用頻度が低いので
+          ここへ移動してサイドバーを軽くした。) */}
+      {menuPop && !playerMode && (
+        <div className="menu-pop">
+          <strong className="menu-pop-title">卓のタグ</strong>
+          <p className="share-note" style={{ marginTop: 2 }}>
+            ロビーのカードに表示されます(配信はされません)。
+          </p>
+          <div className="ttags">
+            <div className="ttags-chips">
+              {(scene.tags ?? []).map((t) => (
+                <span key={t} className="ttag">
+                  {t}
+                  <button
+                    className="ttag-x"
+                    aria-label={`${t} を削除`}
+                    onClick={() =>
+                      setTableTags((scene.tags ?? []).filter((x) => x !== t))
+                    }
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <input
+              className="input"
+              value={tagDraft}
+              onChange={(e) => setTagDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                const t = tagDraft.trim();
+                if (t && !(scene.tags ?? []).includes(t)) {
+                  setTableTags([...(scene.tags ?? []), t].slice(0, 8));
+                }
+                setTagDraft("");
+              }}
+              placeholder="タグを追加（Enter）例: 初心者歓迎"
+              maxLength={20}
+            />
+          </div>
+          <div className="share-row share-actions">
+            <button
+              className="btn mini"
+              onClick={() => {
+                setMenuPop(false);
+                onMenu?.();
+              }}
+            >
+              アプリメニュー（卓の切替 / 設定）…
+            </button>
+            <span style={{ flex: 1 }} />
+            <button className="btn mini" onClick={() => setMenuPop(false)}>
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 無料(basic・非admin)が共有を押したときのプラン案内。PLAY/Pro を選ぶと
           自動でホスト(共有)を再開する。 */}
       {planGateOpen && (
@@ -1539,53 +1755,8 @@ export function PlayTable({
         <aside className="pside">
           <SideStack
             storageKey={`trpg.play.stack-left.v1::${scene.id}`}
+            onDetach={(id) => void toggleDetach(id)}
             sections={[
-              {
-                id: "table",
-                title: "卓のタグ",
-                icon: <BookMarked size={14} />,
-                defaultOpen: false,
-                body: (
-                  <div className="ttags">
-                    <p className="pside-empty muted" style={{ marginTop: 0 }}>
-                      ロビーのカードに表示されます(配信はされません)。
-                    </p>
-                    <div className="ttags-chips">
-                      {(scene.tags ?? []).map((t) => (
-                        <span key={t} className="ttag">
-                          {t}
-                          <button
-                            className="ttag-x"
-                            aria-label={`${t} を削除`}
-                            onClick={() =>
-                              setTableTags(
-                                (scene.tags ?? []).filter((x) => x !== t),
-                              )
-                            }
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <input
-                      className="input"
-                      value={tagDraft}
-                      onChange={(e) => setTagDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key !== "Enter") return;
-                        const t = tagDraft.trim();
-                        if (t && !(scene.tags ?? []).includes(t)) {
-                          setTableTags([...(scene.tags ?? []), t].slice(0, 8));
-                        }
-                        setTagDraft("");
-                      }}
-                      placeholder="タグを追加（Enter）例: 初心者歓迎"
-                      maxLength={20}
-                    />
-                  </div>
-                ),
-              },
               {
                 id: "assets",
                 title: "アセット",
@@ -1614,6 +1785,8 @@ export function PlayTable({
                 id: "chars",
                 title: "キャラクター",
                 icon: <Users size={14} />,
+                detachable: true,
+                detached: !!osWin["chars"],
                 body: (
                   <div className="ss-chars">
                     {cards.length === 0 ? (
@@ -1650,6 +1823,8 @@ export function PlayTable({
                 title: "テキスト",
                 icon: <BookOpen size={14} />,
                 defaultOpen: false,
+                detachable: true,
+                detached: !!osWin["stock"],
                 body: (
                   <TextStockPanel
                     stock={scene.textStock ?? ""}
@@ -1671,31 +1846,9 @@ export function PlayTable({
                 title: "シナリオ",
                 icon: <ScrollText size={14} />,
                 defaultOpen: false,
+                detachable: true,
+                detached: !!osWin["scenario"],
                 body: <ScenarioViewer playId={scene.id} />,
-              },
-              {
-                id: "scenario-build",
-                title: "シナリオ作成",
-                icon: <NotebookPen size={14} />,
-                defaultOpen: false,
-                body: (
-                  <ScenarioBuilderPanel
-                    scenario={scene.scenario}
-                    onChange={(next) =>
-                      setScene((s) => ({ ...s, scenario: next }))
-                    }
-                    scenes={scene.scenes ?? []}
-                    onChangeScene={(sceneId, patch) =>
-                      setScene((s) => ({
-                        ...s,
-                        scenes: (s.scenes ?? []).map((sc) =>
-                          sc.id === sceneId ? { ...sc, ...patch } : sc,
-                        ),
-                      }))
-                    }
-                    onExportPack={exportScenarioPack}
-                  />
-                ),
               },
               {
                 id: "cutin",
@@ -1787,12 +1940,15 @@ export function PlayTable({
         <aside className="psider">
           <SideStack
             storageKey={`trpg.play.stack-right.v1::${scene.id}`}
+            onDetach={(id) => void toggleDetach(id)}
             sections={[
               {
                 id: "chat",
                 title: "チャット / ログ",
                 icon: <MessageSquare size={14} />,
                 defaultHeight: 480,
+                detachable: true,
+                detached: !!osWin["chat"],
                 body: (
                   <div className="pside-log">
                     <LogView
@@ -1821,6 +1977,8 @@ export function PlayTable({
                       onSubmit={submitCompose}
                       onQuickRoll={(expr) => handleSend(compose.speakerId, expr)}
                       onExport={() => void exportLog()}
+                      onExportHtml={() => void exportLogHtml()}
+                      onCopyLog={() => void copyLog()}
                       onClearLog={() => void clearLog()}
                       diceBot={diceBot}
                       onDiceBotChange={setDiceBot}
@@ -1834,6 +1992,8 @@ export function PlayTable({
                 title: "メモ",
                 icon: <StickyNote size={14} />,
                 defaultOpen: false,
+                detachable: true,
+                detached: !!osWin["memo"],
                 body: (
                   <MemoPanel
                     playId={scene.id}
@@ -1851,6 +2011,8 @@ export function PlayTable({
                 title: "ルールブック Q&A",
                 icon: <BookMarked size={14} />,
                 defaultOpen: false,
+                detachable: true,
+                detached: !!osWin["rulebook"],
                 body: <RulebookQA playId={scene.id} />,
               },
             ]}
@@ -1885,7 +2047,20 @@ export function PlayTable({
 
           {/* 左ドロワー: キャラクター */}
           <aside className={`pdrawer left ${leftOpen ? "open" : ""}`}>
-            <div className="pdrawer-head ibtn"><Users size={14} /> キャラクター</div>
+            <div className="pdrawer-head ibtn">
+              <Users size={14} /> キャラクター
+              <button
+                className="ss-float ss-os"
+                title={
+                  osWin["chars"]
+                    ? "メインウィンドウに戻す"
+                    : "アプリ外の別ウィンドウに切り離す(別モニターに置ける)"
+                }
+                onClick={() => void toggleDetach("chars")}
+              >
+                {osWin["chars"] ? "⇤" : "⇗"}
+              </button>
+            </div>
             <div className="pdrawer-body ss-chars">
               {playerCards.length === 0 ? (
                 <p className="pside-empty muted">
@@ -1926,12 +2101,15 @@ export function PlayTable({
             <div className="pdrawer-body pdrawer-stack">
               <SideStack
                 storageKey={`trpg.play.stack-player.v1::${scene.id}`}
+                onDetach={(id) => void toggleDetach(id)}
                 sections={[
                   {
                     id: "chat",
                     title: "チャット / ログ",
                     icon: <MessageSquare size={14} />,
                     defaultHeight: 460,
+                    detachable: true,
+                    detached: !!osWin["chat"],
                     body: (
                       <div className="pside-log">
                         <LogView
@@ -1973,6 +2151,8 @@ export function PlayTable({
                     title: "メモ",
                     icon: <StickyNote size={14} />,
                     defaultOpen: false,
+                    detachable: true,
+                    detached: !!osWin["memo"],
                     body: (
                       <MemoPanel
                         playId={scene.id}

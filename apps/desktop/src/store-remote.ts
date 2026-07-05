@@ -14,7 +14,10 @@ import type { RemoteProductType, RemoteFileFormat } from "./library-remote";
 
 export const STORE_PAGE_SIZE = 24;
 
-export type StoreSort = "published" | "rating";
+export type StoreSort = "published" | "rating" | "price_asc" | "price_desc";
+
+/** 価格帯フィルタ(定価ベース。web の StorePriceFilter と同じ区分)。 */
+export type StorePriceBand = "free" | "u500" | "mid" | "o1000";
 
 export type ReviewLabel =
   | "圧倒的に好評"
@@ -41,6 +44,11 @@ export interface StoreItem {
   title: string;
   productType: RemoteProductType;
   priceJpy: number;
+  /** 割引率(0..100)。100 = 無料配布。実効価格は salePriceJpy() で算出。*/
+  discountPercent: number;
+  /** セール開始/終了(ISO)。null は無期限。期間内のみ割引が有効。*/
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
   coverUrl: string | null;
   systemLabel: string | null;
   publishedAt: string;
@@ -178,7 +186,7 @@ async function fetchProfiles(ids: string[]): Promise<Map<string, ProfileLite>> {
 }
 
 const LIST_COLUMNS =
-  "id, slug, title, product_type, price_jpy, cover_path, system_label, published_at, creator_id";
+  "id, slug, title, product_type, price_jpy, discount_percent, discount_starts_at, discount_ends_at, cover_path, system_label, published_at, creator_id";
 
 type ListRow = {
   id: string;
@@ -186,6 +194,9 @@ type ListRow = {
   title: string;
   product_type: string;
   price_jpy: number;
+  discount_percent: number;
+  discount_starts_at: string | null;
+  discount_ends_at: string | null;
   cover_path: string | null;
   system_label: string | null;
   published_at: string;
@@ -204,6 +215,9 @@ async function toStoreItems(rows: ListRow[]): Promise<StoreItem[]> {
     title: r.title,
     productType: r.product_type as RemoteProductType,
     priceJpy: r.price_jpy,
+    discountPercent: r.discount_percent ?? 0,
+    discountStartsAt: r.discount_starts_at ?? null,
+    discountEndsAt: r.discount_ends_at ?? null,
     coverUrl: coverUrl(r.cover_path),
     systemLabel: r.system_label,
     publishedAt: r.published_at,
@@ -256,13 +270,78 @@ async function resolveSearchIds(q: string): Promise<string[]> {
 }
 
 /** ストア一覧(カテゴリ / 検索 / 作者 / 並び順 / ページ)。 */
-export async function fetchStore(opts: {
+export type StoreFilterOpts = {
   category?: RemoteProductType | null;
+  /** 複数カテゴリ(グループ絞り込み: 素材=map+bgm_audio 等)。category より優先。 */
+  categories?: RemoteProductType[] | null;
   q?: string | null;
+  /** 作品名のみの絞り込み(右サイドバーの名前検索。q とは AND)。 */
+  titleQ?: string | null;
   creatorId?: string | null;
+  /** フォロー中クリエイター絞り込み(ローカル保存の id 群)。 */
+  creatorIds?: string[] | null;
+  /** ウィッシュリスト絞り込み(ローカル保存の id 群)。 */
+  onlyIds?: string[] | null;
+  priceBand?: StorePriceBand | null;
+  /** 「今」セール中(discount_percent>0 かつ期間内)のみ。 */
+  saleOnly?: boolean;
   sort?: StoreSort;
   page?: number;
-}): Promise<StoreListResult> {
+};
+
+/** 共通フィルタを PostgREST クエリへ適用(published / rating 両経路で共用)。 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyStoreFilters<T extends any>(query: T, opts: StoreFilterOpts): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = query as any;
+  const cats =
+    opts.categories && opts.categories.length > 0
+      ? opts.categories
+      : opts.category
+        ? [opts.category]
+        : null;
+  if (cats) q = cats.length === 1 ? q.eq("product_type", cats[0]) : q.in("product_type", cats);
+  if (opts.creatorId) q = q.eq("creator_id", opts.creatorId);
+  if (opts.creatorIds) {
+    // 空配列 = フォローが無い: 全件ではなく 0 件にする(onlyIds と同じ流儀)。
+    q = q.in("creator_id", opts.creatorIds.length > 0 ? opts.creatorIds : ["-"]);
+  }
+  if (opts.titleQ?.trim()) {
+    // % と _ は LIKE のワイルドカードなのでエスケープ。
+    const esc = opts.titleQ.trim().replace(/[%_]/g, (m) => `\\${m}`);
+    q = q.ilike("title", `%${esc}%`);
+  }
+  if (opts.onlyIds) {
+    q = q.in("id", opts.onlyIds.length > 0 ? opts.onlyIds : ["-"]);
+  }
+  if (opts.priceBand) {
+    switch (opts.priceBand) {
+      case "free":
+        q = q.eq("price_jpy", 0);
+        break;
+      case "u500":
+        q = q.gte("price_jpy", 1).lte("price_jpy", 500);
+        break;
+      case "mid":
+        q = q.gte("price_jpy", 501).lte("price_jpy", 1000);
+        break;
+      case "o1000":
+        q = q.gte("price_jpy", 1001);
+        break;
+    }
+  }
+  if (opts.saleOnly) {
+    const now = new Date().toISOString();
+    // 複数の .or() は AND で結合される: 率>0 AND (開始null or 開始<=now) AND (終了null or 終了>=now)
+    q = q
+      .gt("discount_percent", 0)
+      .or(`discount_starts_at.is.null,discount_starts_at.lte.${now}`)
+      .or(`discount_ends_at.is.null,discount_ends_at.gte.${now}`);
+  }
+  return q as T;
+}
+
+export async function fetchStore(opts: StoreFilterOpts): Promise<StoreListResult> {
   const page = Math.max(1, opts.page ?? 1);
   const pageSize = STORE_PAGE_SIZE;
   const sort = opts.sort ?? "published";
@@ -277,25 +356,25 @@ export async function fetchStore(opts: {
   }
 
   if (sort === "rating") {
-    return fetchByRating({
-      page,
-      pageSize,
-      category: opts.category ?? null,
-      searchIds,
-      creatorId: opts.creatorId ?? null,
-    });
+    return fetchByRating({ page, pageSize, searchIds, opts });
   }
 
   const from = (page - 1) * pageSize;
   let query = supabase
     .from("products")
     .select(LIST_COLUMNS, { count: "exact" })
-    .eq("status", "published")
-    .order("published_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(from, from + pageSize - 1);
-  if (opts.category) query = query.eq("product_type", opts.category);
-  if (opts.creatorId) query = query.eq("creator_id", opts.creatorId);
+    .eq("status", "published");
+  if (sort === "price_asc" || sort === "price_desc") {
+    query = query
+      .order("price_jpy", { ascending: sort === "price_asc" })
+      .order("published_at", { ascending: false });
+  } else {
+    query = query
+      .order("published_at", { ascending: false })
+      .order("created_at", { ascending: false });
+  }
+  query = query.range(from, from + pageSize - 1);
+  query = applyStoreFilters(query, opts);
   if (searchIds !== null) query = query.in("id", searchIds);
 
   const { data: rows, count, error } = await query;
@@ -310,23 +389,36 @@ export async function fetchStore(opts: {
   };
 }
 
+/** 類似品(同カテゴリの好評順、自身を除く)。詳細ページ下部のレール用。 */
+export async function fetchSimilarItems(
+  productType: RemoteProductType,
+  excludeId: string,
+  limit = 8,
+): Promise<StoreItem[]> {
+  const res = await fetchByRating({
+    page: 1,
+    pageSize: limit + 1, // 自身が混ざる分を見込んで 1 つ多めに取る
+    searchIds: null,
+    opts: { category: productType },
+  });
+  return res.items.filter((it) => it.id !== excludeId).slice(0, limit);
+}
+
 /** 好評順ソート(Web の listByRating と同じ手順を JS 集計で)。 */
 async function fetchByRating(args: {
   page: number;
   pageSize: number;
-  category: RemoteProductType | null;
   searchIds: string[] | null;
-  creatorId?: string | null;
+  opts: StoreFilterOpts;
 }): Promise<StoreListResult> {
-  const { page, pageSize, category, searchIds } = args;
+  const { page, pageSize, searchIds } = args;
 
   let idQuery = supabase
     .from("products")
     .select("id, published_at")
     .eq("status", "published")
     .limit(5000);
-  if (category) idQuery = idQuery.eq("product_type", category);
-  if (args.creatorId) idQuery = idQuery.eq("creator_id", args.creatorId);
+  idQuery = applyStoreFilters(idQuery, args.opts);
   if (searchIds !== null) idQuery = idQuery.in("id", searchIds);
 
   const { data: idRows, error } = await idQuery;
@@ -391,6 +483,9 @@ export async function fetchStoreDetail(
         "product_type",
         "file_format",
         "price_jpy",
+        "discount_percent",
+        "discount_starts_at",
+        "discount_ends_at",
         "cover_path",
         "system_label",
         "players",
@@ -413,6 +508,9 @@ export async function fetchStoreDetail(
       product_type: string;
       file_format: string;
       price_jpy: number;
+      discount_percent: number;
+      discount_starts_at: string | null;
+      discount_ends_at: string | null;
       cover_path: string | null;
       system_label: string | null;
       players: string | null;
@@ -447,6 +545,9 @@ export async function fetchStoreDetail(
     productType: row.product_type as RemoteProductType,
     fileFormat: row.file_format as RemoteFileFormat,
     priceJpy: row.price_jpy,
+    discountPercent: row.discount_percent ?? 0,
+    discountStartsAt: row.discount_starts_at ?? null,
+    discountEndsAt: row.discount_ends_at ?? null,
     coverUrl: coverUrl(row.cover_path),
     systemLabel: row.system_label,
     players: row.players,
@@ -575,8 +676,8 @@ export async function fetchTopRatedItems(limit: number): Promise<StoreItem[]> {
   const res = await fetchByRating({
     page: 1,
     pageSize: limit,
-    category: null,
     searchIds: null,
+    opts: {},
   });
   const hasRating = res.items.some((it) => it.review && it.review.total > 0);
   return hasRating ? res.items : [];
@@ -690,9 +791,12 @@ export async function fetchStoreHome(): Promise<StoreHome> {
       fetchTopRatedItems(12),
       fetchTopCreators(3),
       ...HOME_CATEGORIES.map((c) =>
-        fetchByRating({ page: 1, pageSize: 8, category: c, searchIds: null }).then(
-          (r) => r.items,
-        ),
+        fetchByRating({
+          page: 1,
+          pageSize: 8,
+          searchIds: null,
+          opts: { category: c },
+        }).then((r) => r.items),
       ),
     ]);
   return {
@@ -924,11 +1028,79 @@ export function formatPriceJpy(jpy: number): string {
 }
 
 /**
+ * 割引後の実効価格(円・整数)。discountPercent は 0..100。
+ *   salePriceJpy(1000, 30) -> 700 / salePriceJpy(500, 100) -> 0(無料配布)
+ * web 側 lib/format/price.ts の salePriceJpy と同じ計算(決済と表示で一致させる)。
+ */
+export function salePriceJpy(priceJpy: number, discountPercent: number): number {
+  const d = Math.min(100, Math.max(0, Math.round(discountPercent || 0)));
+  if (d <= 0) return priceJpy;
+  return Math.max(0, Math.round((priceJpy * (100 - d)) / 100));
+}
+
+/** 割引が効いているか(率が 1 以上 かつ 定価が有料)。 */
+export function hasDiscount(priceJpy: number, discountPercent: number): boolean {
+  return priceJpy > 0 && discountPercent > 0;
+}
+
+/** セール期間内か(両方 null は常に有効)。web lib/format/price.ts と同じ判定。 */
+export function isDiscountActive(
+  startsAt: string | null | undefined,
+  endsAt: string | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (startsAt) {
+    const s = Date.parse(startsAt);
+    if (!Number.isNaN(s) && now < s) return false;
+  }
+  if (endsAt) {
+    const e = Date.parse(endsAt);
+    if (!Number.isNaN(e) && now > e) return false;
+  }
+  return true;
+}
+
+/**
+ * セール終了までの残り時間ラベル。終了日時なし/終了済みは null。
+ *   3日以上 → 「あと3日」 / 24h未満 → 「あと5時間」 / 1h未満 → 「まもなく終了」
+ * 購入直前の「今買う理由」(緊急性)を作る。Steam のセール表記と同じ発想。
+ */
+export function saleEndsInLabel(
+  endsAt: string | null | undefined,
+  now: number = Date.now(),
+): string | null {
+  if (!endsAt) return null;
+  const e = Date.parse(endsAt);
+  if (Number.isNaN(e)) return null;
+  const ms = e - now;
+  if (ms <= 0) return null;
+  const hours = ms / 3_600_000;
+  if (hours < 1) return "まもなく終了";
+  if (hours < 24) return `あと${Math.floor(hours)}時間`;
+  return `あと${Math.ceil(hours / 24)}日`;
+}
+
+/**
+ * 「今」効いている実効割引率。率 0 以下 or 期間外なら 0(=定価)。
+ * 表示は salePriceJpy(price, effectiveDiscountPercent(...)) で実効価格を出す。
+ */
+export function effectiveDiscountPercent(
+  discountPercent: number,
+  startsAt: string | null | undefined,
+  endsAt: string | null | undefined,
+  now: number = Date.now(),
+): number {
+  const d = Math.min(100, Math.max(0, Math.round(discountPercent || 0)));
+  if (d <= 0) return 0;
+  return isDiscountActive(startsAt, endsAt, now) ? d : 0;
+}
+
+/**
  * Web 版の商品ページ URL(決済はブラウザで行う)。
  *
  * `?from=desktop` を付けることで、web 側 buy-button が checkout API に
  * `returnTo: "desktop"` を伝え、決済成功/キャンセル時に
- * paradice://purchase/* deep link でアプリへ自動で戻れる。
+ * redice://purchase/* deep link でアプリへ自動で戻れる。
  */
 export function webProductUrl(slug: string): string {
   const base = import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000";

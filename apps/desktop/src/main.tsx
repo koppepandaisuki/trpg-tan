@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
+import { PlayWidget } from "./PlayWidget";
 import { ReportButton } from "./ReportButton";
 import { installDiag } from "./diag";
 import { checkForUpdatesOnLaunch } from "./updater";
@@ -14,15 +15,26 @@ import "./styles.css";
 // 描画前に console / 未捕捉エラーの取り込みを開始(net.* の計測ログも拾える)。
 installDiag();
 
+// ?widget=chat 等で開かれたウィンドウは、PLAY サイドバーの切り離しビューとして
+// 動く(メイン卓と play-bus で同期)。通常起動はフルアプリ。
+const widgetId = new URLSearchParams(window.location.search).get("widget");
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
-    <ReportButton />
+    {widgetId ? (
+      <PlayWidget widgetId={widgetId} />
+    ) : (
+      <>
+        <App />
+        <ReportButton />
+      </>
+    )}
   </React.StrictMode>,
 );
 
 // インストール版(本番ビルド)でのみ、起動時に自動更新をチェックする。
 // dev(vite)では走らせない(更新チェックの対象が無く煩わしいため)。
-if (import.meta.env.PROD) {
+// 切り離しウィンドウでは走らせない(メインが担当)。
+if (import.meta.env.PROD && !widgetId) {
   void checkForUpdatesOnLaunch();
 }

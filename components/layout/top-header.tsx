@@ -45,7 +45,7 @@ export async function TopHeader({ className }: { className?: string }) {
         <Link
           href="/"
           className="flex shrink-0 items-center"
-          aria-label="パラDa-iCE TRPGサイト ホーム"
+          aria-label="Re-dice TRPGサイト ホーム"
         >
           <BrandMark size="md" />
         </Link>

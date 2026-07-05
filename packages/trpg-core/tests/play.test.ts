@@ -110,6 +110,41 @@ describe("panelFromSheet", () => {
     expect(drive?.label).toContain("〈自動車〉");
   });
 
+  it("チャットパレットを技能/SAN/能力値から自動生成する", () => {
+    expect(panel.palette).toBeTruthy();
+    const lines = (panel.palette ?? "").split("\n");
+    expect(lines).toContain("CC<=70 目星"); // 技能
+    expect(lines).toContain("CC<={SAN} SANチェック"); // 変数参照(現在値追従)
+    expect(lines).toContain("CC<=50 STR"); // 能力値(7版は値そのまま)
+  });
+
+  it("6版のパレットは能力値×5 を目標値にする", () => {
+    const sheet: CharacterSheet = {
+      ...sampleSheet(),
+      systemId: "coc6",
+      characteristics: { STR: 13, CON: 12, SIZ: 13, DEX: 11, INT: 14, POW: 12, EDU: 15, APP: 10 },
+    };
+    const p = panelFromSheet({ id: "p6", sheet });
+    expect((p.palette ?? "").split("\n")).toContain("CC<=65 STR");
+  });
+
+  it("職業・メモ・背景を note に引き継ぐ", () => {
+    const sheet: CharacterSheet = {
+      ...sampleSheet(),
+      occupationId: "doctor",
+      notes: "行動指針: 慎重に",
+      backstory: "田舎町の診療所で育った。",
+    };
+    const p = panelFromSheet({ id: "p-note", sheet });
+    expect(p.note).toContain("職業: 医師");
+    expect(p.note).toContain("【メモ】\n行動指針: 慎重に");
+    expect(p.note).toContain("【背景】\n田舎町の診療所で育った。");
+  });
+
+  it("職業もメモも無ければ note は付けない", () => {
+    expect(panel.note).toBeUndefined();
+  });
+
   it("オリジナル技能はキーではなくシートのラベルで表示", () => {
     const sheet = {
       ...sampleSheet(),

@@ -31,7 +31,7 @@ export const revalidate = 3600; // 1 hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://trpg-tan.vercel.app";
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://re-dice.net";
 
   const now = new Date();
 

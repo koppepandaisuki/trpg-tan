@@ -22,9 +22,11 @@ import {
   type CutIn,
 } from "@trpg/core";
 import { getLibrary } from "./library";
+import { JoinPromo } from "./JoinPromo";
+import { getMyAccount } from "./account-remote";
 import { setDiagContext } from "./diag";
 import { downscaleImage, probeImageWidth } from "./play-thumb";
-import { readSheetFromPath, isGenericSheet } from "./storage";
+import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { DiceMotion } from "./DiceMotion";
 import { unlockDiceSound } from "./dice-sound";
 import { PlayBoard } from "./PlayBoard";
@@ -39,6 +41,20 @@ import { TelopOverlay } from "./TextStock";
 import { connectRoom, type NetIntent, type Room } from "./net";
 import { resolveSceneMedia } from "./play-media";
 import { useLiveDrag } from "./use-live-drag";
+import {
+  WIDGET_DEFS,
+  emitSync,
+  onHello,
+  onWidgetIntent,
+  onRedock,
+  openWidgetWindow,
+  closeWidgetWindow,
+  closeAllWidgetWindows,
+  type WidgetSlice,
+  type WidgetIntent,
+} from "./play-bus";
+import { toast } from "./Toasts";
+import { replayToText } from "./replay-export";
 
 type Phase = "connecting" | "waiting" | "ready" | "closed" | "error";
 
@@ -86,6 +102,24 @@ export function PlayClient({
 }) {
   const [phase, setPhase] = useState<Phase>("connecting");
   const [netError, setNetError] = useState<string | null>(null);
+  // 無料(basic / 未ログイン)参加者か。卓DL中のハウス広告(JoinPromo)の表示判定に使う。
+  // 課金(play/pro)・管理者には広告を出さない。
+  const [freeViewer, setFreeViewer] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const acct = await getMyAccount();
+        if (active) setFreeViewer(!acct.isAdmin && acct.plan === "basic");
+      } catch {
+        // 未ログイン等で取得できない場合は無料扱い(広告を出す)。
+        if (active) setFreeViewer(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   // 卓データ(スナップショット)の受信進捗。null=まだ届いていない / 受信中=チャンク数。
   const [progress, setProgress] = useState<{ received: number; total: number } | null>(
     null,
@@ -408,6 +442,157 @@ export function PlayClient({
     (p) => p.owner === name && p.source === "token" && !p.hidden,
   );
 
+  /* ===== サイドバーの「アプリ外」切り離し(OS 別ウィンドウ / play-bus) =====
+     参加者ビュー版: チャット/マイキャラ/メモを別窓に出せる。窓の操作は
+     この参加者クライアントを経由して GM へ intent 送信される。 */
+  const [osWin, setOsWin] = useState<Record<string, boolean>>({});
+  const anyOsWin = Object.values(osWin).some(Boolean);
+
+  const widgetSlice = useMemo<WidgetSlice | null>(() => {
+    if (!scene) return null;
+    const slim = myCards.map(
+      ({ pos, size, height, layer, locked, sceneId, variants, ...rest }) =>
+        rest,
+    );
+    return {
+      playId: scene.id,
+      title: scene.title,
+      diceBot:
+        scene.diceBot ??
+        (scene.systemId === "coc6" || scene.systemId === "coc7"
+          ? "coc"
+          : "generic"),
+      log: scene.log.slice(-400),
+      speakers: [
+        { id: "self", name: `${name}(自分)` },
+        ...slim.map((p) => ({ id: p.id, name: p.name })),
+      ],
+      cards: slim,
+      textStock: "",
+      sharedMemos: scene.sharedMemos ?? [
+        { id: "main", name: "メモ", text: scene.sharedMemo ?? "" },
+      ],
+      playerMode: true,
+      allowRemove: true,
+      viewer: {
+        maskSecret: true,
+        name,
+        panelNames: slim.map((p) => p.name),
+      },
+    };
+    // myCards は scene から導出されるため scene だけ見れば十分。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene, name]);
+  const sliceRef = useRef(widgetSlice);
+  sliceRef.current = widgetSlice;
+  const lastSyncJson = useRef("");
+  useEffect(() => {
+    if (!anyOsWin || !widgetSlice) return;
+    const json = JSON.stringify(widgetSlice);
+    if (json === lastSyncJson.current) return;
+    lastSyncJson.current = json;
+    void emitSync(widgetSlice);
+  }, [widgetSlice, anyOsWin]);
+
+  // 窓からの操作(最新クロージャを ref 経由で呼ぶ)。GM への intent に変換する。
+  const widgetIntentRef = useRef<(it: WidgetIntent) => void>(() => {});
+  widgetIntentRef.current = (it) => {
+    switch (it.kind) {
+      case "send":
+        sendIntent({
+          kind: "send",
+          speakerId: it.speakerId,
+          raw: it.raw,
+          channel: it.channel ?? "main",
+          secret: it.secret ?? false,
+          visibleTo: it.visibleTo ?? [],
+          color: it.color ?? chatColor,
+        });
+        break;
+      case "fill":
+        fill(it.speakerId, it.text);
+        break;
+      case "resource": {
+        const p = myCards.find((x) => x.id === it.panelId);
+        const r = p?.resources.find((x) => x.key === it.resourceKey);
+        if (p && r) changeResource(p, r, it.delta);
+        break;
+      }
+      case "remove-panel":
+        removeMyCharacter(it.panelId);
+        break;
+      case "panel-update":
+        updatePanel(it.panelId, {
+          palette: it.patch.palette,
+          speed: it.patch.speed,
+        });
+        break;
+      case "shared-memos":
+        setSharedMemos(it.memos);
+        break;
+      default:
+        break; // stock/telop は参加者 UI に無い
+    }
+  };
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let dead = false;
+    const uns: (() => void)[] = [];
+    const keep = (p: Promise<() => void>) => {
+      void p.then((u) => {
+        if (dead) u();
+        else uns.push(u);
+      });
+    };
+    keep(
+      onHello(() => {
+        if (sliceRef.current) void emitSync(sliceRef.current);
+      }),
+    );
+    keep(onWidgetIntent((it) => widgetIntentRef.current(it)));
+    keep(onRedock((id) => setOsWin((w) => ({ ...w, [id]: false }))));
+    return () => {
+      dead = true;
+      uns.forEach((u) => u());
+    };
+  }, []);
+
+  // 卓を離れるときは切り離し窓も一緒に閉じる。
+  useEffect(
+    () => () => {
+      if (isTauri()) void closeAllWidgetWindows(Object.keys(WIDGET_DEFS));
+    },
+    [],
+  );
+
+  async function toggleDetach(id: string) {
+    const def = WIDGET_DEFS[id];
+    if (!def) return;
+    if (osWin[id]) {
+      setOsWin((w) => ({ ...w, [id]: false }));
+      void closeWidgetWindow(id);
+      return;
+    }
+    if (!isTauri()) {
+      toast("アプリ外への切り離しはデスクトップアプリでのみ使えます");
+      return;
+    }
+    setOsWin((w) => ({ ...w, [id]: true }));
+    try {
+      await openWidgetWindow(
+        id,
+        `${def.title} — ${scene?.title || "卓"}`,
+        def,
+        () => setOsWin((w) => ({ ...w, [id]: false })),
+      );
+      if (sliceRef.current) void emitSync(sliceRef.current);
+    } catch (e) {
+      setOsWin((w) => ({ ...w, [id]: false }));
+      toast(`切り離しに失敗しました: ${String(e)}`);
+    }
+  }
+
   // 自分のローカルライブラリ(この端末に保存したキャラ)。PLAY 中にキャラシを
   // 作成/編集すると増えるので、ピッカーを開くたびに読み直す。
   const [lib, setLib] = useState(() => getLibrary());
@@ -511,6 +696,24 @@ export function PlayClient({
     if (!file) return;
     e.preventDefault();
     void addImageObject(file);
+  }
+
+  /** リプレイをクリップボードへコピー(参加者視点。見えない秘匿ロールは伏せる)。 */
+  async function copyLog() {
+    if (!scene) return;
+    const nameOf = (id?: string) =>
+      id ? (scene.panels.find((p) => p.id === id)?.name ?? id) : "メイン";
+    const mine = new Set([name, ...myCards.map((p) => p.name)]);
+    const canSee = (ev: { visibleTo?: string[] }) =>
+      (ev.visibleTo ?? []).some((n) => mine.has(n));
+    try {
+      await navigator.clipboard.writeText(
+        replayToText(scene.log, nameOf, canSee),
+      );
+      toast("📋 リプレイをコピーしました");
+    } catch {
+      toast("コピーできませんでした");
+    }
   }
 
   // 発言者は「自分(入室名)」か自分のキャラのみ。駒が消えるなど無効になったら
@@ -707,6 +910,13 @@ export function PlayClient({
           {phase === "error" && (
             <p className="tag fail">接続できませんでした: {netError}</p>
           )}
+
+          {/* 卓のダウンロード中だけ、無料参加者にハウス広告(注目作品＋プラン案内)。
+              受信が終わると phase==="ready" になりこの画面ごと閉じる。 */}
+          {freeViewer && (phase === "connecting" || phase === "waiting") && (
+            <JoinPromo />
+          )}
+
           <p className="muted" style={{ fontSize: 12 }}>
             参加コード: <code>{code}</code> / 名前: {name}
           </p>
@@ -795,7 +1005,20 @@ export function PlayClient({
 
         {/* 左ドロワー: 自分のキャラクター(操作できるのは自分が追加した分だけ) */}
         <aside className={`pdrawer left ${leftOpen ? "open" : ""}`}>
-          <div className="pdrawer-head ibtn"><Users size={14} /> マイキャラクター</div>
+          <div className="pdrawer-head ibtn">
+            <Users size={14} /> マイキャラクター
+            <button
+              className="ss-float ss-os"
+              title={
+                osWin["chars"]
+                  ? "メインウィンドウに戻す"
+                  : "アプリ外の別ウィンドウに切り離す(別モニターに置ける)"
+              }
+              onClick={() => void toggleDetach("chars")}
+            >
+              {osWin["chars"] ? "⇤" : "⇗"}
+            </button>
+          </div>
           <div className="pdrawer-body ss-chars">
             {/* 自分のキャラを登場させる(この端末のライブラリから) */}
             {picking ? (
@@ -939,12 +1162,15 @@ export function PlayClient({
           <div className="pdrawer-body pdrawer-stack">
             <SideStack
               storageKey={`trpg.play.stack-client.v1::${scene.id}`}
+              onDetach={(id) => void toggleDetach(id)}
               sections={[
                 {
                   id: "chat",
                   title: "チャット / ログ",
                   icon: <MessageSquare size={14} />,
                   defaultHeight: 460,
+                  detachable: true,
+                  detached: !!osWin["chat"],
                   body: (
                     <div className="pside-log">
                       <LogView
@@ -972,6 +1198,7 @@ export function PlayClient({
                         onVisibleToChange={setVisibleTo}
                         onSubmit={submitCompose}
                         onQuickRoll={(expr) => handleSend(compose.speakerId, expr)}
+                        onCopyLog={() => void copyLog()}
                         maskSecret
                         viewerName={name}
                         viewerPanelNames={myCards.map((p) => p.name)}
@@ -985,6 +1212,8 @@ export function PlayClient({
                   title: "メモ",
                   icon: <StickyNote size={14} />,
                   defaultOpen: false,
+                  detachable: true,
+                  detached: !!osWin["memo"],
                   body: (
                     <MemoPanel
                       playId={scene.id}

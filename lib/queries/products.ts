@@ -15,7 +15,7 @@ import { priceFilterRange, type StorePriceFilter } from "@/lib/format/price";
 export const STORE_PAGE_SIZE = 12;
 
 const LIST_COLUMNS =
-  "id, slug, title, product_type, price_jpy, cover_path, system_label, published_at, creator_id";
+  "id, slug, title, product_type, price_jpy, discount_percent, discount_starts_at, discount_ends_at, cover_path, system_label, published_at, creator_id";
 
 const DETAIL_COLUMNS =
   // Intentionally omits file_path / status / creator_id-from-leaking.
@@ -28,6 +28,9 @@ const DETAIL_COLUMNS =
     "product_type",
     "file_format",
     "price_jpy",
+    "discount_percent",
+    "discount_starts_at",
+    "discount_ends_at",
     "cover_path",
     "system_label",
     "players",
@@ -54,6 +57,9 @@ type ProductDetailRow = {
   product_type: string;
   file_format: string;
   price_jpy: number;
+  discount_percent: number;
+  discount_starts_at: string | null;
+  discount_ends_at: string | null;
   cover_path: string | null;
   system_label: string | null;
   players: string | null;
@@ -197,6 +203,9 @@ export async function listPublishedProducts(opts?: {
     title: r.title,
     productType: r.product_type as ProductType,
     priceJpy: r.price_jpy,
+    discountPercent: r.discount_percent ?? 0,
+    discountStartsAt: r.discount_starts_at ?? null,
+    discountEndsAt: r.discount_ends_at ?? null,
     coverPath: r.cover_path,
     systemLabel: r.system_label,
     publishedAt: r.published_at,
@@ -415,6 +424,9 @@ async function listByRating(args: {
     title: r.title,
     productType: r.product_type as ProductType,
     priceJpy: r.price_jpy,
+    discountPercent: r.discount_percent ?? 0,
+    discountStartsAt: r.discount_starts_at ?? null,
+    discountEndsAt: r.discount_ends_at ?? null,
     coverPath: r.cover_path,
     systemLabel: r.system_label,
     publishedAt: r.published_at,
@@ -466,6 +478,9 @@ export async function getPublishedProductBySlug(
     productType: row.product_type as ProductType,
     fileFormat: row.file_format as FileFormat,
     priceJpy: row.price_jpy,
+    discountPercent: row.discount_percent ?? 0,
+    discountStartsAt: row.discount_starts_at ?? null,
+    discountEndsAt: row.discount_ends_at ?? null,
     coverPath: row.cover_path,
     systemLabel: row.system_label,
     players: row.players,
@@ -744,6 +759,9 @@ async function toProductListItems(
     title: string;
     product_type: string;
     price_jpy: number;
+    discount_percent: number;
+    discount_starts_at: string | null;
+    discount_ends_at: string | null;
     cover_path: string | null;
     system_label: string | null;
     published_at: string;
@@ -764,6 +782,9 @@ async function toProductListItems(
     title: r.title,
     productType: r.product_type as ProductType,
     priceJpy: r.price_jpy,
+    discountPercent: r.discount_percent ?? 0,
+    discountStartsAt: r.discount_starts_at ?? null,
+    discountEndsAt: r.discount_ends_at ?? null,
     coverPath: r.cover_path,
     systemLabel: r.system_label,
     publishedAt: r.published_at,

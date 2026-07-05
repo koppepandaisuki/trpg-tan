@@ -56,7 +56,7 @@ const STEPS: Step[] = [
   {
     icon: Sparkles,
     iconTone: "violet",
-    title: "ようこそ、パラDa-iCE TRPGサイトへ",
+    title: "ようこそ、Re-dice TRPGサイトへ",
     description:
       "シナリオ・アセット・パッケージを 作る・買う・遊ぶ。\n2 分でサイトの主要機能を見ていきましょう。",
   },

@@ -115,7 +115,7 @@ function meta(): string {
 /** 添付する全文レポート(メタ情報 + ログ)。 */
 export function collectReport(note?: string): string {
   const head = [
-    "=== パラDa-iCE 不具合レポート ===",
+    "=== Re-dice 不具合レポート ===",
     `メモ: ${note?.trim() || "(なし)"}`,
     "",
     meta(),
@@ -131,7 +131,7 @@ export async function sendReport(note?: string): Promise<void> {
   const report = collectReport(note);
   const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const summary = [
-    "🐞 **不具合レポート**(パラDa-iCE)",
+    "🐞 **不具合レポート**(Re-dice)",
     note?.trim() ? `> ${note.trim().slice(0, 800)}` : "",
   ]
     .filter(Boolean)

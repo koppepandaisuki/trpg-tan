@@ -40,6 +40,9 @@ export type MyProductDetail = {
   productType: ProductType;
   fileFormat: FileFormat;
   priceJpy: number;
+  discountPercent: number;
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
   status: ProductStatus;
   coverPath: string | null;
   systemLabel: string | null;
@@ -67,6 +70,9 @@ const DETAIL_COLUMNS =
     "product_type",
     "file_format",
     "price_jpy",
+    "discount_percent",
+    "discount_starts_at",
+    "discount_ends_at",
     "status",
     "cover_path",
     "system_label",
@@ -95,6 +101,9 @@ type MyProductDetailRow = {
   product_type: string;
   file_format: string;
   price_jpy: number;
+  discount_percent: number;
+  discount_starts_at: string | null;
+  discount_ends_at: string | null;
   status: string;
   cover_path: string | null;
   system_label: string | null;
@@ -214,6 +223,9 @@ export async function getMyProductById(
     productType: row.product_type as ProductType,
     fileFormat: row.file_format as FileFormat,
     priceJpy: row.price_jpy,
+    discountPercent: row.discount_percent ?? 0,
+    discountStartsAt: row.discount_starts_at ?? null,
+    discountEndsAt: row.discount_ends_at ?? null,
     status: row.status as ProductStatus,
     coverPath: row.cover_path,
     systemLabel: row.system_label,

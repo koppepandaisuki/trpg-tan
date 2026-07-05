@@ -6,7 +6,7 @@ import { CoverImage } from "./cover-image";
 import { ReviewBadge } from "@/components/review/review-badge";
 import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { categoryLabel } from "@/lib/format/category";
-import { formatPrice } from "@/lib/format/price";
+import { PriceTag } from "./price-tag";
 import { publicCoverUrl, publicAvatarUrl } from "@/lib/format/storage";
 import type { ProductListItem } from "@/lib/queries/types";
 import { cn } from "@/lib/utils";
@@ -116,8 +116,13 @@ export function WorkCard({ product, rank }: WorkCardProps) {
                 <span className="line-clamp-1">{product.creator.displayName}</span>
               </div>
             )}
-            <p className="pt-1 text-base font-semibold tracking-tight">
-              {formatPrice(product.priceJpy)}
+            <p className="pt-1 tracking-tight">
+              <PriceTag
+                priceJpy={product.priceJpy}
+                discountPercent={product.discountPercent}
+                discountStartsAt={product.discountStartsAt}
+                discountEndsAt={product.discountEndsAt}
+              />
             </p>
           </CardContent>
         </Card>

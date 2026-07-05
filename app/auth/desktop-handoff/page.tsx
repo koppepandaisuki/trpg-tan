@@ -13,8 +13,9 @@ import { createClient } from "@/lib/supabase/client";
  *  2. ユーザーがログイン(メール/パス or Google)→ ここに着地。
  *     (既にログイン済みなら login ページが即ここへ飛ばす)
  *  3. 現在のセッションの access/refresh トークンを
- *     `paradice://auth/callback#access_token=…&refresh_token=…` に載せて
+ *     `redice://auth/callback#access_token=…&refresh_token=…` に載せて
  *     deep-link を起動 → アプリ側が setSession で受け取る。
+ *     (アプリは旧 paradice:// も受理するが、発行は新スキームに統一)
  *
  * これにより 1 回のログインで「ブラウザ(web の Cookie)」と
  * 「アプリ(WebView の localStorage)」の両方がログイン済みになる。
@@ -23,7 +24,7 @@ import { createClient } from "@/lib/supabase/client";
  * OS 内でアプリへ直接渡る(ネットワークを経由しない)。
  */
 
-const DEEP_LINK = "paradice://auth/callback";
+const DEEP_LINK = "redice://auth/callback";
 
 type Phase = "checking" | "ready" | "no-session";
 

@@ -57,6 +57,8 @@ export interface ImportResult {
   system: boolean;
   scenarios: number;
   sheets: number;
+  /** 取り込んだ卓(.play)の一覧。フルパッケージを開いてそのまま PLAY するのに使う。 */
+  scenes: { id: string; title: string; path: string }[];
 }
 
 /**
@@ -85,6 +87,7 @@ export async function importPack(pack: TrpgPack): Promise<ImportResult> {
   }
 
   let playIndex = getPlayIndex();
+  const scenes: { id: string; title: string; path: string }[] = [];
   for (const scene of pack.scenarios ?? []) {
     const path = await join(dir, `${safeName(scene.id)}.play`);
     await writeTextFile(path, JSON.stringify(scene, null, 2));
@@ -96,6 +99,7 @@ export async function importPack(pack: TrpgPack): Promise<ImportResult> {
       panelCount: scene.panels?.length ?? 0,
       updatedAt: new Date().toISOString(),
     });
+    scenes.push({ id: scene.id, title: scene.title, path });
     scenarios += 1;
   }
 
@@ -107,7 +111,7 @@ export async function importPack(pack: TrpgPack): Promise<ImportResult> {
     sheets += 1;
   }
 
-  return { name: pack.name, system: !!pack.system, scenarios, sheets };
+  return { name: pack.name, system: !!pack.system, scenarios, sheets, scenes };
 }
 
 /** 既知のパスの .paradice を取り込む(購入物の「開く」などから)。 */

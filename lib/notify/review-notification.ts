@@ -55,15 +55,63 @@ async function resolveRecipient(
   return { email, title: product.title, slug: product.slug };
 }
 
-/** 承認 / 却下の通知。 */
+/**
+ * アプリ内通知(notifications)へ審査結果を書き込む。メールの設定有無に
+ * 関わらず常に記録する(デスクトップ/Web のインボックスに出る)。
+ * notifications への INSERT はポリシーが無い(定義済み RPC 経由のみ)ため
+ * service_role の admin client から直接書き込む。失敗しても審査処理は継続。
+ */
+async function insertReviewNotification(
+  admin: SupabaseClient,
+  input: {
+    productId: string;
+    creatorId: string;
+    title: string;
+    decision: "approved" | "rejected" | "suspended";
+    reason?: string;
+  },
+): Promise<void> {
+  try {
+    const { error } = await admin.from("notifications").insert({
+      user_id: input.creatorId,
+      kind: "review_decision",
+      payload: {
+        productId: input.productId,
+        productTitle: input.title,
+        decision: input.decision,
+        reason: input.reason ?? "",
+      },
+    });
+    if (error) console.error("[notify] insert failed", error.message);
+  } catch (e) {
+    console.error("[notify] insert unexpected", e);
+  }
+}
+
+/** 承認 / 却下の通知(アプリ内通知 + メール)。 */
 export async function notifyReviewDecision(input: {
   productId: string;
   approve: boolean;
   note?: string;
 }): Promise<void> {
+  const admin = createAdminClient();
+  const { data: product } = await admin
+    .from("products")
+    .select("creator_id, title")
+    .eq("id", input.productId)
+    .maybeSingle();
+  if (product) {
+    await insertReviewNotification(admin, {
+      productId: input.productId,
+      creatorId: product.creator_id,
+      title: product.title,
+      decision: input.approve ? "approved" : "rejected",
+      reason: input.note,
+    });
+  }
+
   if (!isEmailConfigured()) return;
   try {
-    const admin = createAdminClient();
     const r = await resolveRecipient(admin, input.productId);
     if (!r) return;
 
@@ -86,14 +134,29 @@ export async function notifyReviewDecision(input: {
   }
 }
 
-/** 公開停止(takedown)の通知。理由は任意(通報起因なら通報理由を渡す)。 */
+/** 公開停止(takedown)の通知(アプリ内通知 + メール)。理由は任意(通報起因なら通報理由)。 */
 export async function notifySuspension(input: {
   productId: string;
   reason?: string;
 }): Promise<void> {
+  const admin = createAdminClient();
+  const { data: product } = await admin
+    .from("products")
+    .select("creator_id, title")
+    .eq("id", input.productId)
+    .maybeSingle();
+  if (product) {
+    await insertReviewNotification(admin, {
+      productId: input.productId,
+      creatorId: product.creator_id,
+      title: product.title,
+      decision: "suspended",
+      reason: input.reason,
+    });
+  }
+
   if (!isEmailConfigured()) return;
   try {
-    const admin = createAdminClient();
     const r = await resolveRecipient(admin, input.productId);
     if (!r) return;
 

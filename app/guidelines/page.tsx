@@ -6,7 +6,7 @@ import { LegalLayout, LegalSection } from "@/components/legal/legal-layout";
 export const metadata = {
   title: "出品ガイドライン",
   description:
-    "パラDa-iCE に作品を出品する際のルール。出品できる作品・できない作品、審査の流れ、公開後の対応について。",
+    "Re-dice に作品を出品する際のルール。出品できる作品・できない作品、審査の流れ、公開後の対応について。",
 };
 
 /**
@@ -20,7 +20,7 @@ export default function GuidelinesPage() {
   return (
     <LegalLayout title="出品ガイドライン" icon={ShieldCheck} lastUpdated="2026-06-17">
       <p>
-        本ガイドラインは、パラDa-iCE(以下「本サービス」)に作品を出品する際のルールを
+        本ガイドラインは、Re-dice(以下「本サービス」)に作品を出品する際のルールを
         定めるものです。
         <Link href={"/terms" as Route} className="text-accent underline">
           利用規約

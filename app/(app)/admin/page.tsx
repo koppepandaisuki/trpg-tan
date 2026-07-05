@@ -9,7 +9,11 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/session/require";
-import { countPendingProducts, countOpenReports } from "@/lib/queries/admin";
+import {
+  countPendingProducts,
+  countOpenReports,
+  countOpenReviewReports,
+} from "@/lib/queries/admin";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,10 +28,12 @@ import { cn } from "@/lib/utils";
  */
 export default async function AdminTopPage() {
   await requireAdmin();
-  const [pendingCount, openReports] = await Promise.all([
+  const [pendingCount, productReports, reviewReports] = await Promise.all([
     countPendingProducts(),
     countOpenReports(),
+    countOpenReviewReports(),
   ]);
+  const openReports = productReports + reviewReports;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

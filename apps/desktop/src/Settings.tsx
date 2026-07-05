@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { getVersion } from "@tauri-apps/api/app";
 import {
   UserCog,
   Monitor,
@@ -22,6 +23,7 @@ import {
   Bug,
   Send,
   Copy,
+  Coins,
 } from "lucide-react";
 import { hasWebhook, sendReport, collectReport } from "./diag";
 import {
@@ -30,6 +32,18 @@ import {
   resetLibraryRoot,
 } from "./library-root";
 import { toast } from "./Toasts";
+import {
+  getFullscreenPref,
+  setFullscreen,
+  subscribeFullscreen,
+} from "./window-settings";
+import {
+  fetchGold,
+  startGoldCheckout,
+  useGoldBalance,
+  type GoldTx,
+  type GoldEarnings,
+} from "./gold-remote";
 import { useMyProfile } from "./useMyProfile";
 import {
   useLocalProfile,
@@ -41,7 +55,10 @@ import { openWebLogin, signOut } from "./auth";
 import {
   deleteMyAccount,
   getMyAccount,
+  startPlanCheckout,
+  openPlanPortal,
   setMyPlanTester,
+  redeemCode,
   type UserPlan,
 } from "./account-remote";
 import { supabaseConfigured } from "./supabase";
@@ -68,6 +85,7 @@ const WEB_BASE = (
 
 export type SettingsTab =
   | "account"
+  | "gold"
   | "display"
   | "sound"
   | "play"
@@ -77,6 +95,7 @@ export type SettingsTab =
 
 const TABS: { key: SettingsTab; label: string; icon: typeof UserCog }[] = [
   { key: "account", label: "アカウント", icon: UserCog },
+  { key: "gold", label: "ゴールド", icon: Coins },
   { key: "display", label: "画面・テーマ", icon: Monitor },
   { key: "sound", label: "サウンド", icon: Volume2 },
   { key: "play", label: "プレイ・マルチ", icon: Dices },
@@ -95,11 +114,13 @@ export function Settings({
   theme,
   onToggleTheme,
   onClose,
+  planSig = 0,
 }: {
   initialTab?: SettingsTab;
   theme: string;
   onToggleTheme: () => void;
   onClose: () => void;
+  planSig?: number;
 }) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
 
@@ -136,7 +157,8 @@ export function Settings({
           </nav>
 
           <div className="set2-content">
-            {tab === "account" && <AccountTab />}
+            {tab === "account" && <AccountTab planSig={planSig} />}
+            {tab === "gold" && <GoldTab />}
             {tab === "display" && (
               <DisplayTab theme={theme} onToggleTheme={onToggleTheme} />
             )}
@@ -177,7 +199,7 @@ function Section({
   );
 }
 
-function AccountTab() {
+function AccountTab({ planSig = 0 }: { planSig?: number }) {
   const { nickname, avatar } = useLocalProfile();
   const fileRef = useRef<HTMLInputElement>(null);
   const [imgErr, setImgErr] = useState<string | null>(null);
@@ -252,7 +274,7 @@ function AccountTab() {
         </div>
       </Section>
 
-      <StoreLinkSection />
+      <StoreLinkSection planSig={planSig} />
     </>
   );
 }
@@ -262,9 +284,11 @@ function AccountTab() {
  * 一切表示しない。メール / パスワード / 退会だけは認証レベルの操作なので web に
  * 委譲する(小さなリンク)。
  */
-function StoreLinkSection() {
+function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
   const { ready, loggedIn } = useMyProfile();
   const [busy, setBusy] = useState(false);
+  // コード引き換え(テスター権限付与など)の直後に PlanSection を再取得させる。
+  const [redeemSig, setRedeemSig] = useState(0);
 
   if (!supabaseConfigured) {
     return (
@@ -309,7 +333,9 @@ function StoreLinkSection() {
         desc="連携済みです。購入物をライブラリに取り込めます。本名・メールはアプリ内に表示・共有されません。"
       />
 
-      <PlanSection />
+      <PlanSection planSig={planSig + redeemSig} />
+
+      <RedeemSection onRedeemed={() => setRedeemSig((n) => n + 1)} />
 
       <Section title="ログアウト" desc="この端末からサインアウトします。">
         <button className="btn acct-logout" onClick={() => void signOut()}>
@@ -322,56 +348,94 @@ function StoreLinkSection() {
   );
 }
 
-/**
- * 料金プラン(テスター用・課金なし)。選ぶと web API 経由で本人の plan を更新する。
- * Stripe Billing 実装後は購入フローに置き換える。
- */
 const PLAN_OPTIONS: { key: UserPlan; label: string; price: string; desc: string }[] = [
   { key: "basic", label: "基本", price: "無料", desc: "購入・ライブラリ・卓に参加" },
   { key: "play", label: "プレイ", price: "¥500/月", desc: "PLAY 解放(卓を立てる・全機能)" },
   { key: "pro", label: "Pro", price: "¥980/月", desc: "全部 + 出品手数料 20% など" },
 ];
 
-function PlanSection() {
+function PlanSection({ planSig = 0 }: { planSig?: number }) {
   const [plan, setPlan] = useState<UserPlan | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isTester, setIsTester] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     void getMyAccount()
-      .then((a) => {
-        setPlan(a.plan);
-        setIsAdmin(a.isAdmin);
-      })
+      .then((a) => { setPlan(a.plan); setIsAdmin(a.isAdmin); setIsTester(a.isTester); })
       .catch(() => setPlan("basic"));
+  }, [planSig]);
+
+  // ウィンドウがフォーカスを取り戻したとき(ブラウザでの決済完了後)に再取得。
+  useEffect(() => {
+    function onFocus() {
+      void getMyAccount()
+        .then((a) => { setPlan(a.plan); setIsAdmin(a.isAdmin); setIsTester(a.isTester); })
+        .catch(() => {});
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  async function choose(p: UserPlan) {
+  async function choosePaid(p: "play" | "pro") {
     setBusy(true);
     setMsg(null);
     try {
-      const next = await setMyPlanTester(p);
-      setPlan(next);
-      setMsg("プランを変更しました(テスト中・料金は発生しません)。");
+      // テスター権限があれば Stripe を介さず即切替(本番課金の構成有無を問わない)。
+      if (isTester) {
+        const next = await setMyPlanTester(p);
+        setPlan(next);
+        setMsg("プランを変更しました(テスター権限・料金は発生しません)。");
+        return;
+      }
+      const r = await startPlanCheckout(p);
+      if (r.ok) {
+        // 外部ブラウザで Stripe を開く。戻り先は redice://subscription/complete。
+        await openUrl(r.url);
+        setMsg("ブラウザで決済ページを開きました。完了後に自動でプランが更新されます。");
+      } else if (r.reason === "not_configured") {
+        // 課金未構成(テスト環境): テスター切替にフォールバック。
+        const next = await setMyPlanTester(p);
+        setPlan(next);
+        setMsg("プランを変更しました(テスト中・料金は発生しません)。");
+      } else {
+        setMsg(r.message);
+      }
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "変更に失敗しました。");
+      setMsg(e instanceof Error ? e.message : "申し込みに失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function managePortal() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await openPlanPortal();
+      if (r.ok) {
+        await openUrl(r.url);
+      } else {
+        setMsg(r.message);
+      }
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "管理ページを開けませんでした。");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Section
-      title="プラン"
-      desc="テスト期間中のため、選んでも料金は発生しません(動作確認用)。自動決済は準備中です。"
-    >
+    <Section title="プラン">
       {isAdmin && (
-        <p
-          className="tag ok"
-          style={{ display: "block", marginBottom: 8 }}
-        >
+        <p className="tag ok" style={{ display: "block", marginBottom: 8 }}>
           🛡 管理者アカウント — プラン不問で、すべての機能（PLAY のホスト等）をご利用いただけます。
+        </p>
+      )}
+      {isTester && (
+        <p className="tag ok" style={{ display: "block", marginBottom: 8 }}>
+          🧪 テスター権限 — Stripe を介さずプランを無料で切り替えられます。
         </p>
       )}
       <div className="plan-rows">
@@ -385,14 +449,26 @@ function PlanSection() {
               <span className="muted plan-row-desc">{p.desc}</span>
             </div>
             {plan === p.key ? (
-              <span className="tag ok">利用中</span>
-            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                <span className="tag ok">利用中</span>
+                {p.key !== "basic" && !isTester && (
+                  <button
+                    className="btn mini"
+                    disabled={busy}
+                    onClick={() => void managePortal()}
+                    style={{ fontSize: 11 }}
+                  >
+                    契約を管理
+                  </button>
+                )}
+              </div>
+            ) : p.key === "basic" ? null : (
               <button
                 className="btn mini"
                 disabled={busy || plan === null}
-                onClick={() => void choose(p.key)}
+                onClick={() => void choosePaid(p.key as "play" | "pro")}
               >
-                このプランにする
+                申し込む
               </button>
             )}
           </div>
@@ -400,6 +476,76 @@ function PlanSection() {
       </div>
       {msg && (
         <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>
+          {msg}
+        </p>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * リデームコード入力。特定のコードでプラン付与やアプリ内ゴールドを受け取る
+ * (キャンペーン・テスター特典・サポート対応用)。
+ */
+function RedeemSection({ onRedeemed }: { onRedeemed?: () => void }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
+
+  async function apply() {
+    const c = code.trim();
+    if (!c) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await redeemCode(c);
+      setOk(true);
+      setMsg(
+        r.kind === "gold" && r.goldBalance !== undefined
+          ? `${r.message}(残高 ${r.goldBalance.toLocaleString("ja-JP")} G)`
+          : r.message,
+      );
+      setCode("");
+      toast(`🎁 ${r.message}`);
+      // プラン/テスター権限が変わった可能性があるので上のプラン欄を再取得させる。
+      onRedeemed?.();
+    } catch (e) {
+      setOk(false);
+      setMsg(e instanceof Error ? e.message : "引き換えに失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section
+      title="コード入力"
+      desc="キャンペーン等で配布されたコードを入力すると、特典(プランやゴールド)を受け取れます。"
+    >
+      <div style={{ display: "flex", gap: 8, maxWidth: 380 }}>
+        <input
+          className="input"
+          value={code}
+          placeholder="例: LAUNCH2026"
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && void apply()}
+          style={{ flex: 1, textTransform: "uppercase" }}
+          maxLength={64}
+        />
+        <button
+          className="btn btn-primary"
+          disabled={busy || !code.trim()}
+          onClick={() => void apply()}
+        >
+          {busy ? "確認中…" : "引き換える"}
+        </button>
+      </div>
+      {msg && (
+        <p
+          className={ok ? "tag ok" : "tag fail"}
+          style={{ marginTop: 8, fontSize: 11.5, display: "inline-block" }}
+        >
           {msg}
         </p>
       )}
@@ -496,6 +642,167 @@ function DeleteAccountSection() {
   );
 }
 
+const GOLD_TX_LABEL: Record<string, string> = {
+  redeem: "コード引き換え",
+  stripe_pack: "パック購入",
+  ai_usage: "AI 利用",
+  purchase: "作品",
+  tip_sent: "スーパーサンクス(送)",
+  tip_received: "スーパーサンクス(受)",
+  admin: "運営付与",
+  refund: "返金",
+};
+
+const GOLD_PACKS: { id: "p300" | "p1000" | "p3000"; gold: number; jpy: number }[] =
+  [
+    { id: "p300", gold: 300, jpy: 300 },
+    { id: "p1000", gold: 1000, jpy: 1000 },
+    { id: "p3000", gold: 3000, jpy: 3000 },
+  ];
+
+function GoldTab() {
+  const balance = useGoldBalance();
+  const [tx, setTx] = useState<GoldTx[]>([]);
+  const [earnings, setEarnings] = useState<GoldEarnings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchGold()
+      .then((r) => {
+        if (alive) {
+          setTx(r.transactions);
+          setEarnings(r.earnings);
+        }
+      })
+      .catch(() => {})
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const hasEarnings =
+    earnings !== null &&
+    (earnings.sales > 0 || earnings.tips > 0 || earnings.supporters > 0);
+
+  async function buy(pack: "p300" | "p1000" | "p3000") {
+    setBusy(pack);
+    try {
+      const r = await startGoldCheckout(pack);
+      if (r.ok) {
+        await openUrl(r.url);
+        toast("ブラウザで決済を開いています。完了するとアプリに反映されます。");
+      } else {
+        toast(r.message);
+      }
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "決済を開始できませんでした");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      <Section
+        title="ゴールド残高"
+        desc="アプリ内通貨。AI 利用・作品購入・スーパーサンクスに使えます。現金化はできません。"
+      >
+        <div className="gold-balance">
+          <Coins size={22} />
+          <strong>{balance === null ? "—" : balance.toLocaleString()}</strong>
+          <span className="muted">ゴールド</span>
+        </div>
+        {balance === null && (
+          <p className="muted" style={{ fontSize: 12 }}>
+            ログインすると残高が表示されます。
+          </p>
+        )}
+      </Section>
+
+      <Section
+        title="ゴールドを購入"
+        desc="1 ゴールド ＝ ¥1。決済は外部ブラウザ(Stripe)で行い、完了するとアプリに反映されます。"
+      >
+        <div className="gold-packs">
+          {GOLD_PACKS.map((p) => (
+            <button
+              key={p.id}
+              className="gold-pack"
+              onClick={() => void buy(p.id)}
+              disabled={busy !== null}
+            >
+              <Coins size={16} />
+              <b>{p.gold.toLocaleString()}</b>
+              <span className="muted">¥{p.jpy.toLocaleString()}</span>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      {hasEarnings && earnings && (
+        <Section
+          title="クリエイター収益"
+          desc="あなたの作品・応援で受け取ったゴールドの累計です(現金化はできません)。"
+        >
+          <div className="gold-earn">
+            <div className="gold-earn-cell">
+              <span className="gold-earn-label">作品売上</span>
+              <strong>{earnings.sales.toLocaleString()}</strong>
+              <span className="muted">ゴールド</span>
+            </div>
+            <div className="gold-earn-cell">
+              <span className="gold-earn-label">スーパーサンクス</span>
+              <strong>{earnings.tips.toLocaleString()}</strong>
+              <span className="muted">ゴールド</span>
+            </div>
+            <div className="gold-earn-cell">
+              <span className="gold-earn-label">応援</span>
+              <strong>{earnings.supporters.toLocaleString()}</strong>
+              <span className="muted">回</span>
+            </div>
+          </div>
+          <p className="muted" style={{ fontSize: 11.5 }}>
+            受け取ったゴールドは、AI 利用・作品購入・他のクリエイターへの
+            スーパーサンクスに使えます。
+          </p>
+        </Section>
+      )}
+
+      <Section title="履歴" desc="直近のゴールドの増減。">
+        {loading ? (
+          <p className="muted" style={{ fontSize: 12 }}>
+            読み込み中…
+          </p>
+        ) : tx.length === 0 ? (
+          <p className="muted" style={{ fontSize: 12 }}>
+            まだ履歴はありません。
+          </p>
+        ) : (
+          <div className="gold-history">
+            {tx.map((t, i) => (
+              <div key={i} className="gold-tx">
+                <span className="gold-tx-kind">
+                  {GOLD_TX_LABEL[t.kind] ?? t.kind}
+                  {t.note && <em className="muted"> ・{t.note}</em>}
+                </span>
+                <span
+                  className={`gold-tx-amt ${t.amount >= 0 ? "plus" : "minus"}`}
+                >
+                  {t.amount >= 0 ? "+" : ""}
+                  {t.amount.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+    </>
+  );
+}
+
 function DisplayTab({
   theme,
   onToggleTheme,
@@ -503,23 +810,40 @@ function DisplayTab({
   theme: string;
   onToggleTheme: () => void;
 }) {
+  const [fs, setFs] = useState(() => getFullscreenPref());
+  useEffect(() => subscribeFullscreen(setFs), []);
   return (
-    <Section title="テーマ" desc="アプリ全体の配色を切り替えます(PLAY 中は常にダーク)。">
-      <div className="set2-seg">
-        <button
-          className={`set2-segbtn ${theme !== "dark" ? "on" : ""}`}
-          onClick={() => theme === "dark" && onToggleTheme()}
-        >
-          <Sun size={15} /> ライト
-        </button>
-        <button
-          className={`set2-segbtn ${theme === "dark" ? "on" : ""}`}
-          onClick={() => theme !== "dark" && onToggleTheme()}
-        >
-          <Moon size={15} /> ダーク
-        </button>
-      </div>
-    </Section>
+    <>
+      <Section title="テーマ" desc="アプリ全体の配色を切り替えます(PLAY 中は常にダーク)。">
+        <div className="set2-seg">
+          <button
+            className={`set2-segbtn ${theme !== "dark" ? "on" : ""}`}
+            onClick={() => theme === "dark" && onToggleTheme()}
+          >
+            <Sun size={15} /> ライト
+          </button>
+          <button
+            className={`set2-segbtn ${theme === "dark" ? "on" : ""}`}
+            onClick={() => theme !== "dark" && onToggleTheme()}
+          >
+            <Moon size={15} /> ダーク
+          </button>
+        </div>
+      </Section>
+      <Section
+        title="表示"
+        desc="ウィンドウをフルスクリーン(全画面)で表示します。F11 でも切り替えられます。"
+      >
+        <label className="set-row">
+          <input
+            type="checkbox"
+            checked={fs}
+            onChange={(e) => void setFullscreen(e.target.checked)}
+          />
+          <span>フルスクリーンで表示する</span>
+        </label>
+      </Section>
+    </>
   );
 }
 
@@ -994,13 +1318,24 @@ function AboutTab() {
     { label: "プライバシーポリシー", path: "/privacy" },
     { label: "ヘルプ・よくある質問", path: "/help" },
   ];
+  const [version, setVersion] = useState<string | null>(null);
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch(() => setVersion(null));
+  }, []);
   return (
     <>
-      <Section title="パラDa-iCE デスクトップ版" desc="TRPG の卓・キャラ・素材をひとつに。">
+      <Section title="Re-dice デスクトップ版" desc="TRPG の卓・キャラ・素材をひとつに。">
         <p className="muted" style={{ fontSize: 12 }}>
           作った卓やキャラはこの端末に保存されます。購入物はストアからダウンロードして
           ライブラリに取り込めます。
         </p>
+        {version && (
+          <p className="muted" style={{ fontSize: 10.5, marginTop: 6, opacity: 0.6 }}>
+            バージョン {version}
+          </p>
+        )}
       </Section>
       <Section title="規約・ヘルプ(web)">
         <div className="set2-links">

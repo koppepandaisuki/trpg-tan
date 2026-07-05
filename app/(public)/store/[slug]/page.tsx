@@ -47,7 +47,13 @@ import {
   listProductsByCreator,
 } from "@/lib/queries/products";
 import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
-import { formatPrice, isFree } from "@/lib/format/price";
+import {
+  isFree,
+  formatPrice,
+  salePriceJpy,
+  effectiveDiscountPercent,
+} from "@/lib/format/price";
+import { PriceTag } from "@/components/store/price-tag";
 import { publicAvatarUrl, publicCoverUrl } from "@/lib/format/storage";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { isAlreadyPurchased } from "@/lib/access/purchase-access";
@@ -61,7 +67,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps) {
   const product = await getPublishedProductBySlug(params.slug);
   if (!product) return { title: "作品が見つかりません" };
-  // title は string → root の title.template が「| パラDa-iCE」を自動付与
+  // title は string → root の title.template が「| Re-dice」を自動付与
   return {
     title: product.title,
     description: product.description.slice(0, 120),
@@ -85,13 +91,23 @@ export default async function ProductDetailPage({ params }: PageProps) {
       ? await isAlreadyPurchased(user.id, product.id)
       : false;
 
+  // CTA の無料判定は「今」の実効価格(割引・期間込み)で行う。割引100%(期間内)は
+  // 「無料で入手」になり、決済側(checkout)の無料フローとも一致する。
+  const effectivePriceJpy = salePriceJpy(
+    product.priceJpy,
+    effectiveDiscountPercent(
+      product.discountPercent,
+      product.discountStartsAt,
+      product.discountEndsAt,
+    ),
+  );
   const ctaState: CtaState = isOwnProduct
     ? "own"
     : purchased
       ? "purchased"
       : !user
         ? "login"
-        : isFree(product.priceJpy)
+        : isFree(effectivePriceJpy)
           ? "free"
           : "buy";
 
@@ -472,6 +488,15 @@ function AllowValue({ allowed }: { allowed: boolean }) {
 type CtaState = "free" | "login" | "buy" | "purchased" | "own";
 
 function PurchaseCta({ product, state }: { product: ProductDetail; state: CtaState }) {
+  // 「今」の実効価格(割引・期間込み)。buy ボタンに支払額を明示する。
+  const effectivePriceJpy = salePriceJpy(
+    product.priceJpy,
+    effectiveDiscountPercent(
+      product.discountPercent,
+      product.discountStartsAt,
+      product.discountEndsAt,
+    ),
+  );
   switch (state) {
     case "free":
       return <BuyButton productId={product.id} label="無料で入手" />
@@ -501,7 +526,13 @@ function PurchaseCta({ product, state }: { product: ProductDetail; state: CtaSta
       );
     case "buy":
     default:
-      return <BuyButton productId={product.id} />;
+      // 支払額をボタンに明示して購入直前の迷いを減らす(割引後の実効価格)。
+      return (
+        <BuyButton
+          productId={product.id}
+          label={`${formatPrice(effectivePriceJpy)} で購入`}
+        />
+      );
   }
 }
 
@@ -556,9 +587,16 @@ function PurchaseOptionsCard({
             購入オプション
           </h3>
 
-          {/* 価格(主役) */}
-          <div className="mb-4 text-3xl font-bold tracking-tight">
-            {formatPrice(product.priceJpy)}
+          {/* 価格(主役)。割引・セール期間に対応。 */}
+          <div className="mb-4 tracking-tight">
+            <PriceTag
+              priceJpy={product.priceJpy}
+              discountPercent={product.discountPercent}
+              discountStartsAt={product.discountStartsAt}
+              discountEndsAt={product.discountEndsAt}
+              size="lg"
+              showEndsIn
+            />
           </div>
 
           <PurchaseCta product={product} state={ctaState} />

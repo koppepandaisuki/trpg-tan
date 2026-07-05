@@ -40,6 +40,22 @@ describe("classifyRpcError", () => {
     ).toBe("invalid");
   });
 
+  it("classifies 'insufficient_balance' messages", () => {
+    const err = classifyRpcError("adjust_gold", {
+      message: "insufficient_balance",
+    });
+    expect(err.reason).toBe("invalid");
+    expect(err.message).toBe(
+      "残高が不足しているため、その金額は減算できません",
+    );
+  });
+
+  it("classifies 'invalid_amount' messages", () => {
+    expect(
+      classifyRpcError("adjust_gold", { message: "invalid_amount" }).reason,
+    ).toBe("invalid");
+  });
+
   it("falls back to 'unknown' for unrecognized messages", () => {
     const err = classifyRpcError("set_status", { message: "boom" });
     expect(err.reason).toBe("unknown");

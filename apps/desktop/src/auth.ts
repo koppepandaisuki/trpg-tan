@@ -18,18 +18,20 @@ import { supabase } from "./supabase";
  *     システムブラウザで開く。
  *  2. ユーザーがブラウザでログイン(メール/パス or Google)。
  *  3. web の /auth/desktop-handoff が、確立したセッションの access/refresh
- *     トークンを `paradice://auth/callback#access_token=…&refresh_token=…`
+ *     トークンを `redice://auth/callback#access_token=…&refresh_token=…`
  *     に載せてディープリンクで返す。
  *  4. Tauri deep-link がその URL を受け取り setSession でアプリにも反映。
  *
  * 互換: 旧来の in-app Google(signInWithGoogle)が返す `?code=…` 形式の
  * コールバックも引き続き exchangeCodeForSession で処理する。
+ * 旧ブランドの `paradice://` も受理し続ける(旧バージョンの web からの戻りや
+ * 古いリンクを壊さない。tauri.conf.json でスキーム登録も両方維持)。
  *
- * single-instance プラグインと組み合わせることで、OS が paradice:// を受け取った
+ * single-instance プラグインと組み合わせることで、OS が redice:// を受け取った
  * とき新しいプロセスが起動せず、既存ウィンドウの onOpenUrl に直接届く。
  */
 
-const REDIRECT_TO = "paradice://auth/callback";
+const REDIRECT_TO = "redice://auth/callback";
 
 const WEB_BASE = (
   import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
@@ -71,6 +73,12 @@ export async function signInWithGoogle(): Promise<void> {
 
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
+  // プランのオフライン用キャッシュを破棄(前アカウントの権限を持ち越さない)。
+  // 循環 import を避けるため動的 import。
+  const { clearAccountCache } = await import("./account-remote");
+  clearAccountCache();
+  const { clearGoldBalance } = await import("./gold-remote");
+  clearGoldBalance();
 }
 
 // 同じ認可コードを複数経路(getCurrent / onOpenUrl / deep-link-url イベント)で
@@ -78,14 +86,19 @@ export async function signOut(): Promise<void> {
 const processedCodes = new Set<string>();
 
 /**
- * paradice://auth/callback を受けてセッションを確立する共通処理。2 形式に対応:
+ * redice://auth/callback(旧 paradice:// も可)を受けてセッションを確立する
+ * 共通処理。2 形式に対応:
  *  (A) フラグメント `#access_token=…&refresh_token=…`(web からの handoff)
  *      → setSession でそのまま反映。web とアプリ両方がログイン済みになる。
  *  (B) クエリ `?code=…`(旧来の in-app Google PKCE)
  *      → exchangeCodeForSession で交換。
  */
 async function handleCallbackUrl(raw: string): Promise<void> {
-  if (!raw.startsWith("paradice://auth/callback")) return;
+  if (
+    !raw.startsWith("redice://auth/callback") &&
+    !raw.startsWith("paradice://auth/callback")
+  )
+    return;
   try {
     const parsed = new URL(raw);
     const errDesc = parsed.searchParams.get("error_description");

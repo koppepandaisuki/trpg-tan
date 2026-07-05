@@ -14,7 +14,7 @@ export default function PrivacyPage() {
       lastUpdated="2026-06-05"
     >
       <p>
-        パラDa-iCE TRPGサイト(以下「本サービス」)は、利用者の個人情報を以下の方針に
+        Re-dice TRPGサイト(以下「本サービス」)は、利用者の個人情報を以下の方針に
         基づいて取り扱います。
       </p>
 

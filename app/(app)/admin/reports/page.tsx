@@ -1,13 +1,17 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Flag, ShieldCheck } from "lucide-react";
+import { Flag, ShieldCheck, MessageSquare } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { AdminReportRowCard } from "@/components/admin/report-row";
+import { AdminReviewReportRowCard } from "@/components/admin/review-report-row";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { requireAdmin } from "@/lib/session/require";
-import { listReportsForAdmin } from "@/lib/queries/admin";
+import {
+  listReportsForAdmin,
+  listReviewReportsForAdmin,
+} from "@/lib/queries/admin";
 import type { ReportStatus } from "@/lib/validators/report";
 import { cn } from "@/lib/utils";
 
@@ -30,10 +34,11 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
   // 既定は「未対応」だけを表示(対応すべきものに集中)。
   const status = parseStatus(searchParams.status) ?? "open";
 
-  const { items, total, totalPages } = await listReportsForAdmin({
-    page,
-    status,
-  });
+  const [{ items, total, totalPages }, reviewReports] = await Promise.all([
+    listReportsForAdmin({ page, status }),
+    // レビュー通報は未対応分だけを常設表示(作品通報の status フィルタとは独立)。
+    listReviewReportsForAdmin({ status: "open", page: 1 }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -87,6 +92,34 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
       )}
 
       <Pagination page={page} totalPages={totalPages} status={status} />
+
+      {/* レビュー本文の通報(未対応のみ・常設)*/}
+      <section className="space-y-3 pt-4">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-rose-500" aria-hidden />
+          <h2 className="text-base font-semibold">
+            レビュー通報(未対応)
+          </h2>
+          {reviewReports.total > 0 && (
+            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">
+              {reviewReports.total}
+            </span>
+          )}
+        </div>
+        {reviewReports.items.length === 0 ? (
+          <Card className="shadow-sm">
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              未対応のレビュー通報はありません。
+            </CardContent>
+          </Card>
+        ) : (
+          <ul className="space-y-2">
+            {reviewReports.items.map((r) => (
+              <AdminReviewReportRowCard key={r.id} report={r} />
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

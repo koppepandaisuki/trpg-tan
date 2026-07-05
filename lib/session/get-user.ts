@@ -16,6 +16,13 @@ export type CurrentUser = {
   isCreator: boolean;
   isAdmin: boolean;
   /**
+   * テスター権限(0041 migration)。リデームコード「TESTER」で付与され、
+   * Stripe を介さず月額プラン(play/pro)を無料で切り替えられる。
+   * 正式リリース時にコードを止めても、既に付与済みのユーザーからは自動で
+   * 剥奪されない(必要なら profiles.is_tester を個別に false へ)。
+   */
+  isTester: boolean;
+  /**
    * Stripe Connect charges enabled.
    * - creator 視点の onboarding 完了フラグ
    * - TopHeader 等で「Stripe 未接続」バッジ表示の判定に利用
@@ -50,7 +57,9 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("display_name, is_creator, is_admin, stripe_charges_enabled, plan")
+    .select(
+      "display_name, is_creator, is_admin, is_tester, stripe_charges_enabled, plan",
+    )
     .eq("id", user.id)
     .maybeSingle();
 
@@ -93,6 +102,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     displayName: profile?.display_name ?? "",
     isCreator,
     isAdmin,
+    isTester: profile?.is_tester ?? false,
     stripeChargesEnabled: profile?.stripe_charges_enabled ?? false,
     plan: normalizePlan(profile?.plan),
   };

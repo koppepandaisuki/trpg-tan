@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -8,6 +9,7 @@ import {
 import {
   Store,
   Search,
+  Heart,
   FileText,
   BookOpen,
   Map as MapIcon,
@@ -26,9 +28,22 @@ import {
   Star,
   Trash2,
   User as UserIcon,
+  UserPlus,
+  UserCheck,
+  Play,
+  Coins,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "./Toasts";
+import { requireLogin } from "./LoginGate";
+import { useWishlist, toggleWish } from "./wishlist";
+import { useFollows, toggleFollow } from "./follow-creators";
+import {
+  purchaseWithGold,
+  sendTip,
+  refreshGold,
+  useGoldBalance,
+} from "./gold-remote";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
 import { SkelGrid, SkelStoreHome } from "./Skeleton";
@@ -38,6 +53,7 @@ import type { RemoteProductType } from "./library-remote";
 import {
   fetchStore,
   fetchStoreDetail,
+  fetchSimilarItems,
   fetchStoreHome,
   fetchStoreCreators,
   fetchScreenshotUrls,
@@ -46,7 +62,11 @@ import {
   submitReview,
   deleteMyReview,
   formatPriceJpy,
+  salePriceJpy,
+  effectiveDiscountPercent,
+  saleEndsInLabel,
   webProductUrl,
+  type StorePriceBand,
   type StoreItem,
   type StoreDetail,
   type StoreHome,
@@ -74,6 +94,51 @@ const CATEGORIES: { key: RemoteProductType | null; label: string }[] = [
   { key: "map", label: "マップ" },
   { key: "bgm_audio", label: "BGM/音声" },
 ];
+
+/**
+ * ブラウズのカテゴリ再編: 大分類(作品 / キャラ / 素材) → 小分類(product_type)。
+ * DB の product_type は変えず UI レベルでグループ化する。マップ・BGM は「素材」。
+ */
+type CatGroup = {
+  key: string;
+  label: string;
+  /** null = すべて。 */
+  types: RemoteProductType[] | null;
+  subs: { key: RemoteProductType; label: string }[];
+};
+const CAT_GROUPS: CatGroup[] = [
+  { key: "all", label: "すべて", types: null, subs: [] },
+  {
+    key: "works",
+    label: "作品",
+    types: ["full_package", "scenario", "rulebook"],
+    subs: [
+      { key: "full_package", label: "フルパッケージ" },
+      { key: "scenario", label: "シナリオ" },
+      { key: "rulebook", label: "ルールブック" },
+    ],
+  },
+  {
+    key: "chara",
+    label: "キャラ",
+    types: ["character_art"],
+    subs: [],
+  },
+  {
+    key: "assets",
+    label: "素材",
+    types: ["map", "bgm_audio"],
+    subs: [
+      { key: "map", label: "マップ" },
+      { key: "bgm_audio", label: "BGM/音声" },
+    ],
+  },
+];
+
+/** product_type が属する大分類のキー。 */
+function groupOfType(t: RemoteProductType): string {
+  return CAT_GROUPS.find((g) => g.types?.includes(t))?.key ?? "all";
+}
 
 /** ジャンルのアイコン(lucide。Web 側と同じ語彙)。 */
 const CATEGORY_ICON: Record<RemoteProductType, ReactNode> = {
@@ -231,6 +296,63 @@ function ReviewBadge({ review }: { review: StoreReviewSummary | null }) {
   );
 }
 
+/** ギャラリー URL が動画か(スクショ枠に mp4/webm を挿入できる)。 */
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|webm)(\?|#|$)/i.test(url);
+}
+
+/** 「今」の実効価格(割引・期間込み)。購入ボタンの文言や無料判定はこれを使う。 */
+function effPriceOf(
+  it: Pick<
+    StoreItem,
+    "priceJpy" | "discountPercent" | "discountStartsAt" | "discountEndsAt"
+  >,
+): number {
+  return salePriceJpy(
+    it.priceJpy,
+    effectiveDiscountPercent(
+      it.discountPercent,
+      it.discountStartsAt,
+      it.discountEndsAt,
+    ),
+  );
+}
+
+/**
+ * 価格表示(割引・セール期間対応)。Steam 風に「-XX% / 定価(取り消し線) / 割引後」。
+ * 割引が効いていない(率0 or 期間外 or 無料)ときは普通の価格だけ。
+ */
+function PriceTag({
+  item,
+  size,
+}: {
+  item: Pick<
+    StoreItem,
+    "priceJpy" | "discountPercent" | "discountStartsAt" | "discountEndsAt"
+  >;
+  size?: "lg";
+}) {
+  const eff = effectiveDiscountPercent(
+    item.discountPercent,
+    item.discountStartsAt,
+    item.discountEndsAt,
+  );
+  const onSale = item.priceJpy > 0 && eff > 0;
+  const now = formatPriceJpy(onSale ? salePriceJpy(item.priceJpy, eff) : item.priceJpy);
+  const cls = size === "lg" ? "price-now lg" : "price-now";
+  if (!onSale) return <span className={cls}>{now}</span>;
+  // 大サイズ(詳細・ヒーロー)ではセールの残り時間も出して「今買う理由」を作る。
+  const endsIn = size === "lg" ? saleEndsInLabel(item.discountEndsAt) : null;
+  return (
+    <span className="price-sale">
+      <span className="price-off">-{eff}%</span>
+      <span className="price-strike">{formatPriceJpy(item.priceJpy)}</span>
+      <span className={cls}>{now}</span>
+      {endsIn && <span className="price-endsin">🔥 セール{endsIn}</span>}
+    </span>
+  );
+}
+
 /* ===== ホーム: 「注目＆おすすめ」カルーセル(Steam 型) =====
  *  - 中央: 大きなカバー(右パネルのスクショにホバーすると差し替わる)
  *  - 右: 作品名 / 評価 / スクショ 2×2 の情報パネル
@@ -311,7 +433,9 @@ function HeroCarousel({
                   )}
                   {cur.creator.displayName || "（無名）"}
                 </span>
-                <span className="hero-price">{formatPriceJpy(cur.priceJpy)}</span>
+                <span className="hero-price">
+                  <PriceTag item={cur} size="lg" />
+                </span>
                 {purchased.has(cur.id) && (
                   <span className="store-owned-chip static">✓ 購入済み</span>
                 )}
@@ -494,7 +618,7 @@ function Strip({
             />
             <span className="strip-title">{it.title}</span>
             <span className="strip-foot">
-              <span className="store-price small">{formatPriceJpy(it.priceJpy)}</span>
+              <PriceTag item={it} />
               <ReviewBadge review={it.review} />
             </span>
           </button>
@@ -627,12 +751,31 @@ export function StorePanel({
   const [creators, setCreators] = useState<StoreCreator[] | null>(null);
   const [creatorsLoading, setCreatorsLoading] = useState(false);
 
-  // 一覧(ブラウズ)の条件。
-  const [category, setCategory] = useState<RemoteProductType | null>(
+  // 一覧(ブラウズ)の条件。カテゴリは 大分類(groupKey) + 小分類(subType) の2段。
+  const [groupKey, setGroupKey] = useState<string>(
+    initialCategory ? groupOfType(initialCategory) : "all",
+  );
+  const [subType, setSubType] = useState<RemoteProductType | null>(
     initialCategory,
   );
+  const cats = useMemo<RemoteProductType[] | null>(() => {
+    if (subType) return [subType];
+    return CAT_GROUPS.find((g) => g.key === groupKey)?.types ?? null;
+  }, [groupKey, subType]);
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
+  // 右サイドバー: 作品名のみの絞り込み / 価格帯 / セール中 / ウィッシュのみ。
+  const [titleQInput, setTitleQInput] = useState("");
+  const [titleQ, setTitleQ] = useState("");
+  const [priceBand, setPriceBand] = useState<StorePriceBand | null>(null);
+  const [saleOnly, setSaleOnly] = useState(false);
+  const [wishOnly, setWishOnly] = useState(false);
+  const [followOnly, setFollowOnly] = useState(false);
+  const follows = useFollows();
+  const followKey = followOnly ? [...follows.keys()].sort().join(",") : "";
+  const wishIds = useWishlist();
+  // ウィッシュ絞り込みの再取得キー(絞り込み OFF のときはハート操作で再取得しない)。
+  const wishKey = wishOnly ? [...wishIds].sort().join(",") : "";
   const [creatorFilter, setCreatorFilter] = useState<{
     id: string;
     name: string;
@@ -651,6 +794,150 @@ export function StorePanel({
   const [detail, setDetail] = useState<StoreDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [mainImage, setMainImage] = useState<string | null>(null);
+  // 類似品(詳細の下部レール)。詳細を開いたときに非同期取得。
+  const [similar, setSimilar] = useState<StoreItem[]>([]);
+  // ゴールド購入 / スーパーサンクス。
+  const goldBalance = useGoldBalance();
+  const [goldBusy, setGoldBusy] = useState(false);
+  // サンクスの相手(id + 表示名 + 任意で作品 id)。null = モーダル閉。
+  const [tipTarget, setTipTarget] = useState<{
+    id: string;
+    name: string;
+    productId?: string;
+  } | null>(null);
+  const [tipAmount, setTipAmount] = useState(100);
+  const [tipMsg, setTipMsg] = useState("");
+  const [tipBusy, setTipBusy] = useState(false);
+
+  /** サンクス相手を開く(未ログインならログイン誘導)。 */
+  function openTip(target: { id: string; name: string; productId?: string }) {
+    if (!session) {
+      requireLogin("応援にはログインが必要です。");
+      return;
+    }
+    setTipMsg("");
+    setTipTarget(target);
+  }
+
+  useEffect(() => {
+    void refreshGold();
+  }, []);
+
+  /** 作品をゴールドで購入(残高不足はチャージ導線を出す)。 */
+  async function buyWithGold() {
+    if (!detail) return;
+    setGoldBusy(true);
+    try {
+      const r = await purchaseWithGold(detail.id);
+      if (r.ok) {
+        setPurchased((s) => new Set(s).add(detail.id));
+        toast("✅ ゴールドで購入しました。ライブラリで開けます");
+      } else if (r.reason === "insufficient_gold") {
+        toast("ゴールドが不足しています。設定 →「ゴールド」でチャージできます");
+      } else {
+        toast(r.message);
+      }
+    } finally {
+      setGoldBusy(false);
+    }
+  }
+
+  /** スーパーサンクス送信。 */
+  async function sendThanks() {
+    if (!tipTarget) return;
+    setTipBusy(true);
+    try {
+      const r = await sendTip(
+        tipTarget.id,
+        tipAmount,
+        tipTarget.productId,
+        tipMsg.trim() || undefined,
+      );
+      if (r.ok) {
+        toast(`💛 ${tipAmount} ゴールドを贈りました。応援ありがとうございます！`);
+        setTipTarget(null);
+        setTipMsg("");
+      } else if (r.reason === "insufficient_gold") {
+        toast("ゴールドが不足しています。設定 →「ゴールド」でチャージできます");
+      } else {
+        toast(r.message);
+      }
+    } finally {
+      setTipBusy(false);
+    }
+  }
+
+  /** サンクス・モーダル(全ビュー共通。tipTarget があるときだけ描画)。 */
+  const tipModal =
+    tipTarget !== null ? (
+      <div className="tip-overlay" onClick={() => setTipTarget(null)}>
+        <div className="tip-modal" onClick={(e) => e.stopPropagation()}>
+          <h3 className="tip-title">
+            <Heart size={16} /> スーパーサンクス
+          </h3>
+          <p className="muted" style={{ fontSize: 12.5 }}>
+            「{tipTarget.name}」さんにゴールドで感謝を伝えます。ゴールドは
+            クリエイターの制作を支えます(現金化はできません)。
+          </p>
+          <div className="tip-amounts">
+            {[50, 100, 500, 1000].map((a) => (
+              <button
+                key={a}
+                className={`tip-amt ${tipAmount === a ? "on" : ""}`}
+                onClick={() => setTipAmount(a)}
+              >
+                {a} G
+              </button>
+            ))}
+          </div>
+          <input
+            className="input"
+            type="number"
+            min={1}
+            max={100000}
+            value={tipAmount}
+            onChange={(e) =>
+              setTipAmount(Math.max(1, Math.floor(Number(e.target.value) || 0)))
+            }
+            aria-label="金額"
+          />
+          <textarea
+            className="input"
+            rows={2}
+            maxLength={200}
+            placeholder="応援メッセージ(任意・200 文字まで)"
+            value={tipMsg}
+            onChange={(e) => setTipMsg(e.target.value)}
+            style={{ resize: "vertical" }}
+          />
+          <p className="muted" style={{ fontSize: 11.5 }}>
+            所持: {goldBalance === null ? "—" : goldBalance.toLocaleString()} ゴールド
+          </p>
+          <div className="tip-actions">
+            <button className="btn mini" onClick={() => setTipTarget(null)}>
+              やめる
+            </button>
+            <button
+              className="btn mini btn-primary"
+              onClick={() => void sendThanks()}
+              disabled={tipBusy || tipAmount < 1}
+            >
+              {tipBusy ? "送信中…" : `${tipAmount} G を贈る`}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  // Esc で詳細を閉じて一覧へ戻る(マウス往復を省く)。
+  useEffect(() => {
+    if (!detail) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setDetail(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detail]);
 
   // 詳細でのレビュー投稿(購入済み + ログイン時のみ)。
   const [reviewStars, setReviewStars] = useState(0);
@@ -759,9 +1046,14 @@ export function StorePanel({
     setError(null);
     try {
       const res = await fetchStore({
-        category,
+        categories: cats,
         q,
+        titleQ,
         creatorId: creatorFilter?.id ?? null,
+        priceBand,
+        saleOnly,
+        onlyIds: wishOnly ? [...wishIds] : null,
+        creatorIds: followOnly ? [...follows.keys()] : null,
         sort,
         page,
       });
@@ -773,7 +1065,9 @@ export function StorePanel({
     } finally {
       setLoading(false);
     }
-  }, [category, q, creatorFilter, sort, page]);
+    // wishKey/followKey: 絞り込み中のみ変更で再取得(OFF 時は無反応)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cats, q, titleQ, creatorFilter, priceBand, saleOnly, wishOnly, wishKey, followOnly, followKey, sort, page]);
 
   useEffect(() => {
     if (view === "browse") void loadBrowse();
@@ -800,6 +1094,11 @@ export function StorePanel({
       }
       setDetail(d);
       setMainImage(d.coverUrl ?? d.screenshotUrls[0] ?? null);
+      // 類似品(同カテゴリの好評順)は非同期で遅れて出す。
+      setSimilar([]);
+      void fetchSimilarItems(d.productType, d.id)
+        .then(setSimilar)
+        .catch(() => {});
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -809,22 +1108,42 @@ export function StorePanel({
 
   function browseWith(opts: {
     category?: RemoteProductType | null;
+    /** 大分類キー("works"/"chara"/"assets")。category より優先。 */
+    group?: string;
     q?: string;
     creator?: { id: string; name: string } | null;
     sort?: StoreSort;
   }) {
     setDetail(null);
-    setCategory(opts.category ?? null);
+    if (opts.group) {
+      setGroupKey(opts.group);
+      setSubType(null);
+    } else if (opts.category) {
+      setGroupKey(groupOfType(opts.category));
+      setSubType(opts.category);
+    } else {
+      setGroupKey("all");
+      setSubType(null);
+    }
     setQ(opts.q ?? "");
     setQInput(opts.q ?? "");
     setCreatorFilter(opts.creator ?? null);
+    // サイドバーの絞り込みは新しいブラウズ開始時にリセット(予測可能に)。
+    setTitleQ("");
+    setTitleQInput("");
+    setPriceBand(null);
+    setSaleOnly(false);
+    setWishOnly(false);
     if (opts.sort) setSort(opts.sort);
     setPage(1);
     setView("browse");
   }
 
   function search() {
-    browseWith({ category, q: qInput, creator: creatorFilter, sort });
+    setDetail(null);
+    setQ(qInput);
+    setPage(1);
+    setView("browse");
   }
 
   if (!supabaseConfigured) {
@@ -855,11 +1174,15 @@ export function StorePanel({
 
         <div className="store-body">
           <div className="store-detail">
-            {/* 左: ギャラリー */}
+            {/* 左: ギャラリー(画像 / 動画) */}
             <div className="store-gallery">
               <div className="store-gmain">
                 {mainImage ? (
-                  <img src={mainImage} alt={detail.title} />
+                  isVideoUrl(mainImage) ? (
+                    <video src={mainImage} controls preload="metadata" />
+                  ) : (
+                    <img src={mainImage} alt={detail.title} />
+                  )
                 ) : (
                   <span className="store-noimg">No Image</span>
                 )}
@@ -872,17 +1195,142 @@ export function StorePanel({
                       className={`store-gthumb ${mainImage === url ? "active" : ""}`}
                       onClick={() => setMainImage(url)}
                     >
-                      <img src={url} alt="" loading="lazy" />
+                      {isVideoUrl(url) ? (
+                        <span className="store-gthumb-video">
+                          <video src={url} muted preload="metadata" />
+                          <Play size={16} aria-hidden />
+                        </span>
+                      ) : (
+                        <img src={url} alt="" loading="lazy" />
+                      )}
                     </button>
                   ))}
                 </div>
               )}
 
+              {/* ウィッシュリスト / 開発者フォロー(Steam のアクション行) */}
+              <div className="sdx-actions">
+                <button
+                  className={`btn mini ibtn ${wishIds.has(detail.id) ? "sdx-on" : ""}`}
+                  onClick={() => {
+                    const added = toggleWish(detail.id);
+                    toast(
+                      added
+                        ? "♥ ウィッシュリストに追加しました"
+                        : "ウィッシュリストから外しました",
+                    );
+                  }}
+                >
+                  <Heart size={14} />{" "}
+                  {wishIds.has(detail.id)
+                    ? "ウィッシュリスト追加済み"
+                    : "ウィッシュリストに追加"}
+                </button>
+                <button
+                  className={`btn mini ibtn ${follows.has(detail.creator.id) ? "sdx-on" : ""}`}
+                  title="フォローした開発者の作品は右サイドバーの「フォロー中」で絞り込めます"
+                  onClick={() => {
+                    const nm = detail.creator.displayName || "（無名）";
+                    const added = toggleFollow(detail.creator.id, nm);
+                    toast(
+                      added
+                        ? `${nm} をフォローしました`
+                        : `${nm} のフォローを解除しました`,
+                    );
+                  }}
+                >
+                  {follows.has(detail.creator.id) ? (
+                    <>
+                      <UserCheck size={14} /> フォロー中
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={14} /> 開発者をフォロー
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 購入バー(Steam の「◯◯を購入する」) */}
+              <div className="sdx-buybar">
+                <div className="sdx-buybar-info">
+                  <strong className="sdx-buybar-title">
+                    {detail.title} を{effPriceOf(detail) === 0 ? "入手" : "購入"}する
+                  </strong>
+                </div>
+                <div className="sdx-buybar-cta">
+                  <PriceTag item={detail} size="lg" />
+                  {isPurchased ? (
+                    <button
+                      className="btn btn-primary ibtn"
+                      onClick={() => onGoLibrary?.()}
+                    >
+                      <LibraryBig size={15} /> ライブラリで開く
+                    </button>
+                  ) : !session ? (
+                    <button
+                      className="btn btn-primary ibtn"
+                      onClick={() =>
+                        requireLogin(
+                          effPriceOf(detail) === 0
+                            ? "ダウンロードにはログインが必要です。"
+                            : "購入にはログインが必要です。",
+                        )
+                      }
+                    >
+                      <ShoppingCart size={15} /> ログインして
+                      {effPriceOf(detail) === 0 ? "入手" : "購入"}
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        className="btn btn-primary ibtn"
+                        onClick={() => void openUrl(webProductUrl(detail.slug))}
+                      >
+                        <ShoppingCart size={15} />{" "}
+                        {effPriceOf(detail) === 0
+                          ? "無料で入手"
+                          : `${formatPriceJpy(effPriceOf(detail))} で購入`}
+                      </button>
+                      {effPriceOf(detail) > 0 && (
+                        <button
+                          className="btn ibtn"
+                          onClick={() => void buyWithGold()}
+                          disabled={goldBusy}
+                          title={
+                            goldBalance !== null
+                              ? `所持: ${goldBalance} ゴールド`
+                              : "ゴールドで購入"
+                          }
+                        >
+                          <Coins size={15} />{" "}
+                          {goldBusy
+                            ? "処理中…"
+                            : `${effPriceOf(detail).toLocaleString()} G で購入`}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+                {!isPurchased && session && effPriceOf(detail) > 0 && (
+                  <p className="sdx-gold-note muted">
+                    <Coins size={11} /> ゴールドでも購入できます
+                    {goldBalance !== null && `（所持 ${goldBalance.toLocaleString()}）`}
+                    。ゴールドは AI 利用やクリエイター支援にも使えます。
+                  </p>
+                )}
+              </div>
+
               <h3 className="store-sec">作品について</h3>
               <p className="store-desc">{detail.description || "（説明なし）"}</p>
 
               <h3 className="store-sec">
-                レビュー <ReviewBadge review={detail.review} />
+                みんなのレビュー <ReviewBadge review={detail.review} />
+                {detail.review && detail.review.total > 0 && (
+                  <span className="muted" style={{ fontSize: 12, fontWeight: 600 }}>
+                    （{detail.review.total}件）
+                  </span>
+                )}
               </h3>
 
               {/* 投稿フォーム(購入済み + ログイン時のみ。押し付けない控えめ導線)*/}
@@ -967,66 +1415,31 @@ export function StorePanel({
               )}
             </div>
 
-            {/* 右: 購入 / メタ */}
+            {/* 右: 情報ボックス(Steam の右上カプセル) / 仕様メタ */}
             <aside className="store-side">
-              <div className="store-buybox">
-                <span className="store-price">{formatPriceJpy(detail.priceJpy)}</span>
-                <ReviewBadge review={detail.review} />
-                {isPurchased ? (
-                  <>
-                    <span className="work-badge done store-owned">✓ 購入済み</span>
-                    <button
-                      className="btn btn-primary ibtn"
-                      onClick={() => onGoLibrary?.()}
-                    >
-                      <LibraryBig size={15} /> ライブラリで開く
-                    </button>
-                  </>
-                ) : !session ? (
-                  <>
-                    <button
-                      className="btn btn-primary ibtn"
-                      onClick={() => {
-                        toast(
-                          "購入にはログインが必要です。右上のアカウントメニューからログインしてください",
-                        );
-                      }}
-                    >
-                      <ShoppingCart size={15} /> ログインして購入
-                    </button>
-                    <p className="store-buynote">
-                      ストアの閲覧はログイン無しで自由にできます。購入や
-                      ダウンロードにはアカウントが必要です。
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      className="btn btn-primary ibtn"
-                      onClick={() => void openUrl(webProductUrl(detail.slug))}
-                    >
-                      <ShoppingCart size={15} />{" "}
-                      {detail.priceJpy === 0
-                        ? "無料で入手"
-                        : "Webストアで購入"}
-                    </button>
-                    <p className="store-buynote">
-                      {detail.priceJpy === 0
-                        ? "ブラウザでワンクリックでライブラリに追加します。"
-                        : "決済はブラウザ(Web版)で行います。購入後、アプリの「購入」タブに反映されます。"}
-                    </p>
-                  </>
+              <div className="sdx-info">
+                {detail.coverUrl && (
+                  <div className="sdx-info-cover">
+                    <img src={detail.coverUrl} alt="" />
+                  </div>
                 )}
-              </div>
-
-              <div className="store-meta">
-                <div className="store-creator">
-                  {detail.creator.avatarUrl ? (
-                    <img src={detail.creator.avatarUrl} alt="" />
-                  ) : (
-                    <span className="store-avatar-ph">👤</span>
-                  )}
-                  <div>
+                {isPurchased && (
+                  <span className="work-badge done store-owned">✓ 購入済み</span>
+                )}
+                <p className="sdx-info-desc">
+                  {detail.description || "（説明なし）"}
+                </p>
+                <dl className="sdx-info-rows">
+                  <dt>レビュー:</dt>
+                  <dd>
+                    <ReviewBadge review={detail.review} />
+                  </dd>
+                  <dt>公開日:</dt>
+                  <dd>
+                    {new Date(detail.publishedAt).toLocaleDateString("ja-JP")}
+                  </dd>
+                  <dt>開発元:</dt>
+                  <dd>
                     <button
                       className="store-creator-link"
                       title="このクリエイターの作品を見る"
@@ -1039,14 +1452,56 @@ export function StorePanel({
                         })
                       }
                     >
+                      {detail.creator.avatarUrl ? (
+                        <img
+                          className="sdx-dev-avatar"
+                          src={detail.creator.avatarUrl}
+                          alt=""
+                        />
+                      ) : null}
                       {detail.creator.displayName || "（無名）"}
                     </button>
-                    {detail.creatorBio && (
-                      <p className="muted store-bio">{detail.creatorBio}</p>
-                    )}
+                  </dd>
+                </dl>
+                {detail.tags.length > 0 && (
+                  <div className="sdx-info-tags">
+                    <span className="sdx-info-tags-label">
+                      この作品の人気タグ:
+                    </span>
+                    <div className="store-tags">
+                      {detail.tags.map((t) => (
+                        <button
+                          key={t}
+                          className="store-tag"
+                          title={`タグ「${t}」で検索`}
+                          onClick={() => browseWith({ q: t })}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
+                {/* スーパーサンクス(クリエイターへゴールドを贈る。購入不要) */}
+                {detail.creator.id && (
+                  <button
+                    className="sdx-thanks-btn ibtn"
+                    onClick={() =>
+                      openTip({
+                        id: detail.creator.id,
+                        name: detail.creator.displayName || "（無名）",
+                        productId: detail.id,
+                      })
+                    }
+                    title="このクリエイターにゴールドで感謝を伝える"
+                  >
+                    <Heart size={14} /> スーパーサンクスで応援
+                  </button>
+                )}
+              </div>
+
+              <div className="store-meta">
                 <dl className="store-dl">
                   <dt>種別</dt>
                   <dd>{PRODUCT_TYPE_LABEL[detail.productType] ?? detail.productType}</dd>
@@ -1083,25 +1538,41 @@ export function StorePanel({
                   <dt>公開日</dt>
                   <dd>{new Date(detail.publishedAt).toLocaleDateString("ja-JP")}</dd>
                 </dl>
-
-                {detail.tags.length > 0 && (
-                  <div className="store-tags">
-                    {detail.tags.map((t) => (
-                      <button
-                        key={t}
-                        className="store-tag"
-                        title={`タグ「${t}」で検索`}
-                        onClick={() => browseWith({ q: t })}
-                      >
-                        #{t}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             </aside>
           </div>
+
+          {/* 類似品(同カテゴリの好評作品) */}
+          {similar.length > 0 && (
+            <div className="sdx-similar">
+              <h3 className="store-sec">類似の作品</h3>
+              <div className="sdx-similar-grid">
+                {similar.map((it) => (
+                  <button
+                    key={it.id}
+                    className="sdx-sim-card"
+                    onClick={() => void openDetail(it)}
+                    title={it.title}
+                  >
+                    <span className="sdx-sim-thumb">
+                      {it.coverUrl ? (
+                        <img src={it.coverUrl} alt="" loading="lazy" />
+                      ) : (
+                        <span className="store-noimg">No Image</span>
+                      )}
+                    </span>
+                    <span className="sdx-sim-title">{it.title}</span>
+                    <span className="sdx-sim-price">
+                      <PriceTag item={it} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+
+        {tipModal}
       </div>
     );
   }
@@ -1131,19 +1602,6 @@ export function StorePanel({
           <Search size={14} /> 検索
         </button>
       </div>
-      {view === "browse" && (
-        <select
-          className="input store-sort"
-          value={sort}
-          onChange={(e) => {
-            setSort(e.target.value as StoreSort);
-            setPage(1);
-          }}
-        >
-          <option value="published">新着順</option>
-          <option value="rating">好評順</option>
-        </select>
-      )}
     </div>
   );
 
@@ -1186,32 +1644,43 @@ export function StorePanel({
           {creators && creators.length > 0 && (
             <div className="creators-grid">
               {creators.map((c) => (
-                <button
-                  key={c.id}
-                  className="creator-card"
-                  onClick={() =>
-                    browseWith({
-                      creator: { id: c.id, name: c.displayName || "（無名）" },
-                    })
-                  }
-                  title={`${c.displayName || "（無名）"} の作品を見る`}
-                >
-                  {c.avatarUrl ? (
-                    <img className="creator-avatar" src={c.avatarUrl} alt="" />
-                  ) : (
-                    <span className="store-avatar-ph">👤</span>
-                  )}
-                  <span className="creator-meta">
-                    <b className="creator-name">{c.displayName || "（無名）"}</b>
-                    {c.bio && <span className="creator-bio muted">{c.bio}</span>}
-                    <span className="creator-count">作品 {c.workCount} 件</span>
-                  </span>
-                  <span className="catcard-arrow">→</span>
-                </button>
+                <div key={c.id} className="creator-cardwrap">
+                  <button
+                    className="creator-card"
+                    onClick={() =>
+                      browseWith({
+                        creator: { id: c.id, name: c.displayName || "（無名）" },
+                      })
+                    }
+                    title={`${c.displayName || "（無名）"} の作品を見る`}
+                  >
+                    {c.avatarUrl ? (
+                      <img className="creator-avatar" src={c.avatarUrl} alt="" />
+                    ) : (
+                      <span className="store-avatar-ph">👤</span>
+                    )}
+                    <span className="creator-meta">
+                      <b className="creator-name">{c.displayName || "（無名）"}</b>
+                      {c.bio && <span className="creator-bio muted">{c.bio}</span>}
+                      <span className="creator-count">作品 {c.workCount} 件</span>
+                    </span>
+                    <span className="catcard-arrow">→</span>
+                  </button>
+                  <button
+                    className="creator-thanks"
+                    onClick={() =>
+                      openTip({ id: c.id, name: c.displayName || "（無名）" })
+                    }
+                    title="このクリエイターにスーパーサンクスを贈る"
+                  >
+                    <Heart size={13} /> 応援
+                  </button>
+                </div>
               ))}
             </div>
           )}
         </div>
+        {tipModal}
       </div>
     );
   }
@@ -1221,16 +1690,16 @@ export function StorePanel({
     return (
       <div className="store">
         {header}
-        {/* ジャンルナビ */}
+        {/* ジャンルナビ(大分類: 作品 / キャラ / 素材)。細分化はブラウズ側で。 */}
         <div className="store-cats">
-          {CATEGORIES.filter((c) => c.key).map((c) => (
+          {CAT_GROUPS.filter((g) => g.types).map((g) => (
             <button
-              key={c.label}
+              key={g.key}
               className="store-cat ibtn"
-              onClick={() => browseWith({ category: c.key })}
+              onClick={() => browseWith({ group: g.key })}
             >
-              {c.key && CATEGORY_ICON[c.key]}
-              {c.label}
+              {CATEGORY_ICON[g.types![0]]}
+              {g.label}
             </button>
           ))}
           <button className="store-cat" onClick={() => browseWith({})}>
@@ -1262,7 +1731,7 @@ export function StorePanel({
                   🎲
                 </span>
                 <div className="sbanner-copy">
-                  <strong className="sbanner-title">パラDa-iCE ストア</strong>
+                  <strong className="sbanner-title">Re-dice ストア</strong>
                   <span className="sbanner-sub">
                     シナリオ・マップ・素材がここに。買ったらそのまま卓へ。
                   </span>
@@ -1411,16 +1880,31 @@ export function StorePanel({
         <button className="store-cat" onClick={() => setView("home")}>
           ← ホーム
         </button>
-        {CATEGORIES.map((c) => (
+        {/* 大分類: すべて / 作品 / キャラ / 素材 */}
+        {CAT_GROUPS.map((g) => (
           <button
-            key={c.label}
-            className={`store-cat ${category === c.key ? "active" : ""}`}
+            key={g.key}
+            className={`store-cat ${groupKey === g.key ? "active" : ""}`}
             onClick={() => {
-              setCategory(c.key);
+              setGroupKey(g.key);
+              setSubType(null);
               setPage(1);
             }}
           >
-            {c.label}
+            {g.label}
+          </button>
+        ))}
+        {/* 小分類(細分化): 選択中の大分類にサブがあるときだけ */}
+        {(CAT_GROUPS.find((g) => g.key === groupKey)?.subs ?? []).map((s) => (
+          <button
+            key={s.key}
+            className={`store-cat sub ${subType === s.key ? "active" : ""}`}
+            onClick={() => {
+              setSubType((cur) => (cur === s.key ? null : s.key));
+              setPage(1);
+            }}
+          >
+            {s.label}
           </button>
         ))}
         {q && (
@@ -1439,18 +1923,29 @@ export function StorePanel({
           </span>
         )}
         {creatorFilter && (
-          <span className="store-qchip">
-            👤 {creatorFilter.name} の作品
+          <>
+            <span className="store-qchip">
+              👤 {creatorFilter.name} の作品
+              <button
+                onClick={() => {
+                  setCreatorFilter(null);
+                  setPage(1);
+                }}
+                title="作者の絞り込みを解除"
+              >
+                ×
+              </button>
+            </span>
             <button
-              onClick={() => {
-                setCreatorFilter(null);
-                setPage(1);
-              }}
-              title="作者の絞り込みを解除"
+              className="store-qchip-thanks"
+              onClick={() =>
+                openTip({ id: creatorFilter.id, name: creatorFilter.name })
+              }
+              title="このクリエイターにスーパーサンクスを贈る"
             >
-              ×
+              <Heart size={12} /> 応援する
             </button>
-          </span>
+          </>
         )}
         <span className="store-count muted">{items ? `${total} 件` : ""}</span>
       </div>
@@ -1461,84 +1956,222 @@ export function StorePanel({
         </p>
       )}
 
-      <div className="store-body">
-        {loading && items === null && <SkelGrid count={10} />}
+      <div className="store-body browse-flex">
+        {/* 右サイドバー: 名前検索 / 並び替え / 価格帯 / セール中 / ウィッシュ */}
+        <aside className="store-filters">
+          <div className="sf-sec">
+            <p className="sf-title">作品名で絞り込み</p>
+            <input
+              className="input"
+              value={titleQInput}
+              placeholder="作品名の一部"
+              onChange={(e) => setTitleQInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setTitleQ(titleQInput);
+                  setPage(1);
+                }
+              }}
+              onBlur={() => {
+                if (titleQInput !== titleQ) {
+                  setTitleQ(titleQInput);
+                  setPage(1);
+                }
+              }}
+            />
+          </div>
 
-        {items && items.length === 0 && (
-          <EmptyState
-            title="該当する作品がありません"
-            hint="検索条件やカテゴリを変えて探してみてください。"
-            action={{ label: "条件をクリア", onClick: () => browseWith({}) }}
-          />
-        )}
+          <div className="sf-sec">
+            <p className="sf-title">並び替え</p>
+            <select
+              className="input"
+              value={sort}
+              onChange={(e) => {
+                setSort(e.target.value as StoreSort);
+                setPage(1);
+              }}
+            >
+              <option value="published">新着順</option>
+              <option value="rating">評価が高い順</option>
+              <option value="price_asc">価格が安い順</option>
+              <option value="price_desc">価格が高い順</option>
+            </select>
+          </div>
 
-        {items && items.length > 0 && (
-          <div className={`store-grid ${loading ? "dim" : ""}`}>
-            {items.map((it) => (
-              <button
-                key={it.id}
-                className="store-card"
-                onClick={() => void openDetail(it)}
-                disabled={detailLoading}
-                title={it.title}
-              >
-                <HoverCover
-                  item={it}
-                  owned={purchased.has(it.id)}
-                  className="store-cover"
-                />
-                <div className="store-card-body">
-                  <span className="store-card-title">{it.title}</span>
-                  <span className="store-card-creator">
-                    {it.creator.avatarUrl ? (
-                      <img src={it.creator.avatarUrl} alt="" loading="lazy" />
-                    ) : (
-                      <span className="store-avatar-ph small">👤</span>
-                    )}
-                    {it.creator.displayName || "（無名）"}
-                  </span>
-                  <span className="store-card-badges">
-                    <span className="work-badge">
-                      {PRODUCT_TYPE_LABEL[it.productType] ?? it.productType}
-                    </span>
-                    {it.systemLabel && (
-                      <span className="work-badge">{it.systemLabel}</span>
-                    )}
-                  </span>
-                  <span className="store-card-foot">
-                    <span className="store-price small">
-                      {formatPriceJpy(it.priceJpy)}
-                    </span>
-                    <ReviewBadge review={it.review} />
-                  </span>
+          <div className="sf-sec">
+            <p className="sf-title">価格</p>
+            <div className="sf-chips">
+              {(
+                [
+                  [null, "すべて"],
+                  ["free", "無料"],
+                  ["u500", "〜500円"],
+                  ["mid", "500〜1,000円"],
+                  ["o1000", "1,000円〜"],
+                ] as [StorePriceBand | null, string][]
+              ).map(([band, label]) => (
+                <button
+                  key={label}
+                  className={`sf-chip ${priceBand === band ? "active" : ""}`}
+                  onClick={() => {
+                    setPriceBand(band);
+                    setPage(1);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="sf-sec">
+            <label className="sf-check">
+              <input
+                type="checkbox"
+                checked={saleOnly}
+                onChange={(e) => {
+                  setSaleOnly(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              🔥 セール中のみ
+            </label>
+            <label className="sf-check">
+              <input
+                type="checkbox"
+                checked={wishOnly}
+                onChange={(e) => {
+                  setWishOnly(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              <Heart size={12} /> ウィッシュリストのみ
+              {wishIds.size > 0 && (
+                <span className="muted">({wishIds.size})</span>
+              )}
+            </label>
+            <label className="sf-check">
+              <input
+                type="checkbox"
+                checked={followOnly}
+                onChange={(e) => {
+                  setFollowOnly(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              <UserCheck size={12} /> フォロー中の開発者
+              {follows.size > 0 && (
+                <span className="muted">({follows.size})</span>
+              )}
+            </label>
+          </div>
+
+          {(titleQ || priceBand || saleOnly || wishOnly || followOnly) && (
+            <button
+              className="btn mini sf-clear"
+              onClick={() => {
+                setTitleQ("");
+                setTitleQInput("");
+                setPriceBand(null);
+                setSaleOnly(false);
+                setWishOnly(false);
+                setFollowOnly(false);
+                setPage(1);
+              }}
+            >
+              絞り込みをクリア
+            </button>
+          )}
+        </aside>
+
+        <div className="browse-main">
+          {loading && items === null && <SkelGrid count={10} />}
+
+          {items && items.length === 0 && (
+            <EmptyState
+              title="該当する作品がありません"
+              hint="検索条件やカテゴリを変えて探してみてください。"
+              action={{ label: "条件をクリア", onClick: () => browseWith({}) }}
+            />
+          )}
+
+          {items && items.length > 0 && (
+            <div className={`store-grid ${loading ? "dim" : ""}`}>
+              {items.map((it) => (
+                <div key={it.id} className="store-cardwrap">
+                  <button
+                    className="store-card"
+                    onClick={() => void openDetail(it)}
+                    disabled={detailLoading}
+                    title={it.title}
+                  >
+                    <HoverCover
+                      item={it}
+                      owned={purchased.has(it.id)}
+                      className="store-cover"
+                    />
+                    {/* Steam 型: ほぼサムネ + 下に価格。作者/レビュー/タグ等は
+                        クリック後の詳細パネルにまとめて表示する。 */}
+                    <div className="store-card-body">
+                      <span className="store-card-title">{it.title}</span>
+                      <span className="store-card-foot">
+                        <PriceTag item={it} />
+                        <ReviewBadge review={it.review} />
+                      </span>
+                    </div>
+                  </button>
+                  {/* ウィッシュ(ハート)。カードは <button> なので兄弟として重ねる。 */}
+                  <button
+                    className={`wish-btn ${wishIds.has(it.id) ? "on" : ""}`}
+                    title={
+                      wishIds.has(it.id)
+                        ? "ウィッシュリストから外す"
+                        : "ウィッシュリストに追加"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const added = toggleWish(it.id);
+                      toast(
+                        added
+                          ? "♥ ウィッシュリストに追加しました"
+                          : "ウィッシュリストから外しました",
+                      );
+                    }}
+                  >
+                    <Heart
+                      size={15}
+                      fill={wishIds.has(it.id) ? "currentColor" : "none"}
+                    />
+                  </button>
                 </div>
-              </button>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {items && totalPages > 1 && (
-          <div className="store-pager">
-            <button
-              className="btn mini"
-              disabled={page <= 1 || loading}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              ← 前へ
-            </button>
-            <span className="muted" style={{ fontSize: 12 }}>
-              {page} / {totalPages}
-            </span>
-            <button
-              className="btn mini"
-              disabled={page >= totalPages || loading}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              次へ →
-            </button>
-          </div>
-        )}
+          {items && totalPages > 1 && (
+            <div className="store-pager">
+              <button
+                className="btn mini"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                ← 前へ
+              </button>
+              <span className="muted" style={{ fontSize: 12 }}>
+                {page} / {totalPages}
+              </span>
+              <button
+                className="btn mini"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                次へ →
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+      {tipModal}
     </div>
   );
 }

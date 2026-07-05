@@ -25,6 +25,7 @@ import {
   CalendarClock,
   ScrollText,
   Wrench,
+  Coins,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { AuthControl } from "./AuthControl";
@@ -35,6 +36,7 @@ import { StorePanel } from "./StorePanel";
 import { findSystem } from "./systems-store";
 import { Settings as SettingsScreen, type SettingsTab } from "./Settings";
 import { Toasts, toast } from "./Toasts";
+import { LoginGate } from "./LoginGate";
 import { EmptyState } from "./EmptyState";
 import { FriendsButton } from "./FriendsPanel";
 import { initDeepLinkAuth } from "./auth";
@@ -59,9 +61,15 @@ import {
   type PlayIndexEntry,
 } from "./play-storage";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
+import {
+  applyFullscreenOnLaunch,
+  toggleFullscreen,
+} from "./window-settings";
+import { refreshGold, useGoldBalance } from "./gold-remote";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
 import { NewCharacterMenu } from "./NewCharacterMenu";
-import diceMark from "./assets/dice.png";
+import { SheetSystemPicker } from "./SheetSystemPicker";
+import logoMark from "./assets/logo.png";
 
 // 日程調整ツール(web)の作成ページ。ロビーから既定ブラウザで開く。匿名でも作れる
 // (web 側がログイン任意)ため、ここはアプリの Bearer を介さず URL を開くだけ。
@@ -164,6 +172,10 @@ export function App() {
   );
   // PLAY 中にキャラシを卓の上へオーバーレイ表示する(卓は閉じない)。
   const [charOverlay, setCharOverlay] = useState(false);
+  // キャラページ: false = システム選択(ピッカー) / true = エディタ表示。
+  const [charEditorOpen, setCharEditorOpen] = useState(false);
+  // ピッカーで選んだ CoC の版(新規作成時にエディタへ渡す)。
+  const [cocSystemId, setCocSystemId] = useState<"coc7" | "coc6">("coc7");
   const [library, setLibrary] = useState<LibraryEntry[]>(() => getLibrary());
   const [active, setActive] = useState<{
     sheet: Sheet | null;
@@ -208,8 +220,12 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
   const [storeHomeSig, setStoreHomeSig] = useState(0);
-  // ライブラリ強制リフレッシュ(paradice://purchase/complete などで +1)。
+  // ライブラリ強制リフレッシュ(redice://purchase/complete などで +1)。
   const [librarySig, setLibrarySig] = useState(0);
+  // プラン再取得シグナル(redice://subscription/complete などで +1)。
+  const [planSig, setPlanSig] = useState(0);
+  // ゴールド残高(ヘッダのチップ表示用。gold-remote が共有ストア)。
+  const gold = useGoldBalance();
   // テーマ(ライト / ダーク)。<html data-theme> で CSS 変数を切替。PLAY 中も従う。
   const [theme, setTheme] = useState(
     () => localStorage.getItem("trpg.theme.v1") ?? "light",
@@ -222,12 +238,27 @@ export function App() {
     }
   }, [theme]);
 
-  // deep-link(paradice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
+  // deep-link(redice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
   useEffect(() => {
     if (isTauri()) void initDeepLinkAuth();
   }, []);
 
-  // paradice://purchase/complete|cancel を購読。決済完了でライブラリへ
+  // 保存済みのフルスクリーン設定を起動時に反映 + F11 でトグル。
+  useEffect(() => {
+    void applyFullscreenOnLaunch();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "F11") {
+        e.preventDefault();
+        void toggleFullscreen().then((on) =>
+          toast(on ? "⛶ フルスクリーン（F11 / 設定で戻せます）" : "フルスクリーンを解除しました"),
+        );
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // redice://purchase/complete|cancel を購読。決済完了でライブラリへ
   // 自動移動 + 強制リフレッシュ。webhook 反映に数秒の遅延があるため
   // 初回 fetch で出なくても再度ボタン押下で再取得できる。
   useEffect(() => {
@@ -243,8 +274,30 @@ export function App() {
       onCancel: () => {
         toast("購入はキャンセルされました");
       },
+      onSubscriptionComplete: ({ plan }) => {
+        const label = plan === "pro" ? "Pro" : "プレイ";
+        toast(`✅ ${label}プランが有効になりました`);
+        setPlanSig((n) => n + 1);
+        // webhook 反映ラグを吸収して 4 秒後にもう一度。
+        window.setTimeout(() => setPlanSig((n) => n + 1), 4000);
+      },
+      onGoldComplete: ({ amount }) => {
+        toast(
+          amount
+            ? `✅ ${amount.toLocaleString()} ゴールドを追加しました`
+            : "✅ ゴールドを追加しました",
+        );
+        // webhook 反映ラグを吸収して静かに再取得。
+        void refreshGold();
+        window.setTimeout(() => void refreshGold(), 4000);
+      },
     });
   }, []);
+
+  // 起動時とログイン状態変化でゴールド残高を取得(ヘッダ/設定に反映)。
+  useEffect(() => {
+    void refreshGold();
+  }, [planSig]);
 
   // テーマ適用。PLAY 中もユーザー設定(ライト / ダーク)に従う。
   useEffect(() => {
@@ -259,6 +312,8 @@ export function App() {
     }
     setPage(p);
     if (p === "store") setStoreHomeSig((n) => n + 1);
+    // PLAY を開くたびに卓一覧を最新化(ライブラリから取り込んだ卓も一覧に出す)。
+    if (p === "play") setPlayIndex(getPlayIndex());
     setDrawerOpen(false);
     setError(null);
   }
@@ -329,6 +384,30 @@ export function App() {
     }
   }
 
+  /**
+   * フルパッケージ(卓入り)をライブラリで開いたとき、取り込んだ卓(.play)を
+   * そのまま PLAY 画面で開く。取り込み済みの卓は PLAY ロビーの「保存済みの卓」
+   * 一覧にも出るので、あとから一覧で開き直せる。
+   */
+  async function openPackPlay(playPath: string) {
+    setPlayIndex(getPlayIndex()); // 取り込んだ卓をロビー一覧へ反映
+    if (!isTauri()) {
+      setError("卓を開くにはデスクトップアプリが必要です");
+      return;
+    }
+    try {
+      const scene = await readPlayFromPath(playPath);
+      setSession({ scene, path: playPath });
+      setJoining(null);
+      setPlayMinimized(false);
+      setDrawerOpen(false);
+      setPage("play");
+      setError(null);
+    } catch (e) {
+      setError(`卓を開けませんでした: ${String(e)}`);
+    }
+  }
+
   async function handlePlayPersist(scene: PlayScene, path: string) {
     // 保存時にシステム名を解決して持たせる(全システムでカードに正しく表示するため)
     // と、前景/背景からサムネイルを生成してカードに出す。
@@ -346,14 +425,29 @@ export function App() {
     setPlayIndex((idx) => removePlayIndex(idx, id));
   }
 
-  function newCharacter() {
+  function newCharacter(systemId?: "coc7" | "coc6") {
     setSession(null);
     setJoining(null);
     setPage("characters");
     setDrawerOpen(false);
     setActiveGeneric(null);
+    if (systemId) setCocSystemId(systemId);
     setActive({ sheet: null, key: `new-${Date.now()}` });
+    setCharEditorOpen(true);
     setError(null);
+  }
+
+  /** キャラクター保管所などから取り込んだシートをエディタで開く(未保存)。 */
+  function openImportedSheet(sheet: Sheet) {
+    setSession(null);
+    setJoining(null);
+    setPage("characters");
+    setDrawerOpen(false);
+    setActiveGeneric(null);
+    setActive({ sheet, key: `import-${Date.now()}` });
+    setCharEditorOpen(true);
+    setError(null);
+    toast(`📥 「${sheet.name}」を取り込みました。保存で確定します`);
   }
 
   /** ビルダーから「このシステムでキャラ作成」。 */
@@ -363,6 +457,7 @@ export function App() {
     setPage("characters");
     setDrawerOpen(false);
     setActiveGeneric({ def, sheet: null, key: `gnew-${Date.now()}` });
+    setCharEditorOpen(true);
     setError(null);
   }
 
@@ -389,6 +484,7 @@ export function App() {
         setActiveGeneric(null);
         setActive({ sheet, key: `${entry.id}-${Date.now()}`, path: entry.path });
       }
+      setCharEditorOpen(true);
       setError(null);
     } catch (e) {
       setError(`開けませんでした(移動/削除された可能性): ${String(e)}`);
@@ -461,6 +557,7 @@ export function App() {
           <NewCharacterMenu
             onNewCoC={newCharacter}
             onNewGeneric={newGenericCharacter}
+            onImported={openImportedSheet}
           />
         </div>
         {library.length === 0 ? (
@@ -477,20 +574,30 @@ export function App() {
         )}
       </aside>
       <section className="chars-editor">
-        {activeGeneric ? (
+        {!charEditorOpen ? (
+          /* まず「どのシステムで作るか」を選ぶ(クリックでエディタへ直行)。 */
+          <SheetSystemPicker
+            onPickCoC={(sid) => newCharacter(sid)}
+            onPickGeneric={newGenericCharacter}
+            onImported={openImportedSheet}
+          />
+        ) : activeGeneric ? (
           <GenericSheetEditor
             key={activeGeneric.key}
             def={activeGeneric.def}
             initial={activeGeneric.sheet}
             initialPath={activeGeneric.path}
             onSaved={handleGenericSaved}
+            onBack={() => setCharEditorOpen(false)}
           />
         ) : (
           <CharacterSheet
             key={active.key}
             initialSheet={active.sheet}
+            initialSystemId={cocSystemId}
             initialPath={active.path}
             onSaved={handleSaved}
+            onBack={() => setCharEditorOpen(false)}
           />
         )}
       </section>
@@ -665,11 +772,8 @@ export function App() {
           onClick={() => goTo("store")}
           title="ストアのトップへ"
         >
-          <img src={diceMark} alt="" className="brand-dice" aria-hidden />
-          <span className="brand-word" aria-label="パラDa-iCE">
-            <span className="brand-para">パラ</span>
-            <span className="brand-daice">Da-iCE</span>
-          </span>
+          {/* 新ロゴ(ダイス+Re-dice ワードマーク一体の画像)。 */}
+          <img src={logoMark} alt="Re-dice" className="brand-logo" />
         </span>
         <nav className="topnav" role="tablist">
           {PAGES.map((p) => {
@@ -700,6 +804,15 @@ export function App() {
           >
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </button>
+          {gold !== null && (
+            <button
+              className="gold-chip"
+              onClick={() => openSettings("gold")}
+              title="ゴールド残高 — クリックで管理・チャージ"
+            >
+              <Coins size={13} /> {gold.toLocaleString()}
+            </button>
+          )}
           <AccountMenu onOpen={() => openSettings("account")} />
         </div>
       </header>
@@ -719,6 +832,7 @@ export function App() {
           <LibraryPage
             onView={(item, entry) => setViewing({ item, entry })}
             onGoStore={() => goTo("store")}
+            onOpenPlay={(playPath) => void openPackPlay(playPath)}
             refreshSignal={librarySig}
           />
         )}
@@ -1024,9 +1138,11 @@ export function App() {
             setTheme((t) => (t === "dark" ? "light" : "dark"))
           }
           onClose={() => setShowSettings(false)}
+          planSig={planSig}
         />
       )}
       <Toasts />
+      <LoginGate />
     </div>
   );
 }

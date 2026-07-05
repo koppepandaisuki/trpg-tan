@@ -21,7 +21,7 @@ export default function TokushohoPage() {
       </p>
 
       <LegalSection heading="販売事業者">
-        <p>パラDa-iCE TRPGサイト 運営者</p>
+        <p>Re-dice TRPGサイト 運営者</p>
         <p className="text-xs">
           ※ α テスト期間中のため、正式な事業者情報は本リリース時に掲載します。
           請求があった場合は遅滞なく開示いたします。

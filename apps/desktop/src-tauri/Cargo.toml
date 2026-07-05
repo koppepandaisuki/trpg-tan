@@ -2,7 +2,7 @@
 name = "trpg-desktop"
 version = "0.0.0"
 description = "TRPG Desktop"
-authors = ["パラDa-iCE"]
+authors = ["Re-dice"]
 edition = "2021"
 
 # Tauri v2。フロントは Vite(../dist)。ライブラリ + バイナリの二段構成

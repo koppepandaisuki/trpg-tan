@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { salePriceJpy } from "@/lib/format/price";
 
 /**
  * Product input schemas.
@@ -57,6 +58,54 @@ export const fileFormatEnum = z.enum(["pdf", "image_zip", "audio", "pack"]);
 // Schemas
 // ---------------------------------------------------------------------
 
+/**
+ * 任意の日時(ISO 文字列) or null。フォームの空文字・undefined は null に寄せる。
+ * 値があるときは Date.parse できることだけ確認する(厳密な ISO 形式は要求しない
+ * — datetime-local 由来の値も toISOString 済みで来る想定)。
+ */
+const isoDateOrNull = z
+  .preprocess(
+    (v) => (v === "" || v === undefined ? null : v),
+    z.string().nullable(),
+  )
+  .refine((v) => v === null || !Number.isNaN(Date.parse(v)), {
+    message: "日時の形式が正しくありません",
+  })
+  .default(null);
+
+/** セール終了は開始より後でなければならない(両方指定時のみ)。 */
+function refineDiscountPeriod<
+  T extends {
+    discountStartsAt: string | null;
+    discountEndsAt: string | null;
+    priceJpy: number;
+    discountPercent: number;
+  },
+>(data: T, ctx: z.RefinementCtx) {
+  if (
+    data.discountStartsAt &&
+    data.discountEndsAt &&
+    Date.parse(data.discountEndsAt) <= Date.parse(data.discountStartsAt)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["discountEndsAt"],
+      message: "セール終了は開始より後にしてください",
+    });
+  }
+  // Stripe の JPY 最低決済額は ¥50。割引後価格が 1〜49 円になる組合せは決済が
+  // 必ず失敗するため保存時に弾く(100% なら無料配布で OK)。
+  const sale = salePriceJpy(data.priceJpy, data.discountPercent);
+  if (sale > 0 && sale < 50) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["discountPercent"],
+      message:
+        "割引後の価格が¥50未満になります(決済不可)。割引率を下げるか、100%(無料配布)にしてください",
+    });
+  }
+}
+
 const baseFields = {
   title: z
     .string()
@@ -74,6 +123,18 @@ const baseFields = {
     .int("価格は整数で入力してください")
     .min(0, "価格は0円以上で入力してください")
     .max(10000000, "価格は10,000,000円以下で入力してください"),
+  // 割引率(0..100)。100 = 実質無料配布。定価(priceJpy)は据え置き、表示は
+  // 「定価の取り消し線 + 割引後価格」。決済も割引後の実効価格で行う。
+  discountPercent: z.coerce
+    .number({ invalid_type_error: "割引率は数値で入力してください" })
+    .int("割引率は整数で入力してください")
+    .min(0, "割引率は0%以上で入力してください")
+    .max(100, "割引率は100%以下で入力してください")
+    .default(0),
+  // セール期間(任意)。空文字 → null。両方 null は無期限セール。
+  // フォームは ISO 文字列(toISOString)で送る。
+  discountStartsAt: isoDateOrNull,
+  discountEndsAt: isoDateOrNull,
   systemLabel: z.string().max(100).default(""),
   players: z.string().max(50).default(""),
   playtime: z.string().max(50).default(""),
@@ -87,22 +148,24 @@ const baseFields = {
 };
 
 /** Lenient — used by 「下書き保存」 */
-export const draftSchema = z.object(baseFields);
+export const draftSchema = z.object(baseFields).superRefine(refineDiscountPeriod);
 
 /** Strict — used by 「公開して保存」. Additional required fields kick in here. */
-export const publishSchema = z.object({
-  ...baseFields,
-  // title and priceJpy are already enforced.
-  description: z
-    .string()
-    .trim()
-    .min(1, "公開には説明文の入力が必要です")
-    .max(10000),
-  tags: z
-    .array(tagSchema)
-    .min(1, "公開にはタグを1つ以上設定してください")
-    .max(TAGS_MAX_COUNT),
-});
+export const publishSchema = z
+  .object({
+    ...baseFields,
+    // title and priceJpy are already enforced.
+    description: z
+      .string()
+      .trim()
+      .min(1, "公開には説明文の入力が必要です")
+      .max(10000),
+    tags: z
+      .array(tagSchema)
+      .min(1, "公開にはタグを1つ以上設定してください")
+      .max(TAGS_MAX_COUNT),
+  })
+  .superRefine(refineDiscountPeriod);
 
 export type ProductInput = z.infer<typeof draftSchema>;
 export type PublishProductInput = z.infer<typeof publishSchema>;

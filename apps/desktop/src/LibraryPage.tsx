@@ -8,6 +8,7 @@ import {
   Package,
 } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { exists } from "@tauri-apps/plugin-fs";
 import { importPackFromFile, importPackFromPath } from "./pack";
 import { useAuth } from "./useAuth";
 import { supabaseConfigured } from "./supabase";
@@ -65,11 +66,17 @@ function relDay(iso: string): string {
 export function LibraryPage({
   onView,
   onGoStore,
+  onOpenPlay,
   refreshSignal,
 }: {
   onView?: (item: RemoteLibraryItem, entry: DownloadedEntry) => void;
   /** 空状態の「ストアを見る」(App がページ遷移)。 */
   onGoStore?: () => void;
+  /**
+   * フルパッケージ(卓入り)を開いたとき、取り込んだ卓(.play)をそのまま PLAY で
+   * 開くための導線。引数は取り込んだ卓の絶対パス。
+   */
+  onOpenPlay?: (playPath: string) => void;
   /** 親から購入完了など外部イベントで再 fetch させたい時にインクリメント。 */
   refreshSignal?: number;
 }) {
@@ -133,7 +140,7 @@ export function LibraryPage({
   }, [userId, load]);
 
   // 外部(App)から refreshSignal が来たら fetch をやり直す。
-  // 例: アプリ内決済後の paradice://purchase/complete を受けた時など。
+  // 例: アプリ内決済後の redice://purchase/complete を受けた時など。
   useEffect(() => {
     if (refreshSignal !== undefined && userId) void load();
   }, [refreshSignal, userId, load]);
@@ -173,11 +180,55 @@ export function LibraryPage({
     e.ext?.toLowerCase() === "paradice" ||
     e.path.toLowerCase().endsWith(".paradice");
 
+  /**
+   * 記録された保存先にファイルが無ければ取り直して最新パスに更新する。
+   * 旧バージョンで保存した古いパスや、ライブラリ場所の切替・ファイル移動で
+   * パスがズレても「開く」が確実に動くようにする(DL は productId 固定で冪等)。
+   */
+  async function ensureLocalFile(
+    it: RemoteLibraryItem,
+    entry: DownloadedEntry,
+  ): Promise<DownloadedEntry> {
+    try {
+      if (await exists(entry.path)) return entry;
+    } catch {
+      // exists 判定に失敗しても取り直しを試みる
+    }
+    const res = await downloadToLibrary(it.productId);
+    const fresh: DownloadedEntry = {
+      ...entry,
+      path: res.path,
+      relativePath: res.relativePath,
+      ext: res.ext,
+      bytes: res.bytes,
+      downloadedAt: new Date().toISOString(),
+    };
+    markDownloaded(fresh);
+    setDownloaded((d) => ({ ...d, [it.productId]: fresh }));
+    return fresh;
+  }
+
   /** 「開く」: パッケージなら取り込み(セットアップ無し)、その他は viewer へ。 */
-  async function openItem(it: RemoteLibraryItem, entry: DownloadedEntry) {
+  async function openItem(it: RemoteLibraryItem, entryArg: DownloadedEntry) {
+    let entry: DownloadedEntry;
+    try {
+      entry = await ensureLocalFile(it, entryArg);
+    } catch (e) {
+      toast(
+        `ファイルを開けませんでした(取り直しに失敗): ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return;
+    }
     if (isPackEntry(entry)) {
       try {
         const res = await importPackFromPath(entry.path);
+        // 卓(.play)が入っているフルパッケージは、取り込んだうえで最初の卓を
+        // そのまま PLAY で開く(リクエスト: 開いたら PLAY 画面へ直行)。
+        if (res.scenes.length > 0 && onOpenPlay) {
+          toast(`▶ 「${res.name}」を開きます`);
+          onOpenPlay(res.scenes[0].path);
+          return;
+        }
         const parts = [
           res.system ? "システム" : "",
           res.scenarios ? `シナリオ${res.scenarios}` : "",
@@ -196,11 +247,13 @@ export function LibraryPage({
     onView?.(it, entry);
   }
 
-  async function handleReveal(productId: string) {
+  async function handleReveal(productId: string, it?: RemoteLibraryItem) {
     const entry = downloaded[productId];
     if (!entry) return;
     try {
-      await revealItemInDir(entry.path);
+      // パスが古い/ファイルが無ければ取り直してから表示する。
+      const fresh = it ? await ensureLocalFile(it, entry) : entry;
+      await revealItemInDir(fresh.path);
     } catch (e) {
       console.error("[library] reveal failed", e);
     }
@@ -292,7 +345,7 @@ export function LibraryPage({
             </button>
             <button
               className="btn ibtn"
-              onClick={() => void handleReveal(it.productId)}
+              onClick={() => void handleReveal(it.productId, it)}
             >
               <FolderOpen size={15} /> 場所を開く
             </button>

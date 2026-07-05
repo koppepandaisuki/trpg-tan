@@ -48,6 +48,25 @@ export async function revokeAdmin(targetUserId: string): Promise<void> {
   if (error) throw classifyRpcError("revoke_admin", error);
 }
 
+/**
+ * ゴールド残高を調整(問い合わせ対応)。amount は正=付与 / 負=減算。
+ * 戻り値は調整後の残高。RPC 側で減算による残高マイナスは拒否される。
+ */
+export async function adjustGold(
+  targetUserId: string,
+  amount: number,
+  note?: string,
+): Promise<number> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("admin_adjust_gold", {
+    target_id: targetUserId,
+    amount,
+    note: note ?? null,
+  });
+  if (error) throw classifyRpcError("adjust_gold", error);
+  return typeof data === "number" ? data : 0;
+}
+
 export async function setProductStatus(
   productId: string,
   newStatus: ProductStatus,
@@ -58,6 +77,19 @@ export async function setProductStatus(
     new_status: newStatus,
   });
   if (error) throw classifyRpcError("set_product_status", error);
+}
+
+/**
+ * 通報されたレビューを削除(モデレーション)。admin_delete_review RPC は
+ * security definer + is_admin 検証 + 監査ログ。cascade で当該レビューの
+ * review_reports / replies / votes も消える。
+ */
+export async function deleteReview(reviewId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_delete_review", {
+    target_review_id: reviewId,
+  });
+  if (error) throw classifyRpcError("delete_review", error);
 }
 
 /**
@@ -118,6 +150,16 @@ export function classifyRpcError(
   }
   if (m.includes("invalid status")) {
     return new AdminRpcError(action, "invalid", "無効なステータスです");
+  }
+  if (m.includes("insufficient_balance")) {
+    return new AdminRpcError(
+      action,
+      "invalid",
+      "残高が不足しているため、その金額は減算できません",
+    );
+  }
+  if (m.includes("invalid_amount")) {
+    return new AdminRpcError(action, "invalid", "金額が不正です");
   }
   return new AdminRpcError(action, "unknown", "操作に失敗しました");
 }

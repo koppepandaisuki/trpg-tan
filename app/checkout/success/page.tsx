@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   CheckCircle2,
+  Coins,
   Download,
   Gamepad2,
   Star,
@@ -18,7 +19,13 @@ export const metadata = {
 };
 
 interface PageProps {
-  searchParams: { session_id?: string; return_to?: string; free?: string };
+  searchParams: {
+    session_id?: string;
+    return_to?: string;
+    free?: string;
+    sub?: string;
+    gold?: string;
+  };
 }
 
 /**
@@ -38,6 +45,11 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
   }
   const isDesktopReturn = searchParams.return_to === "desktop";
   const isFree = searchParams.free === "1";
+  const subPlan = searchParams.sub === "pro" ? "pro" : searchParams.sub === "play" ? "play" : null;
+  const goldAmount = (() => {
+    const n = Number(searchParams.gold);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  })();
 
   return (
     <>
@@ -50,25 +62,39 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
             <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
 
             <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-emerald-700">
-              <CheckCircle2 className="h-8 w-8" aria-hidden />
+              {goldAmount ? (
+                <Coins className="h-8 w-8" aria-hidden />
+              ) : (
+                <CheckCircle2 className="h-8 w-8" aria-hidden />
+              )}
             </div>
 
             <div className="relative z-10 space-y-2">
               <h1 className="text-xl font-semibold tracking-tight">
-                {isFree
-                  ? "ライブラリに追加しました"
-                  : "ご購入手続きを受け付けました"}
+                {goldAmount
+                  ? "ゴールドを購入しました"
+                  : subPlan
+                    ? "プランが有効になりました"
+                    : isFree
+                      ? "ライブラリに追加しました"
+                      : "ご購入手続きを受け付けました"}
               </h1>
               <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-                {isFree
-                  ? "無料作品をライブラリに追加しました。今すぐダウンロードして遊べます。"
-                  : "決済結果を確認しています。購入内容はまもなくライブラリに反映されます。通常は数秒で反映されますが、まれに少し時間がかかることがあります。"}
+                {goldAmount
+                  ? `${goldAmount.toLocaleString()} ゴールドを追加しました。まもなく残高に反映されます。AI 利用・作品購入・スーパーサンクスに使えます。`
+                  : subPlan
+                    ? `${subPlan === "pro" ? "Pro" : "プレイ"}プランへようこそ！まもなくアカウントに反映されます。`
+                    : isFree
+                      ? "無料作品をライブラリに追加しました。今すぐダウンロードして遊べます。"
+                      : "決済結果を確認しています。購入内容はまもなくライブラリに反映されます。通常は数秒で反映されますが、まれに少し時間がかかることがあります。"}
               </p>
             </div>
 
             {/* プレイ後レビューの導線(VVVVV)。購入直後にレビューを促すのではなく、
                 ダウンロード → 実際にプレイ → プレイ後に感想、という TRPG 本来の
-                流れを 3 ステップで示す。レビューはあくまで「遊んだ後」のもの。 */}
+                流れを 3 ステップで示す。レビューはあくまで「遊んだ後」のもの。
+                ゴールドパック / サブスクは作品 DL ではないので出さない。 */}
+            {!goldAmount && !subPlan && (
             <div className="relative z-10 w-full rounded-lg border border-border bg-background/70 p-4 text-left sm:max-w-xs">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 次のステップ
@@ -87,20 +113,32 @@ export default function CheckoutSuccessPage({ searchParams }: PageProps) {
                 />
               </ol>
             </div>
+            )}
 
             {isDesktopReturn ? (
               <ReturnToDesktop
                 kind="complete"
                 sessionId={searchParams.session_id}
+                subPlan={subPlan ?? undefined}
+                goldAmount={goldAmount ?? undefined}
               />
             ) : (
               <div className="relative z-10 flex w-full flex-col gap-2 pt-2 sm:max-w-xs">
-                <Link
-                  href="/library"
-                  className={cn(buttonVariants({ variant: "primary" }))}
-                >
-                  ライブラリを開く
-                </Link>
+                {subPlan ? (
+                  <Link
+                    href="/pricing"
+                    className={cn(buttonVariants({ variant: "primary" }))}
+                  >
+                    プラン画面へ
+                  </Link>
+                ) : (
+                  <Link
+                    href="/library"
+                    className={cn(buttonVariants({ variant: "primary" }))}
+                  >
+                    ライブラリを開く
+                  </Link>
+                )}
                 <Link
                   href="/store"
                   className={cn(buttonVariants({ variant: "outline" }))}

@@ -9,7 +9,7 @@ import { FaqGroup, type FaqEntry } from "@/components/help/faq-accordion";
 export const metadata = {
   title: "ヘルプ・よくある質問",
   description:
-    "パラDa-iCE TRPGサイトの使い方、購入・販売・アカウントに関するよくある質問。",
+    "Re-dice TRPGサイトの使い方、購入・販売・アカウントに関するよくある質問。",
 };
 
 const DISCORD_URL = "https://discord.gg/HMXx3pbAEz";

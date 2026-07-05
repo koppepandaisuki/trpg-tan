@@ -18,6 +18,7 @@ import { publicAvatarUrl } from "@/lib/format/storage";
 import { ReviewForm } from "@/components/review/review-form";
 import { ReplyForm } from "@/components/review/reply-form";
 import { HelpfulButton } from "@/components/review/helpful-button";
+import { ReviewReportButton } from "@/components/review/review-report-button";
 import { CollapsibleReviewList } from "@/components/review/collapsible-review-list";
 import { cn } from "@/lib/utils";
 
@@ -146,6 +147,7 @@ export async function ReviewSection({
                 helpfulCount={r.helpfulCount}
                 viewerVoted={r.viewerVoted}
                 canVote={Boolean(user)}
+                canReport={Boolean(user) && user!.id !== r.user.id}
               />
               {/* 公式 reply(あれば誰でも見える)*/}
               {r.reply && (
@@ -217,6 +219,7 @@ function ReviewItemCard({
   helpfulCount,
   viewerVoted,
   canVote,
+  canReport,
 }: {
   reviewId: string;
   productSlug: string;
@@ -229,6 +232,8 @@ function ReviewItemCard({
   helpfulCount: number;
   viewerVoted: boolean;
   canVote: boolean;
+  /** ログイン済みかつ自分のレビューでないとき通報ボタンを出す。 */
+  canReport: boolean;
 }) {
   const name = userName || "(名称未設定)";
   const isEdited = createdAt !== updatedAt;
@@ -268,8 +273,8 @@ function ReviewItemCard({
             {comment}
           </p>
         )}
-        {/* 「役に立った」投票(LLLLL)*/}
-        <div className="pt-1">
+        {/* 「役に立った」投票(LLLLL)+ 通報 */}
+        <div className="flex items-center justify-between gap-3 pt-1">
           <HelpfulButton
             reviewId={reviewId}
             productSlug={productSlug}
@@ -277,6 +282,9 @@ function ReviewItemCard({
             initialVoted={viewerVoted}
             canVote={canVote}
           />
+          {canReport && (
+            <ReviewReportButton reviewId={reviewId} loggedIn={true} />
+          )}
         </div>
       </CardContent>
     </Card>

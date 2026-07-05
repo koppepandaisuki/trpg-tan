@@ -11,6 +11,7 @@
 export * from "./dice/index.js";
 export * from "./systems/index.js";
 export * from "./character/types.js";
+export * from "./character/vampire-blood.js";
 export * from "./play/index.js";
 export * from "./system-builder/index.js";
 export * from "./pack/index.js";

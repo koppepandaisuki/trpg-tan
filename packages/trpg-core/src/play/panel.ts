@@ -90,6 +90,37 @@ export function panelFromSheet(params: {
     push("SAN", "SAN", 99); // 上限は概ね 99(神話技能で逓減)
   }
 
+  // 情報/メモ: キャラシの職業・メモ・背景を駒に引き継ぐ(卓上から参照できる)。
+  const occupationName =
+    sheet.occupationName?.trim() ||
+    (sheet.occupationId
+      ? sys?.occupations.find((o) => o.id === sheet.occupationId)?.name
+      : undefined);
+  const noteBits: string[] = [];
+  if (occupationName) noteBits.push(`職業: ${occupationName}`);
+  if (sheet.notes?.trim()) noteBits.push(`【メモ】\n${sheet.notes.trim()}`);
+  if (sheet.backstory?.trim()) noteBits.push(`【背景】\n${sheet.backstory.trim()}`);
+
+  // チャットパレット: シートの技能・能力値から最初から使える形で生成する。
+  // SAN チェックは {SAN} 変数参照(送信時に現在値へ置換)なので減っても正しい。
+  const paletteLines: string[] = [];
+  const skillStats = stats.filter((s) => s.kind === "skill");
+  if (skillStats.length > 0) {
+    paletteLines.push("# 技能");
+    for (const s of skillStats) paletteLines.push(`CC<=${s.target} ${s.label}`);
+  }
+  if (resources.some((r) => r.key === "san")) {
+    paletteLines.push("# 正気度");
+    paletteLines.push("CC<={SAN} SANチェック");
+    paletteLines.push("1d3 SAN減少(小)");
+    paletteLines.push("1d10 SAN減少(大)");
+  }
+  const charStats = stats.filter((s) => s.kind === "characteristic");
+  if (charStats.length > 0) {
+    paletteLines.push("# 能力値");
+    for (const s of charStats) paletteLines.push(`CC<=${s.target} ${s.key}`);
+  }
+
   return {
     id,
     source: "sheet",
@@ -101,6 +132,8 @@ export function panelFromSheet(params: {
     sheetId: sheet.id,
     stats,
     resources,
+    ...(noteBits.length > 0 ? { note: noteBits.join("\n\n") } : {}),
+    ...(paletteLines.length > 0 ? { palette: paletteLines.join("\n") } : {}),
     // 行動順(速さ)。CoC は DEX で初期化(後から卓上で変更可)。
     ...(typeof chars.DEX === "number" ? { speed: chars.DEX } : {}),
   };

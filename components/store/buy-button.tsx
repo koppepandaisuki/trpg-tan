@@ -28,7 +28,7 @@ export function BuyButton({ productId, label = "今すぐ購入" }: BuyButtonPro
     setStatus("loading");
     setError(null);
 
-    // デスクトップアプリから来た場合、success/cancel で paradice:// に
+    // デスクトップアプリから来た場合、success/cancel で redice:// に
     // 戻れるよう checkout API へヒントを渡す(?from=desktop を URL に
     // 付けて遷移してきたケースを拾う)。
     const fromDesktop =

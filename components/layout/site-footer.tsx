@@ -42,7 +42,7 @@ export function SiteFooter() {
             <Link
               href="/"
               className="inline-flex items-center"
-              aria-label="パラDa-iCE TRPGサイト ホーム"
+              aria-label="Re-dice TRPGサイト ホーム"
             >
               <BrandMark size="md" />
             </Link>
@@ -118,7 +118,7 @@ export function SiteFooter() {
         {/* ボトム行 */}
         <div className="mt-8 flex flex-col gap-2 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} パラDa-iCE TRPGサイト
+            © {new Date().getFullYear()} Re-dice TRPGサイト
           </p>
           <p className="text-xs text-muted-foreground">
             α 期間中 — 仕様変更・データリセットの可能性があります

@@ -67,5 +67,5 @@ function resolveOrigin(): string {
   const h = headers();
   const host = h.get("host");
   const proto = h.get("x-forwarded-proto") ?? "https";
-  return host ? `${proto}://${host}` : "https://trpg-tan.vercel.app";
+  return host ? `${proto}://${host}` : "https://re-dice.net";
 }

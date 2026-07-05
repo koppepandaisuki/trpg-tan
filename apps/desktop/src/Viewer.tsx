@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { readFile, BaseDirectory } from "@tauri-apps/plugin-fs";
+import { readFile } from "@tauri-apps/plugin-fs";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { unzipSync, strFromU8 } from "fflate";
 import type { DownloadedEntry } from "./downloaded";
@@ -147,9 +147,9 @@ function SingleFile({ entry, kind }: { entry: DownloadedEntry; kind: Kind }) {
     let active = true;
     (async () => {
       try {
-        const bytes = await readFile(entry.relativePath, {
-          baseDir: BaseDirectory.AppLocalData,
-        });
+        // 絶対パスで読む。relativePath はライブラリ root 起点なので
+        // baseDir:AppLocalData だと "library" 階層が抜けて指定パスが見つからない。
+        const bytes = await readFile(entry.path);
         if (!active) return;
         if (kind === "text") {
           setText(strFromU8(bytes));
@@ -166,7 +166,7 @@ function SingleFile({ entry, kind }: { entry: DownloadedEntry; kind: Kind }) {
       active = false;
       if (revoke) URL.revokeObjectURL(revoke);
     };
-  }, [entry.relativePath, entry.ext, kind]);
+  }, [entry.path, entry.ext, kind]);
 
   if (error) return <p className="tag fail viewer-msg">{error}</p>;
 
@@ -223,9 +223,8 @@ function ZipBrowser({ entry }: { entry: DownloadedEntry }) {
     let active = true;
     (async () => {
       try {
-        const bytes = await readFile(entry.relativePath, {
-          baseDir: BaseDirectory.AppLocalData,
-        });
+        // 絶対パスで読む(relativePath + baseDir:AppLocalData だと library 階層が抜ける)。
+        const bytes = await readFile(entry.path);
         const files = unzipSync(bytes);
         const list: ZipEntry[] = Object.entries(files)
           // ディレクトリエントリ(末尾 /)と __MACOSX を除外。
@@ -245,7 +244,7 @@ function ZipBrowser({ entry }: { entry: DownloadedEntry }) {
     return () => {
       active = false;
     };
-  }, [entry.relativePath]);
+  }, [entry.path]);
 
   const current = useMemo(
     () => entries?.find((f) => f.name === selected) ?? null,

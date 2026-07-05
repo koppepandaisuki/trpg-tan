@@ -10,6 +10,8 @@ import {
   Trash2,
   CalendarClock,
   Hash,
+  Heart,
+  Star,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { supabase, supabaseConfigured } from "./supabase";
@@ -24,9 +26,33 @@ import {
   myUnreadCount,
   markNotificationsRead,
   deleteNotification,
+  subscribeMyNotifications,
   type FriendUserPreview,
   type NotificationRow,
 } from "./friends-remote";
+
+/** 新着通知を受け取ったときのトースト本文(インボックスの表示文言と揃える)。 */
+function notificationToastText(row: NotificationRow): string {
+  const from = String(row.payload["fromDisplayName"] ?? "");
+  switch (row.kind) {
+    case "friend_request":
+      return `📨 フレンド申請: ${from || "誰か"}`;
+    case "friend_accepted":
+      return `✅ ${from || "誰か"} があなたの申請を承認しました`;
+    case "table_invite":
+      return `🎲 卓招待: ${String(row.payload["tableName"] ?? "") || "(無題の卓)"}`;
+    case "schedule_invite":
+      return `📅 日程調整: ${String(row.payload["title"] ?? "") || "(無題)"}`;
+    case "tip_received":
+      return `💝 スーパーサンクス: ${Number(row.payload["amount"] ?? 0).toLocaleString()} G`;
+    case "product_review":
+      return `⭐ レビュー: ${String(row.payload["productTitle"] ?? "") || "あなたの作品"}`;
+    case "review_decision":
+      return `📋 審査結果: ${String(row.payload["productTitle"] ?? "") || "あなたの作品"}`;
+    default:
+      return "🔔 新しい通知があります";
+  }
+}
 
 /**
  * フレンド & 通知の統合ポップオーバー(下部バー右端から開く)。
@@ -98,8 +124,10 @@ export function FriendsButton({
   const [friends, setFriends] = useState<FriendItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [unread, setUnread] = useState<number>(0);
+  const [liveSig, setLiveSig] = useState(0);
 
   const loggedIn = !!session;
+  const userId = session?.user.id ?? null;
 
   // 在席の心拍。
   useEffect(() => {
@@ -110,7 +138,7 @@ export function FriendsButton({
     return () => window.clearInterval(t);
   }, [loggedIn]);
 
-  // 未読バッジ。
+  // 未読バッジ(ポーリング。Realtime 未接続/再接続中の保険として残す)。
   useEffect(() => {
     if (!loggedIn || !supabaseConfigured) return;
     let alive = true;
@@ -125,6 +153,27 @@ export function FriendsButton({
       window.clearInterval(t);
     };
   }, [loggedIn]);
+
+  // 新着通知の即時反映(Supabase Realtime)。バッジを即インクリメントし、
+  // トーストで知らせる。インボックスが開いていれば liveSig 経由で再読込させる。
+  useEffect(() => {
+    if (!userId || !supabaseConfigured) return;
+    let alive = true;
+    let cleanup: (() => void) | null = null;
+    void subscribeMyNotifications(userId, (row) => {
+      if (!alive) return;
+      setUnread((n) => n + 1);
+      setLiveSig((s) => s + 1);
+      toast(notificationToastText(row));
+    }).then((fn) => {
+      if (alive) cleanup = fn;
+      else fn();
+    });
+    return () => {
+      alive = false;
+      cleanup?.();
+    };
+  }, [userId]);
 
   // パネル開いているあいだのフレンド一覧定期更新。
   useEffect(() => {
@@ -219,6 +268,7 @@ export function FriendsButton({
                       onTableInvite?.(code, tableName);
                     }}
                     onUnreadChange={setUnread}
+                    liveSig={liveSig}
                   />
                 )}
                 {tab === "add" && <AddTab />}
@@ -443,9 +493,12 @@ function AddTab() {
 function InboxTab({
   onTableInvite,
   onUnreadChange,
+  liveSig,
 }: {
   onTableInvite: (code: string, tableName: string) => void;
   onUnreadChange: (n: number) => void;
+  /** 親(FriendsButton)が Realtime で新着を検知するたびインクリメントされる。 */
+  liveSig: number;
 }) {
   const [items, setItems] = useState<NotificationRow[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -470,7 +523,8 @@ function InboxTab({
 
   useEffect(() => {
     void reload();
-  }, [reload]);
+    // liveSig: Realtime で新着を検知するたび再読込(タブが開いている間のみ表示)。
+  }, [reload, liveSig]);
 
   async function respond(n: NotificationRow, accept: boolean) {
     setBusyId(n.id);
@@ -642,6 +696,99 @@ function InboxTab({
                   onClick={() => void remove(n)}
                 >
                   <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          );
+        }
+        if (n.kind === "tip_received") {
+          const amount = Number(n.payload["amount"] ?? 0);
+          const message = String(n.payload["message"] ?? "");
+          return (
+            <div key={n.id} className="friends-inbox-row">
+              <p className="friends-inbox-title">
+                <Heart size={13} /> スーパーサンクス: {amount.toLocaleString()} G
+              </p>
+              <p className="muted" style={{ fontSize: 11 }}>
+                {from || "どなたか"} · {ts}
+              </p>
+              {message && (
+                <p style={{ fontSize: 12.5 }} className="friends-inbox-msg">
+                  「{message}」
+                </p>
+              )}
+              <div className="friends-inbox-actions">
+                <button
+                  className="btn mini"
+                  disabled={busyId === n.id}
+                  onClick={() => void remove(n)}
+                >
+                  <Trash2 size={12} /> 削除
+                </button>
+              </div>
+            </div>
+          );
+        }
+        if (n.kind === "review_decision") {
+          const title = String(n.payload["productTitle"] ?? "");
+          const decision = String(n.payload["decision"] ?? "");
+          const reason = String(n.payload["reason"] ?? "");
+          const label =
+            decision === "approved"
+              ? "承認されました"
+              : decision === "rejected"
+                ? "却下されました"
+                : "公開停止されました";
+          return (
+            <div key={n.id} className="friends-inbox-row">
+              <p className="friends-inbox-title">
+                <Check size={13} /> 審査結果: {title || "あなたの作品"}
+              </p>
+              <p className="muted" style={{ fontSize: 11 }}>
+                {label} · {ts}
+              </p>
+              {reason && (
+                <p style={{ fontSize: 12.5 }} className="friends-inbox-msg">
+                  {reason}
+                </p>
+              )}
+              <div className="friends-inbox-actions">
+                <button
+                  className="btn mini"
+                  disabled={busyId === n.id}
+                  onClick={() => void remove(n)}
+                >
+                  <Trash2 size={12} /> 削除
+                </button>
+              </div>
+            </div>
+          );
+        }
+        if (n.kind === "product_review") {
+          const title = String(n.payload["productTitle"] ?? "");
+          const stars = Number(n.payload["stars"] ?? 0);
+          const comment = String(n.payload["comment"] ?? "");
+          return (
+            <div key={n.id} className="friends-inbox-row">
+              <p className="friends-inbox-title">
+                <Star size={13} /> レビュー: {title || "あなたの作品"}
+              </p>
+              <p className="muted" style={{ fontSize: 11 }}>
+                {from || "購入者"} · {"★".repeat(Math.max(0, Math.min(5, stars)))} ·{" "}
+                {ts}
+              </p>
+              {comment && (
+                <p style={{ fontSize: 12.5 }} className="friends-inbox-msg">
+                  「{comment}」
+                </p>
+              )}
+              <div className="friends-inbox-actions">
+                <button
+                  className="btn mini"
+                  disabled={busyId === n.id}
+                  onClick={() => void remove(n)}
+                >
+                  <Trash2 size={12} /> 削除
                 </button>
               </div>
             </div>

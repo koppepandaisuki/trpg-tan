@@ -5,6 +5,7 @@ import { isSameOriginRequest } from "@/lib/api/origin";
 import { getStripe } from "@/lib/stripe/client";
 import { calculateApplicationFeeJpy } from "@/lib/stripe/fees";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { salePriceJpy } from "@/lib/format/price";
 
 /**
  * POST /api/checkout
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  // デスクトップから来た場合、success/cancel ページが paradice:// で
+  // デスクトップから来た場合、success/cancel ページが redice:// で
   // アプリに戻れるよう return_to=desktop を URL に乗せる。
   const isFromDesktop = body.returnTo === "desktop";
 
@@ -65,7 +66,32 @@ export async function POST(request: NextRequest) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
-  // 無料(priceJpy=0)、または管理者は Stripe を通さない:
+  // 実際に請求する金額は割引後の実効価格。定価(priceJpy)は表示・記録用。
+  // 割引 100% は実効 0 → 下の無料フローに落ちる(無料配布)。
+  const effectivePriceJpy = salePriceJpy(
+    decision.product.priceJpy,
+    decision.product.discountPercent,
+  );
+
+  // Stripe の JPY 最低決済額は ¥50。1〜49 円は必ず Stripe 側で失敗するので、
+  // 生のカードエラーではなく明確なメッセージで先に止める(validator でも同じ
+  // 組合せを保存時に弾いているが、既存データ・期間開始による変動に備えた最終防衛)。
+  if (effectivePriceJpy > 0 && effectivePriceJpy < 50) {
+    console.warn("[checkout] below Stripe minimum", {
+      productId: decision.product.id,
+      effectivePriceJpy,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        message:
+          "この作品は現在購入できません(割引後価格が決済可能な最低金額を下回っています)",
+      },
+      { status: 400 },
+    );
+  }
+
+  // 無料(実効価格=0)、または管理者は Stripe を通さない:
   //   - 無料: Stripe の最低決済額(JPY ~50円)未満で必ず失敗する。
   //          クリエイターの Stripe Connect 未設定でも無料配布したい。
   //   - 管理者: 出品物のスクリーニング/動作確認のため Stripe 決済なしで
@@ -74,11 +100,11 @@ export async function POST(request: NextRequest) {
   // 返してその場で完了させる。stripe_session_id は UNIQUE 制約があるので
   // `free:{userId}:{productId}` 形式で再押下時の重複も防ぐ。
   const isAdminBypass = user.isAdmin;
-  if (decision.product.priceJpy <= 0 || isAdminBypass) {
+  if (effectivePriceJpy <= 0 || isAdminBypass) {
     const admin = createAdminClient();
     const now = new Date().toISOString();
     // session_id は集計時に区別したいので「admin:」「free:」プレフィックス。
-    const prefix = isAdminBypass && decision.product.priceJpy > 0 ? "admin" : "free";
+    const prefix = isAdminBypass && effectivePriceJpy > 0 ? "admin" : "free";
     const { error: insErr } = await admin.from("purchases").insert({
       user_id: user.id,
       product_id: decision.product.id,
@@ -126,8 +152,9 @@ export async function POST(request: NextRequest) {
     .eq("id", decision.product.creatorId)
     .maybeSingle();
   const creatorPlan = creatorRow?.plan === "pro" ? "pro" : "basic";
+  // 手数料も割引後の実効価格に対して計算する(請求額と整合させる)。
   const applicationFeeJpy = calculateApplicationFeeJpy(
-    decision.product.priceJpy,
+    effectivePriceJpy,
     creatorPlan,
   );
 
@@ -143,7 +170,7 @@ export async function POST(request: NextRequest) {
           quantity: 1,
           price_data: {
             currency: "jpy",
-            unit_amount: decision.product.priceJpy,
+            unit_amount: effectivePriceJpy,
             product_data: {
               name: decision.product.title,
             },
@@ -154,7 +181,8 @@ export async function POST(request: NextRequest) {
         productId: decision.product.id,
         userId: user.id,
         slug: decision.product.slug,
-        priceJpy: String(decision.product.priceJpy),
+        // 実際に請求した金額(割引後)。purchases.amount_jpy の真実はこれ。
+        priceJpy: String(effectivePriceJpy),
         productType: decision.product.productType,
         // PR3: webhook が `purchases.creator_id` /
         // `purchases.application_fee_jpy` を取得する経路。session を

@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { salePriceJpy, effectiveDiscountPercent } from "@/lib/format/price";
 
 /**
  * Purchase access checks.
@@ -25,7 +26,10 @@ export type ProductForCheckout = {
   id: string;
   slug: string;
   title: string;
+  /** 定価(円)。表示・記録用。実際の請求は salePriceJpy(priceJpy, discountPercent)。*/
   priceJpy: number;
+  /** 「今」効いている実効割引率(0..100。期間外なら 0)。100 = 無料配布。*/
+  discountPercent: number;
   productType: string;
   creatorId: string;
   /** Stripe Connect account ID of the creator. priceJpy>0 のときは必須
@@ -68,7 +72,8 @@ export async function canPurchase(
   const { data: product, error } = await supabase
     .from("products")
     .select(
-      `id, slug, title, price_jpy, product_type, creator_id, status,
+      `id, slug, title, price_jpy, discount_percent, discount_starts_at, discount_ends_at,
+       product_type, creator_id, status,
        profiles!products_creator_id_fkey ( stripe_account_id, stripe_charges_enabled )`,
     )
     .eq("id", productId)
@@ -105,10 +110,20 @@ export async function canPurchase(
     };
   }
 
-  // 無料作品(priceJpy=0)は Stripe を通さない(Stripe の最低決済額未満で
-  // 必ず失敗する + クリエイターの Connect 未設定でも配布したい)。
+  // 実効価格(割引後)が 0 のものは Stripe を通さない。定価が 0 の無料作品に加え、
+  // 「割引率 100%」での無料配布もここに含まれる(Stripe の最低決済額未満で必ず
+  // 失敗する + クリエイターの Connect 未設定でも配布したい)。
   // checkout 側で direct insert に分岐するため、ここでは ok を返す。
-  if (product.price_jpy <= 0) {
+  // 期間を加味した「今」効いている実効割引率。期間外なら 0(定価)。
+  // この値を ProductForCheckout.discountPercent として返すので、checkout 側は
+  // salePriceJpy(priceJpy, discountPercent) でそのまま実効価格を出せる。
+  const discountPercent = effectiveDiscountPercent(
+    product.discount_percent ?? 0,
+    product.discount_starts_at ?? null,
+    product.discount_ends_at ?? null,
+  );
+  const effectivePrice = salePriceJpy(product.price_jpy, discountPercent);
+  if (effectivePrice <= 0) {
     return {
       ok: true,
       product: {
@@ -116,6 +131,7 @@ export async function canPurchase(
         slug: product.slug,
         title: product.title,
         priceJpy: product.price_jpy,
+        discountPercent,
         productType: product.product_type,
         creatorId: product.creator_id,
         creatorStripeAccountId: null,
@@ -149,6 +165,7 @@ export async function canPurchase(
       slug: product.slug,
       title: product.title,
       priceJpy: product.price_jpy,
+      discountPercent,
       productType: product.product_type,
       creatorId: product.creator_id,
       creatorStripeAccountId: stripeAccountId,
