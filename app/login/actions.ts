@@ -3,6 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { loginSchema } from "@/lib/validators/auth";
 import { safeNext } from "@/lib/api/redirect";
+import {
+  isLoginLocked,
+  recordLoginFailure,
+  clearLoginLockout,
+} from "@/lib/api/login-lockout";
 
 export type LoginActionResult =
   | { ok: true; redirectTo: string }
@@ -39,6 +44,16 @@ export async function loginAction(
     };
   }
 
+  // アカウントロック(Stripe セキュリティチェックリスト対応): 直近 30 分に
+  // 10 回失敗していれば、Supabase Auth に渡す前に拒否する。
+  if (await isLoginLocked(parsed.data.email)) {
+    return {
+      ok: false,
+      error:
+        "ログイン試行回数が上限に達しました。しばらく時間をおいてから再度お試しください。",
+    };
+  }
+
   const supabase = createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
@@ -46,11 +61,13 @@ export async function loginAction(
   });
 
   if (error || !data.user) {
+    await recordLoginFailure(parsed.data.email);
     return {
       ok: false,
       error: "メールアドレスまたはパスワードが正しくありません",
     };
   }
 
+  await clearLoginLockout(parsed.data.email);
   return { ok: true, redirectTo: safeNext(nextPath) };
 }

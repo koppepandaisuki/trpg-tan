@@ -9,6 +9,8 @@ import {
   handleCheckoutCompleted,
   handleChargeRefunded,
   handleAccountUpdated,
+  handleDisputeCreated,
+  handleDisputeClosed,
 } from "@/lib/stripe/webhook";
 import {
   handleSubscriptionChange,
@@ -92,6 +94,20 @@ export async function POST(request: NextRequest) {
         // No-op for accounts not in our DB (warn log + 200 ack).
         const account = event.data.object as Stripe.Account;
         await handleAccountUpdated(account);
+        break;
+      }
+
+      case "charge.dispute.created": {
+        // チャージバック発生 → 運営に即時アラート(対応は Stripe DB で手動)。
+        const dispute = event.data.object as Stripe.Dispute;
+        await handleDisputeCreated(dispute);
+        break;
+      }
+
+      case "charge.dispute.closed": {
+        // チャージバック確定(勝ち/負け)→ 結果を運営に通知。
+        const dispute = event.data.object as Stripe.Dispute;
+        await handleDisputeClosed(dispute);
         break;
       }
 

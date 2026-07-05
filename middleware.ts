@@ -9,6 +9,60 @@ function isProtected(pathname: string): boolean {
   );
 }
 
+function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
+/** タイミング攻撃を避けるための定数時間比較(長さ違いは早期 false でよい)。 */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+/**
+ * 管理画面(/admin/*)への Basic 認証ゲート。
+ *
+ * Stripe セキュリティチェックリスト「管理者のアクセス可能な IP アドレスを
+ * 制限する。制限できない場合はベーシック認証等のアクセス制限を設ける」対応。
+ * Vercel Hobby プランには IP アローリスト機能(Firewall)が無いため、
+ * Basic 認証を採用する。
+ *
+ * ADMIN_BASIC_AUTH_USER / ADMIN_BASIC_AUTH_PASS が未設定の場合は素通し
+ * (ローカル開発を壊さないため)。本番では必ず設定すること
+ * (docs/stripe-security-checklist.md 参照)。
+ */
+function checkAdminBasicAuth(request: NextRequest): NextResponse | null {
+  const expectedUser = process.env.ADMIN_BASIC_AUTH_USER;
+  const expectedPass = process.env.ADMIN_BASIC_AUTH_PASS;
+  if (!expectedUser || !expectedPass) return null;
+
+  const header = request.headers.get("authorization") ?? "";
+  if (header.startsWith("Basic ")) {
+    try {
+      const decoded = atob(header.slice(6));
+      const sep = decoded.indexOf(":");
+      if (sep !== -1) {
+        const u = decoded.slice(0, sep);
+        const p = decoded.slice(sep + 1);
+        if (timingSafeEqual(u, expectedUser) && timingSafeEqual(p, expectedPass)) {
+          return null;
+        }
+      }
+    } catch {
+      // 不正な base64 → 認証失敗として扱う(下の 401 へ)。
+    }
+  }
+
+  return new NextResponse("Authentication required", {
+    status: 401,
+    headers: { "WWW-Authenticate": 'Basic realm="Admin", charset="UTF-8"' },
+  });
+}
+
 /**
  * Responsibilities (intentionally narrow):
  *   1. Refresh the Supabase session cookie on every request, including /api/*.
@@ -26,6 +80,11 @@ function isProtected(pathname: string): boolean {
  * read profiles on every request.
  */
 export async function middleware(request: NextRequest) {
+  if (isAdminPath(request.nextUrl.pathname)) {
+    const challenge = checkAdminBasicAuth(request);
+    if (challenge) return challenge;
+  }
+
   const { response, user } = await updateSession(request);
 
   // Expose pathname to downstream RSC.

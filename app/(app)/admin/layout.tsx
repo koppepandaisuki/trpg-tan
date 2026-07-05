@@ -1,9 +1,14 @@
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Badge } from "@/components/ui/badge";
 import { AdminTabs } from "@/components/admin/admin-tabs";
 import { requireAdmin } from "@/lib/session/require";
+import {
+  listVerifiedTotpFactors,
+  getMfaAssuranceLevel,
+} from "@/lib/mutations/mfa";
 
 export const metadata = { title: "admin" };
 
@@ -16,6 +21,19 @@ export default async function AdminLayout({
 
   // pathname is exposed by middleware (x-pathname). Default to /admin if missing.
   const pathname = headers().get("x-pathname") ?? "/admin";
+
+  // 管理者は二段階認証(TOTP)が必須(Stripe セキュリティチェックリスト対応)。
+  // /admin/mfa/* 自身はこのガードを素通しする(でないと自己ループする)。
+  if (!pathname.startsWith("/admin/mfa")) {
+    const factors = await listVerifiedTotpFactors();
+    if (factors.length === 0) {
+      redirect("/admin/mfa/enroll");
+    }
+    const aal = await getMfaAssuranceLevel();
+    if (aal !== "aal2") {
+      redirect("/admin/mfa/verify");
+    }
+  }
 
   return (
     <>

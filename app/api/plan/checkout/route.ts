@@ -9,6 +9,11 @@ import {
   isPlanBillingConfigured,
   type PaidPlan,
 } from "@/lib/stripe/subscription";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  tooManyRequestsResponse,
+} from "@/lib/api/rate-limit";
 
 // デスクトップ(Bearer JWT)とブラウザ(Cookie + Origin)の両経路を統一。
 async function resolveUser(
@@ -45,6 +50,12 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "ログインが必要です" },
       { status: 401 },
     );
+  }
+
+  if (
+    !(await checkRateLimit(`plan_checkout:${user.id}`, RATE_LIMITS.planCheckout))
+  ) {
+    return tooManyRequestsResponse();
   }
 
   // 課金未構成(Price ID 未設定)のときは専用フラグを返す。UI はこれを見て
