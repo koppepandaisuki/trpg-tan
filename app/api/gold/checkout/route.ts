@@ -4,6 +4,11 @@ import { isSameOriginRequest } from "@/lib/api/origin";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { getStripe } from "@/lib/stripe/client";
 import { GOLD_PACKS, isGoldPackId } from "@/lib/gold";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  tooManyRequestsResponse,
+} from "@/lib/api/rate-limit";
 
 /**
  * POST /api/gold/checkout — ゴールドパックの Stripe Checkout を作成。
@@ -36,6 +41,12 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "ログインが必要です" },
       { status: 401 },
     );
+  }
+
+  if (
+    !(await checkRateLimit(`gold_checkout:${user.id}`, RATE_LIMITS.goldCheckout))
+  ) {
+    return tooManyRequestsResponse();
   }
 
   let body: { pack?: unknown; returnTo?: unknown } = {};

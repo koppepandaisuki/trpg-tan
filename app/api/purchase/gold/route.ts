@@ -5,6 +5,11 @@ import { isSameOriginRequest } from "@/lib/api/origin";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createClient } from "@/lib/supabase/server";
 import { goldErrorMessage } from "@/lib/gold";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  tooManyRequestsResponse,
+} from "@/lib/api/rate-limit";
 
 /**
  * POST /api/purchase/gold — 作品をゴールドで購入する。
@@ -47,6 +52,12 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "ログインが必要です" },
       { status: 401 },
     );
+  }
+
+  if (
+    !(await checkRateLimit(`purchase:${auth.userId}`, RATE_LIMITS.purchaseGold))
+  ) {
+    return tooManyRequestsResponse();
   }
 
   let body: { productId?: unknown } = {};

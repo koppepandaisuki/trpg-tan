@@ -5,6 +5,11 @@ import { isSameOriginRequest } from "@/lib/api/origin";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createClient } from "@/lib/supabase/server";
 import { goldErrorMessage } from "@/lib/gold";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  tooManyRequestsResponse,
+} from "@/lib/api/rate-limit";
 
 /**
  * POST /api/tips — スーパーサンクス(クリエイターへゴールドを贈る)。
@@ -48,6 +53,11 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "ログインが必要です" },
       { status: 401 },
     );
+  }
+
+  // サンクス連打スパムの抑止。
+  if (!(await checkRateLimit(`tips:${auth.userId}`, RATE_LIMITS.tips))) {
+    return tooManyRequestsResponse();
   }
 
   let body: {

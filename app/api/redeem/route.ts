@@ -4,6 +4,11 @@ import { isSameOriginRequest } from "@/lib/api/origin";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePlan, type UserPlan } from "@/lib/plan";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  tooManyRequestsResponse,
+} from "@/lib/api/rate-limit";
 
 /**
  * POST /api/redeem — リデームコードの引き換え。
@@ -45,6 +50,11 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "ログインが必要です" },
       { status: 401 },
     );
+  }
+
+  // コード総当たりの抑止(1 ユーザーあたり)。
+  if (!(await checkRateLimit(`redeem:${userId}`, RATE_LIMITS.redeem))) {
+    return tooManyRequestsResponse();
   }
 
   let body: { code?: unknown };

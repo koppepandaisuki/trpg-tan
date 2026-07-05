@@ -6,6 +6,11 @@ import { createBearerClient } from "@/lib/supabase/bearer";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiGoldCost, goldErrorMessage } from "@/lib/gold";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  tooManyRequestsResponse,
+} from "@/lib/api/rate-limit";
 
 /**
  * POST /api/ai/complete — PLAY の AI(ルールブック Q&A 等)を運営 API キーで実行。
@@ -72,6 +77,11 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "ログインが必要です" },
       { status: 401 },
     );
+  }
+
+  // Anthropic 実費のコスト攻撃・並列連打の抑止(ゴールド消費に加えた保険)。
+  if (!(await checkRateLimit(`ai:${auth.userId}`, RATE_LIMITS.ai))) {
+    return tooManyRequestsResponse();
   }
 
   let body: { question?: unknown; passages?: unknown } = {};
