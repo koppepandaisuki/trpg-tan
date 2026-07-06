@@ -667,6 +667,7 @@ export function App() {
                 setPlayMinimized(false);
               }}
               onOpenCharacters={() => setCharOverlay(true)}
+              onMenu={() => setDrawerOpen(true)}
             />
           )}
         </Suspense>

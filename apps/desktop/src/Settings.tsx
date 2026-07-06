@@ -78,6 +78,11 @@ import {
 import { playSuccess, playCritical, playFumble } from "./dice-sound";
 import { getQuickRolls, saveQuickRolls } from "./quick-rolls";
 import { Volume1, VolumeX } from "lucide-react";
+import {
+  sendFeedback,
+  type FeedbackCategory,
+} from "./feedback-remote";
+import { MessageSquarePlus } from "lucide-react";
 
 const WEB_BASE = (
   import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
@@ -91,6 +96,7 @@ export type SettingsTab =
   | "play"
   | "storage"
   | "report"
+  | "feedback"
   | "about";
 
 const TABS: { key: SettingsTab; label: string; icon: typeof UserCog }[] = [
@@ -101,6 +107,7 @@ const TABS: { key: SettingsTab; label: string; icon: typeof UserCog }[] = [
   { key: "play", label: "プレイ・マルチ", icon: Dices },
   { key: "storage", label: "ストレージ", icon: HardDrive },
   { key: "report", label: "不具合報告", icon: Bug },
+  { key: "feedback", label: "フィードバック", icon: MessageSquarePlus },
   { key: "about", label: "情報", icon: Info },
 ];
 
@@ -166,6 +173,7 @@ export function Settings({
             {tab === "play" && <PlayTab />}
             {tab === "storage" && <StorageTab />}
             {tab === "report" && <ReportTab />}
+            {tab === "feedback" && <FeedbackTab />}
             {tab === "about" && <AboutTab />}
           </div>
         </div>
@@ -1308,6 +1316,96 @@ function ReportTab() {
         )}
       </Section>
     </>
+  );
+}
+
+const FEEDBACK_CATEGORIES: { value: FeedbackCategory; label: string }[] = [
+  { value: "bug", label: "🐛 バグ" },
+  { value: "feature_request", label: "✨ 機能要望" },
+  { value: "question", label: "❓ 質問" },
+  { value: "other", label: "📝 その他" },
+];
+
+/**
+ * Web の右下フィードバックボタンと同じ機能(カテゴリ+本文 → /api/feedback)を
+ * デスクトップの設定画面から送れるようにするタブ。「不具合報告」(直近ログ・
+ * エラーの自動添付)とは別軸で、バグ以外(機能要望・質問等)もここから送る。
+ */
+function FeedbackTab() {
+  const [category, setCategory] = useState<FeedbackCategory>("bug");
+  const [body, setBody] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
+    "idle",
+  );
+  const [err, setErr] = useState<string | null>(null);
+
+  const trimmed = body.trim();
+  const valid = trimmed.length >= 3 && trimmed.length <= 1000;
+
+  async function send() {
+    if (!valid) return;
+    setStatus("sending");
+    setErr(null);
+    try {
+      await sendFeedback(category, trimmed);
+      setStatus("sent");
+      setBody("");
+      window.setTimeout(() => setStatus("idle"), 2500);
+    } catch (e) {
+      setStatus("error");
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  return (
+    <Section
+      title="フィードバックを送る"
+      desc="バグ報告・機能要望・質問など、お気軽にどうぞ。ユーザー ID / メールアドレスが自動で添付されます。"
+    >
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+        {FEEDBACK_CATEGORIES.map((c) => (
+          <button
+            key={c.value}
+            className={`btn mini${category === c.value ? " btn-primary" : ""}`}
+            disabled={status === "sending"}
+            onClick={() => setCategory(c.value)}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <textarea
+        className="input"
+        rows={5}
+        maxLength={1000}
+        placeholder="何があった / どうなって欲しい / 質問内容など（3〜1000文字）"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        disabled={status === "sending"}
+      />
+      <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+        <button
+          className="btn btn-primary ibtn"
+          disabled={status === "sending" || !valid}
+          onClick={() => void send()}
+        >
+          <Send size={14} />
+          {status === "sending"
+            ? "送信中…"
+            : status === "sent"
+              ? "✓ 送信しました"
+              : "送信する"}
+        </button>
+        <span className="muted" style={{ fontSize: 11 }}>
+          {trimmed.length}/1000
+        </span>
+      </div>
+      {err && (
+        <p className="tag fail" style={{ marginTop: 8, display: "block" }}>
+          {err}
+        </p>
+      )}
+    </Section>
   );
 }
 
