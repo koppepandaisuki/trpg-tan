@@ -7,6 +7,7 @@ import {
   UserPlus,
   SquarePen,
   ClipboardPaste,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import {
   reduce,
@@ -93,12 +94,15 @@ export function PlayClient({
   name,
   onClose,
   onOpenCharacters,
+  onMenu,
 }: {
   code: string;
   name: string;
   onClose: () => void;
   /** PLAY 中にキャラシ作成・編集オーバーレイを開く(卓は開いたまま)。 */
   onOpenCharacters?: () => void;
+  /** アプリメニュー(設定 等)を開く。参加者側にも設定画面(フィードバック等)への導線を用意する。 */
+  onMenu?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("connecting");
   const [netError, setNetError] = useState<string | null>(null);
@@ -926,6 +930,11 @@ export function PlayClient({
                 <SquarePen size={14} /> キャラシを作成
               </button>
             )}
+            {onMenu && (
+              <button className="btn mini ibtn" onClick={onMenu}>
+                <SettingsIcon size={14} /> 設定
+              </button>
+            )}
             <button className="btn mini" onClick={onClose}>
               退出する
             </button>
@@ -971,6 +980,15 @@ export function PlayClient({
               title="卓を開いたままキャラシを作成・編集します"
             >
               <SquarePen size={14} /> キャラシ
+            </button>
+          )}
+          {onMenu && (
+            <button
+              className="btn mini ibtn"
+              onClick={onMenu}
+              title="設定を開く（フィードバック送信など）"
+            >
+              <SettingsIcon size={14} /> 設定
             </button>
           )}
           <button className="btn mini" onClick={onClose}>

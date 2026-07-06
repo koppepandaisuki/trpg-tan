@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { isSameOriginRequest } from "@/lib/api/origin";
+import { createBearerClient } from "@/lib/supabase/bearer";
 import { feedbackInputSchema } from "@/lib/validators/feedback";
 import { decideFeedbackOutcome } from "@/lib/feedback/discord";
 import {
@@ -12,14 +13,15 @@ import {
 /**
  * POST /api/feedback
  *
- * In-app feedback button のサーバー受け口。α 期間中の収集インフラ。
+ * In-app feedback のサーバー受け口。α 期間中の収集インフラ。
+ * デスクトップ(Bearer JWT)とブラウザ(Cookie + Origin)の両経路に対応
+ * (他の desktop 向けルートと同じ resolveUser パターン)。
  *
  * 処理:
- *   1. same-origin チェック
- *   2. requireUser(ログイン必須、anon の bot 投稿を排除)
+ *   1. 認証(Bearer or Cookie+Origin)
+ *   2. レート制限
  *   3. 入力 validate(zod)
- *   4. user context をサーバー側で取り直し
- *   5. Discord webhook へ payload を POST
+ *   4. Discord webhook へ payload を POST
  *
  * 戻り値:
  *   - 成功: 200 { ok: true, delivered: bool }
@@ -32,15 +34,38 @@ import {
 
 export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
-  if (!isSameOriginRequest(request)) {
-    return NextResponse.json(
-      { ok: false, message: "リクエストが拒否されました" },
-      { status: 403 },
-    );
+async function resolveUser(
+  request: NextRequest,
+): Promise<{ id: string; email: string; displayName: string } | null> {
+  const authHeader = request.headers.get("authorization") ?? "";
+  const bearer = authHeader.toLowerCase().startsWith("bearer ")
+    ? authHeader.slice(7).trim()
+    : null;
+  if (bearer) {
+    const client = createBearerClient(bearer);
+    const {
+      data: { user },
+    } = await client.auth.getUser();
+    if (!user) return null;
+    const { data: profile } = await client
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    return {
+      id: user.id,
+      email: user.email ?? "",
+      displayName: profile?.display_name ?? "",
+    };
   }
-
+  if (!isSameOriginRequest(request)) return null;
   const user = await getCurrentUser();
+  if (!user) return null;
+  return { id: user.id, email: user.email, displayName: user.displayName };
+}
+
+export async function POST(request: NextRequest) {
+  const user = await resolveUser(request);
   if (!user) {
     return NextResponse.json(
       { ok: false, message: "ログインが必要です" },
