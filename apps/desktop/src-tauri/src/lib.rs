@@ -19,12 +19,22 @@
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            use tauri::Emitter;
-            // 既存インスタンスへ転送された argv の中から paradice:// URL を探す。
+            use tauri::{Emitter, Manager};
+            // 既存インスタンスへ転送された argv の中から deep-link URL を探す。
+            // リブランド後の redice:// が本命、旧 paradice:// も互換で受ける。
+            // (〜v0.1.52: paradice:// しかマッチせず、アプリ起動中のログイン
+            //  handoff / 購入完了の redice:// がここで捨てられるバグがあった)
             for arg in &argv {
-                if arg.starts_with("paradice://") {
+                if arg.starts_with("redice://") || arg.starts_with("paradice://") {
                     let _ = app.emit("deep-link-url", arg.clone());
                 }
+            }
+            // ブラウザの「アプリを開く」から戻ったとき、既存ウィンドウを前面へ。
+            // これが無いとアプリは裏に隠れたままで「戻れない」ように見える。
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.show();
+                let _ = win.unminimize();
+                let _ = win.set_focus();
             }
         }))
         .plugin(tauri_plugin_dialog::init())

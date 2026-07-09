@@ -12342,6 +12342,12 @@ button:disabled {
   line-height: 1.5;
   margin: 12px 0 0;
 }
+.login-gate-later {
+  margin-top: 10px;
+  width: 100%;
+  justify-content: center;
+  color: var(--text-muted);
+}
 [data-theme="dark"] .login-gate-icon {
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.16);

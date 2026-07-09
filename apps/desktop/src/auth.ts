@@ -1,7 +1,27 @@
 import { onOpenUrl, getCurrent } from "@tauri-apps/plugin-deep-link";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { supabase } from "./supabase";
+import { toast } from "./Toasts";
+
+/**
+ * ログイン成功をユーザーに即時フィードバックする。deep-link は裏で届くため、
+ * これが無いと「反映されたのか分からない」体験になる。ウィンドウ前面化は
+ * Rust 側(single-instance)でも行うが、macOS の onOpenUrl 経路や dev 用に
+ * JS 側でも保険をかける。
+ */
+async function announceLogin(): Promise<void> {
+  toast("✅ ログインしました");
+  try {
+    const win = getCurrentWindow();
+    await win.show();
+    await win.unminimize();
+    await win.setFocus();
+  } catch {
+    // ブラウザプレビュー等、Tauri IPC が無い環境では無視。
+  }
+}
 
 /**
  * デスクトップ認証(deep-link 経由のセッション受け渡し / PKCE)。
@@ -126,7 +146,10 @@ async function handleCallbackUrl(raw: string): Promise<void> {
           refresh_token: refreshToken,
         });
         if (error) console.error("[auth] setSession failed:", error.message);
-        else console.info("[auth] login success (handoff)");
+        else {
+          console.info("[auth] login success (handoff)");
+          void announceLogin();
+        }
         return;
       }
     }
@@ -142,7 +165,10 @@ async function handleCallbackUrl(raw: string): Promise<void> {
     console.info("[auth] exchanging code for session…");
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) console.error("[auth] exchange failed:", error.message);
-    else console.info("[auth] login success");
+    else {
+      console.info("[auth] login success");
+      void announceLogin();
+    }
   } catch (e) {
     console.error("[auth] deep-link handling failed:", e);
   }
