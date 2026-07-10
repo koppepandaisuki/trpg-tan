@@ -33,7 +33,7 @@ import {
   Play,
   Coins,
 } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl as openUrl } from "./platform";
 import { toast } from "./Toasts";
 import { requireLogin } from "./LoginGate";
 import { useWishlist, toggleWish } from "./wishlist";

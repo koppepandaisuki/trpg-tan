@@ -1,4 +1,4 @@
-import { fetch } from "@tauri-apps/plugin-http";
+import { appFetch as fetch, WEB_BASE } from "./platform";
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 
@@ -10,9 +10,7 @@ import { supabase } from "./supabase";
  * CORS を受けない(account-remote.ts と同方針)。
  */
 
-const WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
 export type GoldTx = {
   amount: number;

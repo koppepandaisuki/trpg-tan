@@ -16,13 +16,47 @@ export function isGenericSheet(sheet: AnySheet): sheet is GenericSheet {
 }
 
 /**
- * .ccsheet(1 キャラ = 1 JSON ファイル)のローカル保存/読込。
- * Tauri ランタイム上でのみ動作する(ブラウザの vite dev では未対応)。
+ * .ccsheet(1 キャラ = 1 JSON)のローカル保存/読込。
+ *  - Tauri: ファイルシステム(保存ダイアログ + ライブラリ root)
+ *  - ブラウザ(PWA): localStorage の仮想パス `browser://sheet/<uuid>`
+ * 呼び出し側は path を不透明な文字列として扱えばよく、環境差はここで吸収する。
  */
 
-/** Tauri ランタイム上で動いているか(ブラウザ dev と区別)*/
+/** Tauri ランタイム上で動いているか(ブラウザ dev / PWA と区別)*/
 export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+/* ===== ブラウザ(PWA)用: localStorage 保存 ===== */
+
+const BROWSER_SHEET_PREFIX = "browser://sheet/";
+const browserSheetKey = (path: string) =>
+  `trpg.sheet.v1.${path.slice(BROWSER_SHEET_PREFIX.length)}`;
+
+/** localStorage 保存の仮想パスか。 */
+export function isBrowserSheetPath(path: string): boolean {
+  return path.startsWith(BROWSER_SHEET_PREFIX);
+}
+
+function browserWriteSheet(path: string, sheet: AnySheet): void {
+  try {
+    localStorage.setItem(browserSheetKey(path), JSON.stringify(sheet));
+  } catch (e) {
+    // ほぼ容量超過(ポートレート画像が大きい)。原因がわかる文言で投げ直す。
+    throw new Error(
+      `この端末の保存領域がいっぱいです。ポートレート画像を小さくするか、使わないキャラを削除してください(${String(e).slice(0, 80)})`,
+    );
+  }
+}
+
+/** ブラウザ保存のキャラを索引から外すとき、実体も消す(リーク防止)。 */
+export function deleteBrowserSheet(path: string): void {
+  if (!isBrowserSheetPath(path)) return;
+  try {
+    localStorage.removeItem(browserSheetKey(path));
+  } catch {
+    // 消せなくても致命ではない
+  }
 }
 
 const FILTERS = [{ name: "TRPG Character", extensions: ["ccsheet"] }];
@@ -35,8 +69,14 @@ async function defaultCharacterPath(name: string): Promise<string> {
   );
 }
 
-/** 保存ダイアログを出して .ccsheet を書き出す(別名で保存)。返り値は保存先パス(キャンセルは null)。*/
+/** 別名で保存。Tauri は保存ダイアログ、ブラウザは localStorage の新規パス。
+ *  返り値は保存先パス(ダイアログのキャンセルは null)。*/
 export async function saveSheet(sheet: CharacterSheet): Promise<string | null> {
+  if (!isTauri()) {
+    const path = `${BROWSER_SHEET_PREFIX}${crypto.randomUUID()}`;
+    browserWriteSheet(path, sheet);
+    return path;
+  }
   const path = await save({
     defaultPath: await defaultCharacterPath(sheet.name),
     filters: FILTERS,
@@ -51,6 +91,10 @@ export async function saveSheetToPath(
   sheet: CharacterSheet | GenericSheet,
   path: string,
 ): Promise<string> {
+  if (isBrowserSheetPath(path)) {
+    browserWriteSheet(path, sheet);
+    return path;
+  }
   await writeTextFile(path, JSON.stringify(sheet, null, 2));
   return path;
 }
@@ -73,7 +117,14 @@ export async function loadSheetViaDialog(): Promise<{
 
 /** 既知のパスから .ccsheet を読む(CoC / 汎用どちらも)。*/
 export async function readSheetFromPath(path: string): Promise<AnySheet> {
-  const text = await readTextFile(path);
+  let text: string;
+  if (isBrowserSheetPath(path)) {
+    const stored = localStorage.getItem(browserSheetKey(path));
+    if (!stored) throw new Error("この端末に保存データが見つかりません");
+    text = stored;
+  } else {
+    text = await readTextFile(path);
+  }
   const parsed = JSON.parse(text) as AnySheet;
   if (parsed.schemaVersion !== CCSHEET_SCHEMA_VERSION) {
     throw new Error(`未対応の .ccsheet バージョンです(${parsed.schemaVersion})`);
@@ -85,6 +136,11 @@ export async function readSheetFromPath(path: string): Promise<AnySheet> {
 export async function saveGenericSheet(
   sheet: GenericSheet,
 ): Promise<string | null> {
+  if (!isTauri()) {
+    const path = `${BROWSER_SHEET_PREFIX}${crypto.randomUUID()}`;
+    browserWriteSheet(path, sheet);
+    return path;
+  }
   const path = await save({
     defaultPath: await defaultCharacterPath(sheet.name),
     filters: FILTERS,

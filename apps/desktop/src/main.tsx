@@ -33,8 +33,12 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 );
 
 // インストール版(本番ビルド)でのみ、起動時に自動更新をチェックする。
-// dev(vite)では走らせない(更新チェックの対象が無く煩わしいため)。
+// dev(vite)・ブラウザ/PWA では走らせない(updater は Tauri 専用)。
 // 切り離しウィンドウでは走らせない(メインが担当)。
-if (import.meta.env.PROD && !widgetId) {
+if (
+  import.meta.env.PROD &&
+  !widgetId &&
+  "__TAURI_INTERNALS__" in window
+) {
   void checkForUpdatesOnLaunch();
 }

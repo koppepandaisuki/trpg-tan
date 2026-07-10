@@ -13,7 +13,7 @@ import {
   Heart,
   Star,
 } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
 import { supabase, supabaseConfigured } from "./supabase";
 import { useAuth } from "./useAuth";
 import { toast } from "./Toasts";
@@ -673,7 +673,7 @@ function InboxTab({
           const token = String(n.payload["publicToken"] ?? "");
           const title = String(n.payload["title"] ?? "");
           const base =
-            import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000";
+            WEB_BASE;
           const url = `${base}/schedule/${token}`;
           return (
             <div key={n.id} className="friends-inbox-row">

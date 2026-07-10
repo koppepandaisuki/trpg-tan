@@ -275,12 +275,9 @@ export function CharacterSheet({
     setCustomSkills(sheet.customSkills ?? []);
   }
 
-  /** 上書き保存。保存先が未確定(新規)なら別名保存にフォールバック。 */
+  /** 上書き保存。保存先が未確定(新規)なら別名保存にフォールバック。
+   *  ブラウザ(PWA)では storage.ts が localStorage に保存する。 */
   async function onSave() {
-    if (!isTauri()) {
-      setMessage("保存はデスクトップアプリ(tauri dev/build)でのみ利用できます");
-      return;
-    }
     try {
       const sheet = buildSheet();
       if (currentPath) {
@@ -302,12 +299,8 @@ export function CharacterSheet({
     }
   }
 
-  /** 別名で保存(常にダイアログ)。以後はその新しいパスへ上書きする。 */
+  /** 別名で保存(Tauri はダイアログ / ブラウザは新規保存)。以後はその新しいパスへ上書き。 */
   async function onSaveAs() {
-    if (!isTauri()) {
-      setMessage("保存はデスクトップアプリ(tauri dev/build)でのみ利用できます");
-      return;
-    }
     try {
       const sheet = buildSheet();
       const path = await saveSheet(sheet);

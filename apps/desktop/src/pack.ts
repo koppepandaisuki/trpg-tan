@@ -1,7 +1,7 @@
 import { join } from "@tauri-apps/api/path";
 import { mkdir, writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { save, open } from "@tauri-apps/plugin-dialog";
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { appFetch as tauriFetch, WEB_BASE } from "./platform";
 import {
   parsePack,
   serializePack,
@@ -14,9 +14,7 @@ import { getPlayIndex, upsertPlayIndex } from "./play-storage";
 import { getLibrary, upsertEntry, buildGenericEntry } from "./library";
 import { getPacksDir } from "./library-root";
 
-const WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
 /**
  * 配布パッケージ(.paradice)の取り込み / 書き出し。

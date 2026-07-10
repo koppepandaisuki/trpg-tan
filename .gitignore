@@ -56,3 +56,6 @@ coverage
 *.key
 # シェルが $HOME を未展開のまま作る誤フォルダ(鍵が紛れ込みうる)
 $HOME/
+
+# スマホ(PWA)版 SPA(scripts/build-mobile-app.mjs が生成)
+/public/app/

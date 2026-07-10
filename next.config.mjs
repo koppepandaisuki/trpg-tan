@@ -72,6 +72,15 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      // スマホ(PWA)版 SPA。scripts/build-mobile-app.mjs が public/app/ に
+      // 配置した index.html を /app と /app/ で開けるようにする
+      // (public 配下はディレクトリ index の自動解決が無いため)。
+      { source: "/app", destination: "/app/index.html" },
+      { source: "/app/", destination: "/app/index.html" },
+    ];
+  },
 };
 
 export default nextConfig;

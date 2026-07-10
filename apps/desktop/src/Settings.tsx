@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   UserCog,
@@ -84,9 +85,7 @@ import {
 } from "./feedback-remote";
 import { MessageSquarePlus } from "lucide-react";
 
-const WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
 export type SettingsTab =
   | "account"
