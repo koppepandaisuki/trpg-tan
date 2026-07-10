@@ -37,6 +37,8 @@
   --shadow-lg:
     0 12px 28px rgba(18, 74, 122, 0.12), 0 34px 64px rgba(18, 74, 122, 0.18);
   --ring: 0 0 0 3px rgba(55, 172, 232, 0.22);
+  /* カード上端のガラス質ハイライト(光を受けた縁)。テーマで明るさを変える。 */
+  --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 
   --grad-primary: linear-gradient(135deg, #54b9ef 0%, #2198d6 100%);
   --grad-accent: linear-gradient(120deg, var(--primary) 0%, var(--mint) 100%);
@@ -3097,14 +3099,14 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 18px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm), var(--card-edge);
   margin-top: 16px;
   transition:
     box-shadow var(--dur-2) var(--ease-out),
     border-color var(--dur-2) var(--ease-out);
 }
 .card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), var(--card-edge);
   border-color: var(--border-strong);
 }
 
@@ -3166,6 +3168,8 @@ body {
 }
 
 .btn-primary {
+  position: relative;
+  overflow: hidden;
   background: var(--grad-primary);
   border-color: transparent;
   color: #fff;
@@ -3175,16 +3179,40 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
+/* プレミアムな光沢スイープ。ホバーで斜めの光が一度だけ走る。
+   全 CTA(btn-primary)に一括で高級感を与える(pointer-events:none で
+   ボタン本来のクリックは阻害しない)。 */
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.4) 48%,
+    rgba(255, 255, 255, 0.4) 52%,
+    transparent 70%
+  );
+  transform: translateX(-130%);
+  transition: transform 0.62s var(--ease-out);
+  pointer-events: none;
+}
+.btn-primary:hover::after {
+  transform: translateX(130%);
+}
+
 .btn-primary:hover {
   color: #fff;
   background: var(--grad-primary);
   filter: brightness(1.06) saturate(1.05);
+  transform: translateY(-1px);
   box-shadow:
-    0 5px 14px rgba(33, 152, 214, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 8px 20px rgba(33, 152, 214, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 .btn-primary:active {
   filter: brightness(0.98);
+  transform: translateY(0);
 }
 
 .grid {
@@ -6337,20 +6365,43 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 48px 24px;
+  padding: 56px 24px;
   text-align: center;
 }
+/* サイコロの線画の背後に、ブランド色のやわらかいグローを敷いて
+   「空っぽ」を寂しくなく、上質な余白に見せる。 */
 .empty-art {
-  width: 96px;
-  height: 96px;
+  width: 104px;
+  height: 104px;
   color: var(--primary);
-  opacity: 0.85;
+  opacity: 0.92;
+  filter: drop-shadow(0 6px 16px rgba(33, 152, 214, 0.28));
+  background: radial-gradient(
+    circle at 50% 46%,
+    rgba(55, 172, 232, 0.16),
+    transparent 62%
+  );
+  animation: empty-float 4.5s var(--ease-out) infinite;
+}
+@keyframes empty-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 .empty-title {
-  margin: 0;
-  font-size: 15.5px;
+  margin: 4px 0 0;
+  font-size: 17px;
   font-weight: 800;
-  color: var(--text);
+  letter-spacing: 0.01em;
+  background: linear-gradient(120deg, var(--text) 0%, var(--primary-deep) 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 .empty-hint {
   margin: 0;
@@ -6488,6 +6539,8 @@ button:disabled {
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 3px 10px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 6px 14px rgba(0, 0, 0, 0.35), 0 18px 38px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.45), 0 34px 64px rgba(0, 0, 0, 0.5);
+  /* ダークでは強い白縁は浮くので、ごく薄い上端ハイライトにとどめる。 */
+  --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 [data-theme="dark"] .topbar,
 [data-theme="dark"] .bottombar {
@@ -12341,6 +12394,12 @@ button:disabled {
   color: var(--text-muted);
   line-height: 1.5;
   margin: 12px 0 0;
+}
+.login-gate-later {
+  margin-top: 10px;
+  width: 100%;
+  justify-content: center;
+  color: var(--text-muted);
 }
 [data-theme="dark"] .login-gate-icon {
   color: #38bdf8;
