@@ -1181,7 +1181,21 @@ export function StorePanel({
                   isVideoUrl(mainImage) ? (
                     <video src={mainImage} controls preload="metadata" />
                   ) : (
-                    <img src={mainImage} alt={detail.title} />
+                    <>
+                      {/* 縦長画像の両脇を黒帯にせず、画像自身のぼかしで満たす
+                          (Steam/配信サービスと同じレターボックス処理)。 */}
+                      <img
+                        className="store-gmain-bg"
+                        src={mainImage}
+                        alt=""
+                        aria-hidden
+                      />
+                      <img
+                        className="store-gmain-fg"
+                        src={mainImage}
+                        alt={detail.title}
+                      />
+                    </>
                   )
                 ) : (
                   <span className="store-noimg">No Image</span>

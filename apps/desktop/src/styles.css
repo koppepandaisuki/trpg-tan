@@ -9885,6 +9885,11 @@ button:disabled {
 }
 .store-gmain {
   aspect-ratio: 16 / 9;
+  /* ワイド画面で画像だけが画面を占有しないよう高さをキャップ。
+     ファーストビュー(スクロールなし)に アクション行 + 購入バー まで
+     入るのが狙い。狭い窓では aspect-ratio が効き、広い窓では上限が効く。 */
+  max-height: min(48vh, 440px);
+  position: relative;
   border-radius: var(--radius-md);
   background: var(--surface-3);
   border: 1px solid var(--border);
@@ -9897,7 +9902,21 @@ button:disabled {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: #10314a;
+}
+/* レターボックス(縦長画像の両脇)は無地の紺帯ではなく、画像自身の
+   ぼかし拡大で満たす(上質に見え、どんな色調の絵でも馴染む)。 */
+.store-gmain img.store-gmain-bg {
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
+  filter: blur(26px) saturate(1.15) brightness(0.82);
+  transform: scale(1.18);
+  pointer-events: none;
+}
+.store-gmain img.store-gmain-fg {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.28));
 }
 .store-gthumbs {
   display: flex;
