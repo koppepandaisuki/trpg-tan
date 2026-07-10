@@ -3,6 +3,7 @@ import { Globe, FilePlus2, Sparkles, History } from "lucide-react";
 import type { SystemDef, CharacterSheet } from "@trpg/core";
 import { getAllSystems } from "./systems-store";
 import { importVampireBloodSheet } from "./vampire-import";
+import { SystemIcon } from "./system-visuals";
 
 /** 最近使ったシステム(id 配列, 先頭が最新)。coc7/coc6 or 自作システムの id。 */
 const RECENT_KEY = "paradice.sheet.recentSystems";
@@ -82,12 +83,12 @@ export function SheetSystemPicker({
   const recents = readRecents()
     .map((id) => {
       if (id === "coc7")
-        return { id, icon: "🐙", name: "クトゥルフ神話TRPG 第7版", pick: () => pickCoC("coc7") };
+        return { id, emoji: null, name: "クトゥルフ神話TRPG 第7版", pick: () => pickCoC("coc7") };
       if (id === "coc6")
-        return { id, icon: "🐙", name: "クトゥルフ神話TRPG 第6版", pick: () => pickCoC("coc6") };
+        return { id, emoji: null, name: "クトゥルフ神話TRPG 第6版", pick: () => pickCoC("coc6") };
       const def = systems.find((s) => s.id === id);
       return def
-        ? { id, icon: def.icon ?? "🎲", name: def.name || "(名称未設定)", pick: () => pickGeneric(def) }
+        ? { id, emoji: def.icon, name: def.name || "(名称未設定)", pick: () => pickGeneric(def) }
         : null;
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
@@ -114,7 +115,7 @@ export function SheetSystemPicker({
           <div className="syspick-recents">
             {recents.map((r) => (
               <button key={r.id} className="syspick-recent" onClick={r.pick}>
-                <span className="sp-ic">{r.icon}</span>
+                <SystemIcon systemId={r.id} emoji={r.emoji} size="sm" />
                 <span className="sp-name">{r.name}</span>
                 <span className="sp-go">→</span>
               </button>
@@ -129,7 +130,7 @@ export function SheetSystemPicker({
           className="syspick-card featured sp-coc7"
           onClick={() => pickCoC("coc7")}
         >
-          <span className="sp-ic">🐙</span>
+          <SystemIcon systemId="coc7" size="lg" />
           <span className="sp-name">クトゥルフ神話TRPG</span>
           <span className="sp-sub">第7版(新クトゥルフ)</span>
           <span className="sp-desc">
@@ -141,7 +142,7 @@ export function SheetSystemPicker({
           className="syspick-card featured sp-coc6"
           onClick={() => pickCoC("coc6")}
         >
-          <span className="sp-ic">🐙</span>
+          <SystemIcon systemId="coc6" size="lg" />
           <span className="sp-name">クトゥルフ神話TRPG</span>
           <span className="sp-sub">第6版</span>
           <span className="sp-desc">
@@ -162,7 +163,7 @@ export function SheetSystemPicker({
                 className="syspick-card"
                 onClick={() => pickGeneric(s)}
               >
-                <span className="sp-ic">{s.icon ?? "🎲"}</span>
+                <SystemIcon systemId={s.id} emoji={s.icon} />
                 <span className="sp-name">{s.name || "(名称未設定)"}</span>
                 {s.preset === false && <span className="sp-tag">自作</span>}
                 <span className="sp-go">作成する →</span>
@@ -180,8 +181,12 @@ export function SheetSystemPicker({
             className="syspick-card sp-import"
             onClick={() => setImportOpen(true)}
           >
-            <span className="sp-ic">
-              <Globe size={22} />
+            <span
+              className="sysic md"
+              style={{ "--si-c": "#37ace8" } as React.CSSProperties}
+              aria-hidden
+            >
+              <Globe />
             </span>
             <span className="sp-name">キャラクター保管所</span>
             <span className="sp-desc">

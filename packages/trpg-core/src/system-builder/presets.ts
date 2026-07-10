@@ -7,6 +7,14 @@ import type { SystemDef } from "./types.js";
  * 各システム固有の複雑な処理(DX のクリティカル上方無限、エモクロアの
  * 成功数カウント等)はメモ(note)に明記し、ダイス結果から手で読み取る
  * 運用にしている。ビルダーで複製してから自由に調整できる。
+ *
+ * ライセンス方針(プリセットに含めてよいもの):
+ *  - 能力値・技能の「名称」(短い語句 = 著作権保護の対象外)と、
+ *    周知の基本判定式(ゲームルール = アイデアであり保護対象外)のみ。
+ *  - 説明文(note / palette のコメント)はすべて自前の文章。
+ *  - ルールブック本文・データ表・イラスト・ロゴは一切含めない。
+ *  - 各 note に「ファンメイドの簡易テンプレート」であることを明示する。
+ *  - D&D は SRD 5.1(CC-BY-4.0)の範囲に限定し、note に帰属表示を記載。
  */
 export const SYSTEM_PRESETS: SystemDef[] = [
   {
@@ -236,6 +244,174 @@ export const SYSTEM_PRESETS: SystemDef[] = [
       "1d10 狂気点チェック",
     ],
     note: "パーツ(部位)の損傷はリソースの - で管理してください。マニューバはメモ欄かチャットパレットに追記を。",
+  },
+  {
+    id: "preset-insane",
+    name: "インセイン",
+    icon: "🧠",
+    preset: true,
+    diceBot: "sf",
+    checkTemplate: "2d6>=5",
+    defaultRoll: "2d6",
+    attributes: [],
+    skills: [
+      { label: "暴力", initial: 0 },
+      { label: "情動", initial: 0 },
+      { label: "知覚", initial: 0 },
+      { label: "技術", initial: 0 },
+      { label: "知識", initial: 0 },
+      { label: "怪異", initial: 0 },
+    ],
+    resources: [
+      { key: "hp", label: "生命力", max: 6 },
+      { key: "san", label: "正気度", max: 6 },
+    ],
+    palette: [
+      "# 判定（指定特技からの目標値を >= の後に。基本 5、1 離れるごと +1）",
+      "2d6>=5 判定",
+      "2d6>=7 判定（2 つ離れた特技）",
+      "2d6 恐怖判定",
+      "1d6 各種表",
+    ],
+    note: "特技リスト(6分野×11)・狂気カード・ハンドアウトはメモ欄に記入してください。正気度の減少はリソースの - で。ファンメイドの簡易テンプレートです。",
+  },
+  {
+    id: "preset-magicalogia",
+    name: "マギカロギア",
+    icon: "📖",
+    preset: true,
+    diceBot: "sf",
+    checkTemplate: "2d6>=5",
+    defaultRoll: "2d6",
+    attributes: [],
+    skills: [
+      { label: "星", initial: 0 },
+      { label: "獣", initial: 0 },
+      { label: "力", initial: 0 },
+      { label: "歌", initial: 0 },
+      { label: "夢", initial: 0 },
+      { label: "闇", initial: 0 },
+    ],
+    resources: [
+      { key: "root", label: "根源力", max: 6 },
+      { key: "mana", label: "魔力", max: 10 },
+    ],
+    palette: [
+      "# 判定（指定特技からの目標値を >= の後に。基本 5、1 離れるごと +1）",
+      "2d6>=5 判定",
+      "2d6>=7 判定（2 つ離れた特技）",
+      "1d6 各種表",
+    ],
+    note: "特技リスト(6分野×11)・魔法(蔵書)・アンカーはメモ欄へ。プロットや魔素の詳細処理は手動で行ってください。ファンメイドの簡易テンプレートです。",
+  },
+  {
+    id: "preset-arianrhod2e",
+    name: "アリアンロッド2E",
+    icon: "🛡️",
+    preset: true,
+    checkTemplate: "2d6+{value}>=?",
+    defaultRoll: "2d6",
+    attributes: [
+      { key: "STR", label: "筋力B", initial: 2 },
+      { key: "DEX", label: "器用B", initial: 2 },
+      { key: "AGI", label: "敏捷B", initial: 2 },
+      { key: "INT", label: "知力B", initial: 2 },
+      { key: "SEN", label: "感知B", initial: 2 },
+      { key: "MND", label: "精神B", initial: 2 },
+      { key: "LUK", label: "幸運B", initial: 2 },
+    ],
+    skills: [{ label: "キャラクターレベル", initial: 1 }],
+    resources: [
+      { key: "hp", label: "HP", max: 30 },
+      { key: "mp", label: "MP", max: 20 },
+      { key: "fate", label: "フェイト", max: 5 },
+    ],
+    palette: [
+      "# 判定（2D+能力ボーナス。? を目標値に書き換え）",
+      "2d6+{筋力B}>=? 筋力判定",
+      "2d6+{器用B}>=? 器用判定",
+      "2d6+{敏捷B}>=? 敏捷判定",
+      "2d6+{知力B}>=? 知力判定",
+      "2d6+{感知B}>=? 感知判定",
+      "2d6 命中・回避はスキル値を足して",
+    ],
+    note: "能力ボーナス(基本値)を直接入力する簡易版です。クリティカル(6ゾロ)・ファンブル(1ゾロ)の処理とスキル・ギルドはメモ欄で管理してください。ファンメイドの簡易テンプレートです。",
+  },
+  {
+    id: "preset-loghorizon",
+    name: "ログ・ホライズンTRPG",
+    icon: "🏰",
+    preset: true,
+    checkTemplate: "2d6+{value}>=?",
+    defaultRoll: "2d6",
+    attributes: [
+      { key: "STR", label: "STR基本値", initial: 2 },
+      { key: "DEX", label: "DEX基本値", initial: 2 },
+      { key: "POW", label: "POW基本値", initial: 2 },
+      { key: "INT", label: "INT基本値", initial: 2 },
+    ],
+    skills: [
+      { label: "運動", initial: 2 },
+      { label: "耐久", initial: 2 },
+      { label: "解除", initial: 2 },
+      { label: "操作", initial: 2 },
+      { label: "知覚", initial: 2 },
+      { label: "交渉", initial: 2 },
+      { label: "知識", initial: 2 },
+      { label: "幸運", initial: 2 },
+    ],
+    resources: [
+      { key: "hp", label: "HP", max: 40 },
+      { key: "fate", label: "因果力", max: 5 },
+    ],
+    palette: [
+      "# 判定（2D+技能基本値。? を目標値/対決値に書き換え）",
+      "2d6+{運動}>=? 運動判定",
+      "2d6+{知覚}>=? 知覚判定",
+      "2d6+{交渉}>=? 交渉判定",
+      "2d6+{知識}>=? 知識判定",
+      "2d6 ダメージロールは特技参照",
+    ],
+    note: "ルールブックは公式サイトで無料公開されています。特技・アイテム・ヘイト管理はメモ欄へ。ファンメイドの簡易テンプレートです。",
+  },
+  {
+    id: "preset-dnd5e",
+    name: "D&D 第5版 (SRD)",
+    icon: "🐉",
+    preset: true,
+    diceBot: "d20",
+    checkTemplate: "1d20+{value}>=?",
+    defaultRoll: "1d20",
+    attributes: [
+      { key: "STR", label: "筋力修正", initial: 0 },
+      { key: "DEX", label: "敏捷修正", initial: 0 },
+      { key: "CON", label: "耐久修正", initial: 0 },
+      { key: "INT", label: "知力修正", initial: 0 },
+      { key: "WIS", label: "判断修正", initial: 0 },
+      { key: "CHA", label: "魅力修正", initial: 0 },
+    ],
+    skills: [
+      { label: "習熟ボーナス", initial: 2 },
+      { label: "運動", initial: 0 },
+      { label: "隠密", initial: 0 },
+      { label: "知覚", initial: 0 },
+      { label: "捜査", initial: 0 },
+      { label: "説得", initial: 0 },
+      { label: "魔法学", initial: 0 },
+    ],
+    resources: [
+      { key: "hp", label: "HP", max: 10 },
+      { key: "insp", label: "インスピレーション", max: 1 },
+    ],
+    palette: [
+      "# 判定: 1d20+修正（有利/不利は 2d20 を振って高い/低い方を採用）",
+      "1d20+{筋力修正}>=? 筋力判定",
+      "1d20+{敏捷修正}>=? 敏捷判定",
+      "1d20+{判断修正}>=? 判断判定",
+      "2d20 有利・不利用",
+      "1d20 イニシアチブは敏捷修正を足して",
+    ],
+    note: "能力値スコアではなく修正値を直接入力する簡易版です(技能は合計修正を入力)。This work includes material from the System Reference Document 5.1 by Wizards of the Coast LLC, available under CC-BY-4.0. ファンメイドの簡易テンプレートです。",
   },
   {
     id: "preset-emoklore",
