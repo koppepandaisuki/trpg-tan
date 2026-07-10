@@ -46,6 +46,53 @@ describe("dicebot: shinobigami", () => {
   });
 });
 
+describe("dicebot: sf(サイコロ・フィクション汎用)", () => {
+  it("出目12はスペシャル(中立文言)", () => {
+    const r = runDiceBot("sf", "2d6>=10", seq(6, 6, 6))!;
+    expect(r.success).toBe(true);
+    expect(r.detail).toContain("スペシャル");
+    expect(r.detail).not.toContain("生命力"); // シノビガミ固有文言は出ない
+  });
+  it("出目2はファンブル", () => {
+    const r = runDiceBot("sf", "2d6>=3", seq(6, 1, 1))!;
+    expect(r.success).toBe(false);
+    expect(r.detail).toContain("ファンブル");
+  });
+  it("通常時は目標値との比較", () => {
+    const r = runDiceBot("sf", "2d6>=7 判定", seq(6, 3, 4))!;
+    expect(r.total).toBe(7);
+    expect(r.success).toBe(true);
+    expect(r.label).toBe("2d6>=7 判定");
+  });
+});
+
+describe("dicebot: d20", () => {
+  it("1d20+m>=t を判定する", () => {
+    const r = runDiceBot("d20", "1d20+5>=15", seq(20, 10))!;
+    expect(r.total).toBe(15);
+    expect(r.success).toBe(true);
+    expect(r.detail).toContain("成功");
+  });
+  it("出目20はクリティカルを告知(成否は比較のまま)", () => {
+    const r = runDiceBot("d20", "1d20+2>=30", seq(20, 20))!;
+    expect(r.detail).toContain("クリティカル");
+    expect(r.success).toBe(false); // 22 < 30
+  });
+  it("出目1はファンブルを告知", () => {
+    const r = runDiceBot("d20", "1d20+3>=2", seq(20, 1))!;
+    expect(r.detail).toContain("ファンブル");
+    expect(r.success).toBe(true); // 4 >= 2
+  });
+  it("目標値なし+ラベル付きでも動く", () => {
+    const r = runDiceBot("d20", "1d20+4 隠密", seq(20, 7))!;
+    expect(r.total).toBe(11);
+    expect(r.label).toBe("1d20+4 隠密");
+  });
+  it("パラノイアの 1d20<=t とは競合しない(非該当は null)", () => {
+    expect(runDiceBot("d20", "1d20<=8", seq(20, 5))).toBeNull();
+  });
+});
+
 describe("dicebot: dx3", () => {
   it("クリティカルで振り足して達成値を計算(10 → 振り足し 7 = 17)", () => {
     const r = runDiceBot("dx3", "1DX@10", seq(10, 10, 7))!;

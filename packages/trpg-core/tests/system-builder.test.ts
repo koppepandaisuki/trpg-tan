@@ -7,10 +7,30 @@ import {
 } from "../src/index.js";
 
 describe("system presets", () => {
-  it("8 システム分のプリセットがあり、id が一意", () => {
-    expect(SYSTEM_PRESETS.length).toBe(8);
+  it("13 システム分のプリセットがあり、id が一意", () => {
+    expect(SYSTEM_PRESETS.length).toBe(13);
     const ids = new Set(SYSTEM_PRESETS.map((s) => s.id));
-    expect(ids.size).toBe(8);
+    expect(ids.size).toBe(13);
+  });
+
+  it("diceBot 指定は実在するボット id を指す", () => {
+    // 存在しない id を書いても実行時は汎用へフォールバックして
+    // 気づきにくいので、プリセット追加時にここで固定する。
+    const known = new Set([
+      "generic",
+      "coc",
+      "sw25",
+      "dx3",
+      "shinobigami",
+      "sf",
+      "emoklore",
+      "nechronica",
+      "paranoia",
+      "d20",
+    ]);
+    for (const s of SYSTEM_PRESETS) {
+      if (s.diceBot) expect(known.has(s.diceBot), `${s.id}: ${s.diceBot}`).toBe(true);
+    }
   });
 
   it("checkTemplate は {value} を含む(設定されている場合)", () => {

@@ -7843,6 +7843,78 @@ button:disabled {
   font-size: 24px;
   line-height: 1;
 }
+/* システムのアイコンタイル(system-visuals.tsx)。絵文字をやめ、
+   システム固有色のガラス質タイル + 線画アイコンで統一する。
+   色は --si-c(インライン変数)で受け取り、透過を color-mix で作る。 */
+.sysic {
+  --si-c: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--si-c);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--si-c) 18%, transparent),
+    color-mix(in srgb, var(--si-c) 7%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--si-c) 32%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 2px 6px color-mix(in srgb, var(--si-c) 18%, transparent);
+}
+[data-theme="dark"] .sysic {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 8px color-mix(in srgb, var(--si-c) 22%, transparent);
+}
+.sysic.md {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+.sysic.md svg {
+  width: 22px;
+  height: 22px;
+}
+.sysic.lg {
+  width: 54px;
+  height: 54px;
+  border-radius: 15px;
+}
+.sysic.lg svg {
+  width: 28px;
+  height: 28px;
+}
+.sysic.sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+.sysic.sm svg {
+  width: 14px;
+  height: 14px;
+}
+.sysic-emoji {
+  font-size: 0.62em;
+  line-height: 1;
+}
+.sysic.md .sysic-emoji {
+  font-size: 20px;
+}
+.sysic.lg .sysic-emoji {
+  font-size: 26px;
+}
+.sysic.sm .sysic-emoji {
+  font-size: 13px;
+}
+/* カードホバーでタイルがわずかに持ち上がる(質感の連動) */
+.syspick-card:hover .sysic {
+  transform: translateY(-1px) scale(1.04);
+}
+.sysic {
+  transition: transform var(--dur-2) var(--ease-out);
+}
 .sp-name {
   font-size: 14.5px;
   font-weight: 800;

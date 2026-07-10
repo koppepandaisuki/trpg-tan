@@ -111,41 +111,67 @@ const sw25Bot: DiceBot = {
   },
 };
 
-/* ===== シノビガミ: 2d6>=t + スペシャル(12) / ファンブル(2) ===== */
+/* ===== サイコロ・フィクション系: 2d6>=t + スペシャル(12) / ファンブル(2) =====
+   シノビガミ / インセイン / マギカロギア など共通の判定骨格。文言だけ
+   システムで変える(スペシャル時の効果はシステムごとに違うため)。 */
 
-const shinobigamiBot: DiceBot = {
+function makeSf2d6Bot(opts: {
+  id: string;
+  name: string;
+  special: string;
+  fumble: string;
+}): DiceBot {
+  return {
+    id: opts.id,
+    name: opts.name,
+    help: "2d6>=5（出目12=スペシャル / 出目2=ファンブル）",
+    run(command, rng) {
+      const m = command.match(
+        new RegExp(`^2d6\\s*(?:>=\\s*(\\d+))?${LABEL}`, "i"),
+      );
+      if (!m) return null;
+      const target = m[1] ? parseInt(m[1], 10) : null;
+      const dice = roll(2, 6, rng);
+      const total = sum(dice);
+
+      let success: boolean | undefined;
+      let detail: string | undefined;
+      if (total === 12) {
+        success = true;
+        detail = opts.special;
+      } else if (total === 2) {
+        success = false;
+        detail = opts.fumble;
+      } else if (target !== null) {
+        success = total >= target;
+        detail = success ? "成功" : "失敗";
+      }
+      return {
+        label: withLabel(`2d6${target !== null ? `>=${target}` : ""}`, m[2]),
+        notation: "2d6",
+        dice,
+        total,
+        success,
+        detail,
+      };
+    },
+  };
+}
+
+const shinobigamiBot = makeSf2d6Bot({
   id: "shinobigami",
   name: "シノビガミ",
-  help: "2d6>=5（出目12=スペシャル / 出目2=ファンブル）",
-  run(command, rng) {
-    const m = command.match(new RegExp(`^2d6\\s*(?:>=\\s*(\\d+))?${LABEL}`, "i"));
-    if (!m) return null;
-    const target = m[1] ? parseInt(m[1], 10) : null;
-    const dice = roll(2, 6, rng);
-    const total = sum(dice);
+  special: "スペシャル！（生命力/変調が回復）",
+  fumble: "ファンブル…（ファンブル表へ）",
+});
 
-    let success: boolean | undefined;
-    let detail: string | undefined;
-    if (total === 12) {
-      success = true;
-      detail = "スペシャル！（生命力/変調が回復）";
-    } else if (total === 2) {
-      success = false;
-      detail = "ファンブル…（ファンブル表へ）";
-    } else if (target !== null) {
-      success = total >= target;
-      detail = success ? "成功" : "失敗";
-    }
-    return {
-      label: withLabel(`2d6${target !== null ? `>=${target}` : ""}`, m[2]),
-      notation: "2d6",
-      dice,
-      total,
-      success,
-      detail,
-    };
-  },
-};
+/** インセイン / マギカロギア等で使う中立文言版。 */
+const sfBot = makeSf2d6Bot({
+  id: "sf",
+  name: "サイコロ・フィクション汎用",
+  special: "スペシャル！（出目12）",
+  fumble: "ファンブル…（出目2）",
+});
 
 /* ===== ダブルクロス3rd: XDX@C+m(>=t)。クリティカル振り足し自動 ===== */
 
@@ -326,6 +352,50 @@ const paranoiaBot: DiceBot = {
   },
 };
 
+/* ===== d20 システム(D&D 等): 1d20+m>=t + 出目20/1 の告知 ===== */
+
+const d20Bot: DiceBot = {
+  id: "d20",
+  name: "d20 システム (D&D 等)",
+  help: "1d20+5>=15（出目20=クリティカル / 出目1=ファンブル）",
+  run(command, rng) {
+    const m = command.match(
+      new RegExp(`^1d20\\s*([+-]\\d+)?\\s*(?:>=\\s*(\\d+))?${LABEL}`, "i"),
+    );
+    if (!m) return null;
+    const mod = m[1] ? parseInt(m[1], 10) : 0;
+    const target = m[2] ? parseInt(m[2], 10) : null;
+    const dice = roll(1, 20, rng);
+    const v = dice[0];
+    const total = v + mod;
+
+    // 成功/失敗は合計と目標値の比較で決める(出目20/1 の自動成否は
+    // 攻撃ロール限定などシステム側の裁定に任せ、告知だけする)。
+    let success: boolean | undefined;
+    let detail: string | undefined;
+    if (target !== null) {
+      success = total >= target;
+      detail = success ? "成功" : "失敗";
+    }
+    if (v === 20) {
+      detail = detail ? `クリティカル！（出目20）/ ${detail}` : "クリティカル！（出目20）";
+    } else if (v === 1) {
+      detail = detail ? `ファンブル…（出目1）/ ${detail}` : "ファンブル…（出目1）";
+    }
+    return {
+      label: withLabel(
+        `1d20${mod ? (mod > 0 ? `+${mod}` : mod) : ""}${target !== null ? `>=${target}` : ""}`,
+        m[3],
+      ),
+      notation: "1d20",
+      dice,
+      total,
+      success,
+      detail,
+    };
+  },
+};
+
 /* ===== 登録 ===== */
 
 export const DICE_BOTS: DiceBot[] = [
@@ -334,9 +404,11 @@ export const DICE_BOTS: DiceBot[] = [
   sw25Bot,
   dx3Bot,
   shinobigamiBot,
+  sfBot,
   emokloreBot,
   nechronicaBot,
   paranoiaBot,
+  d20Bot,
 ];
 
 export function getDiceBot(id: string | undefined): DiceBot {
