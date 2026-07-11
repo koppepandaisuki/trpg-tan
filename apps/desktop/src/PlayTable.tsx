@@ -138,6 +138,7 @@ export function PlayTable({
   const [scene, setScene] = useState<PlayScene>(initial);
   const [savedPath, setSavedPath] = useState<string | null>(path);
   const [dirty, setDirty] = useState(false);
+  const [closeConfirm, setCloseConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // ダイス・モーション(振った RollEvent をそのまま渡す)。
   const [motion, setMotion] = useState<RollEvent | null>(null);
@@ -1467,27 +1468,29 @@ export function PlayTable({
     }
   }
 
-  /** 卓を閉じる(未保存があれば 2 段階 confirm で保存/破棄を選んでもらう)。 */
-  async function handleClose() {
+  /** 卓を閉じる(未保存があれば確認モーダルで保存/破棄/キャンセルを選んでもらう)。 */
+  function handleClose() {
     if (!dirty) {
       onClose();
       return;
     }
-    // 第 1 段: 保存して閉じるか
-    const wantSave = window.confirm(
-      "卓に保存されていない変更があります。\n\n[OK] 保存して閉じる\n[キャンセル] 保存しない",
-    );
-    if (wantSave) {
-      const ok = await save();
-      if (ok) onClose();
-      // 失敗時(ダイアログキャンセル/書込失敗) は閉じない。
-      return;
+    setCloseConfirm(true);
+  }
+
+  /** 確認モーダル: 保存してから閉じる。 */
+  async function closeWithSave() {
+    const ok = await save();
+    if (ok) {
+      setCloseConfirm(false);
+      onClose();
     }
-    // 第 2 段: 破棄して閉じるか
-    const wantDiscard = window.confirm(
-      "保存していない変更を破棄して閉じますか？\n\n[OK] 破棄して閉じる\n[キャンセル] 戻る",
-    );
-    if (wantDiscard) onClose();
+    // 失敗時(名前付け保存ダイアログのキャンセル/書込失敗) はモーダルを残す。
+  }
+
+  /** 確認モーダル: 保存せず破棄して閉じる。 */
+  function closeWithoutSave() {
+    setCloseConfirm(false);
+    onClose();
   }
 
   return (
@@ -1599,7 +1602,7 @@ export function PlayTable({
               >
                 {dirty ? "保存*" : "保存"}
               </button>
-              <button className="btn mini" onClick={() => void handleClose()}>
+              <button className="btn mini" onClick={handleClose}>
                 閉じる
               </button>
             </>
@@ -1727,6 +1730,50 @@ export function PlayTable({
             void startShare();
           }}
         />
+      )}
+
+      {/* 未保存の変更がある状態で「閉じる」を押したときの確認。
+          保存して閉じる / 保存せず閉じる / キャンセル を 1 画面で選べるようにする
+          (window.confirm の 2 段階だと分かりづらく「保存しないと閉じれない」と誤解されたため)。 */}
+      {closeConfirm && (
+        <div
+          className="modal-overlay"
+          onClick={() => setCloseConfirm(false)}
+        >
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-head">
+              <span>保存されていない変更があります</span>
+            </header>
+            <p className="muted" style={{ margin: "0 0 14px", fontSize: 13 }}>
+              この卓の変更を保存してから閉じますか？
+            </p>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <button
+                className="btn btn-primary"
+                onClick={() => void closeWithSave()}
+              >
+                保存して閉じる
+              </button>
+              <button className="btn" onClick={closeWithoutSave}>
+                保存せずに閉じる
+              </button>
+              <button className="btn mini" onClick={() => setCloseConfirm(false)}>
+                キャンセル
+              </button>
+            </div>
+            {error && (
+              <p className="tag fail" style={{ marginTop: 10 }}>
+                {error}
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       <FriendPickerModal
