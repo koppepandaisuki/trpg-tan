@@ -31,11 +31,9 @@ import { publishPack } from "./pack";
 import { getCustomSystems } from "./systems-store";
 import { useAuth } from "./useAuth";
 import { toast } from "./Toasts";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
 
-const WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
 /**
  * シナリオ作成(ビルダー内「シナリオを作る」)。

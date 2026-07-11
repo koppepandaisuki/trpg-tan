@@ -2,8 +2,15 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Re-dice</title>
+    <!-- PWA(スマホのブラウザ/ホーム画面追加)用。Tauri では無害。 -->
+    <meta name="theme-color" content="#37ace8" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="./icons/pwa-128.png" />
+    <link rel="apple-touch-icon" href="./icons/pwa-256.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Re-dice" />
     <script>
       // 保存済みテーマを styles.css 読込前に適用し、白→暗のチラつきを防ぐ。
       try {

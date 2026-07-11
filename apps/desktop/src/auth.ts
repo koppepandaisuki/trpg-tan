@@ -1,5 +1,5 @@
 import { onOpenUrl, getCurrent } from "@tauri-apps/plugin-deep-link";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl as openUrl, WEB_BASE, isTauri } from "./platform";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { supabase } from "./supabase";
@@ -53,28 +53,71 @@ async function announceLogin(): Promise<void> {
 
 const REDIRECT_TO = "redice://auth/callback";
 
-const WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
-/** web 側でログイン後にトークンをアプリへ返してもらう中継ページ。 */
+/** web 側でログイン後にトークンをアプリへ返してもらう中継ページ。
+ *  - Tauri: /auth/desktop-handoff → redice:// deep-link で返す
+ *  - ブラウザ(PWA): /auth/app-handoff → /app/#access_token=… へ
+ *    リダイレクトで返す(同一オリジン。トークンはフラグメントなので
+ *    サーバーへは送られない) */
 const HANDOFF_PATH = "/auth/desktop-handoff";
+const BROWSER_HANDOFF_PATH = "/auth/app-handoff";
 
 /**
- * システムブラウザで web のログイン画面を開く。ログイン成功後、web 側の
- * desktop-handoff ページが deep-link でセッションをアプリへ返す。
+ * web のログイン画面を開く。Tauri はシステムブラウザ + deep-link 戻り、
+ * ブラウザ(PWA)は同一タブ遷移 + /app/ へのリダイレクト戻り。
  * 既に web にログイン済みなら handoff へ直行するので、実質ワンクリックで
  * アプリにもセッションが入る。
  */
 export async function openWebLogin(): Promise<void> {
+  if (!isTauri()) {
+    window.location.href = `${WEB_BASE}/login?next=${encodeURIComponent(BROWSER_HANDOFF_PATH)}`;
+    return;
+  }
   const url = `${WEB_BASE}/login?next=${encodeURIComponent(HANDOFF_PATH)}`;
   await openUrl(url);
 }
 
-/** システムブラウザで web の新規登録画面を開く(handoff 付き)。 */
+/** web の新規登録画面を開く(handoff 付き)。 */
 export async function openWebSignup(): Promise<void> {
+  if (!isTauri()) {
+    window.location.href = `${WEB_BASE}/signup?next=${encodeURIComponent(BROWSER_HANDOFF_PATH)}`;
+    return;
+  }
   const url = `${WEB_BASE}/signup?next=${encodeURIComponent(HANDOFF_PATH)}`;
   await openUrl(url);
+}
+
+/**
+ * ブラウザ(PWA)起動時: /auth/app-handoff から `#access_token=…&
+ * refresh_token=…&type=app-handoff` で戻ってきたらセッションを確立する。
+ * 処理後は履歴からフラグメントを消す(トークンを URL に残さない)。
+ */
+export async function initBrowserHandoffAuth(): Promise<void> {
+  const hash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  if (!hash) return;
+  const hp = new URLSearchParams(hash);
+  if (hp.get("type") !== "app-handoff") return;
+  const accessToken = hp.get("access_token");
+  const refreshToken = hp.get("refresh_token");
+  // 先に URL からトークンを消す(setSession の成否に関わらず残さない)。
+  window.history.replaceState(
+    null,
+    "",
+    window.location.pathname + window.location.search,
+  );
+  if (!accessToken || !refreshToken) return;
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  if (error) console.error("[auth] browser handoff failed:", error.message);
+  else {
+    console.info("[auth] login success (browser handoff)");
+    void announceLogin();
+  }
 }
 
 /**

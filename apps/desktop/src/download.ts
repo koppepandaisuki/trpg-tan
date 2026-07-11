@@ -1,4 +1,4 @@
-import { fetch } from "@tauri-apps/plugin-http";
+import { appFetch as fetch, WEB_BASE } from "./platform";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
 import { supabase } from "./supabase";
@@ -21,9 +21,7 @@ import { getDownloadsDir, getLibraryRoot } from "./library-root";
  * Supabase Storage の署名URLも問題なく叩ける。
  */
 
-const WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
 async function getAccessToken(): Promise<string> {
   const { data } = await supabase.auth.getSession();

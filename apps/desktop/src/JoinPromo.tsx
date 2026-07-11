@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { Sparkles, Store, Crown } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
 import { fetchStore, type StoreItem } from "./store-remote";
 
-const WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
 /**
  * 参加者の「卓ダウンロード中」に出すハウス広告(編集ピックアップ版)。

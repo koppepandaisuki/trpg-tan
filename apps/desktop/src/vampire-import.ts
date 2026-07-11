@@ -1,4 +1,4 @@
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { appFetch as tauriFetch } from "./platform";
 import {
   sheetFromVampireBlood,
   vampireBloodJsonUrl,

@@ -56,12 +56,9 @@ export function GenericSheetEditor({
     reader.readAsDataURL(file);
   }
 
-  /** 上書き保存。保存先が未確定(新規)なら別名保存にフォールバック。 */
+  /** 上書き保存。保存先が未確定(新規)なら別名保存にフォールバック。
+   *  ブラウザ(PWA)では storage.ts が localStorage に保存する。 */
   async function save() {
-    if (!isTauri()) {
-      setError("保存にはデスクトップアプリが必要です");
-      return;
-    }
     setError(null);
     try {
       let path = currentPath;
@@ -81,12 +78,8 @@ export function GenericSheetEditor({
     }
   }
 
-  /** 別名で保存(常にダイアログ)。以後はその新しいパスへ上書きする。 */
+  /** 別名で保存(Tauri はダイアログ / ブラウザは新規保存)。以後はその新しいパスへ上書き。 */
   async function saveAs() {
-    if (!isTauri()) {
-      setError("保存にはデスクトップアプリが必要です");
-      return;
-    }
     setError(null);
     try {
       const path = await saveGenericSheet(sheet);

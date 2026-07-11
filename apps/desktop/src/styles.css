@@ -12497,3 +12497,147 @@ button:disabled {
   background: rgba(56, 189, 248, 0.16);
   border-color: rgba(56, 189, 248, 0.35);
 }
+
+/* =====================================================================
+ * スマホ(PWA / 縦画面)対応。デスクトップのレイアウトを 640px 以下で
+ * 1 カラムに畳む。PLAY はサイドバー幅を画面比に落とし横スワイプで
+ * 行き来する(ベータ。本格的なモバイル PLAY UI は今後)。
+ * ===================================================================== */
+@media (max-width: 640px) {
+  /* --- ヘッダー: ナビを横スクロールに、ロゴ/アカウントを圧縮 --- */
+  .topbar {
+    gap: 8px;
+    padding: 0 8px;
+  }
+  .brand-logo {
+    height: 28px;
+  }
+  .topnav {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 0;
+  }
+  .topnav::-webkit-scrollbar {
+    display: none;
+  }
+  .topnav-link {
+    padding: 0 9px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .topnav-link.play {
+    padding: 0 12px;
+  }
+  .topbar-right .auth-user {
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* --- 下部バー: 折返し許可 + 小さく --- */
+  .bottombar {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 6px;
+  }
+  .bottombar-btn {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  /* --- ストア詳細: 1 カラム(画像 → 購入バー → 情報ボックス) --- */
+  .store-detail {
+    grid-template-columns: 1fr;
+    padding: 10px 10px 20px;
+    gap: 14px;
+  }
+  .store-gmain {
+    max-height: 38vh;
+  }
+  .store-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* --- ストアホーム --- */
+  .shome {
+    padding: 0 4px;
+  }
+
+  /* --- キャラクター: 左リストを上に積む --- */
+  .chars-page {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .chars-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    max-height: 32vh;
+  }
+  .syspick {
+    padding: 18px 12px 32px;
+  }
+  .syspick-hero h2 {
+    font-size: 19px;
+  }
+
+  /* --- 設定モーダル: 全画面 + タブを横スクロールの帯に --- */
+  .set2-panel {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+    border: 0;
+  }
+  .set2-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .set2-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 8px;
+    scrollbar-width: none;
+  }
+  .set2-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .set2-navbtn {
+    white-space: nowrap;
+    padding: 8px 10px;
+    flex-shrink: 0;
+  }
+
+  /* --- フレンド/通知ポップ: 画面幅に収める --- */
+  .friends-pop,
+  .friends-pop-wide {
+    width: min(94vw, 360px);
+    max-height: 70dvh;
+    overflow-y: auto;
+  }
+
+  /* --- PLAY(ベータ): サイドバーを画面比に。横スワイプで盤面と行き来 --- */
+  .ptable-body2 {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pside,
+  .psider {
+    width: min(82vw, 330px);
+  }
+  .ptable-head {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding: 6px 8px;
+  }
+
+  /* --- 空状態/カード余白の微調整 --- */
+  .empty {
+    padding: 40px 16px;
+  }
+  .card {
+    padding: 14px;
+  }
+}

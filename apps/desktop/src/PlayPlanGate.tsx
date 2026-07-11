@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { X, Check, Crown, Sparkles } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl as openUrl } from "./platform";
 import {
   getMyAccount,
   setMyPlanTester,

@@ -14,11 +14,9 @@ import {
   removeCustomSystem,
 } from "./systems-store";
 import { exportPackToFile, publishPack } from "./pack";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
 
-const WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 import { getPlayIndex, readPlayFromPath } from "./play-storage";
 import { getLibrary } from "./library";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";

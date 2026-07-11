@@ -1,4 +1,4 @@
-import { fetch } from "@tauri-apps/plugin-http";
+import { appFetch as fetch, WEB_BASE } from "./platform";
 import { supabase } from "./supabase";
 
 /**
@@ -8,9 +8,7 @@ import { supabase } from "./supabase";
  * (download.ts / account-remote.ts と同じ方針、CORS の影響を受けない)。
  */
 
-const WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
 export type FeedbackCategory = "bug" | "feature_request" | "question" | "other";
 

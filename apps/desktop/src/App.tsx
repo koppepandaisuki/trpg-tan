@@ -27,7 +27,7 @@ import {
   Wrench,
   Coins,
 } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
 import { AuthControl } from "./AuthControl";
 import { AccountMenu } from "./AccountMenu";
 import { AmbientBg } from "./AmbientBg";
@@ -39,7 +39,7 @@ import { Toasts, toast } from "./Toasts";
 import { LoginGate } from "./LoginGate";
 import { EmptyState } from "./EmptyState";
 import { FriendsButton } from "./FriendsPanel";
-import { initDeepLinkAuth } from "./auth";
+import { initDeepLinkAuth, initBrowserHandoffAuth } from "./auth";
 import { initDeepLinkPurchase } from "./deep-link-purchase";
 import type { RemoteLibraryItem } from "./library-remote";
 import type { DownloadedEntry } from "./downloaded";
@@ -60,7 +60,13 @@ import {
   readPlayFromPath,
   type PlayIndexEntry,
 } from "./play-storage";
-import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
+import {
+  readSheetFromPath,
+  isGenericSheet,
+  isTauri,
+  isBrowserSheetPath,
+  deleteBrowserSheet,
+} from "./storage";
 import {
   applyFullscreenOnLaunch,
   toggleFullscreen,
@@ -73,9 +79,8 @@ import logoMark from "./assets/logo.png";
 
 // 日程調整ツール(web)の作成ページ。ロビーから既定ブラウザで開く。匿名でも作れる
 // (web 側がログイン任意)ため、ここはアプリの Bearer を介さず URL を開くだけ。
-const SCHEDULE_WEB_BASE = (
-  import.meta.env.VITE_WEB_BASE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)。
+const SCHEDULE_WEB_BASE = WEB_BASE;
 
 // 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。ストアは初期
 // 表示なので即時読込のまま。PLAY 一式・ビルダー・ライブラリ・キャラシートは、その
@@ -238,9 +243,11 @@ export function App() {
     }
   }, [theme]);
 
-  // deep-link(redice://auth/callback)の購読をアプリ起動時に 1 度だけ登録。
+  // ログイン戻りの購読をアプリ起動時に 1 度だけ登録。
+  // Tauri: deep-link(redice://auth/callback)/ ブラウザ(PWA): URL フラグメント。
   useEffect(() => {
     if (isTauri()) void initDeepLinkAuth();
+    else void initBrowserHandoffAuth();
   }, []);
 
   // 保存済みのフルスクリーン設定を起動時に反映 + F11 でトグル。
@@ -462,8 +469,10 @@ export function App() {
   }
 
   async function openEntry(entry: LibraryEntry) {
-    if (!isTauri()) {
-      setError("ライブラリから開くにはデスクトップアプリが必要です");
+    // ブラウザ(PWA)では localStorage 保存(browser://)のキャラだけ開ける。
+    // デスクトップのファイルパスは端末が違うので開けない旨を案内する。
+    if (!isTauri() && !isBrowserSheetPath(entry.path)) {
+      setError("このキャラはデスクトップ版で保存されたものです(この端末にファイルがありません)");
       return;
     }
     try {
@@ -513,7 +522,13 @@ export function App() {
   }
 
   function handleRemove(id: string) {
-    setLibrary((lib) => removeEntry(lib, id));
+    setLibrary((lib) => {
+      // ブラウザ保存(browser://)のキャラは実体も localStorage から消す
+      // (デスクトップのファイルは従来どおり消さない)。
+      const entry = lib.find((e) => e.id === id);
+      if (entry) deleteBrowserSheet(entry.path);
+      return removeEntry(lib, id);
+    });
   }
 
   /* ===== キャラ一覧(キャラクターページの左列 + ドロワーで再利用) ===== */
