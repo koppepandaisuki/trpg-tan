@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_JP } from "next/font/google";
+import { Noto_Sans_JP, Noto_Serif_JP } from "next/font/google";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { AmbientBackground } from "@/components/layout/ambient-background";
 import { TestModeBanner } from "@/components/banner/test-mode-banner";
@@ -11,6 +11,14 @@ const notoSansJp = Noto_Sans_JP({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+// 見出し用セリフ(2026-07 リブランド: エレガント/公式感)。本文はサンセリフのまま。
+const notoSerifJp = Noto_Serif_JP({
+  subsets: ["latin"],
+  weight: ["600", "700", "900"],
+  variable: "--font-serif",
   display: "swap",
 });
 
@@ -93,7 +101,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja" className={notoSansJp.variable}>
+    <html lang="ja" className={`${notoSansJp.variable} ${notoSerifJp.variable}`}>
       {/* flex-col + min-h-screen で sticky footer パターン:
           コンテンツが短いページでもフッターを画面下に貼り付け、
           長いページではコンテンツの下に自然に流れる。 */}

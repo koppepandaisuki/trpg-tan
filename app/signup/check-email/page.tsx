@@ -27,13 +27,13 @@ export default function CheckEmailPage() {
     <>
       <TopHeader />
       <PageContainer className="py-16">
-        <Card className="mx-auto max-w-md overflow-hidden border-border bg-gradient-to-br from-sky-500/10 via-transparent to-sky-500/5 shadow-sm">
+        <Card className="mx-auto max-w-md overflow-hidden border-border bg-gradient-to-br from-red-500/10 via-transparent to-red-500/5 shadow-sm">
           <CardContent className="relative flex flex-col items-center gap-5 py-12 text-center">
             {/* 装飾ブラー */}
-            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-sky-500/15 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-red-500/15 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-red-500/10 blur-3xl" />
 
-            <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full border border-sky-300 bg-sky-50 text-sky-700">
+            <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700">
               <MailCheck className="h-8 w-8" aria-hidden />
             </div>
 
@@ -49,17 +49,17 @@ export default function CheckEmailPage() {
 
             <ul className="relative z-10 mx-auto max-w-sm space-y-2 text-left text-xs text-muted-foreground">
               <li className="flex gap-2">
-                <span className="font-semibold text-sky-700">1.</span>
+                <span className="font-semibold text-red-700">1.</span>
                 <span>メールアプリを開いて受信トレイを確認</span>
               </li>
               <li className="flex gap-2">
-                <span className="font-semibold text-sky-700">2.</span>
+                <span className="font-semibold text-red-700">2.</span>
                 <span>
                   件名「Confirm your signup」のメール内リンクをクリック
                 </span>
               </li>
               <li className="flex gap-2">
-                <span className="font-semibold text-sky-700">3.</span>
+                <span className="font-semibold text-red-700">3.</span>
                 <span>自動でログイン状態になり、サイトに戻ります</span>
               </li>
             </ul>

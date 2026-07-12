@@ -85,7 +85,7 @@ export async function TopHeader({ className }: { className?: string }) {
       {/* ブランドのスカイ→シアンを下端の細いアクセントに(アプリと同じトーン)。 */}
       <div
         aria-hidden
-        className="h-0.5 w-full bg-gradient-to-r from-sky-500/70 via-cyan-400/40 to-transparent"
+        className="h-0.5 w-full bg-gradient-to-r from-red-500/70 via-amber-400/40 to-transparent"
       />
     </header>
   );
@@ -205,7 +205,7 @@ function DiscordOrBellButton() {
         aria-label="α テスター Discord に参加(別タブで開く)"
         className={cn(
           buttonVariants({ variant: "ghost", size: "sm" }),
-          "text-sky-700 hover:text-sky-800",
+          "text-red-700 hover:text-red-800",
         )}
       >
         <MessageCircle className="h-4 w-4" />

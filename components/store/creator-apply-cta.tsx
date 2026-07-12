@@ -55,9 +55,9 @@ export function CreatorApplyCta({
   }
 
   return (
-    <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/10 via-transparent to-sky-500/5">
+    <Card className="overflow-hidden border-border bg-gradient-to-br from-red-500/10 via-transparent to-red-500/5">
       <CardContent className="flex flex-col items-center gap-3 p-6 text-center sm:flex-row sm:items-start sm:text-left">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-sky-50 text-sky-700">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700">
           <Sparkles className="h-5 w-5" aria-hidden />
         </div>
         <div className="flex-1">

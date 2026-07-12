@@ -19,42 +19,41 @@
      */
     color-scheme: only light;
 
-    --background: 205 100% 98%; /* 淡いブルー #F4FAFF */
-    --foreground: 208 54% 19%; /* ブランドインク #16324A */
-    --muted: 205 100% 97%; /* #F5FBFF */
-    --muted-foreground: 208 22% 47%; /* #5D7890 */
-    --border: 205 71% 92%; /* 淡い青の境界線 */
+    /* 2026-07 リブランド: 深紅(primary)/ 白磁(background)/ 金(accent 装飾) */
+    --background: 38 67% 98%; /* アイボリーホワイト #FDFAF5 */
+    --foreground: 22 35% 12%; /* ウォームインク #2A1C14 */
+    --muted: 39 58% 95%; /* #FAF5EC */
+    --muted-foreground: 32 20% 39%; /* #77644F */
+    --border: 38 40% 88%; /* 金のヘアライン(淡) */
 
-    --primary: 200 79% 56%; /* スカイブルー #37ACE8 */
-    --primary-hover: 200 73% 48%; /* #2198D6 */
+    --primary: 356 63% 42%; /* 深紅 #B02832 */
+    --primary-hover: 355 64% 35%; /* #93202A */
     --primary-foreground: 0 0% 100%;
 
-    --accent: 204 85% 44%; /* ディープブルー #1183CF(リンク等) */
+    --accent: 355 65% 33%; /* 濃い深紅 #8A1D26(リンク等) */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%; /* #DC2626 */
     --destructive-foreground: 0 0% 100%;
 
-    --ring: 200 79% 56%; /* フォーカスリング = スカイブルー */
+    --ring: 356 63% 42%; /* フォーカスリング = 深紅 */
 
     --card: 0 0% 100%; /* カードは白で面を立てる */
-    --card-foreground: 208 54% 19%;
+    --card-foreground: 22 35% 12%;
 
     /* 補助カラー */
-    --primary-soft: 204 100% 94%; /* #DFF4FF */
-    --mint: 170 66% 69%; /* #7DE4D3 補助ステータス/小装飾 */
-    --mint-soft: 168 60% 94%;
-    --gold: 45 89% 62%; /* #F4C94A ランキング/注目バッジ */
-    --gold-soft: 45 100% 92%;
+    --primary-soft: 4 74% 96%; /* #FCECEB */
+    --mint: 42 62% 61%; /* #D9B45C シャンパンゴールド(旧ミントの座) */
+    --mint-soft: 43 72% 92%;
+    --gold: 46 68% 47%; /* #C9A227 アンティークゴールド */
+    --gold-soft: 46 71% 91%;
 
     /* Radius(中程度) */
     --radius-sm: 10px;
     --radius-md: 12px;
     --radius-lg: 18px;
 
-    /* Font */
-    --font-sans:
-      "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    /* Font(--font-sans / --font-serif は next/font が注入。ここはフォールバック) */
   }
 
   * {
@@ -69,24 +68,30 @@
 
   body {
     @apply text-foreground font-sans leading-relaxed;
-    /* 白 → 淡いブルーのグラデーション + 右上の柔らかい光 */
+    /* 白 → アイボリーのグラデーション + 右上の金の柔らかい光(高級感) */
     background:
       radial-gradient(
         1100px 560px at 82% -8%,
-        hsl(var(--primary-soft) / 0.65),
+        hsl(var(--gold-soft) / 0.6),
         transparent 60%
+      ),
+      radial-gradient(
+        900px 480px at -10% 108%,
+        hsl(var(--primary-soft) / 0.5),
+        transparent 55%
       ),
       linear-gradient(180deg, #ffffff 0%, hsl(var(--background)) 100%);
     background-attachment: fixed;
     min-height: 100vh;
   }
 
-  /* Default heading sizes are intentionally restrained */
+  /* Default heading sizes are intentionally restrained.
+     見出しはセリフ(Noto Serif JP)で公式感・高級感を出す。本文はサンセリフ。 */
   h1 {
-    @apply text-2xl font-semibold tracking-tight;
+    @apply font-serif text-2xl font-bold tracking-tight;
   }
   h2 {
-    @apply text-xl font-semibold tracking-tight;
+    @apply font-serif text-xl font-bold tracking-tight;
   }
   h3 {
     @apply text-lg font-semibold;
@@ -102,13 +107,13 @@
   will-change: transform;
 }
 .amb-dice {
-  color: #0ea5e9;
+  color: #b02832;
 }
 .amb-spark {
-  color: #06b6d4;
+  color: #c9a227;
 }
 .amb-star {
-  color: #6366f1;
+  color: #d9b45c;
 }
 /* キラキラ系は薄く明滅(サイコロは浮遊のみ)。 */
 .amb-spark,

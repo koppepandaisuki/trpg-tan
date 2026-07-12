@@ -63,7 +63,7 @@ export async function ReviewSection({
   return (
     <section className="space-y-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-700">
           <MessageSquare className="h-4 w-4" aria-hidden />
         </div>
         <div className="space-y-0.5">
@@ -187,7 +187,7 @@ function ReviewLabelBadge({ label }: { label: ReviewLabel }) {
   const tones: Record<ReviewLabel, string> = {
     圧倒的に好評: "border-emerald-300 bg-emerald-100 text-emerald-900",
     非常に好評: "border-emerald-300 bg-emerald-50 text-emerald-800",
-    ほぼ好評: "border-sky-300 bg-sky-50 text-sky-800",
+    ほぼ好評: "border-red-300 bg-red-50 text-red-800",
     賛否両論: "border-amber-300 bg-amber-50 text-amber-900",
     やや不評: "border-orange-300 bg-orange-50 text-orange-900",
     不評: "border-rose-300 bg-rose-50 text-rose-900",
@@ -301,7 +301,7 @@ function CreatorReplyCard({ reply }: { reply: ReviewReply }) {
   const isEdited = reply.createdAt !== reply.updatedAt;
 
   return (
-    <Card className="ml-4 border-sky-200 bg-sky-50/40 shadow-none sm:ml-8">
+    <Card className="ml-4 border-red-200 bg-red-50/40 shadow-none sm:ml-8">
       <CardContent className="space-y-1.5 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -320,11 +320,11 @@ function CreatorReplyCard({ reply }: { reply: ReviewReply }) {
                 </div>
               )}
             </div>
-            <p className="truncate text-xs font-medium text-sky-900">
+            <p className="truncate text-xs font-medium text-red-900">
               {name}
               <Badge
                 variant="muted"
-                className="ml-1.5 border-sky-200 bg-sky-100 text-[9px] text-sky-800"
+                className="ml-1.5 border-red-200 bg-red-100 text-[9px] text-red-800"
               >
                 作者
               </Badge>

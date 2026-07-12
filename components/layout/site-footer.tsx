@@ -62,8 +62,8 @@ export function SiteFooter() {
               rel="noopener noreferrer"
               aria-label="α テスター Discord サーバーに参加(別タブで開く)"
               className={cn(
-                "inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 transition",
-                "hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800",
+                "inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition",
+                "hover:border-red-300 hover:bg-red-100 hover:text-red-800",
               )}
             >
               <MessageCircle className="h-3.5 w-3.5" aria-hidden />

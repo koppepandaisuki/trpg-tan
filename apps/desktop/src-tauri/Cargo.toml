@@ -15,7 +15,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# image-png: 設定のアイコン切替(set_app_icon)で PNG をデコードするため
+tauri = { version = "2", features = ["image-png"] }
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-deep-link = "2"

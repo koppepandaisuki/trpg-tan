@@ -113,7 +113,7 @@ export function ProfileEditForm({ initialValues }: ProfileEditFormProps) {
           htmlFor="twitterHandle"
           className="flex items-center gap-1.5 text-sm font-medium"
         >
-          <Twitter className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+          <Twitter className="h-3.5 w-3.5 text-red-600" aria-hidden />
           Twitter / X
         </label>
         <Input

@@ -15,9 +15,32 @@
 // 場合、single-instance が転送した argv に対して deep-link の on_open_url が
 // 自動発火しない。そのため single-instance ハンドラ内で argv から URL を拾い、
 // 自前のイベント "deep-link-url" でフロントへ通知する。
+/// ウィンドウ/タスクバーのアイコンを切り替える(設定 > アプリアイコン)。
+/// exe・デスクトップショートカットのアイコンはビルド時に焼き込まれるため
+/// ここでは変わらない(実行中の見た目だけが対象)。
+#[tauri::command]
+fn set_app_icon(window: tauri::WebviewWindow, kind: String) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        let bytes: &[u8] = match kind.as_str() {
+            "main" => include_bytes!("../icons/select/main-256.png"),
+            "black" => include_bytes!("../icons/select/black-256.png"),
+            _ => include_bytes!("../icons/select/red-256.png"),
+        };
+        let img = tauri::image::Image::from_bytes(bytes).map_err(|e| e.to_string())?;
+        window.set_icon(img).map_err(|e| e.to_string())
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = (window, kind);
+        Ok(())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![set_app_icon])
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             use tauri::{Emitter, Manager};
             // 既存インスタンスへ転送された argv の中から deep-link URL を探す。

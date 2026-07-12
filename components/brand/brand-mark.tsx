@@ -1,11 +1,9 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Re-dice のブランドロゴ。デスクトップアプリと同じ見た目に揃える:
- *  - アイコン = サイコロ画像(public/dice.png、背景透過)
- *  - 「Re-」 = 通常の文字色(foreground)
- *  - 「dice」= スカイ→シアンのグラデ文字(dice / dicere の掛けことば)
- *  - ウェイトは black(900)で、文字は画像でなくテキストなので滲まない
+ * Re-dice のブランドロゴ(2026-07 リブランド)。
+ * タイトルロゴ画像(public/brand/re-dice.png: 黒文字 + 赤ダイス + "dicere")を
+ * そのまま表示する。サイトはライト専用のため画像は 1 種。
  *
  * 使い方:
  *   <BrandMark size="md" />           // ヘッダー / フッター標準
@@ -26,22 +24,10 @@ interface BrandMarkProps {
   className?: string;
 }
 
-const ICON_SIZE: Record<BrandMarkSize, string> = {
-  sm: "h-6 w-6",
-  md: "h-7 w-7",
-  lg: "h-9 w-9",
-};
-
-const TEXT_SIZE: Record<BrandMarkSize, string> = {
-  sm: "text-sm",
-  md: "text-lg",
-  lg: "text-2xl",
-};
-
-const GAP: Record<BrandMarkSize, string> = {
-  sm: "gap-1.5",
-  md: "gap-2",
-  lg: "gap-2.5",
+const LOGO_SIZE: Record<BrandMarkSize, string> = {
+  sm: "h-7",
+  md: "h-9",
+  lg: "h-14",
 };
 
 export function BrandMark({
@@ -51,28 +37,17 @@ export function BrandMark({
 }: BrandMarkProps) {
   return (
     <span
-      className={cn(
-        "inline-flex items-center leading-none",
-        GAP[size],
-        className,
-      )}
+      className={cn("inline-flex items-center gap-2 leading-none", className)}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/dice.png"
-        alt=""
-        aria-hidden
+        src="/brand/re-dice.png"
+        alt="Re-dice"
         className={cn(
-          ICON_SIZE[size],
-          "shrink-0 object-contain drop-shadow-[0_2px_5px_rgba(33,152,214,0.3)]",
+          LOGO_SIZE[size],
+          "w-auto shrink-0 object-contain drop-shadow-[0_2px_5px_rgba(153,27,27,0.15)]",
         )}
       />
-      <span className={cn("font-black tracking-tight", TEXT_SIZE[size])}>
-        <span className="text-foreground">Re-</span>
-        <span className="bg-gradient-to-r from-sky-600 to-cyan-400 bg-clip-text text-transparent">
-          dice
-        </span>
-      </span>
       {showSubtitle && (
         <span className="ml-1 text-xs font-medium tracking-wide text-muted-foreground">
           TRPGサイト

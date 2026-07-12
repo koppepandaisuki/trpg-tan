@@ -36,7 +36,7 @@ export function FollowingCreatorsSection() {
   return (
     <section className="space-y-3">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-600">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600">
           <UserCheck className="h-4 w-4" aria-hidden />
         </div>
         <div className="space-y-0.5">

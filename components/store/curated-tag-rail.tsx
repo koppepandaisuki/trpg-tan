@@ -21,7 +21,7 @@ export function CuratedTagRail({ current }: { current?: string | null }) {
   return (
     <section
       aria-label="テーマで探す"
-      className="rounded-xl border border-border bg-gradient-to-br from-violet-500/[0.04] via-transparent to-sky-500/[0.04] p-4 sm:p-5"
+      className="rounded-xl border border-border bg-gradient-to-br from-violet-500/[0.04] via-transparent to-red-500/[0.04] p-4 sm:p-5"
     >
       <div className="mb-3 flex items-center gap-2">
         <Compass className="h-4 w-4 text-violet-600" aria-hidden />
