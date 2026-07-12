@@ -82,10 +82,10 @@ export default async function CreatorProfilePage({
 
         {/* Hero ヘッダー(サイトの視覚言語に統一)。indigo/rose の
             グラデで「ひと」を感じさせるトーン(CreatorCard と同系)。 */}
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/8 via-transparent to-rose-500/8 shadow-sm">
+        <Card className="overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-rose-500/8 shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
             <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-rose-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-red-500/10 blur-3xl" />
 
             <div className="relative z-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
               {/* アバター */}
@@ -247,7 +247,7 @@ function SnsLink({
 }) {
   const toneClass =
     tone === "sky"
-      ? "border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100"
+      ? "border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100"
       : tone === "emerald"
         ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
         : "border-violet-200 bg-violet-50 text-violet-700 hover:border-violet-300 hover:bg-violet-100";

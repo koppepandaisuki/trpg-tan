@@ -89,10 +89,10 @@ export default async function CreatorsPage({ searchParams }: CreatorsPageProps) 
         <Breadcrumb items={[{ label: "クリエイター", icon: Users }]} />
 
         {/* Hero ヘッダー(他ページと統一の視覚言語) */}
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-rose-500/8 via-transparent to-sky-500/8 shadow-sm">
+        <Card className="overflow-hidden border-border bg-gradient-to-br from-rose-500/8 via-transparent to-red-500/8 shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
             <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-rose-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-red-500/10 blur-3xl" />
 
             <div className="relative z-10 flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-rose-300 bg-rose-50 text-rose-700">

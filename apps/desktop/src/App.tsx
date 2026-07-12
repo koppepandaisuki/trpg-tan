@@ -40,6 +40,7 @@ import { LoginGate } from "./LoginGate";
 import { EmptyState } from "./EmptyState";
 import { FriendsButton } from "./FriendsPanel";
 import { initDeepLinkAuth, initBrowserHandoffAuth } from "./auth";
+import { applySavedAppIcon } from "./app-icon";
 import { initDeepLinkPurchase } from "./deep-link-purchase";
 import type { RemoteLibraryItem } from "./library-remote";
 import type { DownloadedEntry } from "./downloaded";
@@ -75,7 +76,9 @@ import { refreshGold, useGoldBalance } from "./gold-remote";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
 import { NewCharacterMenu } from "./NewCharacterMenu";
 import { SheetSystemPicker } from "./SheetSystemPicker";
-import logoMark from "./assets/logo.png";
+// タイトルロゴ(2026-07 リブランド)。文字色が違うためライト/ダークで別画像。
+import logoLight from "./assets/re-dice.png";
+import logoDark from "./assets/re-dice-dark.png";
 
 // 日程調整ツール(web)の作成ページ。ロビーから既定ブラウザで開く。匿名でも作れる
 // (web 側がログイン任意)ため、ここはアプリの Bearer を介さず URL を開くだけ。
@@ -248,6 +251,7 @@ export function App() {
   useEffect(() => {
     if (isTauri()) void initDeepLinkAuth();
     else void initBrowserHandoffAuth();
+    applySavedAppIcon();
   }, []);
 
   // 保存済みのフルスクリーン設定を起動時に反映 + F11 でトグル。
@@ -788,8 +792,12 @@ export function App() {
           onClick={() => goTo("store")}
           title="ストアのトップへ"
         >
-          {/* 新ロゴ(ダイス+Re-dice ワードマーク一体の画像)。 */}
-          <img src={logoMark} alt="Re-dice" className="brand-logo" />
+          {/* タイトルロゴ。ライト=黒文字 / ダーク=白文字 の別画像を切替。 */}
+          <img
+            src={theme === "dark" ? logoDark : logoLight}
+            alt="Re-dice"
+            className="brand-logo"
+          />
         </span>
         <nav className="topnav" role="tablist">
           {PAGES.map((p) => {

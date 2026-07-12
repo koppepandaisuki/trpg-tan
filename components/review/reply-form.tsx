@@ -65,8 +65,8 @@ export function ReplyForm({
   }
 
   return (
-    <div className="space-y-2 rounded-md border border-sky-200 bg-sky-50/40 px-3 py-2">
-      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-sky-700">
+    <div className="space-y-2 rounded-md border border-red-200 bg-red-50/40 px-3 py-2">
+      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-red-700">
         <MessageSquare className="h-3 w-3" aria-hidden />
         {hasExistingReply ? "あなたの返信を編集" : "このレビューに返信"}
       </p>

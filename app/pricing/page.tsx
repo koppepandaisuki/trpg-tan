@@ -25,17 +25,17 @@ const THEME: Record<
 > = {
   basic: {
     code: "BASIC",
-    text: "text-cyan-600",
-    border: "border-cyan-300",
-    check: "bg-cyan-500",
-    btn: "bg-cyan-500 hover:bg-cyan-600",
+    text: "text-amber-600",
+    border: "border-amber-300",
+    check: "bg-amber-500",
+    btn: "bg-amber-500 hover:bg-amber-600",
   },
   play: {
     code: "PLAY",
-    text: "text-sky-600",
-    border: "border-sky-400",
-    check: "bg-sky-500",
-    btn: "bg-sky-600 hover:bg-sky-700",
+    text: "text-red-600",
+    border: "border-red-400",
+    check: "bg-red-500",
+    btn: "bg-red-600 hover:bg-red-700",
   },
   pro: {
     code: "PRO",
@@ -105,33 +105,33 @@ export default async function PricingPage() {
       <TopHeader />
 
       {/* ヒーロー: ブランドのスカイ→シアンを背景に、ハイライト付きの大見出し。 */}
-      <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-sky-50 to-background">
+      <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-red-50 to-background">
         <div
           aria-hidden
-          className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-cyan-200/40 blur-3xl"
+          className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-amber-200/40 blur-3xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-24 top-10 h-72 w-72 rounded-full bg-sky-200/40 blur-3xl"
+          className="pointer-events-none absolute -right-24 top-10 h-72 w-72 rounded-full bg-red-200/40 blur-3xl"
         />
         <div className="mx-auto w-full max-w-screen-2xl px-4 pb-10 pt-6 sm:px-6">
           <Breadcrumb items={[{ label: "料金プラン" }]} />
           <div className="relative mt-6 text-center">
             <Sparkles
-              className="absolute left-[18%] top-0 hidden h-7 w-7 text-cyan-400 sm:block"
+              className="absolute left-[18%] top-0 hidden h-7 w-7 text-amber-400 sm:block"
               aria-hidden
             />
             <Sparkles
-              className="absolute right-[18%] top-2 hidden h-5 w-5 text-sky-400 sm:block"
+              className="absolute right-[18%] top-2 hidden h-5 w-5 text-red-400 sm:block"
               aria-hidden
             />
-            <p className="text-sm font-bold tracking-widest text-sky-600">
+            <p className="text-sm font-bold tracking-widest text-red-600">
               Re-dice
             </p>
             <h1 className="relative mt-1 inline-block text-4xl font-black tracking-tight sm:text-5xl">
               <span
                 aria-hidden
-                className="absolute inset-x-0 bottom-1.5 -z-10 h-3.5 rounded bg-sky-200/70"
+                className="absolute inset-x-0 bottom-1.5 -z-10 h-3.5 rounded bg-red-200/70"
               />
               料金プラン
             </h1>
@@ -212,11 +212,11 @@ function PlanCard({
       className={[
         "relative flex flex-col rounded-2xl border-2 bg-card p-6 shadow-sm transition",
         t.border,
-        featured ? "shadow-lg ring-2 ring-sky-200 sm:-translate-y-1" : "",
+        featured ? "shadow-lg ring-2 ring-red-200 sm:-translate-y-1" : "",
       ].join(" ")}
     >
       {featured && (
-        <span className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-sky-600 px-3 py-1 text-[10px] font-bold text-white shadow">
+        <span className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-[10px] font-bold text-white shadow">
           <Crown className="h-3 w-3" aria-hidden /> おすすめ
         </span>
       )}

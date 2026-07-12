@@ -1,46 +1,46 @@
 /*
- * Re-dice ブランド(青いダイス / 白い清潔感 / 柔らかい光)。
- * Web 側のトークンと同じ配色をデスクトップにも適用し、見た目を揃える。
+ * Re-dice ブランド(2026-07 リブランド: 深紅のダイス / 白磁 / 金のヘアライン)。
+ * エレガントで公式感のある配色。Web 側のトークンと揃える。
  */
 :root {
-  --bg: #f7fbff;
+  --bg: #fdfaf5;
   --surface: #ffffff;
-  --surface-2: #f5fbff;
-  --border: rgba(63, 154, 221, 0.18);
-  --border-strong: rgba(63, 154, 221, 0.34);
+  --surface-2: #faf5ec;
+  --border: rgba(164, 120, 44, 0.18);
+  --border-strong: rgba(164, 120, 44, 0.34);
 
-  --text: #16324a;
-  --text-muted: #5d7890;
-  --text-faint: #6f8aa0; /* 旧 #89a2b7。白地でのコントラスト確保のため一段濃く */
+  --text: #2a1c14;
+  --text-muted: #77644f;
+  --text-faint: #8b7862; /* 白地でのコントラスト確保のため一段濃く */
 
-  --primary: #37ace8;
-  --primary-hover: #2198d6;
-  --primary-soft: #dff4ff;
-  --primary-deep: #1183cf;
+  --primary: #b02832;
+  --primary-hover: #93202a;
+  --primary-soft: #fceceb;
+  --primary-deep: #8a1d26;
 
-  --mint: #7de4d3;
-  --mint-soft: #e6fbf7;
-  --mint-deep: #0d8a73;
-  --gold: #f4c94a;
-  --gold-soft: #fff6d9;
-  --gold-deep: #b8860b;
+  --mint: #d9b45c;
+  --mint-soft: #f9f0da;
+  --mint-deep: #8f6f1a;
+  --gold: #c9a227;
+  --gold-soft: #f8f0d6;
+  --gold-deep: #8f6f1a;
   --coral: #f0876b;
 
-  --surface-3: #e9f4fd;
+  --surface-3: #f3ead9;
 
   /* 多層シャドウ(環境光 + キーライト)で本物の奥行きを出す */
-  --shadow-xs: 0 1px 2px rgba(18, 74, 122, 0.06);
+  --shadow-xs: 0 1px 2px rgba(94, 52, 24, 0.06);
   --shadow-sm:
-    0 1px 2px rgba(18, 74, 122, 0.05), 0 3px 10px rgba(18, 74, 122, 0.07);
+    0 1px 2px rgba(94, 52, 24, 0.05), 0 3px 10px rgba(94, 52, 24, 0.07);
   --shadow-md:
-    0 6px 14px rgba(18, 74, 122, 0.09), 0 18px 38px rgba(18, 74, 122, 0.12);
+    0 6px 14px rgba(94, 52, 24, 0.09), 0 18px 38px rgba(94, 52, 24, 0.12);
   --shadow-lg:
-    0 12px 28px rgba(18, 74, 122, 0.12), 0 34px 64px rgba(18, 74, 122, 0.18);
-  --ring: 0 0 0 3px rgba(55, 172, 232, 0.22);
+    0 12px 28px rgba(94, 52, 24, 0.12), 0 34px 64px rgba(94, 52, 24, 0.18);
+  --ring: 0 0 0 3px rgba(176, 40, 50, 0.22);
   /* カード上端のガラス質ハイライト(光を受けた縁)。テーマで明るさを変える。 */
   --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 
-  --grad-primary: linear-gradient(135deg, #54b9ef 0%, #2198d6 100%);
+  --grad-primary: linear-gradient(135deg, #c8434c 0%, #93202a 100%);
   --grad-accent: linear-gradient(120deg, var(--primary) 0%, var(--mint) 100%);
 
   --radius-sm: 10px;
@@ -85,42 +85,42 @@ body {
      なり、ダークモードで黒文字が見えなくなる(button は color を継承しないので
      下の button ルールで明示的に inherit させる)。 */
   color: var(--text);
-  /* ドット・テクスチャ + ミント/スカイのメッシュ光で奥行きを出す。
+  /* ドット・テクスチャ + 金/深紅のメッシュ光で上質な奥行きを出す。
      最上層のドットは極薄。カードが上に乗るので内容には干渉しない。 */
   background:
-    radial-gradient(circle, rgba(63, 154, 221, 0.05) 1px, transparent 1.6px) 0 0 /
+    radial-gradient(circle, rgba(164, 120, 44, 0.05) 1px, transparent 1.6px) 0 0 /
       22px 22px,
     radial-gradient(
       1000px 540px at 92% -8%,
-      rgba(125, 228, 211, 0.16),
+      rgba(207, 165, 74, 0.14),
       transparent 60%
     ),
     radial-gradient(
       820px 560px at -8% 110%,
-      rgba(55, 172, 232, 0.1),
+      rgba(176, 40, 50, 0.07),
       transparent 55%
     ),
-    linear-gradient(180deg, #fbfdff 0%, #eaf5fe 100%);
+    linear-gradient(180deg, #fffdf9 0%, #f6efe3 100%);
   background-attachment: fixed;
 }
 
 /* デスクトップらしい繊細なスクロールバー */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(63, 154, 221, 0.35) transparent;
+  scrollbar-color: rgba(164, 120, 44, 0.35) transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: rgba(63, 154, 221, 0.3);
+  background: rgba(164, 120, 44, 0.3);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(63, 154, 221, 0.5);
+  background: rgba(164, 120, 44, 0.5);
   background-clip: padding-box;
 }
 
@@ -298,7 +298,7 @@ body {
   background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: inset 0 1px 2px rgba(18, 74, 122, 0.05);
+  box-shadow: inset 0 1px 2px rgba(94, 52, 24, 0.05);
 }
 
 .tab {
@@ -326,8 +326,8 @@ body {
   background: linear-gradient(180deg, var(--surface), var(--surface-2));
   color: var(--primary-deep);
   box-shadow:
-    0 1px 2px rgba(18, 74, 122, 0.08),
-    0 2px 6px rgba(18, 74, 122, 0.06);
+    0 1px 2px rgba(94, 52, 24, 0.08),
+    0 2px 6px rgba(94, 52, 24, 0.06);
 }
 .tab.active:hover {
   background: linear-gradient(180deg, var(--surface), var(--surface-2));
@@ -383,7 +383,7 @@ body {
 
 .work-badge.done {
   background: var(--mint-soft);
-  color: #0d8a73;
+  color: #8f6f1a;
 }
 
 .work-actions {
@@ -647,7 +647,7 @@ body {
 
 /* 職業技能の行を軽くハイライト(どれが職業技能か分かりやすく) */
 .skills tr.skill-occ td {
-  background: rgba(125, 228, 211, 0.12);
+  background: rgba(207, 165, 74, 0.12);
 }
 
 /* 職業P は職業指定の技能だけ操作可。それ以外はロック(無効表示) */
@@ -2188,7 +2188,7 @@ body {
   color: #b8860b;
 }
 .log-level.ok {
-  color: #0d8a73;
+  color: #8f6f1a;
 }
 .log-level.fail {
   color: var(--text-muted);
@@ -2718,7 +2718,7 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  filter: drop-shadow(0 10px 14px rgba(18, 74, 122, 0.28));
+  filter: drop-shadow(0 10px 14px rgba(94, 52, 24, 0.28));
   will-change: transform;
 }
 .dm-svg {
@@ -4020,7 +4020,7 @@ body {
   pointer-events: auto;
   cursor: grab;
   color: rgba(255, 255, 255, 0.92);
-  background: rgba(13, 36, 56, 0.5);
+  background: rgba(30, 23, 20, 0.5);
   border-radius: 6px;
   padding: 2px 3px;
   margin-bottom: 1px;
@@ -4050,14 +4050,14 @@ body {
   height: 18px;
   border: 0;
   border-radius: 6px;
-  background: rgba(13, 36, 56, 0.5);
+  background: rgba(30, 23, 20, 0.5);
   color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
   line-height: 0;
   transition: background 0.12s;
 }
 .bstatus-ctrl:hover:not(:disabled) {
-  background: rgba(13, 36, 56, 0.78);
+  background: rgba(30, 23, 20, 0.78);
 }
 .bstatus-ctrl:disabled {
   opacity: 0.4;
@@ -4074,14 +4074,14 @@ body {
   padding: 4px 10px;
   border: 0;
   border-radius: 999px;
-  background: rgba(13, 36, 56, 0.62);
+  background: rgba(30, 23, 20, 0.62);
   color: rgba(255, 255, 255, 0.95);
   font-size: 12px;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .bstatus-show:hover {
-  background: rgba(13, 36, 56, 0.85);
+  background: rgba(30, 23, 20, 0.85);
 }
 .bstatus-row {
   display: flex;
@@ -4091,7 +4091,7 @@ body {
   background: rgba(255, 255, 255, 0.92);
   color: #16324a;
   backdrop-filter: blur(3px);
-  border: 1px solid rgba(63, 154, 221, 0.25);
+  border: 1px solid rgba(164, 120, 44, 0.25);
   border-radius: 999px;
   padding: 3px 12px 3px 5px;
   box-shadow: var(--shadow-xs);
@@ -4147,7 +4147,7 @@ body {
   width: 34px;
   height: 6px;
   border-radius: 999px;
-  background: rgba(18, 74, 122, 0.14);
+  background: rgba(94, 52, 24, 0.14);
   overflow: hidden;
 }
 .bstatus-fill {
@@ -5379,7 +5379,7 @@ select.cutin-snd {
 }
 .bgm-scene.on {
   opacity: 1;
-  filter: drop-shadow(0 0 3px rgba(55, 172, 232, 0.8));
+  filter: drop-shadow(0 0 3px rgba(176, 40, 50, 0.8));
 }
 .bgm-btn.bgm-repeat {
   width: auto;
@@ -5906,7 +5906,7 @@ select.cutin-snd {
 
 /* テキスト選択色: ブランドブルー。 */
 ::selection {
-  background: rgba(55, 172, 232, 0.3);
+  background: rgba(176, 40, 50, 0.3);
 }
 
 /* スクロールバー: 細く・丸く・ブランド色(全画面共通)。 */
@@ -5918,13 +5918,13 @@ select.cutin-snd {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(55, 172, 232, 0.28);
+  background: rgba(176, 40, 50, 0.28);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(55, 172, 232, 0.5);
+  background: rgba(176, 40, 50, 0.5);
   background-clip: content-box;
   border: 2px solid transparent;
 }
@@ -6022,7 +6022,7 @@ button:disabled {
 }
 /* マウスを乗せた立ち絵だけ枠を出して操作可能と分かるように。 */
 .stage-portrait:hover {
-  outline: 2px dashed rgba(55, 172, 232, 0.6);
+  outline: 2px dashed rgba(176, 40, 50, 0.6);
   outline-offset: 2px;
   opacity: 1;
 }
@@ -6378,7 +6378,7 @@ button:disabled {
   filter: drop-shadow(0 6px 16px rgba(33, 152, 214, 0.28));
   background: radial-gradient(
     circle at 50% 46%,
-    rgba(55, 172, 232, 0.16),
+    rgba(176, 40, 50, 0.16),
     transparent 62%
   );
   animation: empty-float 4.5s var(--ease-out) infinite;
@@ -6486,7 +6486,7 @@ button:disabled {
   pointer-events: none;
 }
 .toast {
-  background: rgba(13, 36, 56, 0.94);
+  background: rgba(30, 23, 20, 0.94);
   color: #eaf5ff;
   font-size: 13px;
   font-weight: 700;
@@ -6514,26 +6514,26 @@ button:disabled {
  * 変数の差し替えが基本。白系のグラデーションを使う部品だけ個別に上書き。
  */
 [data-theme="dark"] {
-  --bg: #0d1a26;
-  --surface: #15273a;
-  --surface-2: #112030;
-  --surface-3: #1c3349;
-  --border: rgba(120, 180, 230, 0.16);
-  --border-strong: rgba(120, 180, 230, 0.34);
+  --bg: #171210;
+  --surface: #221a17;
+  --surface-2: #1c1512;
+  --surface-3: #2c211c;
+  --border: rgba(214, 178, 106, 0.16);
+  --border-strong: rgba(214, 178, 106, 0.34);
 
-  --text: #eef6fd;
-  --text-muted: #b4cadc;
-  --text-faint: #8ba3b8;
+  --text: #f7f1e8;
+  --text-muted: #cdbba6;
+  --text-faint: #9c8b76;
 
-  --primary: #37ace8;
-  --primary-hover: #54b9ef;
-  --primary-soft: rgba(55, 172, 232, 0.16);
-  --primary-deep: #6cc4f5;
+  --primary: #d6454f;
+  --primary-hover: #e05e66;
+  --primary-soft: rgba(214, 69, 79, 0.16);
+  --primary-deep: #eb8288;
 
-  --mint-soft: rgba(125, 228, 211, 0.14);
-  --mint-deep: #7de4d3;
-  --gold-soft: rgba(244, 201, 74, 0.14);
-  --gold-deep: #f4c94a;
+  --mint-soft: rgba(207, 165, 74, 0.14);
+  --mint-deep: #d9b45c;
+  --gold-soft: rgba(227, 192, 92, 0.14);
+  --gold-deep: #e3c05c;
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 3px 10px rgba(0, 0, 0, 0.35);
@@ -6544,17 +6544,17 @@ button:disabled {
 }
 [data-theme="dark"] .topbar,
 [data-theme="dark"] .bottombar {
-  background: linear-gradient(180deg, rgba(21, 39, 58, 0.96), rgba(13, 26, 38, 0.96));
+  background: linear-gradient(180deg, rgba(34, 26, 23, 0.96), rgba(23, 18, 16, 0.96));
 }
 [data-theme="dark"] .sidebar,
 [data-theme="dark"] .libside,
 [data-theme="dark"] .chars-list,
 [data-theme="dark"] .sysb-side {
-  background: linear-gradient(180deg, rgba(21, 39, 58, 0.92), rgba(13, 26, 38, 0.95));
+  background: linear-gradient(180deg, rgba(34, 26, 23, 0.92), rgba(23, 18, 16, 0.95));
 }
 [data-theme="dark"] .asset-act,
 [data-theme="dark"] .board-zoom-badge {
-  background: rgba(21, 39, 58, 0.92);
+  background: rgba(34, 26, 23, 0.92);
   color: var(--text);
 }
 [data-theme="dark"] .catcard.tone-blue {
@@ -6662,8 +6662,8 @@ button:disabled {
   letter-spacing: 0.01em;
   color: #fff;
   cursor: pointer;
-  background: linear-gradient(135deg, #0ea5e9, #22d3ee);
-  box-shadow: 0 3px 12px rgba(14, 165, 233, 0.4);
+  background: linear-gradient(135deg, #c8434c, #e3c05c);
+  box-shadow: 0 3px 12px rgba(200, 67, 76, 0.4);
   transition:
     transform 0.12s ease,
     box-shadow 0.12s ease,
@@ -6671,7 +6671,7 @@ button:disabled {
 }
 .play-share-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(14, 165, 233, 0.5);
+  box-shadow: 0 6px 18px rgba(200, 67, 76, 0.5);
   filter: brightness(1.05);
 }
 .play-share-btn:disabled {
@@ -6744,7 +6744,7 @@ button:disabled {
 }
 .plan-gate-spark {
   display: inline-flex;
-  color: #0ea5e9;
+  color: #c8434c;
 }
 .plan-gate-head h2 {
   margin: 4px 0 6px;
@@ -6774,7 +6774,7 @@ button:disabled {
   background: var(--surface);
 }
 .plan-gate-card.featured {
-  box-shadow: 0 8px 22px rgba(14, 165, 233, 0.18);
+  box-shadow: 0 8px 22px rgba(200, 67, 76, 0.18);
 }
 .plan-gate-badge {
   position: absolute;
@@ -6786,7 +6786,7 @@ button:disabled {
   gap: 4px;
   padding: 3px 11px;
   border-radius: 999px;
-  background: #0284c7;
+  background: #93202a;
   color: #fff;
   font-size: 10px;
   font-weight: 800;
@@ -6857,17 +6857,17 @@ button:disabled {
   background: #06b6d4;
 }
 .pg-sky {
-  border-color: #38bdf8;
+  border-color: #e05e66;
 }
 .pg-sky .pg-code,
 .pg-sky .pg-price {
-  color: #0284c7;
+  color: #93202a;
 }
 .pg-sky .pg-perks svg {
-  color: #0ea5e9;
+  color: #c8434c;
 }
 .pg-sky .pg-btn {
-  background: #0284c7;
+  background: #93202a;
 }
 .pg-indigo {
   border-color: #a5b4fc;
@@ -7024,10 +7024,10 @@ button:disabled {
   will-change: transform;
 }
 .ai-dice {
-  color: #0ea5e9;
+  color: #c8434c;
 }
 .ai-spark {
-  color: #22d3ee;
+  color: #e3c05c;
 }
 .ai-star {
   color: #6366f1;
@@ -7089,21 +7089,18 @@ button:disabled {
 .topbar-brand:hover {
   filter: brightness(1.06);
 }
-/* ブランドマーク: 新ロゴ画像(ダイス+Re-dice ワードマーク一体)。
-   紺色の文字なので、ダークテーマでは反転して白抜きにする。 */
+/* ブランドマーク: タイトルロゴ(Re-dice + 赤ダイス)。文字色が違うため
+   ライト/ダークで別画像を出し分ける(App.tsx 側で src を切替)。 */
 .brand-logo {
-  height: 40px;
+  height: 38px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
-  filter: drop-shadow(0 2px 5px rgba(33, 152, 214, 0.25));
+  filter: drop-shadow(0 2px 5px rgba(153, 27, 27, 0.18));
   transition: transform var(--dur-2) var(--ease-out);
 }
 .topbar-brand:hover .brand-logo {
   transform: scale(1.03);
-}
-[data-theme="dark"] .brand-logo {
-  filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(125, 228, 211, 0.25));
 }
 .brand-dice {
   height: 30px;
@@ -7226,7 +7223,7 @@ button:disabled {
   transform: translateX(-50%) rotate(45deg);
   background: var(--mint);
   border-radius: 1px;
-  box-shadow: 0 0 7px rgba(125, 228, 211, 0.8);
+  box-shadow: 0 0 7px rgba(207, 165, 74, 0.8);
   opacity: 0;
   transition: opacity var(--dur-2) var(--ease-out);
 }
@@ -7395,7 +7392,7 @@ button:disabled {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 1px rgba(55, 172, 232, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(176, 40, 50, 0.12);
   pointer-events: none;
 }
 .lobby-panel-title {
@@ -7732,9 +7729,9 @@ button:disabled {
   width: 44px;
   height: 44px;
   border-radius: 999px;
-  color: #0ea5e9;
-  background: rgba(14, 165, 233, 0.12);
-  border: 1px solid rgba(14, 165, 233, 0.3);
+  color: #c8434c;
+  background: rgba(200, 67, 76, 0.12);
+  border: 1px solid rgba(200, 67, 76, 0.3);
   margin-bottom: 8px;
 }
 .syspick-hero h2 {
@@ -7832,8 +7829,8 @@ button:disabled {
   border-width: 2px;
 }
 .syspick-card.sp-coc7 {
-  border-color: rgba(14, 165, 233, 0.55);
-  background: linear-gradient(160deg, rgba(14, 165, 233, 0.08), var(--surface) 55%);
+  border-color: rgba(200, 67, 76, 0.55);
+  background: linear-gradient(160deg, rgba(200, 67, 76, 0.08), var(--surface) 55%);
 }
 .syspick-card.sp-coc6 {
   border-color: rgba(99, 102, 241, 0.45);
@@ -8885,8 +8882,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(55, 172, 232, 0.14);
-  border: 1px solid rgba(55, 172, 232, 0.32);
+  background: rgba(176, 40, 50, 0.14);
+  border: 1px solid rgba(176, 40, 50, 0.32);
   color: var(--primary-deep);
 }
 .scb-title {
@@ -8950,7 +8947,7 @@ button:disabled {
   height: 22px;
   border-radius: 50%;
   border: 0;
-  background: rgba(13, 26, 38, 0.55);
+  background: rgba(23, 18, 16, 0.55);
   color: #fff;
   cursor: pointer;
   font-size: 14px;
@@ -9030,7 +9027,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(13, 26, 38, 0.45);
+  background: rgba(23, 18, 16, 0.45);
   backdrop-filter: blur(2px);
 }
 .scb-pub {
@@ -9629,8 +9626,8 @@ button:disabled {
   cursor: pointer;
 }
 .sf-chip.active {
-  background: var(--primary-deep, #0369a1);
-  border-color: var(--primary-deep, #0369a1);
+  background: var(--primary-deep, #8a1d26);
+  border-color: var(--primary-deep, #8a1d26);
   color: #fff;
   font-weight: 700;
 }
@@ -10407,8 +10404,8 @@ button:disabled {
   padding: 36px 18px 14px;
   background: linear-gradient(
     to top,
-    rgba(11, 36, 56, 0.88) 0%,
-    rgba(11, 36, 56, 0.55) 55%,
+    rgba(26, 20, 17, 0.88) 0%,
+    rgba(26, 20, 17, 0.55) 55%,
     transparent 100%
   );
   display: flex;
@@ -10784,8 +10781,8 @@ button:disabled {
 }
 /* tone: アイコンチップの色味(rgba を重ねて両テーマで成立) */
 .sec-ic.tone-sky {
-  background: rgba(55, 172, 232, 0.14);
-  border: 1px solid rgba(55, 172, 232, 0.34);
+  background: rgba(176, 40, 50, 0.14);
+  border: 1px solid rgba(176, 40, 50, 0.34);
   color: var(--primary-deep);
 }
 .sec-ic.tone-mint {
@@ -10820,14 +10817,14 @@ button:disabled {
   align-items: center;
   gap: 16px;
   width: 100%;
-  border: 1px solid rgba(55, 172, 232, 0.34);
+  border: 1px solid rgba(176, 40, 50, 0.34);
   border-radius: var(--radius-md);
   /* rgba を surface に重ねて両テーマ対応の淡いスカイ→ミントのグラデ */
   background:
     linear-gradient(
       135deg,
-      rgba(55, 172, 232, 0.16),
-      rgba(125, 228, 211, 0.1)
+      rgba(176, 40, 50, 0.16),
+      rgba(207, 165, 74, 0.1)
     ),
     var(--surface);
   padding: 16px 18px;
@@ -10842,7 +10839,7 @@ button:disabled {
 }
 .catfeat:hover {
   transform: translateY(-2px);
-  border-color: rgba(55, 172, 232, 0.6);
+  border-color: rgba(176, 40, 50, 0.6);
   box-shadow: var(--shadow-md);
 }
 .catfeat-ic {
@@ -10853,8 +10850,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(55, 172, 232, 0.16);
-  border: 1px solid rgba(55, 172, 232, 0.36);
+  background: rgba(176, 40, 50, 0.16);
+  border: 1px solid rgba(176, 40, 50, 0.36);
   color: var(--primary-deep);
   transition: transform var(--dur-3) var(--ease-out);
 }
@@ -11351,7 +11348,7 @@ button:disabled {
   color: var(--text-faint);
 }
 .join-promo-head svg {
-  color: #0ea5e9;
+  color: #c8434c;
 }
 .join-promo-card {
   display: flex;
@@ -11414,7 +11411,7 @@ button:disabled {
 .join-promo-price {
   font-size: 13px;
   font-weight: 800;
-  color: #0284c7;
+  color: #93202a;
 }
 .join-promo-dots {
   display: flex;
@@ -11428,7 +11425,7 @@ button:disabled {
   background: var(--border);
 }
 .join-promo-dots span.on {
-  background: #0ea5e9;
+  background: #c8434c;
 }
 .join-promo-upsell {
   display: inline-flex;
@@ -11442,7 +11439,7 @@ button:disabled {
   font-weight: 700;
   color: #fff;
   cursor: pointer;
-  background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+  background: linear-gradient(135deg, #c8434c, #e3c05c);
 }
 .join-promo-upsell:hover {
   filter: brightness(1.05);
@@ -11451,15 +11448,15 @@ button:disabled {
 /* ダークモード配慮: カード地(暗い --surface)に対して濃すぎる accent 文字色を
    一段明るくして可読性を確保する(JoinPromo の価格 / プラン案内の見出し・価格)。 */
 [data-theme="dark"] .join-promo-price {
-  color: #38bdf8;
+  color: #e05e66;
 }
 [data-theme="dark"] .pg-cyan .pg-code,
 [data-theme="dark"] .pg-cyan .pg-price {
-  color: #22d3ee;
+  color: #e3c05c;
 }
 [data-theme="dark"] .pg-sky .pg-code,
 [data-theme="dark"] .pg-sky .pg-price {
-  color: #38bdf8;
+  color: #e05e66;
 }
 [data-theme="dark"] .pg-indigo .pg-code,
 [data-theme="dark"] .pg-indigo .pg-price {
@@ -11618,22 +11615,22 @@ button:disabled {
   --glass-bg: rgba(255, 255, 255, 0.5);
   --glass-bg-strong: rgba(255, 255, 255, 0.68);
   --glass-border: rgba(255, 255, 255, 0.62);
-  --glass-shadow: 0 10px 34px rgba(24, 95, 165, 0.12);
+  --glass-shadow: 0 10px 34px rgba(94, 52, 24, 0.12);
   --glass-blur: blur(14px) saturate(135%);
 }
 [data-theme="dark"] {
-  --glass-bg: rgba(28, 51, 73, 0.4);
-  --glass-bg-strong: rgba(24, 44, 64, 0.62);
-  --glass-border: rgba(120, 180, 230, 0.16);
+  --glass-bg: rgba(44, 34, 29, 0.4);
+  --glass-bg-strong: rgba(38, 29, 25, 0.62);
+  --glass-border: rgba(214, 178, 106, 0.16);
   --glass-shadow: 0 10px 34px rgba(0, 0, 0, 0.42);
 }
 
 /* 背景: ごく淡い青白グレーのグラデーション(その上に薄いサイコロ ::before) */
 .store {
-  background: linear-gradient(180deg, #fbfdff 0%, #edf4fb 55%, #e6eef6 100%);
+  background: linear-gradient(180deg, #fffdf9 0%, #f8f1e6 55%, #f3ead9 100%);
 }
 [data-theme="dark"] .store {
-  background: linear-gradient(180deg, #0f1e2c 0%, #0d1a26 60%, #0b1722 100%);
+  background: linear-gradient(180deg, #1a1412 0%, #171210 60%, #140f0d 100%);
 }
 
 /* 検索バー */
@@ -11667,7 +11664,7 @@ button:disabled {
   color: var(--primary-deep);
   box-shadow:
     0 0 0 1px var(--primary-soft),
-    0 6px 18px rgba(55, 172, 232, 0.22);
+    0 6px 18px rgba(176, 40, 50, 0.22);
 }
 
 /* ヒーローバナー: CTA をガラスカード化(背景グラデは既存のまま) */
@@ -11753,7 +11750,7 @@ button:disabled {
 }
 .acct-chip:hover {
   border-color: var(--primary);
-  box-shadow: 0 4px 14px rgba(55, 172, 232, 0.18);
+  box-shadow: 0 4px 14px rgba(176, 40, 50, 0.18);
 }
 .acct-av {
   display: inline-flex;
@@ -12093,6 +12090,41 @@ button:disabled {
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface-2);
+}
+
+/* アプリアイコンの選択タイル(設定 > 画面・テーマ) */
+.appicon-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.appicon-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px 10px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  transition: border-color var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out);
+}
+.appicon-tile img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+.appicon-tile:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+.appicon-tile.on {
+  border-color: var(--primary);
+  color: var(--text);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 /* ===== ゴールド(設定タブ / チップ) ===== */
@@ -12461,9 +12493,9 @@ button:disabled {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  color: #0ea5e9;
-  background: rgba(14, 165, 233, 0.12);
-  border: 1px solid rgba(14, 165, 233, 0.3);
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
 }
 .login-gate-title {
   font-size: 17px;
@@ -12493,9 +12525,9 @@ button:disabled {
   color: var(--text-muted);
 }
 [data-theme="dark"] .login-gate-icon {
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.16);
-  border-color: rgba(56, 189, 248, 0.35);
+  color: #e05e66;
+  background: rgba(214, 69, 79, 0.16);
+  border-color: rgba(214, 69, 79, 0.35);
 }
 
 /* =====================================================================

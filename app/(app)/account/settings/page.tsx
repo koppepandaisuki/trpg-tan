@@ -67,13 +67,13 @@ export default async function AccountSettingsPage() {
         />
 
         {/* Hero ヘッダー(他のページと同じ視覚言語、indigo/violet トーン)*/}
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-sky-500/8 via-transparent to-violet-500/8 shadow-sm">
+        <Card className="overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-violet-500/8 shadow-sm">
           <CardContent className="relative py-5 sm:py-6">
             <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-12 -left-10 h-36 w-36 rounded-full bg-sky-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-12 -left-10 h-36 w-36 rounded-full bg-red-500/10 blur-3xl" />
 
             <div className="relative z-10 flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-sky-50 text-sky-700">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700">
                 <Settings className="h-5 w-5" aria-hidden />
               </div>
               <div className="flex-1 space-y-1.5">

@@ -86,7 +86,7 @@ export function EmailChangeForm({ currentEmail }: EmailChangeFormProps) {
           htmlFor="newEmail"
           className="flex items-center gap-1.5 text-sm font-medium"
         >
-          <Mail className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+          <Mail className="h-3.5 w-3.5 text-red-600" aria-hidden />
           新しいメールアドレス
         </label>
         <Input

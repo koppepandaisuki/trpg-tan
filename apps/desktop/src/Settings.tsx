@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
+import { openExternalUrl as openUrl, WEB_BASE, isTauri } from "./platform";
+import { APP_ICONS, getAppIcon, setAppIcon, type AppIconKind } from "./app-icon";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   UserCog,
@@ -850,7 +851,37 @@ function DisplayTab({
           <span>フルスクリーンで表示する</span>
         </label>
       </Section>
+      {isTauri() && <AppIconSection />}
     </>
+  );
+}
+
+/** アプリアイコンの選択(ウィンドウ/タスクバーに即時反映)。 */
+function AppIconSection() {
+  const [icon, setIcon] = useState<AppIconKind>(() => getAppIcon());
+  function choose(kind: AppIconKind) {
+    setIcon(kind);
+    void setAppIcon(kind);
+  }
+  return (
+    <Section
+      title="アプリアイコン"
+      desc="ウィンドウとタスクバーに表示されるアイコンを選べます。デスクトップのショートカットは既定のまま変わりません。"
+    >
+      <div className="appicon-row">
+        {APP_ICONS.map((it) => (
+          <button
+            key={it.kind}
+            className={`appicon-tile ${icon === it.kind ? "on" : ""}`}
+            onClick={() => choose(it.kind)}
+            title={it.label}
+          >
+            <img src={it.src} alt={it.label} />
+            <span>{it.label}</span>
+          </button>
+        ))}
+      </div>
+    </Section>
   );
 }
 

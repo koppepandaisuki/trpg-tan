@@ -24,7 +24,7 @@ export function PlanSelectButton({
   plan,
   current,
   loggedIn,
-  accentClassName = "bg-sky-600 hover:bg-sky-700",
+  accentClassName = "bg-red-600 hover:bg-red-700",
   billingConfigured = false,
 }: {
   plan: UserPlan;

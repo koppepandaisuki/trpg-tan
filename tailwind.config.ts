@@ -57,11 +57,11 @@ const config: Config = {
         lg: "var(--radius-lg)",
       },
       boxShadow: {
-        /* 柔らかい青みの影(ブランド) */
-        sm: "0 4px 14px rgba(37, 121, 182, 0.06)",
-        card: "0 1px 2px rgba(37, 121, 182, 0.06), 0 0 0 1px rgba(63, 154, 221, 0.10)",
-        md: "0 10px 30px rgba(37, 121, 182, 0.10)",
-        lg: "0 24px 60px rgba(37, 121, 182, 0.14)",
+        /* 柔らかい暖色の影(ブランド) */
+        sm: "0 4px 14px rgba(94, 52, 24, 0.06)",
+        card: "0 1px 2px rgba(94, 52, 24, 0.06), 0 0 0 1px rgba(164, 120, 44, 0.14)",
+        md: "0 10px 30px rgba(94, 52, 24, 0.10)",
+        lg: "0 24px 60px rgba(94, 52, 24, 0.14)",
       },
       spacing: {
         "18": "4.5rem",
@@ -69,6 +69,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        serif: ["var(--font-serif)", "Georgia", "serif"],
       },
     },
   },

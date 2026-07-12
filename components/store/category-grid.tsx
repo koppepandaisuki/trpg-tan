@@ -52,16 +52,16 @@ const TONES: Record<
   }
 > = {
   full_package: {
-    gradient: "from-sky-500/20 to-emerald-500/10",
-    iconBg: "bg-sky-50",
-    iconBorder: "border-sky-300",
-    iconColor: "text-sky-700",
+    gradient: "from-red-500/20 to-emerald-500/10",
+    iconBg: "bg-red-50",
+    iconBorder: "border-red-300",
+    iconColor: "text-red-700",
   },
   scenario: {
-    gradient: "from-sky-500/15 to-sky-500/5",
-    iconBg: "bg-sky-50",
-    iconBorder: "border-sky-200",
-    iconColor: "text-sky-700",
+    gradient: "from-red-500/15 to-red-500/5",
+    iconBg: "bg-red-50",
+    iconBorder: "border-red-200",
+    iconColor: "text-red-700",
   },
   rulebook: {
     gradient: "from-emerald-500/15 to-emerald-500/5",
@@ -115,7 +115,7 @@ export function CategoryGrid() {
       {/* 見出し行 — ProductStrip の見出しトーンと統一(LayoutGrid アイコンで
           「グリッドで一覧する」入口感を表現)*/}
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-700">
           <LayoutGrid className="h-4 w-4" aria-hidden />
         </div>
         <div className="space-y-0.5">
@@ -130,15 +130,15 @@ export function CategoryGrid() {
       {headline && (
         <Link
           href={`/store?category=${headline.value}` as Route}
-          className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-sky-300/60 bg-gradient-to-br from-sky-500/20 to-emerald-500/10 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-md"
+          className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-red-300/60 bg-gradient-to-br from-red-500/20 to-emerald-500/10 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-red-400 hover:shadow-md"
           aria-label="「フルパッケージ」カテゴリの作品一覧へ"
         >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-sky-50 text-sky-700 transition-transform duration-300 group-hover:scale-110">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700 transition-transform duration-300 group-hover:scale-110">
             <Boxes className="h-6 w-6" aria-hidden />
           </span>
           <div className="min-w-0 flex-1 space-y-0.5">
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">
+              <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
                 目玉
               </span>
               <span className="text-base font-bold tracking-tight">

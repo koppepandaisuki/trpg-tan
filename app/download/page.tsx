@@ -58,10 +58,10 @@ export default function DownloadPage() {
         <Breadcrumb items={[{ label: "アプリをダウンロード" }]} />
 
         {/* Hero */}
-        <Card className="mt-4 overflow-hidden border-border bg-gradient-to-br from-sky-500/10 via-transparent to-emerald-500/10">
+        <Card className="mt-4 overflow-hidden border-border bg-gradient-to-br from-red-500/10 via-transparent to-emerald-500/10">
           <CardContent className="relative space-y-5 py-8 text-center">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-sky-500/10 blur-3xl" />
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-300 bg-sky-50 text-sky-700">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-red-500/10 blur-3xl" />
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-300 bg-red-50 text-red-700">
               <Dices className="h-7 w-7" aria-hidden />
             </div>
             <div className="space-y-1">
@@ -100,7 +100,7 @@ export default function DownloadPage() {
           {FEATURES.map((f) => (
             <Card key={f.title} className="border-border">
               <CardContent className="space-y-2 py-5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-700">
                   <f.icon className="h-4 w-4" aria-hidden />
                 </div>
                 <h2 className="text-sm font-semibold tracking-tight">
@@ -122,7 +122,7 @@ export default function DownloadPage() {
           <ol className="space-y-3">
             {STEPS.map((s, i) => (
               <li key={i} className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-600 text-xs font-bold text-white">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
                   {i + 1}
                 </span>
                 <span className="pt-0.5 text-sm text-foreground/90">{s}</span>
@@ -151,7 +151,7 @@ export default function DownloadPage() {
           <Card className="border-border">
             <CardContent className="flex items-start gap-3 py-4">
               <ShieldCheck
-                className="mt-0.5 h-4 w-4 shrink-0 text-sky-600"
+                className="mt-0.5 h-4 w-4 shrink-0 text-red-600"
                 aria-hidden
               />
               <div className="space-y-0.5">

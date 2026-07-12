@@ -66,7 +66,7 @@ export default function DesktopHandoffPage() {
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center gap-5 px-6 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full border border-sky-300 bg-sky-50 text-sky-700">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700">
         {phase === "checking" ? (
           <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
         ) : phase === "ready" ? (
