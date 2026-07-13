@@ -25,6 +25,7 @@ import {
   CalendarClock,
   ScrollText,
   Wrench,
+  UploadCloud,
   Coins,
 } from "lucide-react";
 import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
@@ -99,6 +100,9 @@ const SystemBuilder = lazy(() =>
 );
 const ScenarioBuilder = lazy(() =>
   import("./ScenarioBuilder").then((m) => ({ default: m.ScenarioBuilder })),
+);
+const UploadProductPanel = lazy(() =>
+  import("./UploadProductPanel").then((m) => ({ default: m.UploadProductPanel })),
 );
 const LibraryPage = lazy(() =>
   import("./LibraryPage").then((m) => ({ default: m.LibraryPage })),
@@ -175,7 +179,9 @@ export function App() {
   // Steam ライクに、起動直後はストアをフロントに出す。
   const [page, setPage] = useState<Page>("store");
   // ビルダー(作成ハブ)のモード: システム作成 / シナリオ作成。
-  const [builderMode, setBuilderMode] = useState<"system" | "scenario">(
+  const [builderMode, setBuilderMode] = useState<
+    "system" | "scenario" | "upload"
+  >(
     "scenario",
   );
   // PLAY 中にキャラシを卓の上へオーバーレイ表示する(卓は閉じない)。
@@ -1086,10 +1092,18 @@ export function App() {
               >
                 <Wrench size={16} /> システムを作る
               </button>
+              <button
+                className={`bhub-tab ${builderMode === "upload" ? "on" : ""}`}
+                onClick={() => setBuilderMode("upload")}
+              >
+                <UploadCloud size={16} /> 作品を投稿
+              </button>
             </div>
             <div className="bhub-content">
               {builderMode === "system" ? (
                 <SystemBuilder onCreateCharacter={newGenericCharacter} />
+              ) : builderMode === "upload" ? (
+                <UploadProductPanel />
               ) : (
                 <ScenarioBuilder
                   index={playIndex}

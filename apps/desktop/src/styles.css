@@ -9101,6 +9101,77 @@ button:disabled {
   color: var(--text-faint);
 }
 
+/* --- 作品を投稿(UploadProductPanel) --- */
+.upl-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+  margin-top: 10px;
+}
+.upl-cats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.upl-cat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out);
+}
+.upl-cat:hover {
+  border-color: var(--primary);
+}
+.upl-cat.on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.upl-cat b {
+  font-size: 13px;
+}
+.upl-cat span {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+.upl-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.upl-file-pick {
+  cursor: pointer;
+}
+.upl-file-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upl-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
 /* --- 設定: 料金プラン(テスター) --- */
 .plan-rows {
   display: flex;
