@@ -17,14 +17,14 @@ export type AdminTone = "slate" | "indigo" | "emerald" | "rose";
 
 const TONE_GRADIENTS: Record<AdminTone, string> = {
   slate: "from-slate-500/8 via-transparent to-slate-500/5",
-  indigo: "from-red-500/8 via-transparent to-violet-500/8",
+  indigo: "from-red-500/8 via-transparent to-amber-500/8",
   emerald: "from-emerald-500/8 via-transparent to-emerald-500/5",
   rose: "from-rose-500/8 via-transparent to-amber-500/5",
 };
 
 const TONE_BLOB_A: Record<AdminTone, string> = {
   slate: "bg-slate-500/10",
-  indigo: "bg-violet-500/10",
+  indigo: "bg-amber-500/10",
   emerald: "bg-emerald-500/10",
   rose: "bg-rose-500/10",
 };

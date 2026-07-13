@@ -250,7 +250,7 @@ function SnsLink({
       ? "border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100"
       : tone === "emerald"
         ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
-        : "border-violet-200 bg-violet-50 text-violet-700 hover:border-violet-300 hover:bg-violet-100";
+        : "border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300 hover:bg-amber-100";
 
   return (
     <a

@@ -76,7 +76,7 @@ export default async function EditProductPage({
           ]}
           className="mb-4"
         />
-        <section className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-red-500/8 via-transparent to-violet-500/8 p-6 sm:p-8">
+        <section className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-red-500/8 via-transparent to-amber-500/8 p-6 sm:p-8">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700">
               <Pencil className="h-5 w-5" aria-hidden />

@@ -73,7 +73,7 @@ export default async function AdminTopPage() {
 
 const TONE_GRADIENTS: Record<string, string> = {
   slate: "from-slate-500/10 via-transparent to-slate-500/5",
-  indigo: "from-red-500/10 via-transparent to-violet-500/5",
+  indigo: "from-red-500/10 via-transparent to-amber-500/5",
   emerald: "from-emerald-500/10 via-transparent to-emerald-500/5",
   rose: "from-rose-500/10 via-transparent to-amber-500/5",
 };

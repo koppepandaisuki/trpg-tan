@@ -18,7 +18,7 @@ const PRO_PCT = Math.round(PRO_PLATFORM_FEE_RATE * 100);
 
 type Perk = { label: string; soon?: boolean; star?: boolean };
 
-/** プランごとのブランドカラー(スカイ系の寒色ランプ: シアン→スカイ→インディゴ)。 */
+/** プランごとのブランドカラー(赤・白・金の暖色ランプ: 金→赤→橙)。 */
 const THEME: Record<
   UserPlan,
   { code: string; text: string; border: string; check: string; btn: string }
@@ -39,10 +39,10 @@ const THEME: Record<
   },
   pro: {
     code: "PRO",
-    text: "text-indigo-600",
-    border: "border-indigo-300",
-    check: "bg-indigo-500",
-    btn: "bg-indigo-600 hover:bg-indigo-700",
+    text: "text-orange-600",
+    border: "border-orange-300",
+    check: "bg-orange-500",
+    btn: "bg-orange-600 hover:bg-orange-700",
   },
 };
 
