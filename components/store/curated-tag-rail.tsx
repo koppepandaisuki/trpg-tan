@@ -21,10 +21,10 @@ export function CuratedTagRail({ current }: { current?: string | null }) {
   return (
     <section
       aria-label="テーマで探す"
-      className="rounded-xl border border-border bg-gradient-to-br from-violet-500/[0.04] via-transparent to-red-500/[0.04] p-4 sm:p-5"
+      className="rounded-xl border border-border bg-gradient-to-br from-amber-500/[0.04] via-transparent to-red-500/[0.04] p-4 sm:p-5"
     >
       <div className="mb-3 flex items-center gap-2">
-        <Compass className="h-4 w-4 text-violet-600" aria-hidden />
+        <Compass className="h-4 w-4 text-amber-600" aria-hidden />
         <h2 className="text-sm font-semibold tracking-tight">テーマで探す</h2>
         <span className="text-xs text-muted-foreground">
           遊びやすさ・時間・人数・雰囲気から
@@ -56,8 +56,8 @@ export function CuratedTagRail({ current }: { current?: string | null }) {
                       className={cn(
                         "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition",
                         isActive
-                          ? "border-violet-500 bg-violet-600 text-white shadow-sm"
-                          : "border-violet-200 bg-violet-50/60 text-violet-800 hover:border-violet-300 hover:bg-violet-100",
+                          ? "border-amber-500 bg-amber-600 text-white shadow-sm"
+                          : "border-amber-200 bg-amber-50/60 text-amber-800 hover:border-amber-300 hover:bg-amber-100",
                       )}
                     >
                       {t.label}

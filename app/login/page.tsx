@@ -47,10 +47,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <>
       <TopHeader />
       <PageContainer className="py-12">
-        <Card className="mx-auto max-w-sm overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-violet-500/8 shadow-sm">
+        <Card className="mx-auto max-w-sm overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-amber-500/8 shadow-sm">
           <CardContent className="relative space-y-5 py-8">
             {/* 装飾ブラー(控えめ) */}
-            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-violet-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-500/10 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-red-500/10 blur-3xl" />
 
             <div className="relative z-10 flex flex-col items-center gap-2 text-center">

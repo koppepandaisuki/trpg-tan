@@ -54,7 +54,7 @@ export function PasswordChangeForm() {
           htmlFor="newPassword"
           className="flex items-center gap-1.5 text-sm font-medium"
         >
-          <Lock className="h-3.5 w-3.5 text-violet-600" aria-hidden />
+          <Lock className="h-3.5 w-3.5 text-amber-600" aria-hidden />
           新しいパスワード
         </label>
         <Input

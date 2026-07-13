@@ -82,10 +82,10 @@ const TONES: Record<
     iconColor: "text-rose-700",
   },
   bgm_audio: {
-    gradient: "from-violet-500/15 to-violet-500/5",
-    iconBg: "bg-violet-50",
-    iconBorder: "border-violet-200",
-    iconColor: "text-violet-700",
+    gradient: "from-orange-500/15 to-orange-500/5",
+    iconBg: "bg-orange-50",
+    iconBorder: "border-orange-200",
+    iconColor: "text-orange-700",
   },
 };
 

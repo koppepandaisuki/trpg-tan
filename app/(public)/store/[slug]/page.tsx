@@ -204,7 +204,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
         />
 
         {/* Steam ライクなグラデ hero ヘッダー */}
-        <header className="mt-4 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-red-500/8 via-transparent to-violet-500/8 p-6 sm:p-8">
+        <header className="mt-4 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-red-500/8 via-transparent to-amber-500/8 p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="category">{categoryLabel(product.productType)}</Badge>
             {/* 総合評価 Badge(GGGG): 5 件以上のレビューがあれば色付き

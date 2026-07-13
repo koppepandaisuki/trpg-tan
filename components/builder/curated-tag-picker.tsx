@@ -30,13 +30,13 @@ export function CuratedTagPicker({
   atMax: boolean;
 }) {
   return (
-    <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50/40 p-3">
+    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3">
       <div className="mb-2 flex items-center gap-1.5">
-        <Sparkles className="h-3.5 w-3.5 text-violet-600" aria-hidden />
-        <p className="text-xs font-semibold text-violet-900">
+        <Sparkles className="h-3.5 w-3.5 text-amber-600" aria-hidden />
+        <p className="text-xs font-semibold text-amber-900">
           おすすめの探索タグ
         </p>
-        <span className="text-[11px] text-violet-700/80">
+        <span className="text-[11px] text-amber-700/80">
           テーマ別。付けるとストアの「テーマで探す」から見つけてもらえます
         </span>
       </div>
@@ -44,7 +44,7 @@ export function CuratedTagPicker({
       <div className="space-y-2">
         {CURATED_TAG_GROUPS.map((group) => (
           <div key={group.id} className="flex flex-col gap-1 sm:flex-row sm:items-start">
-            <span className="shrink-0 pt-1 text-[10px] font-semibold uppercase tracking-wider text-violet-700/70 sm:w-24">
+            <span className="shrink-0 pt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-700/70 sm:w-24">
               {group.label}
             </span>
             <div className="flex flex-wrap gap-1.5">
@@ -64,8 +64,8 @@ export function CuratedTagPicker({
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition",
                       selected
-                        ? "border-violet-500 bg-violet-600 text-white"
-                        : "border-violet-200 bg-card text-violet-800 hover:border-violet-300 hover:bg-violet-100",
+                        ? "border-amber-500 bg-amber-600 text-white"
+                        : "border-amber-200 bg-card text-amber-800 hover:border-amber-300 hover:bg-amber-100",
                       disabled && "cursor-not-allowed opacity-40 hover:bg-card",
                     )}
                   >
@@ -84,7 +84,7 @@ export function CuratedTagPicker({
       </div>
 
       {atMax && (
-        <p className="mt-2 text-[11px] text-violet-700/80">
+        <p className="mt-2 text-[11px] text-amber-700/80">
           タグが上限に達しています。外すと別のタグを追加できます。
         </p>
       )}

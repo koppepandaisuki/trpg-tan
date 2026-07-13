@@ -24,7 +24,7 @@ export default async function AdminMfaVerifyPage() {
   return (
     <div className="mx-auto max-w-md space-y-6 py-4">
       <div className="space-y-1.5 text-center">
-        <ShieldCheck className="mx-auto h-8 w-8 text-violet-600" aria-hidden />
+        <ShieldCheck className="mx-auto h-8 w-8 text-amber-600" aria-hidden />
         <h1 className="text-xl font-semibold">認証コードを入力してください</h1>
         <p className="text-sm text-muted-foreground">
           認証アプリに表示されている 6 桁のコードで本人確認します。

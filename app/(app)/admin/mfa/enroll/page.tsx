@@ -24,7 +24,7 @@ export default async function AdminMfaEnrollPage() {
   return (
     <div className="mx-auto max-w-md space-y-6 py-4">
       <div className="space-y-1.5 text-center">
-        <ShieldPlus className="mx-auto h-8 w-8 text-violet-600" aria-hidden />
+        <ShieldPlus className="mx-auto h-8 w-8 text-amber-600" aria-hidden />
         <h1 className="text-xl font-semibold">
           管理画面には二段階認証が必須です
         </h1>

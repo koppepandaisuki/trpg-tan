@@ -165,7 +165,7 @@ export function ProfileEditForm({ initialValues }: ProfileEditFormProps) {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-sm font-medium">
-            <Link2 className="h-3.5 w-3.5 text-violet-600" aria-hidden />
+            <Link2 className="h-3.5 w-3.5 text-amber-600" aria-hidden />
             SNS / 外部リンク
           </span>
           {fields.length < MAX_SOCIAL_LINKS && (

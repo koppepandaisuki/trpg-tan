@@ -119,9 +119,9 @@ export default async function StorePage({ searchParams }: StorePageProps) {
         {/* Hero ヘッダー(サイト全体の視覚言語に統一)。
             ホーム / ライブラリ / 商品詳細と同じ indigo/violet 系で
             「探す」ことの positive さを表現。 */}
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-violet-500/8 shadow-sm">
+        <Card className="overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-amber-500/8 shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-amber-500/10 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-red-500/10 blur-3xl" />
 
             <div className="relative z-10 flex items-start gap-4">
@@ -152,7 +152,7 @@ export default async function StorePage({ searchParams }: StorePageProps) {
                   {tag && (
                     <Link
                       href={removeTagHref}
-                      className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800 transition hover:border-violet-300 hover:bg-violet-100"
+                      className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 transition hover:border-amber-300 hover:bg-amber-100"
                       aria-label={`タグ「${tag}」のフィルタを外す`}
                     >
                       <Tag className="h-3 w-3" aria-hidden />
