@@ -8,6 +8,7 @@ import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { categoryLabel } from "@/lib/format/category";
 import { PriceTag } from "./price-tag";
 import { publicCoverUrl, publicAvatarUrl } from "@/lib/format/storage";
+import { effectiveDiscountPercent } from "@/lib/format/price";
 import type { ProductListItem } from "@/lib/queries/types";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,11 @@ function rankBadgeTone(rank: number): string {
 export function WorkCard({ product, rank }: WorkCardProps) {
   const coverUrl = publicCoverUrl(product.coverPath);
   const avatarUrl = publicAvatarUrl(product.creator.avatarPath);
+  const discount = effectiveDiscountPercent(
+    product.discountPercent,
+    product.discountStartsAt,
+    product.discountEndsAt,
+  );
 
   // お気に入りトグル(localStorage)。カード全体が <Link> なので、ボタンを
   // Link の子(=<a> 内の <button>)にすると DOM 違反になる。relative ラッパー
@@ -79,6 +85,16 @@ export function WorkCard({ product, rank }: WorkCardProps) {
                 aria-label={`ランキング ${rank} 位`}
               >
                 {rank}
+              </span>
+            )}
+            {/* セールバッジ。rank バッジと同じ角に出すと衝突するので、
+                rank 表示時(product-strip のランキング枠)は割愛する。 */}
+            {rank == null && discount > 0 && (
+              <span
+                className="absolute left-2 top-2 rounded-md bg-[#159457] px-2 py-0.5 text-[11px] font-extrabold text-white shadow-sm"
+                aria-label={`${discount}%オフ`}
+              >
+                -{discount}%
               </span>
             )}
           </div>
