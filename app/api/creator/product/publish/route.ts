@@ -10,6 +10,7 @@ import {
   mimeToProductFileExt,
 } from "@/lib/format/upload";
 import { slugify, randomToken } from "@/lib/format/slug";
+import { salePriceJpy } from "@/lib/format/price";
 import type { FileFormat, ProductType } from "@/lib/queries/types";
 
 /**
@@ -83,6 +84,10 @@ export async function POST(request: NextRequest) {
     fileFormat?: string;
     /** 本体ファイルの MIME(application/pdf, application/zip, audio/mpeg, audio/wav)。 */
     fileContentType?: string;
+    /** 割引(任意)。率は 0..100(100=無料配布)、期間は ISO 文字列。 */
+    discountPercent?: number;
+    discountStartsAt?: string | null;
+    discountEndsAt?: string | null;
     /** 任意メタ。 */
     systemLabel?: string;
     players?: string;
@@ -138,6 +143,43 @@ export async function POST(request: NextRequest) {
     typeof body.priceJpy === "number" && Number.isFinite(body.priceJpy)
       ? Math.max(0, Math.min(10_000_000, Math.floor(body.priceJpy)))
       : 0;
+
+  // 割引(web の BuilderForm と同じ制約)。
+  const discountPercent =
+    typeof body.discountPercent === "number" &&
+    Number.isFinite(body.discountPercent)
+      ? Math.max(0, Math.min(100, Math.floor(body.discountPercent)))
+      : 0;
+  const parseIso = (v: unknown): string | null => {
+    if (typeof v !== "string" || !v.trim()) return null;
+    const t = Date.parse(v);
+    return Number.isNaN(t) ? null : new Date(t).toISOString();
+  };
+  const discountStartsAt = parseIso(body.discountStartsAt);
+  const discountEndsAt = parseIso(body.discountEndsAt);
+  if (
+    discountStartsAt &&
+    discountEndsAt &&
+    Date.parse(discountEndsAt) <= Date.parse(discountStartsAt)
+  ) {
+    return NextResponse.json(
+      { ok: false, message: "セール終了は開始より後にしてください" },
+      { status: 400 },
+    );
+  }
+  // Stripe の JPY 最低決済額は ¥50。割引後 1〜49 円は決済不能なので弾く。
+  const sale = salePriceJpy(priceJpy, discountPercent);
+  if (sale > 0 && sale < 50) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message:
+          "割引後の価格が¥50未満になります(決済不可)。割引率を下げるか、100%(無料配布)にしてください",
+      },
+      { status: 400 },
+    );
+  }
+
   const slug = `${slugify(title) || "product"}-${randomToken()}`.slice(0, 80);
 
   const clip = (s: string | undefined, n: number) =>
@@ -154,6 +196,9 @@ export async function POST(request: NextRequest) {
       product_type: productType,
       file_format: fileFormat,
       price_jpy: priceJpy,
+      discount_percent: discountPercent,
+      discount_starts_at: discountStartsAt,
+      discount_ends_at: discountEndsAt,
       status: "draft",
       system_label: clip(body.systemLabel, 100),
       players: clip(body.players, 50),

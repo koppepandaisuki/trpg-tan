@@ -231,6 +231,11 @@ export interface PublishFileMeta {
   productType: UploadProductType;
   fileFormat: UploadFileFormat;
   priceJpy: number;
+  /** 割引率 0..100(100=無料配布)。省略時 0。 */
+  discountPercent?: number;
+  /** セール期間(ISO 文字列・任意)。両方 null/省略で無期限。 */
+  discountStartsAt?: string | null;
+  discountEndsAt?: string | null;
   description?: string;
   systemLabel?: string;
   players?: string;
