@@ -10896,6 +10896,535 @@ button:disabled {
 .catcard.tone-violet {
   background: linear-gradient(135deg, #f3effd, #e9e2fa);
 }
+.catcard.tone-orange {
+  background: linear-gradient(135deg, #fff1e6, #ffe1cc);
+}
+.catcard.tone-orange .catcard-icon {
+  color: #c2410c;
+}
+
+/* =====================================================================
+ * ストアホーム: 大型ヒーローバナー + 人気ランキング + セール特集帯
+ * (web の design_handoff_store_redesign 案Aと同じ視覚言語をデスクトップへ移植)
+ * ===================================================================== */
+
+/* --- ダイスの目(pip)モチーフ・アンビエント。ヒーロー内だけの濃いめ装飾。 --- */
+.dc-amb {
+  position: absolute;
+  opacity: 0.16;
+  transform: rotate(var(--rot, 0deg));
+  animation: dc-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite;
+  will-change: transform;
+  pointer-events: none;
+}
+.dc-die-c,
+.dc-die-g {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  border: 2px solid;
+  background-repeat: no-repeat;
+}
+.dc-die-c {
+  border-color: #f3c9c9;
+  background-image:
+    radial-gradient(circle 3px at 28% 28%, #f3c9c9 95%, transparent),
+    radial-gradient(circle 3px at 72% 28%, #f3c9c9 95%, transparent),
+    radial-gradient(circle 3px at 50% 50%, #f3c9c9 95%, transparent),
+    radial-gradient(circle 3px at 28% 72%, #f3c9c9 95%, transparent),
+    radial-gradient(circle 3px at 72% 72%, #f3c9c9 95%, transparent);
+}
+.dc-die-g {
+  border-color: #e9cf7f;
+  background-image:
+    radial-gradient(circle 3px at 30% 30%, #e9cf7f 95%, transparent),
+    radial-gradient(circle 3px at 70% 30%, #e9cf7f 95%, transparent),
+    radial-gradient(circle 3px at 30% 70%, #e9cf7f 95%, transparent),
+    radial-gradient(circle 3px at 70% 70%, #e9cf7f 95%, transparent);
+}
+.dc-spark {
+  width: 16px;
+  height: 16px;
+  background: #e9cf7f;
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  animation:
+    dc-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite,
+    dc-twinkle calc(var(--d, 14s) / 2) ease-in-out var(--delay, 0s) infinite;
+}
+.dc-star {
+  width: 11px;
+  height: 11px;
+  background: #f3e6c8;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  animation:
+    dc-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite,
+    dc-twinkle calc(var(--d, 14s) / 2) ease-in-out var(--delay, 0s) infinite;
+}
+@keyframes dc-float {
+  0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+  50% { transform: translateY(-14px) rotate(calc(var(--rot, 0deg) + 6deg)); }
+}
+@keyframes dc-twinkle {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 0.3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-amb { animation: none; }
+}
+
+/* --- 小さいダイスアイコンチップ(見出し語頭などに) --- */
+.die-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1px solid rgba(176, 40, 50, 0.3);
+  background: rgba(176, 40, 50, 0.08);
+  font-size: 12px;
+  line-height: 1;
+}
+.die-ico.on-dark {
+  border-color: #f3e6c8;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* --- ヒーローバナー本体 --- */
+.shero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(90, 17, 25, 0.5);
+  padding: 32px 28px;
+  background:
+    radial-gradient(120% 140% at 88% 0%, rgba(233, 207, 127, 0.28), transparent 46%),
+    linear-gradient(120deg, #7d1a22, #a3202c 55%, #5a1119);
+  box-shadow: var(--shadow-lg);
+}
+.shero-stripes {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(118deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 16px);
+}
+.shero-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: center;
+}
+@media (min-width: 760px) {
+  .shero-grid {
+    grid-template-columns: 1fr 240px;
+    gap: 32px;
+  }
+}
+.shero-kicker {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+}
+.shero-kicker .die-ico {
+  border-color: #f3e6c8;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+.shero-kicker span {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: rgba(233, 207, 127, 0.95);
+}
+.shero-h1 {
+  margin: 0 0 12px;
+  font-size: 26px;
+  line-height: 1.25;
+  font-weight: 800;
+  color: #fff;
+}
+@media (min-width: 760px) {
+  .shero-h1 {
+    font-size: 32px;
+  }
+}
+.shero-desc {
+  margin: 0 0 18px;
+  max-width: 480px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.85);
+}
+.shero-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  max-width: 460px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+}
+.shero-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 13.5px;
+  color: var(--text);
+  outline: none;
+}
+.shero-search input::placeholder {
+  color: var(--text-faint);
+}
+.shero-search button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 9px;
+  background: #b02832;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out);
+}
+.shero-search button:hover {
+  background: #93202a;
+}
+.shero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+}
+.shero-tag {
+  padding: 5px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-1) var(--ease-out),
+    background var(--dur-1) var(--ease-out);
+}
+.shero-tag:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.2);
+}
+.shero-feat {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(233, 207, 127, 0.4);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  transform: rotate(2deg);
+  cursor: pointer;
+  background: var(--surface-3);
+}
+.shero-feat img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.shero-feat-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.68), rgba(0, 0, 0, 0.05) 55%);
+}
+.shero-feat-body {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+}
+.shero-feat-badge {
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #e9cf7f;
+  color: #4a3a12;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.shero-feat-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #f3e6c8;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+.shero-feat-sub {
+  margin: 4px 0 0;
+  font-size: 10.5px;
+  color: rgba(233, 207, 127, 0.8);
+}
+
+/* --- 人気ランキング(1〜3位。金/銀/銅バッジ) --- */
+.srank-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .srank-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+}
+.srank-card {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+.srank-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(176, 40, 50, 0.35);
+}
+.srank-badge {
+  position: absolute;
+  left: -10px;
+  top: -10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: 0 4px 10px rgba(94, 52, 24, 0.22);
+}
+.srank-badge.r1 {
+  background: var(--gold);
+  border: 1px solid var(--gold-deep);
+  color: #4a3a12;
+}
+.srank-badge.r2 {
+  background: #e7e1d3;
+  border: 1px solid #d8d0bf;
+  color: #6b6355;
+}
+.srank-badge.r3 {
+  background: #e4b483;
+  border: 1px solid #d89a5f;
+  color: #7a4a1f;
+}
+.srank-cover {
+  position: relative;
+  width: 78px;
+  flex-shrink: 0;
+  aspect-ratio: 3 / 4;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+.srank-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.srank-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.srank-cat {
+  align-self: flex-start;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(138, 29, 38, 0.09);
+  color: var(--accent, #8a1d26);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.srank-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.srank-creator {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.srank-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.srank-foot .price-now {
+  margin-left: auto;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+/* --- セール特集帯 --- */
+.ssale {
+  border: 1px solid #ead3b0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: linear-gradient(120deg, #fff8ef, var(--surface));
+}
+[data-theme="dark"] .ssale {
+  background: linear-gradient(120deg, rgba(233, 207, 127, 0.08), var(--surface));
+  border-color: rgba(233, 207, 127, 0.24);
+}
+.ssale-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0e2c9;
+}
+[data-theme="dark"] .ssale-head {
+  border-bottom-color: rgba(233, 207, 127, 0.18);
+}
+.ssale-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ssale-note {
+  font-size: 12px;
+  color: var(--gold-deep, #8a6a2a);
+}
+.ssale-more {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent, #8a1d26);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.ssale-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (min-width: 640px) {
+  .ssale-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.ssale-card {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  border-right: 1px solid transparent;
+}
+@media (min-width: 640px) {
+  .ssale-card:not(:last-child) {
+    border-right-color: #f0e2c9;
+  }
+  [data-theme="dark"] .ssale-card:not(:last-child) {
+    border-right-color: rgba(233, 207, 127, 0.18);
+  }
+}
+.ssale-card:hover {
+  background: rgba(176, 40, 50, 0.04);
+}
+.ssale-cover {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 9px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  background: var(--surface-3);
+}
+.ssale-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ssale-off {
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #159457;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+.ssale-title {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ssale-prices {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.ssale-strike {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+.ssale-now {
+  font-size: 15px;
+  font-weight: 800;
+  color: #159457;
+}
 
 /* === ストアホーム共通: セクション見出し(アイコンチップ + タイトル + 補足) ===
  * 全セクションで同じ語彙にしてリズムと階層を作る。アイコンチップの色味は
@@ -10988,6 +11517,11 @@ button:disabled {
   background: rgba(240, 135, 107, 0.16);
   border: 1px solid rgba(240, 135, 107, 0.36);
   color: #e0673f;
+}
+.sec-ic.tone-orange {
+  background: rgba(234, 88, 12, 0.14);
+  border: 1px solid rgba(234, 88, 12, 0.34);
+  color: #c2410c;
 }
 
 /* --- カテゴリで探す: 目玉カード(Web ホームと統一) --- */
