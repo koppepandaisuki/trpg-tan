@@ -764,6 +764,40 @@ async function fetchFeaturedItems(limit: number): Promise<FeaturedItem[]> {
   return merged.map((it) => ({ ...it, screens: shotMap.get(it.id) ?? [] }));
 }
 
+/**
+ * セール中(discount_percent>0 かつ期間内)の作品。割引率が高い順。
+ * Web の listOnSaleProducts と同じ設計(discount_percent>0 で DB を軽く
+ * 絞り込み、期間内判定は effectiveDiscountPercent で JS 側に集約)。
+ * 0 件ならセクション非表示(topRated 等と同じ規約)。
+ */
+async function fetchOnSaleItems(limit: number): Promise<StoreItem[]> {
+  const { data, error } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .gt("discount_percent", 0)
+    .gt("price_jpy", 0)
+    .order("published_at", { ascending: false })
+    .limit(200);
+  if (error || !data) return [];
+  const now = Date.now();
+  const active = (data as ListRow[])
+    .map((r) => ({
+      row: r,
+      eff: effectiveDiscountPercent(
+        r.discount_percent,
+        r.discount_starts_at,
+        r.discount_ends_at,
+        now,
+      ),
+    }))
+    .filter((x) => x.eff > 0)
+    .sort((a, b) => b.eff - a.eff)
+    .slice(0, limit)
+    .map((x) => x.row);
+  return toStoreItems(active);
+}
+
 const HOME_CATEGORIES: RemoteProductType[] = [
   "scenario",
   "rulebook",
@@ -777,18 +811,21 @@ export interface StoreHome {
   trending: StoreItem[];
   recent: StoreItem[];
   topRated: StoreItem[];
+  /** セール中の作品(割引率が高い順)。Web の SaleStrip と同じデータ。 */
+  onSale: StoreItem[];
   topCreators: TopCreatorEntry[];
   byCategory: { category: RemoteProductType; items: StoreItem[] }[];
 }
 
 /** ホーム一式をまとめて取得(α 規模なので並列に投げるだけ)。 */
 export async function fetchStoreHome(): Promise<StoreHome> {
-  const [featured, trending, recent, topRated, topCreators, ...cats] =
+  const [featured, trending, recent, topRated, onSale, topCreators, ...cats] =
     await Promise.all([
       fetchFeaturedItems(6),
       fetchTrendingItems(12),
       fetchRecentItems(12),
       fetchTopRatedItems(12),
+      fetchOnSaleItems(4),
       fetchTopCreators(3),
       ...HOME_CATEGORIES.map((c) =>
         fetchByRating({
@@ -804,6 +841,7 @@ export async function fetchStoreHome(): Promise<StoreHome> {
     trending,
     recent,
     topRated,
+    onSale,
     topCreators,
     byCategory: HOME_CATEGORIES.map((category, i) => ({
       category,

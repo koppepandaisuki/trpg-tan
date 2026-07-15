@@ -165,11 +165,11 @@ const CAT_CARDS: {
   { key: "rulebook", icon: <BookOpen size={17} />, label: "ルールブック", sub: "ハウスルール・追加システム", tone: "green" },
   { key: "map", icon: <MapIcon size={17} />, label: "マップ・バトルマップ", sub: "戦闘マップ・地図", tone: "gold" },
   { key: "character_art", icon: <Palette size={17} />, label: "アートワーク", sub: "立ち絵・アートワーク", tone: "rose" },
-  { key: "bgm_audio", icon: <Music size={17} />, label: "BGM・効果音", sub: "BGM・効果音", tone: "violet" },
+  { key: "bgm_audio", icon: <Music size={17} />, label: "BGM・効果音", sub: "BGM・効果音", tone: "orange" },
 ];
 
 /** セクション見出しのアクセント色(アイコンチップの色味)。 */
-type SecTone = "sky" | "mint" | "gold" | "rose" | "violet" | "coral";
+type SecTone = "sky" | "mint" | "gold" | "rose" | "violet" | "coral" | "orange";
 
 /** カテゴリ別ストリップの見出し色(catcard の配色と対応)。 */
 const CAT_TONE: Record<RemoteProductType, SecTone> = {
@@ -178,7 +178,7 @@ const CAT_TONE: Record<RemoteProductType, SecTone> = {
   rulebook: "mint",
   map: "gold",
   character_art: "rose",
-  bgm_audio: "violet",
+  bgm_audio: "orange",
 };
 
 /**
@@ -623,6 +623,275 @@ function Strip({
             </span>
           </button>
         ))}
+      </div>
+    </section>
+  );
+}
+
+/* ===== ホーム: 大型ヒーローバナー(web の StoreHero と同じ視覚言語) ===== */
+
+/** ダイスの目/星/スパークをふわっと漂わせる装飾レイヤー。クリック透過。 */
+function DiceAmbient() {
+  const specs = [
+    { cls: "dc-die-c", top: "8%", left: "4%", rot: -8, d: 15, delay: 0 },
+    { cls: "dc-die-g", top: "62%", left: "9%", rot: 10, d: 13, delay: 1.4 },
+    { cls: "dc-spark", top: "20%", left: "84%", rot: 0, d: 11, delay: 0.6 },
+    { cls: "dc-star", top: "72%", left: "78%", rot: 0, d: 12, delay: 2.1 },
+    { cls: "dc-die-c", top: "40%", left: "92%", rot: 14, d: 16, delay: 0.9 },
+    { cls: "dc-star", top: "6%", left: "46%", rot: 0, d: 10, delay: 1.8 },
+  ];
+  return (
+    <div className="dc-amb-layer" aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+      {specs.map((s, i) => (
+        <span
+          key={i}
+          className={`dc-amb ${s.cls}`}
+          style={{
+            top: s.top,
+            left: s.left,
+            ["--rot" as string]: `${s.rot}deg`,
+            ["--d" as string]: `${s.d}s`,
+            ["--delay" as string]: `${s.delay}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StoreHeroBanner({
+  featured,
+  onSearch,
+  onQuickTag,
+  onOpen,
+}: {
+  featured: StoreItem | null;
+  onSearch: (q: string) => void;
+  onQuickTag: (opts: {
+    category?: RemoteProductType | null;
+    priceBand?: StorePriceBand | null;
+    saleOnly?: boolean;
+  }) => void;
+  onOpen: (item: StoreItem) => void;
+}) {
+  const [q, setQ] = useState("");
+  return (
+    <div className="shero">
+      <div className="shero-stripes" aria-hidden />
+      <DiceAmbient />
+      <div className="shero-grid">
+        <div>
+          <div className="shero-kicker">
+            <span className="die-ico on-dark" aria-hidden>
+              🎲
+            </span>
+            <span>CREATOR MARKETPLACE FOR TRPG</span>
+          </div>
+          <h2 className="shero-h1">
+            あなたの次の物語を、
+            <br />
+            ここで見つける。
+          </h2>
+          <p className="shero-desc">
+            クリエイターが作ったシナリオ・キャラシ・マップ・BGM・完成品パッケージ。気になった作品はその場でダウンロードして、すぐ卓へ。
+          </p>
+          <form
+            className="shero-search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSearch(q);
+            }}
+          >
+            <Search size={18} color="#B02832" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="作品名・システム名で検索"
+            />
+            <button type="submit">検索</button>
+          </form>
+          <div className="shero-tags">
+            <button
+              type="button"
+              className="shero-tag"
+              onClick={() => onQuickTag({ category: "full_package" })}
+            >
+              フルパッケージ
+            </button>
+            <button
+              type="button"
+              className="shero-tag"
+              onClick={() => onQuickTag({ category: "scenario" })}
+            >
+              シナリオ
+            </button>
+            <button
+              type="button"
+              className="shero-tag"
+              onClick={() => onQuickTag({ category: "map" })}
+            >
+              マップ
+            </button>
+            <button
+              type="button"
+              className="shero-tag"
+              onClick={() => onQuickTag({ saleOnly: true })}
+            >
+              🔥 セール中
+            </button>
+            <button
+              type="button"
+              className="shero-tag"
+              onClick={() => onQuickTag({ priceBand: "free" })}
+            >
+              無料作品
+            </button>
+          </div>
+        </div>
+
+        {featured && (
+          <button className="shero-feat" onClick={() => onOpen(featured)} title={featured.title}>
+            {featured.coverUrl ? (
+              <img src={featured.coverUrl} alt="" loading="lazy" />
+            ) : (
+              <span className="store-noimg">No Image</span>
+            )}
+            <span className="shero-feat-shade" aria-hidden />
+            <span className="shero-feat-body">
+              <span className="shero-feat-badge">今月の注目</span>
+              <span>
+                <strong className="shero-feat-title">{featured.title}</strong>
+                <span className="shero-feat-sub">
+                  {PRODUCT_TYPE_LABEL[featured.productType] ?? featured.productType}
+                </span>
+              </span>
+            </span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ===== ホーム: 人気ランキング TOP3(好評順。金/銀/銅バッジ) ===== */
+
+const SRANK_BADGE: Record<number, string> = { 1: "r1", 2: "r2", 3: "r3" };
+
+function RankingSection({
+  items,
+  onOpen,
+  onMore,
+}: {
+  items: StoreItem[];
+  onOpen: (item: StoreItem) => void;
+  onMore: () => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="srank">
+      <SecHead
+        icon={<Trophy size={16} />}
+        tone="gold"
+        title="人気ランキング"
+        sub="今週の好評トップ3"
+        action={{ label: "もっと見る", onClick: onMore }}
+      />
+      <div className="srank-grid">
+        {items.map((it, i) => {
+          const rank = i + 1;
+          return (
+            <button
+              key={it.id}
+              className="srank-card"
+              onClick={() => onOpen(it)}
+              title={it.title}
+            >
+              <span className={`srank-badge ${SRANK_BADGE[rank] ?? "r3"}`}>{rank}</span>
+              <span className="srank-cover">
+                {it.coverUrl ? (
+                  <img src={it.coverUrl} alt="" loading="lazy" />
+                ) : (
+                  <span className="store-noimg">No Image</span>
+                )}
+              </span>
+              <span className="srank-info">
+                <span className="srank-cat">
+                  {PRODUCT_TYPE_LABEL[it.productType] ?? it.productType}
+                </span>
+                <span className="srank-title">{it.title}</span>
+                <span className="srank-creator">
+                  {it.creator.displayName || "（無名）"}
+                </span>
+                <span className="srank-foot">
+                  <StarsDisplay value={it.review?.avgStars ?? 0} size={12} />
+                  <PriceTag item={it} />
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/* ===== ホーム: セール特集帯(割引率の高い順) ===== */
+
+function SaleStrip({
+  items,
+  onOpen,
+  onMore,
+}: {
+  items: StoreItem[];
+  onOpen: (item: StoreItem) => void;
+  onMore: () => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="ssale">
+      <div className="ssale-head">
+        <span className="ssale-pill">
+          <Flame size={12} /> 期間限定セール
+        </span>
+        <span className="ssale-note">
+          対象作品が最大 {Math.max(...items.map((it) => effectiveDiscountPercent(it.discountPercent, it.discountStartsAt, it.discountEndsAt)))}% OFF
+        </span>
+        <button type="button" className="ssale-more" onClick={onMore}>
+          セール一覧 →
+        </button>
+      </div>
+      <div className="ssale-grid">
+        {items.map((it) => {
+          const eff = effectiveDiscountPercent(
+            it.discountPercent,
+            it.discountStartsAt,
+            it.discountEndsAt,
+          );
+          return (
+            <button
+              key={it.id}
+              className="ssale-card"
+              onClick={() => onOpen(it)}
+              title={it.title}
+            >
+              <span className="ssale-cover">
+                {it.coverUrl ? (
+                  <img src={it.coverUrl} alt="" loading="lazy" />
+                ) : (
+                  <span className="store-noimg">No Image</span>
+                )}
+                <span className="ssale-off">-{eff}%</span>
+              </span>
+              <span className="ssale-title">{it.title}</span>
+              <span className="ssale-prices">
+                <span className="ssale-strike">{formatPriceJpy(it.priceJpy)}</span>
+                <span className="ssale-now">
+                  {formatPriceJpy(salePriceJpy(it.priceJpy, eff))}
+                </span>
+              </span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );
@@ -1113,6 +1382,8 @@ export function StorePanel({
     q?: string;
     creator?: { id: string; name: string } | null;
     sort?: StoreSort;
+    priceBand?: StorePriceBand | null;
+    saleOnly?: boolean;
   }) {
     setDetail(null);
     if (opts.group) {
@@ -1131,8 +1402,8 @@ export function StorePanel({
     // サイドバーの絞り込みは新しいブラウズ開始時にリセット(予測可能に)。
     setTitleQ("");
     setTitleQInput("");
-    setPriceBand(null);
-    setSaleOnly(false);
+    setPriceBand(opts.priceBand ?? null);
+    setSaleOnly(opts.saleOnly ?? false);
     setWishOnly(false);
     if (opts.sort) setSort(opts.sort);
     setPage(1);
@@ -1739,19 +2010,25 @@ export function StorePanel({
 
           {home && home.featured.length > 0 && (
             <div className="shome" aria-busy={detailLoading}>
-              {/* 大型バナー(Steam のフェス枠相当。今はブランド常設) */}
-              <div className="sbanner" onClick={() => browseWith({})}>
-                <span className="sbanner-dice" aria-hidden>
-                  🎲
-                </span>
-                <div className="sbanner-copy">
-                  <strong className="sbanner-title">Re-dice ストア</strong>
-                  <span className="sbanner-sub">
-                    シナリオ・マップ・素材がここに。買ったらそのまま卓へ。
-                  </span>
-                </div>
-                <span className="sbanner-cta">すべての作品を見る →</span>
-              </div>
+              {/* 大型ヒーローバナー(web の StoreHero と同じ視覚言語) */}
+              <StoreHeroBanner
+                featured={home.featured[0] ?? null}
+                onSearch={(q) => browseWith({ q })}
+                onQuickTag={(opts) => browseWith(opts)}
+                onOpen={(it) => void openDetail(it)}
+              />
+
+              <RankingSection
+                items={home.topRated.slice(0, 3)}
+                onOpen={(it) => void openDetail(it)}
+                onMore={() => browseWith({ sort: "rating" })}
+              />
+
+              <SaleStrip
+                items={home.onSale}
+                onOpen={(it) => void openDetail(it)}
+                onMore={() => browseWith({ saleOnly: true })}
+              />
 
               <HeroCarousel
                 items={home.featured}
