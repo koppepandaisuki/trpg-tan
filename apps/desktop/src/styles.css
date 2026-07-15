@@ -10996,9 +10996,9 @@ button:disabled {
   overflow: hidden;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(90, 17, 25, 0.5);
-  padding: 32px 28px;
+  padding: 40px 36px;
   background:
-    radial-gradient(120% 140% at 88% 0%, rgba(233, 207, 127, 0.28), transparent 46%),
+    radial-gradient(120% 140% at 88% 0%, rgba(201, 162, 39, 0.28), transparent 46%),
     linear-gradient(120deg, #7d1a22, #a3202c 55%, #5a1119);
   box-shadow: var(--shadow-lg);
 }
@@ -11017,62 +11017,64 @@ button:disabled {
 }
 @media (min-width: 760px) {
   .shero-grid {
-    grid-template-columns: 1fr 240px;
-    gap: 32px;
+    grid-template-columns: 1fr 260px;
+    gap: 36px;
   }
 }
 .shero-kicker {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .shero-kicker .die-ico {
   border-color: #f3e6c8;
   background-color: rgba(255, 255, 255, 0.1);
 }
 .shero-kicker span {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
   color: rgba(233, 207, 127, 0.95);
 }
 .shero-h1 {
-  margin: 0 0 12px;
-  font-size: 26px;
-  line-height: 1.25;
-  font-weight: 800;
+  margin: 0 0 14px;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 700;
   color: #fff;
+  font-family: "Noto Serif JP", "Yu Mincho", "YuMincho", "Hiragino Mincho ProN",
+    serif;
 }
 @media (min-width: 760px) {
   .shero-h1 {
-    font-size: 32px;
+    font-size: 38px;
   }
 }
 .shero-desc {
-  margin: 0 0 18px;
-  max-width: 480px;
-  font-size: 13px;
-  line-height: 1.8;
-  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 20px;
+  max-width: 520px;
+  font-size: 13.5px;
+  line-height: 1.85;
+  color: rgba(255, 255, 255, 0.82);
 }
 .shero-search {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 44px;
-  max-width: 460px;
-  padding: 0 14px;
-  border-radius: 12px;
+  gap: 10px;
+  height: 52px;
+  max-width: 480px;
+  padding: 0 16px;
+  border-radius: 14px;
   background: #fff;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
 }
 .shero-search input {
   flex: 1;
   min-width: 0;
   border: none;
   background: transparent;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--text);
   outline: none;
 }
@@ -11083,13 +11085,13 @@ button:disabled {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  height: 32px;
-  padding: 0 16px;
+  height: 36px;
+  padding: 0 18px;
   border: none;
-  border-radius: 9px;
+  border-radius: 10px;
   background: #b02832;
   color: #fff;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: background var(--dur-1) var(--ease-out);
@@ -11104,12 +11106,12 @@ button:disabled {
   margin-top: 14px;
 }
 .shero-tag {
-  padding: 5px 13px;
+  padding: 6px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -11124,13 +11126,17 @@ button:disabled {
   position: relative;
   display: block;
   aspect-ratio: 3 / 4;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
   border: 1px solid rgba(233, 207, 127, 0.4);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
   transform: rotate(2deg);
   cursor: pointer;
   background: var(--surface-3);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.shero-feat:hover {
+  transform: rotate(0deg) translateY(-2px);
 }
 .shero-feat img {
   position: absolute;
@@ -11164,14 +11170,18 @@ button:disabled {
   letter-spacing: 0.06em;
 }
 .shero-feat-title {
+  display: block;
   margin: 0;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 800;
   line-height: 1.3;
   color: #f3e6c8;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  font-family: "Noto Serif JP", "Yu Mincho", "YuMincho", "Hiragino Mincho ProN",
+    serif;
 }
 .shero-feat-sub {
+  display: block;
   margin: 4px 0 0;
   font-size: 10.5px;
   color: rgba(233, 207, 127, 0.8);
@@ -11186,16 +11196,16 @@ button:disabled {
 @media (min-width: 640px) {
   .srank-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+    gap: 18px;
   }
 }
 .srank-card {
   position: relative;
   display: flex;
   gap: 12px;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 16px;
   background: var(--surface);
   box-shadow: var(--shadow-xs);
   cursor: pointer;
@@ -11210,24 +11220,30 @@ button:disabled {
   box-shadow: var(--shadow-md);
   border-color: rgba(176, 40, 50, 0.35);
 }
+.srank-cover img {
+  transition: transform var(--dur-3, 0.35s) var(--ease-out);
+}
+.srank-card:hover .srank-cover img {
+  transform: scale(1.05);
+}
 .srank-badge {
   position: absolute;
-  left: -10px;
-  top: -10px;
+  left: -12px;
+  top: -12px;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   border-radius: 999px;
   font-weight: 800;
-  font-size: 14px;
-  box-shadow: 0 4px 10px rgba(94, 52, 24, 0.22);
+  font-size: 16px;
+  box-shadow: 0 4px 12px rgba(94, 52, 24, 0.2);
 }
 .srank-badge.r1 {
-  background: var(--gold);
-  border: 1px solid var(--gold-deep);
+  background: #c9a227;
+  border: 1px solid #a8871a;
   color: #4a3a12;
 }
 .srank-badge.r2 {
@@ -11386,6 +11402,10 @@ button:disabled {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform var(--dur-3, 0.35s) var(--ease-out);
+}
+.ssale-card:hover .ssale-cover img {
+  transform: scale(1.05);
 }
 .ssale-off {
   position: absolute;

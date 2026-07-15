@@ -685,15 +685,15 @@ function StoreHeroBanner({
             <span className="die-ico on-dark" aria-hidden>
               🎲
             </span>
-            <span>RE-DICE ストア</span>
+            <span>CREATOR MARKETPLACE FOR TRPG</span>
           </div>
           <h2 className="shero-h1">
-            買ってすぐ卓へ。
+            あなたの次の物語を、
             <br />
-            シナリオもマップも、ここに揃う。
+            ここで見つける。
           </h2>
           <p className="shero-desc">
-            クリエイターが作ったシナリオ・キャラシ・マップ・BGM・完成品パッケージを検索。気になったら詳細から即ダウンロード。
+            クリエイターが作ったシナリオ・キャラシ・マップ・BGM・完成品パッケージ。気になった作品はその場でダウンロードして、すぐ卓へ。
           </p>
           <form
             className="shero-search"
@@ -702,7 +702,7 @@ function StoreHeroBanner({
               onSearch(q);
             }}
           >
-            <Search size={16} color="#8a1d26" />
+            <Search size={18} color="#B02832" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -724,6 +724,13 @@ function StoreHeroBanner({
               onClick={() => onQuickTag({ category: "scenario" })}
             >
               シナリオ
+            </button>
+            <button
+              type="button"
+              className="shero-tag"
+              onClick={() => onQuickTag({ category: "map" })}
+            >
+              マップ
             </button>
             <button
               type="button"
@@ -773,9 +780,11 @@ const SRANK_BADGE: Record<number, string> = { 1: "r1", 2: "r2", 3: "r3" };
 function RankingSection({
   items,
   onOpen,
+  onMore,
 }: {
   items: StoreItem[];
   onOpen: (item: StoreItem) => void;
+  onMore: () => void;
 }) {
   if (items.length === 0) return null;
   return (
@@ -784,7 +793,8 @@ function RankingSection({
         icon={<Trophy size={16} />}
         tone="gold"
         title="人気ランキング"
-        sub="評価が高い作品のトップ3"
+        sub="今週の好評トップ3"
+        action={{ label: "もっと見る", onClick: onMore }}
       />
       <div className="srank-grid">
         {items.map((it, i) => {
@@ -843,9 +853,11 @@ function SaleStrip({
         <span className="ssale-pill">
           <Flame size={12} /> 期間限定セール
         </span>
-        <span className="ssale-note">今なら最大 -{Math.max(...items.map((it) => it.discountPercent))}% 割引</span>
+        <span className="ssale-note">
+          対象作品が最大 {Math.max(...items.map((it) => effectiveDiscountPercent(it.discountPercent, it.discountStartsAt, it.discountEndsAt)))}% OFF
+        </span>
         <button type="button" className="ssale-more" onClick={onMore}>
-          すべて見る →
+          セール一覧 →
         </button>
       </div>
       <div className="ssale-grid">
@@ -2009,6 +2021,7 @@ export function StorePanel({
               <RankingSection
                 items={home.topRated.slice(0, 3)}
                 onOpen={(it) => void openDetail(it)}
+                onMore={() => browseWith({ sort: "rating" })}
               />
 
               <SaleStrip
