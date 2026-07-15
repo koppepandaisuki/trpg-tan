@@ -22,9 +22,8 @@ export const metadata = {
     "Re-dice デスクトップアプリ（Windows）のダウンロード。買った作品をそのまま卓へ。オンラインセッション・シナリオ作成・キャラクターシートが使えます。",
 };
 
-/** GitHub Releases の最新版ページ。最新の setup.exe をここから取得する。 */
-const RELEASES_LATEST =
-  "https://github.com/koppepandaisuki/trpg-tan/releases/latest";
+/** 最新版の setup.exe を直接ダウンロードさせる自前の中継ルート(GitHub Releases ページを経由しない)。 */
+const WINDOWS_DOWNLOAD_URL = "/api/download/windows";
 
 const FEATURES = [
   {
@@ -76,9 +75,7 @@ export default function DownloadPage() {
 
             <div className="flex flex-col items-center gap-2">
               <a
-                href={RELEASES_LATEST}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={WINDOWS_DOWNLOAD_URL}
                 className={cn(
                   buttonVariants({ variant: "primary", size: "lg" }),
                   "gap-2",
