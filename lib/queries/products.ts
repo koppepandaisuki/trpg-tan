@@ -7,7 +7,11 @@ import type {
   FileFormat,
 } from "./types";
 import { fetchReviewSummariesByProductIds } from "./reviews";
-import { priceFilterRange, type StorePriceFilter } from "@/lib/format/price";
+import {
+  priceFilterRange,
+  effectiveDiscountPercent,
+  type StorePriceFilter,
+} from "@/lib/format/price";
 
 /**
  * Page size for the store grid. Confirmed in Phase 4 design.
@@ -306,6 +310,76 @@ export async function listTopRatedProducts(
     (it) => it.reviewSummary && it.reviewSummary.total > 0,
   );
   return hasAnyRating ? items : [];
+}
+
+/**
+ * ストアの「セール特集帯」用。有料 + 割引が今まさに有効な作品を、
+ * 割引率が高い順(同率は新着順)で返す。0 件なら呼び出し側でセクション
+ * ごと非表示にする想定(listTopRatedProducts と同じ規約)。
+ *
+ * discount_percent > 0 で DB 側を軽く絞り、期間内判定(startsAt/endsAt)は
+ * JS 側で effectiveDiscountPercent により行う(タイムゾーン非依存・唯一の
+ * 真実を lib/format/price.ts に集約するため)。
+ */
+export async function listOnSaleProducts(
+  limit: number = 8,
+): Promise<ProductListItem[]> {
+  const supabase = createClient();
+  const { data: rows, error } = await supabase
+    .from("products")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .gt("discount_percent", 0)
+    .gt("price_jpy", 0)
+    .order("published_at", { ascending: false })
+    .limit(200);
+
+  if (error || !rows) {
+    if (error) console.error("[listOnSaleProducts] failed", error);
+    return [];
+  }
+
+  const onSale = rows
+    .map((r) => ({
+      row: r,
+      eff: effectiveDiscountPercent(
+        r.discount_percent,
+        r.discount_starts_at,
+        r.discount_ends_at,
+      ),
+    }))
+    .filter((x) => x.eff > 0)
+    .sort((a, b) => b.eff - a.eff)
+    .slice(0, limit);
+
+  if (onSale.length === 0) return [];
+
+  const creatorIds = Array.from(new Set(onSale.map((x) => x.row.creator_id)));
+  const productIds = onSale.map((x) => x.row.id);
+  const [creators, reviewSummaries] = await Promise.all([
+    fetchPublicProfiles(creatorIds),
+    fetchReviewSummariesByProductIds(productIds),
+  ]);
+
+  return onSale.map(({ row: r }) => ({
+    id: r.id,
+    slug: r.slug,
+    title: r.title,
+    productType: r.product_type as ProductType,
+    priceJpy: r.price_jpy,
+    discountPercent: r.discount_percent ?? 0,
+    discountStartsAt: r.discount_starts_at ?? null,
+    discountEndsAt: r.discount_ends_at ?? null,
+    coverPath: r.cover_path,
+    systemLabel: r.system_label,
+    publishedAt: r.published_at,
+    creator: {
+      id: r.creator_id,
+      displayName: creators.get(r.creator_id)?.displayName ?? "",
+      avatarPath: creators.get(r.creator_id)?.avatarPath ?? null,
+    },
+    reviewSummary: reviewSummaries.get(r.id) ?? null,
+  }));
 }
 
 /**

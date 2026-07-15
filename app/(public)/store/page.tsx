@@ -17,8 +17,15 @@ import { CuratedTagRail } from "@/components/store/curated-tag-rail";
 import { WorkCard } from "@/components/store/work-card";
 import { EmptyState } from "@/components/store/empty-state";
 import { StorePagination } from "@/components/store/pagination";
+import { StoreHero } from "@/components/store/store-hero";
+import { RankingSection } from "@/components/store/ranking-section";
+import { SaleStrip } from "@/components/store/sale-strip";
 import {
   listPublishedProducts,
+  listProductsByCategory,
+  listFeaturedProducts,
+  listTopRatedProducts,
+  listOnSaleProducts,
   type StoreSort,
 } from "@/lib/queries/products";
 import { parseCategoryParam, categoryLabel } from "@/lib/format/category";
@@ -28,7 +35,19 @@ import {
   STORE_PRICE_FILTERS,
   type StorePriceFilter,
 } from "@/lib/format/price";
+import type { ProductListItem } from "@/lib/queries/types";
 import { cn } from "@/lib/utils";
+
+/**
+ * ヒーローの「今月の注目」に出す1点。フルパッケージを優先し、無ければ
+ * 既存の listFeaturedProducts(売上/評価の合成)にフォールバックする。
+ */
+async function getHeroFeatured(): Promise<ProductListItem | null> {
+  const fullPackages = await listProductsByCategory("full_package", 1);
+  if (fullPackages.length > 0) return fullPackages[0];
+  const featured = await listFeaturedProducts(1);
+  return featured[0] ?? null;
+}
 
 export const metadata = { title: "ストア" };
 
@@ -68,14 +87,18 @@ export default async function StorePage({ searchParams }: StorePageProps) {
   const price = parsePriceFilter(searchParams.price);
   const page = Number.parseInt(searchParams.page ?? "1", 10) || 1;
 
-  const { items, totalPages, total } = await listPublishedProducts({
-    category,
-    tag,
-    q,
-    price,
-    sort,
-    page,
-  });
+  // ヒーロー / ランキング / セール帯は「絞り込みなしの1ページ目」だけに出す
+  // (マーケティング色の強いセクションなので、既にフィルタで意図が明確な
+  // 閲覧には出さず、既存の小さいフィルタ状況ヘッダーの方を使う)。
+  const isDefaultView = !category && !tag && !q && !price && page === 1;
+
+  const [{ items, totalPages, total }, heroFeatured, ranking, onSale] =
+    await Promise.all([
+      listPublishedProducts({ category, tag, q, price, sort, page }),
+      getHeroFeatured(),
+      isDefaultView ? listTopRatedProducts(3) : Promise.resolve([]),
+      isDefaultView ? listOnSaleProducts(4) : Promise.resolve([]),
+    ]);
 
   // 全フィルタ(category / tag / q / price / sort / page)から /store URL を
   // 組み立てる単一ヘルパ。各導線は現在の状態に override を被せて呼ぶことで、
@@ -116,9 +139,16 @@ export default async function StorePage({ searchParams }: StorePageProps) {
     <>
       <TopHeader />
       <PageContainer className="space-y-6 py-8">
-        {/* Hero ヘッダー(サイト全体の視覚言語に統一)。
-            ホーム / ライブラリ / 商品詳細と同じ indigo/violet 系で
-            「探す」ことの positive さを表現。 */}
+        {/* 絞り込みなしの1ページ目だけ、深紅グラデーションの大型ヒーロー
+            (design_handoff_store_redesign 案A)を出す。フィルタ済みの
+            閲覧では、フィルタ chip を持つ下の小さいヘッダーの方を使う
+            (機能を失わないため)。 */}
+        {isDefaultView && <StoreHero total={total} featured={heroFeatured} />}
+
+        {/* フィルタ状況ヘッダー(サイト全体の視覚言語に統一)。絞り込み中は
+            常に表示し、chip でフィルタを外せるようにする。絞り込みなしの
+            1ページ目は上の StoreHero が役割を兼ねるので隠す。 */}
+        {!isDefaultView && (
         <Card className="overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-amber-500/8 shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
             <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-amber-500/10 blur-3xl" />
@@ -183,6 +213,16 @@ export default async function StorePage({ searchParams }: StorePageProps) {
             </div>
           </CardContent>
         </Card>
+        )}
+
+        {/* 人気ランキング + セール特集帯(絞り込みなしの1ページ目のみ)。
+            どちらも 0 件なら各コンポーネント内部で非表示になる。 */}
+        {isDefaultView && (
+          <>
+            <RankingSection products={ranking} seeAllHref={"/store?sort=rating" as Route} />
+            <SaleStrip products={onSale} />
+          </>
+        )}
 
         <div>
           <CategoryTabs current={category} />

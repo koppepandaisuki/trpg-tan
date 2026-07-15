@@ -145,3 +145,96 @@
     animation: none;
   }
 }
+
+/* ===== ストア専用: サイコロの目(pip)モチーフ・アンビエント =====
+   サイト全体の .amb-item(lucide アイコン)とは別に、ストアのヒーロー/
+   ランキング周りだけ「ダイスの目」そのものを CSS で描く濃いめの装飾
+   (design_handoff_store_redesign 準拠)。amb-float / amb-twinkle は既存の
+   キーフレームを再利用する。 */
+.dc-amb {
+  position: absolute;
+  opacity: 0.15;
+  transform: rotate(var(--rot, 0deg));
+  animation: amb-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite;
+  will-change: transform;
+  pointer-events: none;
+}
+.dc-die-c,
+.dc-die-g {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  border: 2px solid;
+  background-repeat: no-repeat;
+}
+.dc-die-c {
+  border-color: #b02832;
+  background-image:
+    radial-gradient(circle 3px at 28% 28%, #b02832 95%, transparent),
+    radial-gradient(circle 3px at 72% 28%, #b02832 95%, transparent),
+    radial-gradient(circle 3px at 50% 50%, #b02832 95%, transparent),
+    radial-gradient(circle 3px at 28% 72%, #b02832 95%, transparent),
+    radial-gradient(circle 3px at 72% 72%, #b02832 95%, transparent);
+}
+.dc-die-g {
+  border-color: #c9a227;
+  background-image:
+    radial-gradient(circle 3px at 30% 30%, #c9a227 95%, transparent),
+    radial-gradient(circle 3px at 70% 30%, #c9a227 95%, transparent),
+    radial-gradient(circle 3px at 30% 70%, #c9a227 95%, transparent),
+    radial-gradient(circle 3px at 70% 70%, #c9a227 95%, transparent);
+}
+.dc-spark {
+  width: 18px;
+  height: 18px;
+  background: #c9a227;
+  clip-path: polygon(
+    50% 0,
+    60% 40%,
+    100% 50%,
+    60% 60%,
+    50% 100%,
+    40% 60%,
+    0 50%,
+    40% 40%
+  );
+  animation:
+    amb-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite,
+    amb-twinkle calc(var(--d, 14s) / 2) ease-in-out var(--delay, 0s) infinite;
+}
+.dc-star {
+  width: 12px;
+  height: 12px;
+  background: #d9b45c;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  animation:
+    amb-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite,
+    amb-twinkle calc(var(--d, 14s) / 2) ease-in-out var(--delay, 0s) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-amb {
+    animation: none;
+  }
+}
+/* 見出し用の小さいダイスアイコン(「人気ランキング」等の見出しに添える) */
+.die-ico {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid #b02832;
+  background-color: #fff;
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(circle 2px at 27% 27%, #b02832 95%, transparent),
+    radial-gradient(circle 2px at 73% 27%, #b02832 95%, transparent),
+    radial-gradient(circle 2px at 50% 50%, #b02832 95%, transparent),
+    radial-gradient(circle 2px at 27% 73%, #b02832 95%, transparent),
+    radial-gradient(circle 2px at 73% 73%, #b02832 95%, transparent);
+  box-shadow: 0 1px 3px rgba(176, 40, 50, 0.22);
+}
+.die-ico.on-dark {
+  border-color: #f3e6c8;
+  background-color: rgba(255, 255, 255, 0.08);
+}
