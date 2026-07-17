@@ -33,7 +33,21 @@ function statLabel(s: PanelStat, panel: Panel): string {
 function cmdFor(s: PanelStat, panel: Panel): string {
   const label = statLabel(s, panel);
   if (panel.checkTemplate) {
-    return `${panel.checkTemplate.replace(/\{value\}/g, String(s.target))} ${label}`;
+    let cmd = panel.checkTemplate.replace(/\{value\}/g, String(s.target));
+    // 雛形に残った目標値プレースホルダ「?」を解決して、ボタンからそのまま
+    // 振れるようにする(? のままだとダイスコマンドにならず失敗する)。
+    if (cmd.includes("?")) {
+      if (/<=\s*\?/.test(cmd)) {
+        // ロールアンダー(例: エモクロアの XDM<=能力値)。目標値はクリックした
+        // 能力値/技能値そのもの。技能の正確な対応能力値はチャパレ側で組む。
+        cmd = cmd.replace(/<=\s*\?/g, `<=${s.target}`);
+      } else {
+        // ロールオーバーの目標値(>=?)は GM が決めるので、比較を外して出目の
+        // 合計だけ振る(GM が目標値と見比べる)。
+        cmd = cmd.replace(/\s*>=\s*\?.*$/, "").trim();
+      }
+    }
+    return `${cmd} ${label}`;
   }
   // CoC 駒のみ CC<= で判定。汎用システムでテンプレ未設定なら、誤った CoC
   // コマンドを出さず「ラベル 値」を流して手で組み立てられるようにする。

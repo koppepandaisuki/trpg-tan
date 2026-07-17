@@ -63,6 +63,12 @@ export interface Panel {
    * 末尾にラベルが付く)。未設定は CoC の "CC<=値"。
    */
   checkTemplate?: string;
+  /**
+   * ダイスボット id(sheet 由来)。この駒からの判定はこのボットで解釈する。
+   * 卓のグローバル選択に依らず、混在システム卓でも各キャラが自分の
+   * システムの記法(例: エモクロアの XDM<=能力値)で振れるようにする。
+   */
+  diceBot?: string;
   stats: PanelStat[];
   resources: PanelResource[];
   /** 盤面上の位置(0..1 正規化。盤面サイズに依らず保存できる)。未配置は undefined。 */
