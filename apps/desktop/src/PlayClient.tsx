@@ -56,6 +56,7 @@ import {
 } from "./play-bus";
 import { toast } from "./Toasts";
 import { replayToText } from "./replay-export";
+import { perceptualGain } from "./volume-settings";
 
 type Phase = "connecting" | "waiting" | "ready" | "closed" | "error";
 
@@ -165,7 +166,7 @@ export function PlayClient({
   const bgmElRef = useRef<HTMLAudioElement | null>(null);
   const [audioVol, setAudioVol] = useState<number>(() => {
     const v = Number(localStorage.getItem("trpg.client.vol.v1"));
-    return Number.isFinite(v) && v >= 0 && v <= 1 ? v : 0.6;
+    return Number.isFinite(v) && v >= 0 && v <= 1 ? v : 0.45;
   });
   const audioVolRef = useRef(audioVol);
   audioVolRef.current = audioVol;
@@ -356,7 +357,7 @@ export function PlayClient({
         return;
       }
       const a = new Audio(src);
-      a.volume = audioVolRef.current;
+      a.volume = perceptualGain(audioVolRef.current);
       a.play().catch(() => setAudioBlocked(true));
     }
   }
@@ -373,7 +374,7 @@ export function PlayClient({
       bgmElRef.current = a;
     }
     a.loop = true;
-    a.volume = audioVolRef.current;
+    a.volume = perceptualGain(audioVolRef.current);
     if (a.src === src && !a.paused) return; // 既に同じ曲を再生中
     if (a.src !== src) a.src = src;
     a.play().then(
@@ -393,7 +394,8 @@ export function PlayClient({
 
   // 音量変更を再生中の BGM にも反映し、端末に保存。
   useEffect(() => {
-    if (bgmElRef.current) bgmElRef.current.volume = audioVol;
+    if (bgmElRef.current)
+      bgmElRef.current.volume = perceptualGain(audioVol);
     localStorage.setItem("trpg.client.vol.v1", String(audioVol));
   }, [audioVol]);
 

@@ -1,6 +1,17 @@
 import { useState } from "react";
-import { Globe, FilePlus2, Sparkles, History } from "lucide-react";
-import type { SystemDef, CharacterSheet } from "@trpg/core";
+import {
+  Globe,
+  FilePlus2,
+  Sparkles,
+  History,
+  ClipboardPaste,
+} from "lucide-react";
+import {
+  genericSheetFromCcfolia,
+  type SystemDef,
+  type CharacterSheet,
+  type GenericSheet,
+} from "@trpg/core";
 import { getAllSystems } from "./systems-store";
 import { importVampireBloodSheet } from "./vampire-import";
 import { SystemIcon } from "./system-visuals";
@@ -39,6 +50,7 @@ export function SheetSystemPicker({
   onPickCoC,
   onPickGeneric,
   onImported,
+  onImportedGeneric,
 }: {
   /** CoC の版を選んで新規作成。 */
   onPickCoC: (systemId: "coc7" | "coc6") => void;
@@ -46,11 +58,32 @@ export function SheetSystemPicker({
   onPickGeneric: (def: SystemDef) => void;
   /** 保管所などから取り込んだシートをエディタで開く。 */
   onImported: (sheet: CharacterSheet) => void;
+  /** ココフォリア駒の貼り付けから取り込んだ汎用シートをエディタで開く。 */
+  onImportedGeneric?: (sheet: GenericSheet) => void;
 }) {
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
   const [importBusy, setImportBusy] = useState(false);
   const [importErr, setImportErr] = useState<string | null>(null);
+
+  // ココフォリア駒貼り付けのミニフォーム。
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteErr, setPasteErr] = useState<string | null>(null);
+
+  function runPaste(text: string) {
+    const sheet = genericSheetFromCcfolia(text, crypto.randomUUID());
+    if (!sheet) {
+      setPasteErr(
+        "ココフォリア駒の JSON ではないようです（「コマをコピー」した内容を貼り付けてください）",
+      );
+      return;
+    }
+    setPasteText("");
+    setPasteOpen(false);
+    setPasteErr(null);
+    onImportedGeneric?.(sheet);
+  }
 
   async function runImport() {
     setImportBusy(true);
@@ -176,6 +209,71 @@ export function SheetSystemPicker({
       {/* 他サイトから取り込み */}
       <h3 className="syspick-sec">他サイトから取り込み</h3>
       <div className="syspick-grid">
+        {onImportedGeneric &&
+          (!pasteOpen ? (
+            <button
+              className="syspick-card sp-import"
+              onClick={() => setPasteOpen(true)}
+            >
+              <span
+                className="sysic md"
+                style={{ "--si-c": "#b02832" } as React.CSSProperties}
+                aria-hidden
+              >
+                <ClipboardPaste />
+              </span>
+              <span className="sp-name">ココフォリア駒を貼り付け</span>
+              <span className="sp-desc">
+                ココフォリア対応サイトの「コマをコピー」をそのまま貼り付けて取り込み。
+              </span>
+              <span className="sp-go">貼り付ける →</span>
+            </button>
+          ) : (
+            <div className="syspick-card sp-import open">
+              <span className="sp-name">
+                <ClipboardPaste size={15} /> ココフォリア駒を貼り付け
+              </span>
+              <textarea
+                className="input"
+                autoFocus
+                rows={4}
+                value={pasteText}
+                placeholder={'{"kind":"character","data":{...}} をここに貼り付け'}
+                onChange={(e) => {
+                  setPasteText(e.target.value);
+                  setPasteErr(null);
+                }}
+                onPaste={(e) => {
+                  // 貼り付けと同時に取り込みまで進める(1 アクション)。
+                  const text = e.clipboardData.getData("text");
+                  if (text.trim()) {
+                    e.preventDefault();
+                    setPasteText(text);
+                    runPaste(text);
+                  }
+                }}
+              />
+              <div className="sp-import-actions">
+                <button
+                  className="btn mini"
+                  onClick={() => {
+                    setPasteOpen(false);
+                    setPasteErr(null);
+                  }}
+                >
+                  キャンセル
+                </button>
+                <button
+                  className="btn mini btn-primary"
+                  onClick={() => runPaste(pasteText)}
+                  disabled={!pasteText.trim()}
+                >
+                  取り込む
+                </button>
+              </div>
+              {pasteErr && <p className="sp-import-err">{pasteErr}</p>}
+            </div>
+          ))}
         {!importOpen ? (
           <button
             className="syspick-card sp-import"

@@ -11,19 +11,33 @@ function resourceIcon(key: string) {
   return <Diamond size={12} className="res-etc" />;
 }
 
+/** CoC 駒か(6版/7版)。表示・判定コマンドの流儀を分けるのに使う。 */
+function isCoCPanel(panel: Panel): boolean {
+  return (
+    panel.systemId === "coc6" || panel.systemId === "coc7" || !!panel.edition
+  );
+}
+
+/**
+ * 能力値/技能の表示ラベル。CoC は慣習どおり能力値を英語キー(STR 等)で、
+ * それ以外のシステムはそのシステム自身のラベル(身体 / 敏捷度B…)で表示する。
+ * 内部キー(BODY 等)しか出ないと CoC 風の英語表記に見えてしまうため。
+ */
+function statLabel(s: PanelStat, panel: Panel): string {
+  if (s.kind === "characteristic" && isCoCPanel(panel)) return s.key;
+  return s.label || s.key;
+}
+
 /** 技能/能力の判定コマンド(CCFOLIA 風)。
- *  カスタムシステムは駒の checkTemplate({value} 置換)、CoC は CC<=目標値。
- *  能力値は英語表記(STR 等)で統一し、技能は日本語ラベルのまま。 */
+ *  カスタムシステムは駒の checkTemplate({value} 置換)、CoC は CC<=目標値。 */
 function cmdFor(s: PanelStat, panel: Panel): string {
-  const label = s.kind === "characteristic" ? s.key : s.label;
+  const label = statLabel(s, panel);
   if (panel.checkTemplate) {
     return `${panel.checkTemplate.replace(/\{value\}/g, String(s.target))} ${label}`;
   }
   // CoC 駒のみ CC<= で判定。汎用システムでテンプレ未設定なら、誤った CoC
   // コマンドを出さず「ラベル 値」を流して手で組み立てられるようにする。
-  const isCoC =
-    panel.systemId === "coc6" || panel.systemId === "coc7" || !!panel.edition;
-  if (isCoC) return `CC<=${s.target} ${label}`;
+  if (isCoCPanel(panel)) return `CC<=${s.target} ${label}`;
   return `${label} ${s.target}`;
 }
 
@@ -144,7 +158,7 @@ export function PlayPanel({
             <div className="pmini-stats">
               {characteristics.map((s) => (
                 <span key={s.key} className="pmini-stat" title={s.label}>
-                  {s.key}
+                  {statLabel(s, panel)}
                   <b>{s.target}</b>
                 </span>
               ))}
@@ -219,8 +233,8 @@ export function PlayPanel({
               onDoubleClick={() => onSend(cmdFor(s, panel))}
               title={`${s.label} ─ クリック: 入力欄に / ダブルクリック: 即ロール（${cmdFor(s, panel)}）`}
             >
-              {/* 能力値は英語表記で統一(日本語ラベルは title で補足)。 */}
-              <span className="pstat-label">{s.key}</span>
+              {/* CoC は英語表記(STR 等)、他システムは各システムのラベル。 */}
+              <span className="pstat-label">{statLabel(s, panel)}</span>
               <span className="pstat-val">{s.target}</span>
             </button>
           ))}
@@ -296,6 +310,25 @@ function parsePaletteLines(text: string): PaletteLine[] {
     );
 }
 
+/**
+ * パレット行を「コマンド + ラベル」に分解する(表示用)。
+ * "CC<=70 目星" → ラベル「目星」を主役に、式は小さく添える。
+ * ダイス式に見えない行(セリフや自由テキスト)は null でそのまま表示。
+ */
+function splitPaletteLine(
+  line: string,
+): { cmd: string; label: string } | null {
+  const sp = line.indexOf(" ");
+  const head = sp === -1 ? line : line.slice(0, sp);
+  const rest = sp === -1 ? "" : line.slice(sp + 1).trim();
+  const looksCmd =
+    /[<>=@]/.test(head) ||
+    /^\d+[a-zA-Z]/.test(head) ||
+    /^(CC|CCB|NC|SAN|RES|CBR|choice)/i.test(head);
+  if (!looksCmd) return null;
+  return { cmd: head, label: rest };
+}
+
 /** チャットパレット。クリックで入力欄へ、ダブルクリックで即送信。 */
 function PalettePanel({
   panel,
@@ -310,6 +343,8 @@ function PalettePanel({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(panel.palette ?? "");
+  // 編集モードを開かずに 1 行だけ足すクイック追加。
+  const [quick, setQuick] = useState("");
 
   useEffect(() => {
     if (!editing) setDraft(panel.palette ?? "");
@@ -329,6 +364,13 @@ function PalettePanel({
     // システムに応じた判定コマンド(CoC=CC<= / 汎用=checkTemplate)で取り込む。
     const text = panel.stats.map((s) => cmdFor(s, panel)).join("\n");
     setDraft((prev) => (prev.trim() ? `${prev.trim()}\n${text}` : text));
+  }
+  function addQuick() {
+    const line = quick.trim();
+    if (!line) return;
+    const cur = (panel.palette ?? "").trim();
+    onEdit(cur ? `${cur}\n${line}` : line);
+    setQuick("");
   }
 
   return (
@@ -366,30 +408,69 @@ function PalettePanel({
             </button>
           </div>
         </div>
-      ) : lines.length === 0 ? (
-        <p className="palette-empty muted">
-          「✎ 編集」でコマンドを追加（クリックで入力欄に / ダブルクリックで即ロール）
-        </p>
       ) : (
-        <div className="palette-lines">
-          {lines.map((ln, i) =>
-            ln.comment ? (
-              <div key={i} className="palette-head-line">
-                {ln.text}
-              </div>
-            ) : (
-              <button
-                key={i}
-                className="palette-line"
-                onClick={() => onFill(ln.text)}
-                onDoubleClick={() => onSend(ln.text)}
-                title="クリック: 入力欄に / ダブルクリック: 即ロール"
-              >
-                {ln.text}
-              </button>
-            ),
+        <>
+          {lines.length === 0 ? (
+            <p className="palette-empty muted">
+              下の欄からコマンドを追加（クリックで入力欄に / ダブルクリックで即ロール）
+            </p>
+          ) : (
+            <div className="palette-lines">
+              {lines.map((ln, i) => {
+                if (ln.comment) {
+                  return (
+                    <div key={i} className="palette-head-line">
+                      {ln.text}
+                    </div>
+                  );
+                }
+                const parts = splitPaletteLine(ln.text);
+                return (
+                  <button
+                    key={i}
+                    className="palette-line"
+                    onClick={() => onFill(ln.text)}
+                    onDoubleClick={() => onSend(ln.text)}
+                    title={`クリック: 入力欄に / ダブルクリック: 即ロール（${ln.text}）`}
+                  >
+                    {parts && parts.label ? (
+                      <>
+                        <span className="pl-label">{parts.label}</span>
+                        <code className="pl-cmd">{parts.cmd}</code>
+                      </>
+                    ) : (
+                      ln.text
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           )}
-        </div>
+          {/* 編集モードを開かずに 1 行追加(Enter でも確定)。 */}
+          <div className="palette-quick">
+            <input
+              className="input"
+              value={quick}
+              onChange={(e) => setQuick(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addQuick();
+                }
+              }}
+              placeholder="例: 1d100<=70 目星"
+              title="チャットパレットに 1 行追加"
+            />
+            <button
+              className="btn mini"
+              onClick={addQuick}
+              disabled={!quick.trim()}
+              title="チャットパレットに追加"
+            >
+              ＋
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

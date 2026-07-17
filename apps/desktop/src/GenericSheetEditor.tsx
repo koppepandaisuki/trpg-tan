@@ -98,6 +98,39 @@ export function GenericSheetEditor({
     patch({ palette: renderPaletteTemplate(def.palette ?? [], sheet) });
   }
 
+  // パレットが「雛形どおり(手編集していない)」の間は、能力値/技能の変更に
+  // 自動追従して作り直す。値を変えたのにパレットの数字が古いまま、を防ぐ。
+  // 一度でも手編集する(=直前の雛形描画と一致しなくなる)と自動追従は止まる。
+  const prevRenderRef = useRef<string | null>(
+    def ? renderPaletteTemplate(def.palette ?? [], sheet) : null,
+  );
+  useEffect(() => {
+    if (!def) return;
+    const next = renderPaletteTemplate(def.palette ?? [], sheet);
+    const prev = prevRenderRef.current;
+    prevRenderRef.current = next;
+    if (prev !== null && next !== prev && (sheet.palette ?? "") === prev) {
+      patch({ palette: next });
+    }
+    // attributes / skills の値変更にだけ反応させる。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheet.attributes, sheet.skills]);
+
+  /** 判定コマンドを 1 行組み立ててパレット末尾に足す(能力値/技能セレクタ)。 */
+  function appendCheckLine(pick: string) {
+    const [kind, idxStr] = pick.split(":");
+    const i = Number(idxStr);
+    const item =
+      kind === "a" ? sheet.attributes[i] : sheet.skills[i];
+    if (!item || !item.label.trim()) return;
+    const tpl = sheet.checkTemplate?.trim();
+    const line = tpl
+      ? `${tpl.replace(/\{value\}/g, String(item.value))} ${item.label}`
+      : `${item.label} ${item.value}`;
+    const cur = (sheet.palette ?? "").trim();
+    patch({ palette: cur ? `${cur}\n${line}` : line });
+  }
+
   // Ctrl+S / Cmd+S で保存。依存なしで毎レンダー貼り直し(常に最新の save)。
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -320,9 +353,43 @@ export function GenericSheetEditor({
             onChange={(e) => patch({ palette: e.target.value })}
             placeholder={"2d6+4>=? 回避判定\n1d6 ダメージ\n# 見出し"}
           />
+          {(sheet.attributes.length > 0 ||
+            sheet.skills.some((s) => s.label.trim())) && (
+            <select
+              className="input gse-pal-add"
+              value=""
+              onChange={(e) => {
+                if (e.target.value) appendCheckLine(e.target.value);
+              }}
+              title="選んだ能力値/技能の判定コマンドをパレット末尾に追加"
+            >
+              <option value="">＋ 判定コマンドを追加…</option>
+              {sheet.attributes.length > 0 && (
+                <optgroup label="能力値">
+                  {sheet.attributes.map((a, i) => (
+                    <option key={`a${i}`} value={`a:${i}`}>
+                      {a.label}（{a.value}）
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {sheet.skills.some((s) => s.label.trim()) && (
+                <optgroup label="技能">
+                  {sheet.skills.map((s, i) =>
+                    s.label.trim() ? (
+                      <option key={`s${i}`} value={`s:${i}`}>
+                        {s.label}（{s.value}）
+                      </option>
+                    ) : null,
+                  )}
+                </optgroup>
+              )}
+            </select>
+          )}
           <p className="sysb-help muted">
             1 行 1 コマンド。卓に出すとこのままチャットパレットになります
             （クリックで入力欄へ、ダブルクリックで即ロール）。
+            手を入れていないパレットは、能力値・技能の変更に自動で追従します。
           </p>
         </section>
       </div>

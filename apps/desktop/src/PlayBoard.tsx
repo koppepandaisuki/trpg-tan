@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Panel, PlayBoard as BoardState } from "@trpg/core";
+import type { Panel, PanelVariant, PlayBoard as BoardState } from "@trpg/core";
 import {
   Eye,
   EyeOff,
@@ -850,6 +850,33 @@ function ObjectMenu({
   const canEdit = !playerMode || viewerOwns;
   const canClaim = playerMode && !viewerOwns && isChar && !!onClaim;
 
+  /** ベース画像(駒の見た目そのもの)を設定/変更する。差分リストがある場合は
+   *  現在表示中の差分エントリの画像も一緒に差し替える(ラベルは維持)。 */
+  function setBaseImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") return;
+      const image = reader.result;
+      const vs = panel.variants;
+      let variants: PanelVariant[] | undefined;
+      if (vs && vs.length > 0) {
+        const i = vs.findIndex((v) => v.image === panel.portrait);
+        variants =
+          i >= 0
+            ? vs.map((v, j) => (j === i ? { ...v, image } : v))
+            : [...vs, { id: crypto.randomUUID(), label: "基本", image }];
+      }
+      onUpdate(panel.id, {
+        portrait: image,
+        ...(variants ? { variants } : {}),
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
   /** 差分画像を追加。初回は現在の立ち絵を「基本」として自動登録する。 */
   function addVariant(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -965,6 +992,38 @@ function ObjectMenu({
               placeholder="このオブジェクトの情報"
             />
           </label>
+
+          {/* ベース画像(駒の見た目)。後からの追加・変更をここで行う。 */}
+          <div className="ctx-baseimg">
+            <div className="ctx-vhead">ベース画像</div>
+            <div className="ctx-baseimg-row">
+              <span className="ctx-baseimg-thumb" aria-hidden>
+                {panel.portrait ? (
+                  <img src={panel.portrait} alt="" draggable={false} />
+                ) : (
+                  <span className="ctx-baseimg-none">なし</span>
+                )}
+              </span>
+              <label className="btn mini board-file">
+                {panel.portrait ? "画像を変更" : "＋ 画像を設定"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={setBaseImage}
+                  style={{ display: "none" }}
+                />
+              </label>
+              {panel.portrait && panel.source === "sheet" && (
+                <button
+                  className="btn mini"
+                  onClick={() => onUpdate(panel.id, { portrait: null })}
+                  title="画像を外して色付きの丸駒に戻す"
+                >
+                  外す
+                </button>
+              )}
+            </div>
+          </div>
         </>
       )}
 
