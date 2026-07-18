@@ -7,6 +7,7 @@ import {
   X,
   Tag,
   JapaneseYen,
+  Flame,
 } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
@@ -18,16 +19,28 @@ import { WorkCard } from "@/components/store/work-card";
 import { EmptyState } from "@/components/store/empty-state";
 import { StorePagination } from "@/components/store/pagination";
 import { StoreHero } from "@/components/store/store-hero";
+import { TrustBar } from "@/components/store/trust-bar";
+import { StoreAmbient } from "@/components/store/store-ambient";
+import { StoreSectionNav } from "@/components/store/store-section-nav";
+import { AppBanner } from "@/components/store/app-banner";
+import { CategoryDice } from "@/components/store/category-dice";
 import { RankingSection } from "@/components/store/ranking-section";
 import { SaleStrip } from "@/components/store/sale-strip";
+import { NewWorks } from "@/components/store/new-works";
+import { CreatorsSection } from "@/components/store/creators-section";
+import { CreatorCta } from "@/components/store/creator-cta";
+import { StoreFilterSidebar } from "@/components/store/store-filter-sidebar";
 import {
   listPublishedProducts,
   listProductsByCategory,
   listFeaturedProducts,
   listTopRatedProducts,
   listOnSaleProducts,
+  listRecentProducts,
   type StoreSort,
 } from "@/lib/queries/products";
+import { getStoreOverview } from "@/lib/queries/store-landing";
+import { getTopCreators } from "@/lib/queries/top-creators";
 import { parseCategoryParam, categoryLabel } from "@/lib/format/category";
 import {
   parsePriceFilter,
@@ -57,6 +70,7 @@ interface StorePageProps {
     tag?: string;
     q?: string;
     price?: string;
+    sale?: string;
     sort?: string;
     page?: string;
   };
@@ -85,29 +99,109 @@ export default async function StorePage({ searchParams }: StorePageProps) {
       : null;
   const sort = parseSort(searchParams.sort);
   const price = parsePriceFilter(searchParams.price);
+  const sale = searchParams.sale === "1";
   const page = Number.parseInt(searchParams.page ?? "1", 10) || 1;
 
-  // ヒーロー / ランキング / セール帯は「絞り込みなしの1ページ目」だけに出す
-  // (マーケティング色の強いセクションなので、既にフィルタで意図が明確な
-  // 閲覧には出さず、既存の小さいフィルタ状況ヘッダーの方を使う)。
-  const isDefaultView = !category && !tag && !q && !price && page === 1;
+  // ランディング(Re-dice Store.dc.html の Web 版)は「絞り込みなしの
+  // 1ページ目」だけに出す。sort を明示した閲覧もグリッド一覧側に回す
+  // (ランディングにはグリッドが無く、「すべて見る」の着地先になるため)。
+  const isDefaultView =
+    !category && !tag && !q && !price && !sale && !searchParams.sort && page === 1;
 
-  const [{ items, totalPages, total }, heroFeatured, ranking, onSale] =
-    await Promise.all([
-      listPublishedProducts({ category, tag, q, price, sort, page }),
-      getHeroFeatured(),
-      isDefaultView ? listTopRatedProducts(3) : Promise.resolve([]),
-      isDefaultView ? listOnSaleProducts(4) : Promise.resolve([]),
-    ]);
+  /* ===== ランディング(デザイン準拠のフルページ) ===== */
+  if (isDefaultView) {
+    const [overview, heroFeatured, ranking, onSale, recent, creators] =
+      await Promise.all([
+        getStoreOverview(),
+        getHeroFeatured(),
+        listTopRatedProducts(6),
+        listOnSaleProducts(6),
+        listRecentProducts(9),
+        getTopCreators(4),
+      ]);
 
-  // 全フィルタ(category / tag / q / price / sort / page)から /store URL を
-  // 組み立てる単一ヘルパ。各導線は現在の状態に override を被せて呼ぶことで、
-  // フィルタの取りこぼし(例: 価格だけ消える)を防ぐ。
+    return (
+      <>
+        <TopHeader />
+        <StoreAmbient />
+        <StoreSectionNav />
+        <PageContainer className="relative z-10 py-8">
+          <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_264px]">
+            <div className="min-w-0 space-y-12">
+              <section aria-label="ヒーロー">
+                <StoreHero total={overview.total} featured={heroFeatured} />
+                <TrustBar
+                  total={overview.total}
+                  creatorCount={overview.creatorCount}
+                  avgStars={overview.avgStars}
+                />
+              </section>
+
+              <AppBanner />
+              <CategoryDice counts={overview.categoryCounts} />
+              <RankingSection
+                products={ranking}
+                seeAllHref={"/store?sort=rating" as Route}
+              />
+              <SaleStrip products={onSale} />
+              <NewWorks products={recent} />
+              <CreatorsSection entries={creators} />
+              <CreatorCta />
+            </div>
+
+            {/* 右: 絞り込みサイドバー(デスクトップのみ。モバイルはカテゴリ
+                タイル + 一覧側のフィルタ UI が担う)。 */}
+            <aside
+              aria-label="絞り込み検索"
+              className="sticky top-[7.5rem] hidden lg:flex lg:flex-col lg:gap-3.5"
+            >
+              <StoreFilterSidebar categoryCounts={overview.categoryCounts} />
+              <div className="flex items-center gap-2.5 rounded-2xl border border-[#EAD3B0] bg-gradient-to-br from-[#FFF8EF] to-white px-4 py-3.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/dice.png"
+                  alt=""
+                  className="h-[34px] w-[34px] shrink-0 rounded-[9px] shadow-[0_4px_10px_rgba(176,40,50,.2)]"
+                />
+                <div className="flex min-w-0 flex-col gap-px">
+                  <span className="text-[11.5px] font-bold">
+                    プレイにはPC版アプリが必須
+                  </span>
+                  <Link
+                    href={"/download" as Route}
+                    className="text-[11px] font-bold text-accent transition hover:text-primary"
+                  >
+                    無料ダウンロード →
+                  </Link>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </PageContainer>
+      </>
+    );
+  }
+
+  /* ===== 絞り込み / 一覧ビュー(既存 UI を維持) ===== */
+  const { items, totalPages, total } = await listPublishedProducts({
+    category,
+    tag,
+    q,
+    price,
+    sale,
+    sort,
+    page,
+  });
+
+  // 全フィルタ(category / tag / q / price / sale / sort / page)から /store
+  // URL を組み立てる単一ヘルパ。各導線は現在の状態に override を被せて
+  // 呼ぶことで、フィルタの取りこぼし(例: 価格だけ消える)を防ぐ。
   const storeHref = (p: {
     category?: string | null;
     tag?: string | null;
     q?: string | null;
     price?: StorePriceFilter | null;
+    sale?: boolean;
     sort?: StoreSort;
     page?: number;
   }): Route => {
@@ -116,6 +210,7 @@ export default async function StorePage({ searchParams }: StorePageProps) {
     if (p.tag) params.set("tag", p.tag);
     if (p.q) params.set("q", p.q);
     if (p.price) params.set("price", p.price);
+    if (p.sale) params.set("sale", "1");
     if (p.sort === "rating") params.set("sort", "rating");
     if (p.page && p.page > 1) params.set("page", String(p.page));
     const qs = params.toString();
@@ -124,31 +219,24 @@ export default async function StorePage({ searchParams }: StorePageProps) {
 
   // ページネーション: page だけ差し替え、他は維持。
   const buildHref = (p: number): Route =>
-    storeHref({ category, tag, q, price, sort, page: p });
-  // タグ / 検索 / 価格を個別に外す導線(他は維持、page はリセット)。
-  const removeTagHref = storeHref({ category, tag: null, q, price, sort });
-  const removeQueryHref = storeHref({ category, tag, q: null, price, sort });
-  const removePriceHref = storeHref({ category, tag, q, price: null, sort });
+    storeHref({ category, tag, q, price, sale, sort, page: p });
+  // タグ / 検索 / 価格 / セールを個別に外す導線(他は維持、page はリセット)。
+  const removeTagHref = storeHref({ category, tag: null, q, price, sale, sort });
+  const removeQueryHref = storeHref({ category, tag, q: null, price, sale, sort });
+  const removePriceHref = storeHref({ category, tag, q, price: null, sale, sort });
+  const removeSaleHref = storeHref({ category, tag, q, price, sale: false, sort });
   // ソート / 価格切替(page はリセットして 1 ページ目へ)。
   const buildSortHref = (s: StoreSort): Route =>
-    storeHref({ category, tag, q, price, sort: s });
+    storeHref({ category, tag, q, price, sale, sort: s });
   const buildPriceHref = (pr: StorePriceFilter): Route =>
-    storeHref({ category, tag, q, price: pr, sort });
+    storeHref({ category, tag, q, price: pr, sale, sort });
 
   return (
     <>
       <TopHeader />
       <PageContainer className="space-y-6 py-8">
-        {/* 絞り込みなしの1ページ目だけ、深紅グラデーションの大型ヒーロー
-            (design_handoff_store_redesign 案A)を出す。フィルタ済みの
-            閲覧では、フィルタ chip を持つ下の小さいヘッダーの方を使う
-            (機能を失わないため)。 */}
-        {isDefaultView && <StoreHero total={total} featured={heroFeatured} />}
-
         {/* フィルタ状況ヘッダー(サイト全体の視覚言語に統一)。絞り込み中は
-            常に表示し、chip でフィルタを外せるようにする。絞り込みなしの
-            1ページ目は上の StoreHero が役割を兼ねるので隠す。 */}
-        {!isDefaultView && (
+            常に表示し、chip でフィルタを外せるようにする。 */}
         <Card className="overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-amber-500/8 shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
             <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-amber-500/10 blur-3xl" />
@@ -202,27 +290,29 @@ export default async function StorePage({ searchParams }: StorePageProps) {
                       <X className="h-3 w-3" aria-hidden />
                     </Link>
                   )}
+                  {/* セール中フィルタ chip。クリックで外せる */}
+                  {sale && (
+                    <Link
+                      href={removeSaleHref}
+                      className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
+                      aria-label="セール中フィルタを外す"
+                    >
+                      <Flame className="h-3 w-3" aria-hidden />
+                      <span>セール中</span>
+                      <X className="h-3 w-3" aria-hidden />
+                    </Link>
+                  )}
                   <Badge variant="muted" className="text-[10px]">
                     {total} 件
                   </Badge>
                 </div>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  {buildDescription(category, tag, q)}
+                  {buildDescription(category, tag, q, sale)}
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
-        )}
-
-        {/* 人気ランキング + セール特集帯(絞り込みなしの1ページ目のみ)。
-            どちらも 0 件なら各コンポーネント内部で非表示になる。 */}
-        {isDefaultView && (
-          <>
-            <RankingSection products={ranking} seeAllHref={"/store?sort=rating" as Route} />
-            <SaleStrip products={onSale} />
-          </>
-        )}
 
         <div>
           <CategoryTabs current={category} />
@@ -270,6 +360,20 @@ export default async function StorePage({ searchParams }: StorePageProps) {
               </Link>
             );
           })}
+          {/* セール中のみ(sale=1)。価格帯と同列のトグル chip。 */}
+          <Link
+            href={sale ? removeSaleHref : storeHref({ category, tag, q, price, sale: true, sort })}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition",
+              sale
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+            )}
+            aria-current={sale ? "page" : undefined}
+          >
+            <Flame className="h-3 w-3" aria-hidden />
+            セール中
+          </Link>
         </nav>
 
         {/* ソート切替(新着順 / 好評順)。フィルタ + ソートは独立に
@@ -327,6 +431,18 @@ export default async function StorePage({ searchParams }: StorePageProps) {
                 primaryAction={{
                   href: removeTagHref,
                   label: "タグフィルタを外す",
+                }}
+                secondaryAction={{ href: "/", label: "ホームに戻る" }}
+              />
+            ) : sale ? (
+              // セール絞り込みで 0 件 → セール条件を外す導線
+              <EmptyState
+                icon={Flame}
+                title="開催中のセールはありません"
+                description="いまセール中の作品はありません。すべての作品から探してみてください。"
+                primaryAction={{
+                  href: removeSaleHref,
+                  label: "セール条件を外す",
                 }}
                 secondaryAction={{ href: "/", label: "ホームに戻る" }}
               />
@@ -401,6 +517,7 @@ function buildDescription(
   category: string | null,
   tag: string | null,
   q: string | null,
+  sale: boolean,
 ): string {
   // 検索がある場合は最優先で文面に含める(ユーザーの最近のアクション)
   if (q) {
@@ -408,6 +525,11 @@ function buildDescription(
       ? `「${categoryLabel(category as never)}」カテゴリ内で`
       : "";
     return `${scope}「${q}」を作品名・作者・タグから検索した結果です。`;
+  }
+  if (sale) {
+    return category
+      ? `「${categoryLabel(category as never)}」カテゴリでいまセール中の作品一覧。`
+      : "いまセール中(期間限定の割引が有効)の作品一覧。";
   }
   if (tag && category) {
     return `「${categoryLabel(category as never)}」かつタグ「#${tag}」が付いた公開作品一覧。`;
