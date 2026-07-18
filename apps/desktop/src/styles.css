@@ -2659,6 +2659,9 @@ body {
   gap: 3px;
 }
 .palette-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   text-align: left;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -2674,6 +2677,41 @@ body {
 .palette-line:hover {
   border-color: var(--primary);
   background: var(--primary-soft);
+}
+/* ラベル主体の表示: 「目星」を主役に、式(CC<=70)は小さく添える。 */
+.palette-line .pl-label {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.palette-line .pl-cmd {
+  margin-left: auto;
+  flex-shrink: 0;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+/* 編集モードを開かずに 1 行追加するクイック入力。 */
+.palette-quick {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.palette-quick .input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  font-size: 11.5px;
+}
+.palette-quick .btn {
+  flex-shrink: 0;
+  padding: 3px 9px;
 }
 .palette-head-line {
   font-size: 10px;
@@ -5579,6 +5617,40 @@ select.cutin-snd {
   min-width: 0;
   padding: 5px 8px;
   font-size: 12.5px;
+}
+
+/* ベース画像(駒の見た目)の追加/変更。右クリックメニュー内。 */
+.ctx-baseimg {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 2px;
+}
+.ctx-baseimg-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ctx-baseimg-thumb {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctx-baseimg-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ctx-baseimg-none {
+  font-size: 10px;
+  color: var(--text-faint);
 }
 
 /* ===== 参加者ビュー(没入モード): 盤面フル + 格納式ドロワー ===== */
@@ -9613,6 +9685,11 @@ button:disabled {
 .gse-palette {
   min-height: 260px;
   font-family: ui-monospace, "Cascadia Mono", monospace;
+}
+/* パレット下の「＋ 判定コマンドを追加…」セレクタ。 */
+.gse-pal-add {
+  margin-top: 6px;
+  font-size: 12.5px;
 }
 
 /* PLAY ドロワーのナビボタン */

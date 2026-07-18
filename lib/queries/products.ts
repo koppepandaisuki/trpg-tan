@@ -85,6 +85,26 @@ type ListResult = {
 };
 
 /**
+ * 「セール中」の DB 側条件: 有料 + discount_percent > 0 + 期間内。
+ * 期間(starts_at が null か過去 / ends_at が null か未来)は .or() 2 連で
+ * 表現し、count・ページ番号が JS 側の後絞りでズレないようにする。
+ * 判定基準は lib/format/price.ts の effectiveDiscountPercent と同じ。
+ */
+function applySaleFilter<
+  Q extends {
+    gt(column: string, value: number): Q;
+    or(filters: string): Q;
+  },
+>(query: Q): Q {
+  const now = new Date().toISOString();
+  return query
+    .gt("price_jpy", 0)
+    .gt("discount_percent", 0)
+    .or(`discount_starts_at.is.null,discount_starts_at.lte.${now}`)
+    .or(`discount_ends_at.is.null,discount_ends_at.gte.${now}`);
+}
+
+/**
  * Fetch published products for the store grid.
  *
  * Defense in depth:
@@ -104,6 +124,8 @@ export async function listPublishedProducts(opts?: {
   q?: string | null;
   /** 価格絞り込みブラケット(無料 / 価格帯)。null は絞り込みなし。 */
   price?: StorePriceFilter | null;
+  /** true でセール中(有料 + 割引が今まさに有効)のみに絞る(/store?sale=1)。 */
+  sale?: boolean;
   page?: number;
   sort?: StoreSort;
 }): Promise<ListResult> {
@@ -115,6 +137,7 @@ export async function listPublishedProducts(opts?: {
   const sort: StoreSort = opts?.sort ?? "published";
   const q = opts?.q?.trim() || null;
   const price = opts?.price ?? null;
+  const sale = opts?.sale === true;
 
   // tag フィルタ + 検索(q)はどちらも「該当する product_id 集合」を
   // 計算して、最終的に AND(intersection)で絞り込む。
@@ -164,6 +187,7 @@ export async function listPublishedProducts(opts?: {
       category: opts?.category ?? null,
       filteredIds,
       price,
+      sale,
     });
   }
 
@@ -185,6 +209,9 @@ export async function listPublishedProducts(opts?: {
     const { min, max } = priceFilterRange(price);
     query = query.gte("price_jpy", min);
     if (max !== null) query = query.lte("price_jpy", max);
+  }
+  if (sale) {
+    query = applySaleFilter(query);
   }
 
   const { data: rows, count, error } = await query;
@@ -407,8 +434,10 @@ async function listByRating(args: {
   filteredIds: string[] | null;
   /** 価格絞り込みブラケット。null は絞り込みなし。*/
   price: StorePriceFilter | null;
+  /** true でセール中のみ(applySaleFilter と同条件)。 */
+  sale?: boolean;
 }): Promise<ListResult> {
-  const { page, pageSize, category, filteredIds, price } = args;
+  const { page, pageSize, category, filteredIds, price, sale } = args;
   const supabase = createClient();
 
   // Step 1: 全 published products(filter 適用済)を slim select
@@ -424,6 +453,7 @@ async function listByRating(args: {
     idQuery = idQuery.gte("price_jpy", min);
     if (max !== null) idQuery = idQuery.lte("price_jpy", max);
   }
+  if (sale) idQuery = applySaleFilter(idQuery);
 
   const { data: idRows, error: idErr } = await idQuery;
   if (idErr) {

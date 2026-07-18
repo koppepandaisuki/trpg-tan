@@ -7,8 +7,11 @@
  *   - se     : サウンドライブラリの 🔔SE(単発) / 定型文 [SE:…] に適用。
  *   - dice   : ダイスの転がり音 + 成功 / クリティカル / ファンブル音(Web Audio 合成)。
  *
- * 実効音量は `master * category`。`muted=true` のときは一括で 0(マスターのみで
- * ミュート / ミュート解除できるよう独立フラグにしてある)。
+ * 実効音量は `(master * category)^2`。人間の音量知覚は対数的で、スライダ値を
+ * そのまま audio.volume に入れると「少し下げてもまだ大きい」ままになるため、
+ * 二乗カーブで下側の可動域を広げている(0.5 で実効 0.25、0.3 で 0.09)。
+ * `muted=true` のときは一括で 0(マスターのみでミュート / ミュート解除できる
+ * よう独立フラグにしてある)。
  *
  * 値の変更は CustomEvent `trpg-volume-changed` で同 window 内に通知する。
  * SoundPanel(再生中の <audio>)や dice-sound.ts(masterGain)はこれを購読して
@@ -37,7 +40,8 @@ const LEGACY_SE = "trpg.se.volume.v1";
 
 const DEFAULT: VolumeSettings = {
   master: 1,
-  bgm: 0.6,
+  // BGM は「初期状態で会話の邪魔にならない」を優先して控えめに(実効 0.45^2 ≈ 0.20)。
+  bgm: 0.45,
   se: 0.8,
   dice: 1,
   muted: false,
@@ -126,22 +130,31 @@ export function setVolumeSettings(
   return next;
 }
 
+/**
+ * スライダ値(0..1)→ 実効ゲイン。二乗の知覚カーブ(モジュール先頭コメント参照)。
+ * PlayClient(参加側の音量スライダ)も同じカーブを使う。
+ */
+export function perceptualGain(v: number): number {
+  const c = clamp01(v);
+  return c * c;
+}
+
 /** 実効 BGM 音量(0..1)。muted=true なら 0。 */
 export function getEffectiveBgmVolume(): number {
   const s = getVolumeSettings();
-  return s.muted ? 0 : clamp01(s.master * s.bgm);
+  return s.muted ? 0 : perceptualGain(s.master * s.bgm);
 }
 
 /** 実効 SE 音量(0..1)。 */
 export function getEffectiveSeVolume(): number {
   const s = getVolumeSettings();
-  return s.muted ? 0 : clamp01(s.master * s.se);
+  return s.muted ? 0 : perceptualGain(s.master * s.se);
 }
 
 /** 実効ダイス・判定音音量(0..1)。 */
 export function getEffectiveDiceVolume(): number {
   const s = getVolumeSettings();
-  return s.muted ? 0 : clamp01(s.master * s.dice);
+  return s.muted ? 0 : perceptualGain(s.master * s.dice);
 }
 
 /**

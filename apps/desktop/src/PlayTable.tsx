@@ -1122,7 +1122,10 @@ export function PlayTable({
     }
 
     // システム固有コマンド(ダイスボット)を先に解釈。非該当は汎用へ。
-    const botEv = diceBotRollEvent(newCtx(), name, raw, diceBot);
+    // 発言者がキャラ駒で自分のダイスボットを持つなら、卓のグローバル選択より
+    // それを優先する(混在システム卓で各キャラが自分の記法で振れる)。
+    const rollBot = speakerPanel?.diceBot ?? diceBot;
+    const botEv = diceBotRollEvent(newCtx(), name, raw, rollBot);
     if (botEv) {
       let ev: RollEvent = botEv;
       if (isSecret) ev = { ...ev, secret: true, visibleTo: [...viewers] };

@@ -467,6 +467,24 @@ export function App() {
     toast(`📥 「${sheet.name}」を取り込みました。保存で確定します`);
   }
 
+  /** ココフォリア駒の貼り付けなどから取り込んだ汎用シートをエディタで開く(未保存)。 */
+  function openImportedGenericSheet(sheet: GenericSheet) {
+    setSession(null);
+    setJoining(null);
+    setPage("characters");
+    setDrawerOpen(false);
+    setActiveGeneric({
+      def: findSystem(sheet.systemId),
+      sheet,
+      key: `gimport-${Date.now()}`,
+    });
+    setCharEditorOpen(true);
+    setError(null);
+    toast(
+      `📥 「${sheet.name || "(名称未設定)"}」を取り込みました。保存で確定します`,
+    );
+  }
+
   /** ビルダーから「このシステムでキャラ作成」。 */
   function newGenericCharacter(def: SystemDef) {
     setSession(null);
@@ -583,6 +601,7 @@ export function App() {
             onNewCoC={newCharacter}
             onNewGeneric={newGenericCharacter}
             onImported={openImportedSheet}
+            onImportedGeneric={openImportedGenericSheet}
           />
         </div>
         {library.length === 0 ? (
@@ -605,6 +624,7 @@ export function App() {
             onPickCoC={(sid) => newCharacter(sid)}
             onPickGeneric={newGenericCharacter}
             onImported={openImportedSheet}
+            onImportedGeneric={openImportedGenericSheet}
           />
         ) : activeGeneric ? (
           <GenericSheetEditor

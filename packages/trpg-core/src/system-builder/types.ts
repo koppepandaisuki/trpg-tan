@@ -195,6 +195,7 @@ export function panelFromGeneric(params: {
     stats,
     resources,
     ...(sheet.checkTemplate ? { checkTemplate: sheet.checkTemplate } : {}),
+    ...(sheet.diceBot ? { diceBot: sheet.diceBot } : {}),
     ...(sheet.palette ? { palette: sheet.palette } : {}),
   };
 }
