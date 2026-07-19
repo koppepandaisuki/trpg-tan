@@ -33,7 +33,7 @@ import {
   Play,
   Coins,
 } from "lucide-react";
-import { openExternalUrl as openUrl } from "./platform";
+import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
 import { toast } from "./Toasts";
 import { requireLogin } from "./LoginGate";
 import { useWishlist, toggleWish } from "./wishlist";
@@ -45,7 +45,7 @@ import {
   useGoldBalance,
 } from "./gold-remote";
 import { useAuth } from "./useAuth";
-import { supabaseConfigured } from "./supabase";
+import { supabase, supabaseConfigured } from "./supabase";
 import { SkelGrid, SkelStoreHome } from "./Skeleton";
 import { EmptyState } from "./EmptyState";
 import { PRODUCT_TYPE_LABEL, FILE_FORMAT_LABEL } from "./library-remote";
@@ -75,12 +75,14 @@ import {
   type FeaturedItem,
   type StoreCreator,
   type TopCreatorEntry,
+  type StoreOverview,
 } from "./store-remote";
 
 /**
- * ストア(メインペイン)。Steam ライクな 3 面構成:
- *  - ホーム: 大型カルーセル(フィーチャー) + 急上昇 / 新着 / 好評 /
- *    ジャンル別の横スクロール・ストリップ
+ * ストア(メインペイン)。3 面構成:
+ *  - ホーム: Claude Design「Re-dice App Store」準拠のフルページ
+ *    (ヒーロー+信頼バー / サイコロ目カテゴリ / ランキング・セール・
+ *     新着・クリエイターのカルーセル / ビルダー CTA / 絞り込みサイドバー)
  *  - 一覧: カテゴリ / 検索 / 並び順 / ページングのグリッド
  *  - 詳細: ギャラリー / 説明 / メタ / レビュー / 購入導線(決済は Web)
  */
@@ -150,66 +152,233 @@ const CATEGORY_ICON: Record<RemoteProductType, ReactNode> = {
   bgm_audio: <Music size={14} />,
 };
 
-/**
- * 「カテゴリで探す」のサブカード(Web ホームと同じラベル / 説明 / 配色)。
- * フルパッケージは“目玉”として上の大型カードに分離するので、ここには含めない。
- */
-const CAT_CARDS: {
-  key: RemoteProductType;
-  icon: ReactNode;
-  label: string;
-  sub: string;
-  tone: string;
-}[] = [
-  { key: "scenario", icon: <FileText size={17} />, label: "シナリオ", sub: "ストーリーと舞台設定", tone: "green" },
-  { key: "rulebook", icon: <BookOpen size={17} />, label: "ルールブック", sub: "ハウスルール・追加システム", tone: "green" },
-  { key: "map", icon: <MapIcon size={17} />, label: "マップ・バトルマップ", sub: "戦闘マップ・地図", tone: "gold" },
-  { key: "character_art", icon: <Palette size={17} />, label: "アートワーク", sub: "立ち絵・アートワーク", tone: "rose" },
-  { key: "bgm_audio", icon: <Music size={17} />, label: "BGM・効果音", sub: "BGM・効果音", tone: "orange" },
-];
+/* ===== デザイン共通部品(Re-dice App Store standalone 準拠) =====
+ * CSS だけで描くサイコロの面。カテゴリタイル・見出しチップ・アンビエントで
+ * 共用する(画像素材ゼロでブランドのダイスモチーフを使い回す)。 */
 
-/** セクション見出しのアクセント色(アイコンチップの色味)。 */
-type SecTone = "sky" | "mint" | "gold" | "rose" | "violet" | "coral" | "orange";
+type DieFaceNum = 1 | 2 | 3 | 4 | 5 | 6;
 
-/** カテゴリ別ストリップの見出し色(catcard の配色と対応)。 */
-const CAT_TONE: Record<RemoteProductType, SecTone> = {
-  full_package: "sky",
-  scenario: "sky",
-  rulebook: "mint",
-  map: "gold",
-  character_art: "rose",
-  bgm_audio: "orange",
+const DIE_FACES: Record<DieFaceNum, [number, number][]> = {
+  1: [[50, 50]],
+  2: [
+    [32, 32],
+    [68, 68],
+  ],
+  3: [
+    [28, 28],
+    [50, 50],
+    [72, 72],
+  ],
+  4: [
+    [32, 32],
+    [68, 32],
+    [32, 68],
+    [68, 68],
+  ],
+  5: [
+    [29, 29],
+    [71, 29],
+    [50, 50],
+    [29, 71],
+    [71, 71],
+  ],
+  6: [
+    [32, 26],
+    [68, 26],
+    [32, 50],
+    [68, 50],
+    [32, 74],
+    [68, 74],
+  ],
 };
 
-/**
- * ストアホーム共通のセクション見出し。アイコンチップ + タイトル + 補足 +
- * 右端アクション。全セクションで同じ語彙にすることでリズムと階層を作る。
- */
-function SecHead({
-  icon,
-  tone,
+function DieFaceIcon({
+  face,
+  size,
+  color,
+  borderWidth = 2,
+  className,
+  style,
+}: {
+  face: DieFaceNum;
+  size: number;
+  color: string;
+  borderWidth?: number;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const pip = Math.max(2, Math.round(size * 0.07));
+  return (
+    <span
+      aria-hidden
+      className={className}
+      style={{
+        display: "block",
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.26),
+        border: `${borderWidth}px solid ${color}`,
+        backgroundRepeat: "no-repeat",
+        backgroundImage: DIE_FACES[face]
+          .map(
+            ([x, y]) =>
+              `radial-gradient(circle ${pip}px at ${x}% ${y}%, ${color} 95%, transparent)`,
+          )
+          .join(","),
+        ...style,
+      }}
+    />
+  );
+}
+
+/** セクション見出し(デザイン準拠): 深紅ダイスチップ + 明朝タイトル + 補足 + 右端リンク。 */
+function DesignHead({
   title,
   sub,
   action,
 }: {
-  icon: ReactNode;
-  tone: SecTone;
   title: string;
   sub?: string;
   action?: { label: string; onClick: () => void };
 }) {
   return (
-    <div className="sec-head">
-      <span className={`sec-ic tone-${tone}`}>{icon}</span>
-      <div className="sec-headcopy">
-        <h3 className="sec-title">{title}</h3>
-        {sub && <p className="sec-sub muted">{sub}</p>}
+    <div className="dhead">
+      <span className="die-ico" aria-hidden />
+      <div className="dhead-copy">
+        <h3 className="dhead-title">{title}</h3>
+        {sub && <p className="dhead-sub">{sub}</p>}
       </div>
       {action && (
-        <button className="sec-action" onClick={action.onClick}>
-          {action.label}
-          <ChevronRight size={14} />
+        <button className="dhead-action" onClick={action.onClick}>
+          {action.label} ›
         </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ホーム共通の横スクロール・カルーセル(scroll-snap + 左右ボタン + ドット)。
+ * ページ数は scrollWidth / clientWidth から動的に計算する。
+ */
+function AppCarousel({
+  children,
+  itemClass,
+  gap = 16,
+  edge = true,
+}: {
+  children: ReactNode[];
+  /** 各アイテムの flex-basis クラス(.acar-w2 = 2枚/ビュー等)。 */
+  itemClass: string;
+  gap?: number;
+  /** 左右ボタンをコンテナ外縁へはみ出させる。 */
+  edge?: boolean;
+}) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const timerRef = useRef<number | undefined>(undefined);
+  const [pageN, setPageN] = useState(0);
+  const [pages, setPages] = useState(1);
+
+  const measure = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const n = Math.max(
+      1,
+      Math.round((el.scrollWidth + gap) / (el.clientWidth + gap)),
+    );
+    setPages(n);
+    setPageN((p) => Math.min(p, n - 1));
+  }, [gap]);
+
+  useEffect(() => {
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure, children.length]);
+
+  const goTo = useCallback(
+    (p: number) => {
+      const el = trackRef.current;
+      if (!el) return;
+      const pp = Math.max(0, Math.min(pages - 1, p));
+      el.scrollTo({ left: pp * (el.clientWidth + gap), behavior: "smooth" });
+    },
+    [gap, pages],
+  );
+
+  const livePage = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return pageN;
+    return Math.max(
+      0,
+      Math.min(pages - 1, Math.round(el.scrollLeft / (el.clientWidth + gap))),
+    );
+  }, [gap, pageN, pages]);
+
+  const showNav = pages > 1;
+  return (
+    <div>
+      <div className="acar">
+        {showNav && (
+          <button
+            type="button"
+            className={`acar-btn ${edge ? "edge" : ""}`}
+            style={{ left: edge ? -16 : -4, opacity: pageN === 0 ? 0.35 : 1 }}
+            aria-label="前へ"
+            onClick={() => goTo(livePage() - 1)}
+          >
+            ‹
+          </button>
+        )}
+        <div
+          ref={trackRef}
+          className="acar-track"
+          style={{ gap }}
+          onScroll={() => {
+            window.clearTimeout(timerRef.current);
+            timerRef.current = window.setTimeout(
+              () => setPageN(livePage()),
+              140,
+            );
+          }}
+        >
+          {children.map((c, i) => (
+            <div key={i} className={`acar-item ${itemClass}`}>
+              {c}
+            </div>
+          ))}
+        </div>
+        {showNav && (
+          <button
+            type="button"
+            className={`acar-btn ${edge ? "edge" : ""}`}
+            style={{
+              right: edge ? -16 : -4,
+              opacity: pageN >= pages - 1 ? 0.35 : 1,
+            }}
+            aria-label="次へ"
+            onClick={() => goTo(livePage() + 1)}
+          >
+            ›
+          </button>
+        )}
+      </div>
+      {showNav && (
+        <div className="acar-dots">
+          {Array.from({ length: pages }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              aria-label={`${i + 1}ページ目へ`}
+              className="acar-dot"
+              style={{
+                width: i === pageN ? 22 : 8,
+                background: i === pageN ? "#B02832" : "var(--acar-dot, #E3D8C2)",
+              }}
+              onClick={() => goTo(i)}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
@@ -353,167 +522,6 @@ function PriceTag({
   );
 }
 
-/* ===== ホーム: 「注目＆おすすめ」カルーセル(Steam 型) =====
- *  - 中央: 大きなカバー(右パネルのスクショにホバーすると差し替わる)
- *  - 右: 作品名 / 評価 / スクショ 2×2 の情報パネル
- *  - 左右端: 前後の作品が少し覗く(クリックで送り)
- */
-function HeroCarousel({
-  items,
-  purchased,
-  onOpen,
-}: {
-  items: FeaturedItem[];
-  purchased: Set<string>;
-  onOpen: (item: StoreItem) => void;
-}) {
-  const [idx, setIdx] = useState(0);
-  const [hoverShot, setHoverShot] = useState<string | null>(null);
-  const timer = useRef<number | undefined>(undefined);
-
-  // 7 秒ごとに自動送り。手動操作でタイマーを巻き直す。
-  const restart = useCallback(() => {
-    window.clearInterval(timer.current);
-    if (items.length <= 1) return;
-    timer.current = window.setInterval(() => {
-      setIdx((i) => (i + 1) % items.length);
-      setHoverShot(null);
-    }, 7000);
-  }, [items.length]);
-
-  useEffect(() => {
-    restart();
-    return () => window.clearInterval(timer.current);
-  }, [restart]);
-
-  if (items.length === 0) return null;
-  const n = items.length;
-  const cur = items[Math.min(idx, n - 1)];
-  const prev = items[(idx - 1 + n) % n];
-  const next = items[(idx + 1) % n];
-
-  function select(i: number) {
-    setIdx(((i % n) + n) % n);
-    setHoverShot(null);
-    restart();
-  }
-
-  const mainImg = hoverShot ?? cur.coverUrl;
-
-  return (
-    <section className="feat">
-      <SecHead icon={<Sparkles size={16} />} tone="coral" title="注目＆おすすめ" />
-      <div className="feat-row">
-        {/* 左ピーク(前の作品) */}
-        {n > 1 && (
-          <button
-            className="feat-peek left"
-            onClick={() => select(idx - 1)}
-            title={prev.title}
-            aria-label="前へ"
-          >
-            {prev.coverUrl && <img src={prev.coverUrl} alt="" loading="lazy" />}
-            <span className="feat-peek-arrow">‹</span>
-          </button>
-        )}
-
-        {/* 中央 + 右パネル(ひとつのカード) */}
-        <div className="feat-card" onClick={() => onOpen(cur)} role="button">
-          <div className="feat-main">
-            {mainImg ? (
-              <img key={mainImg} src={mainImg} alt={cur.title} />
-            ) : (
-              <span className="store-noimg">No Image</span>
-            )}
-            <div className="hero-overlay">
-              <div className="hero-meta">
-                <span className="hero-creator">
-                  {cur.creator.avatarUrl && (
-                    <img src={cur.creator.avatarUrl} alt="" />
-                  )}
-                  {cur.creator.displayName || "（無名）"}
-                </span>
-                <span className="hero-price">
-                  <PriceTag item={cur} size="lg" />
-                </span>
-                {purchased.has(cur.id) && (
-                  <span className="store-owned-chip static">✓ 購入済み</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <aside className="feat-info">
-            <h4 className="feat-title">{cur.title}</h4>
-            <p className="feat-revline">
-              {cur.review && cur.review.total > 0 ? (
-                <>
-                  <span className={`feat-revlabel ${reviewTone(cur.review.label)}`}>
-                    {cur.review.label}
-                  </span>
-                  <span className="muted">
-                    （{cur.review.total.toLocaleString("ja-JP")}件のレビュー）
-                  </span>
-                </>
-              ) : (
-                <span className="muted">レビュー募集中</span>
-              )}
-            </p>
-            <div className="feat-shots">
-              {(cur.screens.length > 0
-                ? cur.screens
-                : cur.coverUrl
-                  ? [cur.coverUrl]
-                  : []
-              ).map((url) => (
-                <span
-                  key={url}
-                  className="feat-shot"
-                  onMouseEnter={() => setHoverShot(url)}
-                  onMouseLeave={() => setHoverShot(null)}
-                >
-                  <img src={url} alt="" loading="lazy" />
-                </span>
-              ))}
-            </div>
-            <p className="feat-tagline muted">
-              {PRODUCT_TYPE_LABEL[cur.productType] ?? cur.productType}
-              {cur.systemLabel ? ` ・ ${cur.systemLabel}` : ""}
-            </p>
-          </aside>
-        </div>
-
-        {/* 右ピーク(次の作品) */}
-        {n > 1 && (
-          <button
-            className="feat-peek right"
-            onClick={() => select(idx + 1)}
-            title={next.title}
-            aria-label="次へ"
-          >
-            {next.coverUrl && <img src={next.coverUrl} alt="" loading="lazy" />}
-            <span className="feat-peek-arrow">›</span>
-          </button>
-        )}
-      </div>
-
-      {/* ドットインジケータ */}
-      {n > 1 && (
-        <div className="feat-dots">
-          {items.map((it, i) => (
-            <button
-              key={it.id}
-              className={`feat-dot ${i === idx ? "active" : ""}`}
-              onClick={() => select(i)}
-              aria-label={it.title}
-            />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
 /* ===== カバー画像(ホバーでスクリーンショットを巡回) ===== */
 
 function HoverCover({
@@ -575,84 +583,76 @@ function HoverCover({
   );
 }
 
-/* ===== ホーム: 横スクロールのストリップ ===== */
+/* ===== ホーム(Re-dice App Store standalone デザイン) =====
+ * Claude Design のアプリ版フルページデザインを StorePanel ホームに実装。
+ * 背景アンビエント / ヒーロー(16:9 注目)+ 信頼バー / サイコロの目カテゴリ /
+ * ランキング・セール・新着・クリエイターのカルーセル / ビルダー CTA /
+ * 右の絞り込みサイドバー。 */
 
-function Strip({
-  icon,
-  tone,
-  title,
-  items,
-  purchased,
-  onOpen,
-  onMore,
-}: {
-  icon: ReactNode;
-  tone: SecTone;
-  title: string;
-  items: StoreItem[];
-  purchased: Set<string>;
-  onOpen: (item: StoreItem) => void;
-  onMore?: () => void;
-}) {
-  if (items.length === 0) return null;
-  return (
-    <section className="strip">
-      <SecHead
-        icon={icon}
-        tone={tone}
-        title={title}
-        action={onMore ? { label: "すべて見る", onClick: onMore } : undefined}
-      />
-      <div className="strip-row">
-        {items.map((it) => (
-          <button
-            key={it.id}
-            className="strip-card"
-            onClick={() => onOpen(it)}
-            title={it.title}
-          >
-            <HoverCover
-              item={it}
-              owned={purchased.has(it.id)}
-              className="strip-cover"
-            />
-            <span className="strip-title">{it.title}</span>
-            <span className="strip-foot">
-              <PriceTag item={it} />
-              <ReviewBadge review={it.review} />
-            </span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ===== ホーム: 大型ヒーローバナー(web の StoreHero と同じ視覚言語) ===== */
-
-/** ダイスの目/星/スパークをふわっと漂わせる装飾レイヤー。クリック透過。 */
-function DiceAmbient() {
-  const specs = [
-    { cls: "dc-die-c", top: "8%", left: "4%", rot: -8, d: 15, delay: 0 },
-    { cls: "dc-die-g", top: "62%", left: "9%", rot: 10, d: 13, delay: 1.4 },
-    { cls: "dc-spark", top: "20%", left: "84%", rot: 0, d: 11, delay: 0.6 },
-    { cls: "dc-star", top: "72%", left: "78%", rot: 0, d: 12, delay: 2.1 },
-    { cls: "dc-die-c", top: "40%", left: "92%", rot: 14, d: 16, delay: 0.9 },
-    { cls: "dc-star", top: "6%", left: "46%", rot: 0, d: 10, delay: 1.8 },
+/** ホーム全面の背景アンビエント(.shome 内 absolute。% 配置で縦に分散)。 */
+function StoreAmbientApp() {
+  const dice: {
+    pos: React.CSSProperties;
+    size: number;
+    crimson: boolean;
+    face: DieFaceNum;
+    rot: number;
+    d: number;
+    delay: number;
+  }[] = [
+    { pos: { left: "1.5%", top: "12%" }, size: 46, crimson: true, face: 5, rot: 14, d: 16, delay: 0 },
+    { pos: { right: "1.5%", top: "8%" }, size: 38, crimson: false, face: 4, rot: -10, d: 18, delay: 1.2 },
+    { pos: { left: "2%", top: "52%" }, size: 30, crimson: true, face: 2, rot: -18, d: 15, delay: 0.6 },
+    { pos: { right: "2%", top: "60%" }, size: 42, crimson: false, face: 5, rot: 10, d: 17, delay: 2 },
+    { pos: { left: "1.5%", top: "88%" }, size: 34, crimson: true, face: 3, rot: 8, d: 19, delay: 1.4 },
+  ];
+  const sparkClip =
+    "polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%)";
+  const diamondClip = "polygon(50% 0, 100% 50%, 50% 100%, 0 50%)";
+  const shapes: {
+    pos: React.CSSProperties;
+    size: number;
+    color: string;
+    clip: string;
+    d: number;
+    delay: number;
+  }[] = [
+    { pos: { left: "4%", top: "30%" }, size: 18, color: "#C9A227", clip: sparkClip, d: 12, delay: 0 },
+    { pos: { right: "4.5%", top: "36%" }, size: 14, color: "#C9A227", clip: sparkClip, d: 14, delay: 3 },
+    { pos: { right: "1.5%", top: "90%" }, size: 16, color: "#C9A227", clip: sparkClip, d: 13, delay: 1.8 },
+    { pos: { left: "3.5%", top: "72%" }, size: 12, color: "#D9B45C", clip: diamondClip, d: 13, delay: 1 },
+    { pos: { right: "3.5%", top: "22%" }, size: 10, color: "#D9B45C", clip: diamondClip, d: 15, delay: 2.4 },
   ];
   return (
-    <div className="dc-amb-layer" aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
-      {specs.map((s, i) => (
-        <span
-          key={i}
-          className={`dc-amb ${s.cls}`}
+    <div aria-hidden className="samb">
+      {dice.map((s, i) => (
+        <DieFaceIcon
+          key={`d${i}`}
+          face={s.face}
+          size={s.size}
+          color={s.crimson ? "#B02832" : "#C9A227"}
+          className="samb-item"
           style={{
-            top: s.top,
-            left: s.left,
-            ["--rot" as string]: `${s.rot}deg`,
-            ["--d" as string]: `${s.d}s`,
-            ["--delay" as string]: `${s.delay}s`,
-          }}
+            position: "absolute",
+            ...s.pos,
+            "--rot": `${s.rot}deg`,
+            animation: `dc-float ${s.d}s ease-in-out ${s.delay}s infinite`,
+          } as React.CSSProperties}
+        />
+      ))}
+      {shapes.map((s, i) => (
+        <span
+          key={`s${i}`}
+          className="samb-item"
+          style={{
+            position: "absolute",
+            ...s.pos,
+            width: s.size,
+            height: s.size,
+            background: s.color,
+            clipPath: s.clip,
+            animation: `dc-float ${s.d}s ease-in-out ${s.delay}s infinite, dc-twinkle ${s.d / 2}s ease-in-out ${s.delay}s infinite`,
+          } as React.CSSProperties}
         />
       ))}
     </div>
@@ -661,14 +661,18 @@ function DiceAmbient() {
 
 function StoreHeroBanner({
   featured,
+  total,
   onSearch,
   onQuickTag,
   onOpen,
 }: {
   featured: StoreItem | null;
+  /** 公開作品の実数(ヒーロー文言)。 */
+  total: number;
   onSearch: (q: string) => void;
   onQuickTag: (opts: {
     category?: RemoteProductType | null;
+    q?: string;
     priceBand?: StorePriceBand | null;
     saleOnly?: boolean;
   }) => void;
@@ -678,13 +682,18 @@ function StoreHeroBanner({
   return (
     <div className="shero">
       <div className="shero-stripes" aria-hidden />
-      <DiceAmbient />
+      {/* ヒーロー下端の薄い装飾ダイス(4 の目) */}
+      <DieFaceIcon
+        face={4}
+        size={64}
+        color="rgba(243,230,200,.22)"
+        className="shero-bottomdie"
+        style={{ position: "absolute" }}
+      />
       <div className="shero-grid">
         <div>
           <div className="shero-kicker">
-            <span className="die-ico on-dark" aria-hidden>
-              🎲
-            </span>
+            <span className="die-ico on-dark" aria-hidden />
             <span>CREATOR MARKETPLACE FOR TRPG</span>
           </div>
           <h2 className="shero-h1">
@@ -693,7 +702,11 @@ function StoreHeroBanner({
             ここで見つける。
           </h2>
           <p className="shero-desc">
-            クリエイターが作ったシナリオ・キャラシ・マップ・BGM・完成品パッケージ。気になった作品はその場でダウンロードして、すぐ卓へ。
+            シナリオ・ルールブック・マップ・アート・BGM。買ってすぐ卓が立てられる
+            <b>
+              完成品{total > 0 ? `が${total.toLocaleString("ja-JP")}点` : ""}
+            </b>
+            。購入した作品はライブラリからそのままPLAYへ。
           </p>
           <form
             className="shero-search"
@@ -706,7 +719,7 @@ function StoreHeroBanner({
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="作品名・システム名で検索"
+              placeholder="「クトゥルフ 初心者」で探す…"
             />
             <button type="submit">検索</button>
           </form>
@@ -714,23 +727,23 @@ function StoreHeroBanner({
             <button
               type="button"
               className="shero-tag"
+              onClick={() => onQuickTag({ q: "初心者におすすめ" })}
+            >
+              初心者におすすめ
+            </button>
+            <button
+              type="button"
+              className="shero-tag"
+              onClick={() => onQuickTag({ q: "ホラー" })}
+            >
+              ホラー
+            </button>
+            <button
+              type="button"
+              className="shero-tag"
               onClick={() => onQuickTag({ category: "full_package" })}
             >
               フルパッケージ
-            </button>
-            <button
-              type="button"
-              className="shero-tag"
-              onClick={() => onQuickTag({ category: "scenario" })}
-            >
-              シナリオ
-            </button>
-            <button
-              type="button"
-              className="shero-tag"
-              onClick={() => onQuickTag({ category: "map" })}
-            >
-              マップ
             </button>
             <button
               type="button"
@@ -750,7 +763,11 @@ function StoreHeroBanner({
         </div>
 
         {featured && (
-          <button className="shero-feat" onClick={() => onOpen(featured)} title={featured.title}>
+          <button
+            className="shero-feat shero-feat16"
+            onClick={() => onOpen(featured)}
+            title={featured.title}
+          >
             {featured.coverUrl ? (
               <img src={featured.coverUrl} alt="" loading="lazy" />
             ) : (
@@ -762,7 +779,11 @@ function StoreHeroBanner({
               <span>
                 <strong className="shero-feat-title">{featured.title}</strong>
                 <span className="shero-feat-sub">
-                  {PRODUCT_TYPE_LABEL[featured.productType] ?? featured.productType}
+                  {PRODUCT_TYPE_LABEL[featured.productType] ??
+                    featured.productType}
+                  {featured.creator.displayName
+                    ? ` ・ ${featured.creator.displayName}`
+                    : ""}
                 </span>
               </span>
             </span>
@@ -773,11 +794,92 @@ function StoreHeroBanner({
   );
 }
 
-/* ===== ホーム: 人気ランキング TOP3(好評順。金/銀/銅バッジ) ===== */
+/** ヒーロー直下の信頼バー。平均評価はレビュー 0 件のとき出さない。 */
+function TrustBar({ overview }: { overview: StoreOverview }) {
+  const items: { num: string; label: string }[] = [
+    { num: overview.total.toLocaleString("ja-JP"), label: "公開作品" },
+    {
+      num: overview.creatorCount.toLocaleString("ja-JP"),
+      label: "活動クリエイター",
+    },
+    ...(overview.avgStars !== null
+      ? [{ num: overview.avgStars.toFixed(1), label: "平均評価" }]
+      : []),
+    { num: "Stripe", label: "安全な決済" },
+  ];
+  return (
+    <div className="strust">
+      {items.map((t) => (
+        <div key={t.label} className="strust-item">
+          <span className="strust-num">{t.num}</span>
+          <span className="strust-label">{t.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-const SRANK_BADGE: Record<number, string> = { 1: "r1", 2: "r2", 3: "r3" };
+/** カテゴリタイル(サイコロの 1〜6 の目 + 実カウント)。 */
+const CAT_DICE: { type: RemoteProductType; face: DieFaceNum }[] = [
+  { type: "full_package", face: 1 },
+  { type: "scenario", face: 2 },
+  { type: "rulebook", face: 3 },
+  { type: "map", face: 4 },
+  { type: "character_art", face: 5 },
+  { type: "bgm_audio", face: 6 },
+];
 
-function RankingSection({
+function CategoryDiceSec({
+  counts,
+  onPick,
+}: {
+  counts: Partial<Record<RemoteProductType, number>>;
+  onPick: (c: RemoteProductType) => void;
+}) {
+  return (
+    <section>
+      <DesignHead
+        title="カテゴリから探す"
+        sub="サイコロの目で選ぶ、6つの入り口"
+      />
+      <div className="catdice-grid">
+        {CAT_DICE.map(({ type, face }) => (
+          <button
+            key={type}
+            className="catdice"
+            onClick={() => onPick(type)}
+          >
+            <DieFaceIcon
+              face={face}
+              size={42}
+              color="#B02832"
+              className="catdice-die"
+              style={{ backgroundColor: "var(--surface, #fff)" }}
+            />
+            <span className="catdice-copy">
+              <span className="catdice-name">
+                {PRODUCT_TYPE_LABEL[type] ?? type}
+              </span>
+              <span className="catdice-count">
+                {(counts[type] ?? 0).toLocaleString("ja-JP")}作品
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** 人気ランキング(好評トップ6・2枚/ビュー)。順位 1=金/2=銀/3=琥珀/以降=白。 */
+const RANK_BADGE: { bg: string; bd: string; fg: string }[] = [
+  { bg: "#C9A227", bd: "#a8871a", fg: "#4a3a12" },
+  { bg: "#e7e1d3", bd: "#d8d0bf", fg: "#6b6355" },
+  { bg: "#e4b483", bd: "#d89a5f", fg: "#7a4a1f" },
+];
+const RANK_NEUTRAL = { bg: "#fff", bd: "#E8DCC5", fg: "#77644F" };
+
+function RankingSec({
   items,
   onOpen,
   onMore,
@@ -788,56 +890,81 @@ function RankingSection({
 }) {
   if (items.length === 0) return null;
   return (
-    <section className="srank">
-      <SecHead
-        icon={<Trophy size={16} />}
-        tone="gold"
+    <section>
+      <DesignHead
         title="人気ランキング"
-        sub="今週の好評トップ3"
+        sub={`今週の好評トップ${items.length}`}
         action={{ label: "もっと見る", onClick: onMore }}
       />
-      <div className="srank-grid">
+      <AppCarousel itemClass="acar-w2">
         {items.map((it, i) => {
-          const rank = i + 1;
+          const rk = RANK_BADGE[i] ?? RANK_NEUTRAL;
           return (
             <button
               key={it.id}
-              className="srank-card"
+              className="rk6-card"
               onClick={() => onOpen(it)}
               title={it.title}
             >
-              <span className={`srank-badge ${SRANK_BADGE[rank] ?? "r3"}`}>{rank}</span>
-              <span className="srank-cover">
+              <span className="rk6-cover">
                 {it.coverUrl ? (
                   <img src={it.coverUrl} alt="" loading="lazy" />
                 ) : (
                   <span className="store-noimg">No Image</span>
                 )}
+                <span
+                  className="rk6-badge"
+                  style={{ background: rk.bg, borderColor: rk.bd, color: rk.fg }}
+                  aria-hidden
+                >
+                  {i + 1}
+                </span>
               </span>
-              <span className="srank-info">
-                <span className="srank-cat">
+              <span className="rk6-info">
+                <span className="rk6-cat">
                   {PRODUCT_TYPE_LABEL[it.productType] ?? it.productType}
                 </span>
-                <span className="srank-title">{it.title}</span>
-                <span className="srank-creator">
+                <span className="rk6-title">{it.title}</span>
+                <span className="rk6-creator">
                   {it.creator.displayName || "（無名）"}
                 </span>
-                <span className="srank-foot">
+                <span className="rk6-foot">
                   <StarsDisplay value={it.review?.avgStars ?? 0} size={12} />
-                  <PriceTag item={it} />
+                  <span className="rk6-count muted">
+                    ({it.review?.total ?? 0})
+                  </span>
+                  <span className="rk6-price">
+                    <PriceTag item={it} />
+                  </span>
                 </span>
               </span>
             </button>
           );
         })}
-      </div>
+      </AppCarousel>
     </section>
   );
 }
 
-/* ===== ホーム: セール特集帯(割引率の高い順) ===== */
+/** いちばん早く終わるセールの終了時刻 → 「残りN日 ・ M/D(曜) HH:MMまで」。 */
+function nearestSaleEndLabel(items: StoreItem[]): string | null {
+  const now = Date.now();
+  const ends = items
+    .map((p) => (p.discountEndsAt ? Date.parse(p.discountEndsAt) : NaN))
+    .filter((t) => Number.isFinite(t) && t > now);
+  if (ends.length === 0) return null;
+  const t = Math.min(...ends);
+  const d = new Date(t);
+  const days = Math.ceil((t - now) / 86_400_000);
+  const remain = days <= 1 ? "残り1日未満" : `残り${days}日`;
+  const week = ["日", "月", "火", "水", "木", "金", "土"][d.getDay()];
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${remain} ・ ${d.getMonth() + 1}/${d.getDate()}(${week}) ${hh}:${mm}まで`;
+}
 
-function SaleStrip({
+/** 期間限定セール帯(3枚/ビューのカルーセル + 終了期限チップ)。 */
+function SaleStripSec({
   items,
   onOpen,
   onMore,
@@ -847,61 +974,164 @@ function SaleStrip({
   onMore: () => void;
 }) {
   if (items.length === 0) return null;
+  const maxOff = Math.max(
+    ...items.map((it) =>
+      effectiveDiscountPercent(
+        it.discountPercent,
+        it.discountStartsAt,
+        it.discountEndsAt,
+      ),
+    ),
+  );
+  const endLabel = nearestSaleEndLabel(items);
   return (
     <section className="ssale">
       <div className="ssale-head">
         <span className="ssale-pill">
           <Flame size={12} /> 期間限定セール
         </span>
-        <span className="ssale-note">
-          対象作品が最大 {Math.max(...items.map((it) => effectiveDiscountPercent(it.discountPercent, it.discountStartsAt, it.discountEndsAt)))}% OFF
-        </span>
+        <span className="ssale-note">最大 {maxOff}% OFF</span>
+        {endLabel && <span className="ssale-ends">{endLabel}</span>}
         <button type="button" className="ssale-more" onClick={onMore}>
           セール一覧 →
         </button>
       </div>
-      <div className="ssale-grid">
-        {items.map((it) => {
-          const eff = effectiveDiscountPercent(
-            it.discountPercent,
-            it.discountStartsAt,
-            it.discountEndsAt,
-          );
-          return (
-            <button
-              key={it.id}
-              className="ssale-card"
-              onClick={() => onOpen(it)}
-              title={it.title}
-            >
-              <span className="ssale-cover">
-                {it.coverUrl ? (
-                  <img src={it.coverUrl} alt="" loading="lazy" />
-                ) : (
-                  <span className="store-noimg">No Image</span>
-                )}
-                <span className="ssale-off">-{eff}%</span>
-              </span>
-              <span className="ssale-title">{it.title}</span>
-              <span className="ssale-prices">
-                <span className="ssale-strike">{formatPriceJpy(it.priceJpy)}</span>
-                <span className="ssale-now">
-                  {formatPriceJpy(salePriceJpy(it.priceJpy, eff))}
+      <div className="ssale-body">
+        <AppCarousel itemClass="acar-w3" gap={12} edge={false}>
+          {items.map((it) => {
+            const eff = effectiveDiscountPercent(
+              it.discountPercent,
+              it.discountStartsAt,
+              it.discountEndsAt,
+            );
+            return (
+              <button
+                key={it.id}
+                className="sale3-card"
+                onClick={() => onOpen(it)}
+                title={it.title}
+              >
+                <span className="sale3-cover">
+                  {it.coverUrl ? (
+                    <img src={it.coverUrl} alt="" loading="lazy" />
+                  ) : (
+                    <span className="store-noimg">No Image</span>
+                  )}
+                  <span className="sale3-off">-{eff}%</span>
                 </span>
-              </span>
-            </button>
-          );
-        })}
+                <span className="sale3-title">{it.title}</span>
+                <span className="sale3-prices">
+                  <span className="sale3-strike">
+                    {formatPriceJpy(it.priceJpy)}
+                  </span>
+                  <span className="sale3-now">
+                    {formatPriceJpy(salePriceJpy(it.priceJpy, eff))}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </AppCarousel>
       </div>
     </section>
   );
 }
 
-/* ===== ホーム: 人気クリエイター TOP 3(Web ホームと同じデザイン) ===== */
+/** 新着作品(3枚/ビュー・ウィッシュ♥・無料配布バッジ)。 */
+function NewWorksSec({
+  items,
+  wished,
+  onOpen,
+  onMore,
+}: {
+  items: StoreItem[];
+  wished: Set<string>;
+  onOpen: (item: StoreItem) => void;
+  onMore: () => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section>
+      <DesignHead
+        title="新着作品"
+        sub="公開されたばかりの作品"
+        action={{ label: "すべて見る", onClick: onMore }}
+      />
+      <AppCarousel itemClass="acar-w3">
+        {items.map((it) => {
+          const free = it.priceJpy <= 0;
+          const isWished = wished.has(it.id);
+          return (
+            <div key={it.id} className="nw3-wrap">
+              <button
+                className="nw3-card"
+                onClick={() => onOpen(it)}
+                title={it.title}
+              >
+                <span className="nw3-cover">
+                  {it.coverUrl ? (
+                    <img src={it.coverUrl} alt="" loading="lazy" />
+                  ) : (
+                    <span className="store-noimg">No Image</span>
+                  )}
+                  {free && <span className="nw3-free">無料配布</span>}
+                </span>
+                <span className="nw3-body">
+                  <span className="nw3-cat">
+                    {PRODUCT_TYPE_LABEL[it.productType] ?? it.productType}
+                    {it.systemLabel ? `・${it.systemLabel}` : ""}
+                  </span>
+                  <span className="nw3-title">{it.title}</span>
+                  <span className="nw3-creator">
+                    {it.creator.displayName || "（無名）"}
+                  </span>
+                  <span className="nw3-foot">
+                    {it.review && it.review.total > 0 ? (
+                      <span className="nw3-stars">
+                        <StarsDisplay value={it.review.avgStars} size={11} />
+                        <span className="muted">({it.review.total})</span>
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    <span
+                      className="nw3-price"
+                      style={free ? { color: "#159457" } : undefined}
+                    >
+                      {free ? "無料" : <PriceTag item={it} />}
+                    </span>
+                  </span>
+                </span>
+              </button>
+              <button
+                className={`nw3-wish ${isWished ? "on" : ""}`}
+                title={
+                  isWished
+                    ? "ウィッシュリストから外す"
+                    : "ウィッシュリストに追加"
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const added = toggleWish(it.id);
+                  toast(
+                    added
+                      ? "♥ ウィッシュリストに追加しました"
+                      : "ウィッシュリストから外しました",
+                  );
+                }}
+              >
+                {isWished ? "♥" : "♡"}
+              </button>
+            </div>
+          );
+        })}
+      </AppCarousel>
+    </section>
+  );
+}
 
-const RANK_LABEL: Record<number, string> = { 1: "1", 2: "2", 3: "3" };
-
-function TopCreators({
+/** 人気クリエイター(2枚/ビュー)。 */
+function CreatorsSec({
   entries,
   onOpenCreator,
   onOpenProduct,
@@ -912,83 +1142,349 @@ function TopCreators({
   onOpenProduct: (it: StoreItem) => void;
   onSeeAll: () => void;
 }) {
+  if (entries.length === 0) return null;
   return (
-    <section className="topcre">
-      <SecHead
-        icon={<Trophy size={16} />}
-        tone="gold"
+    <section>
+      <DesignHead
         title="人気クリエイター"
-        sub={`購入数の多いクリエイター TOP ${entries.length}`}
-        action={{ label: "すべて見る", onClick: onSeeAll }}
+        sub="よく購入されている作り手"
+        action={{ label: "クリエイター一覧", onClick: onSeeAll }}
       />
-      <div className="topcre-grid">
+      <AppCarousel itemClass="acar-w2">
         {entries.map((e) => {
           const name = e.creator.displayName || "（無名）";
           return (
-            <div key={e.creator.id} className={`topcre-card rank-${e.rank}`}>
+            <div key={e.creator.id} className="cre2-card">
               <button
-                className="topcre-main"
+                className="cre2-main"
                 onClick={() =>
                   onOpenCreator({ id: e.creator.id, displayName: name })
                 }
                 title={`${name} の作品を見る`}
               >
-                <span className="topcre-av-wrap">
+                <span className="cre2-avwrap">
                   {e.creator.avatarUrl ? (
                     <img
-                      className="topcre-av"
+                      className="cre2-av"
                       src={e.creator.avatarUrl}
                       alt=""
                       loading="lazy"
                     />
                   ) : (
-                    <span className="topcre-av ph">
-                      <UserIcon size={22} />
-                    </span>
+                    <span className="cre2-av ph">{name.slice(0, 1)}</span>
                   )}
-                  <span className="topcre-rank">{RANK_LABEL[e.rank] ?? e.rank}</span>
+                  <span className="cre2-rank">{e.rank}</span>
                 </span>
-                <span className="topcre-meta">
-                  <b className="topcre-name">{name}</b>
-                  <span className="topcre-sales">累計購入 {e.totalSales} 件</span>
+                <span className="cre2-meta">
+                  <b className="cre2-name">{name}</b>
+                  <span className="cre2-sales">
+                    累計購入 {e.totalSales.toLocaleString("ja-JP")} 件
+                  </span>
                 </span>
               </button>
-
               <button
-                className="topcre-best"
+                className="cre2-best"
                 onClick={() => onOpenProduct(e.topProduct)}
                 title={e.topProduct.title}
               >
-                <span className="topcre-best-label">ベストセラー作品</span>
-                <span className="topcre-best-row">
-                  <span className="topcre-best-cover">
-                    {e.topProduct.coverUrl ? (
-                      <img src={e.topProduct.coverUrl} alt="" loading="lazy" />
-                    ) : (
-                      <span className="store-noimg">No Image</span>
-                    )}
-                  </span>
-                  <span className="topcre-best-info">
-                    <span className="topcre-best-title">
-                      {e.topProduct.title}
-                    </span>
-                    <span className="topcre-best-foot">
-                      <span className="work-badge">
-                        {PRODUCT_TYPE_LABEL[e.topProduct.productType] ??
-                          e.topProduct.productType}
-                      </span>
-                      <span className="store-price small">
-                        {formatPriceJpy(e.topProduct.priceJpy)}
-                      </span>
-                    </span>
-                  </span>
+                <span className="cre2-bestcover">
+                  {e.topProduct.coverUrl ? (
+                    <img src={e.topProduct.coverUrl} alt="" loading="lazy" />
+                  ) : (
+                    <span className="store-noimg">No Image</span>
+                  )}
+                </span>
+                <span className="cre2-bestinfo">
+                  <span className="cre2-bestlabel">ベストセラー作品</span>
+                  <span className="cre2-besttitle">{e.topProduct.title}</span>
                 </span>
               </button>
             </div>
           );
         })}
+      </AppCarousel>
+    </section>
+  );
+}
+
+/** クリエイター募集 CTA(ビルダー導線)。手数料は実態(最大80%)に合わせる。 */
+function BuilderCta({ onOpenBuilder }: { onOpenBuilder?: () => void }) {
+  return (
+    <section className="bcta">
+      <div className="bcta-stripes" aria-hidden />
+      <DieFaceIcon
+        face={5}
+        size={58}
+        color="rgba(243,230,200,.85)"
+        className="bcta-die"
+        style={{ backgroundColor: "rgba(255,255,255,.08)" }}
+      />
+      <div className="bcta-copy">
+        <h3>つくった物語が、誰かの卓になる。</h3>
+        <p>売上の最大80%がクリエイターに。ビルダーで作って、そのまま出品できます。</p>
+      </div>
+      <div className="bcta-actions">
+        {onOpenBuilder && (
+          <button className="bcta-primary" onClick={onOpenBuilder}>
+            ビルダーを開く
+          </button>
+        )}
+        <button
+          className="bcta-ghost"
+          onClick={() => void openUrl(`${WEB_BASE}/guidelines`)}
+        >
+          クリエイターガイド
+        </button>
       </div>
     </section>
+  );
+}
+
+/** 人気タグ(product_tags のクライアント集計。α 規模なので全件で十分)。 */
+function usePopularTags(limit = 12): string[] {
+  const [tags, setTags] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const { data, error: qErr } = await supabase
+          .from("product_tags")
+          .select("tag")
+          .limit(5000);
+        if (qErr || !data || !alive) return;
+        const counts = new Map<string, number>();
+        for (const row of data as { tag: string | null }[]) {
+          if (!row.tag) continue;
+          counts.set(row.tag, (counts.get(row.tag) ?? 0) + 1);
+        }
+        setTags(
+          Array.from(counts.entries())
+            .sort((a, b) =>
+              b[1] !== a[1] ? b[1] - a[1] : a[0].localeCompare(b[0]),
+            )
+            .slice(0, limit)
+            .map(([tag]) => tag),
+        );
+      } catch {
+        // タグが取れなくてもサイドバーは成立する。
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [limit]);
+  return tags;
+}
+
+const PRICE_BAND_OPTIONS: { value: StorePriceBand | null; label: string }[] = [
+  { value: null, label: "すべて" },
+  { value: "free", label: "無料" },
+  { value: "u500", label: "〜500円" },
+  { value: "mid", label: "500〜1,000円" },
+  { value: "o1000", label: "1,000円〜" },
+];
+
+/** 右の絞り込みサイドバー。選んだ条件をブラウズビューの実フィルタへ変換して遷移。 */
+function StoreFilterSidebar({
+  counts,
+  onApply,
+}: {
+  counts: Partial<Record<RemoteProductType, number>>;
+  onApply: (opts: {
+    category?: RemoteProductType | null;
+    q?: string;
+    priceBand?: StorePriceBand | null;
+    saleOnly?: boolean;
+  }) => void;
+}) {
+  const popularTags = usePopularTags(12);
+  const [tagQuery, setTagQuery] = useState("");
+  const [selTag, setSelTag] = useState<string | null>(null);
+  const [selCat, setSelCat] = useState<RemoteProductType | null>(null);
+  const [price, setPrice] = useState<StorePriceBand | null>(null);
+  const [saleOnly, setSaleOnly] = useState(false);
+
+  const shownTags = tagQuery.trim()
+    ? popularTags.filter((t) =>
+        t.toLowerCase().includes(tagQuery.trim().toLowerCase()),
+      )
+    : popularTags;
+  const hasAny = selTag !== null || selCat !== null || price !== null || saleOnly;
+
+  return (
+    <div className="sfilter">
+      <div className="sfilter-head">
+        <span className="die-ico" aria-hidden style={{ width: 20, height: 20 }} />
+        <h3>絞り込み検索</h3>
+        <button
+          type="button"
+          className="sfilter-clear"
+          onClick={() => {
+            setSelTag(null);
+            setSelCat(null);
+            setPrice(null);
+            setSaleOnly(false);
+            setTagQuery("");
+          }}
+        >
+          クリア
+        </button>
+      </div>
+
+      <div className="sfilter-sec">
+        <span className="sfilter-label">タグで探す</span>
+        <div className="sfilter-search">
+          <Search size={12} color="#B02832" />
+          <input
+            value={tagQuery}
+            onChange={(e) => setTagQuery(e.target.value)}
+            placeholder="タグ名で検索"
+          />
+        </div>
+        {shownTags.length > 0 ? (
+          <div className="sfilter-tags">
+            {shownTags.map((t) => {
+              const on = selTag === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  className={`sfilter-tag ${on ? "on" : ""}`}
+                  onClick={() => setSelTag(on ? null : t)}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <span className="sfilter-empty muted">
+            {popularTags.length === 0
+              ? "タグはまだありません"
+              : "一致するタグがありません"}
+          </span>
+        )}
+      </div>
+
+      <div className="sfilter-hr" />
+
+      <div className="sfilter-sec">
+        <span className="sfilter-label">ジャンル</span>
+        {CAT_DICE.map(({ type }) => {
+          const on = selCat === type;
+          return (
+            <button
+              key={type}
+              type="button"
+              className="sfilter-row"
+              onClick={() => setSelCat(on ? null : type)}
+            >
+              <span className={`sfilter-check ${on ? "on" : ""}`} aria-hidden>
+                {on ? "✓" : ""}
+              </span>
+              <span className="sfilter-rowlabel">
+                {PRODUCT_TYPE_LABEL[type] ?? type}
+              </span>
+              <span className="sfilter-rowcount muted">
+                {(counts[type] ?? 0).toLocaleString("ja-JP")}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="sfilter-hr" />
+
+      <div className="sfilter-sec">
+        <span className="sfilter-label">価格</span>
+        {PRICE_BAND_OPTIONS.map((p) => {
+          const on = price === p.value;
+          return (
+            <button
+              key={p.label}
+              type="button"
+              className="sfilter-row"
+              onClick={() => setPrice(p.value)}
+            >
+              <span className={`sfilter-radio ${on ? "on" : ""}`} aria-hidden>
+                <span />
+              </span>
+              <span className="sfilter-rowlabel">{p.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="sfilter-hr" />
+
+      <button
+        type="button"
+        className="sfilter-row"
+        onClick={() => setSaleOnly((v) => !v)}
+        aria-pressed={saleOnly}
+      >
+        <span className={`sfilter-switch ${saleOnly ? "on" : ""}`} aria-hidden>
+          <span />
+        </span>
+        <span className="sfilter-rowlabel">セール中のみ表示</span>
+        <span className="sfilter-salechip">SALE</span>
+      </button>
+
+      <button
+        type="button"
+        className="sfilter-apply"
+        disabled={!hasAny}
+        onClick={() =>
+          onApply({
+            category: selCat,
+            ...(selTag ? { q: selTag } : {}),
+            priceBand: price,
+            saleOnly,
+          })
+        }
+      >
+        この条件で絞り込む
+      </button>
+    </div>
+  );
+}
+
+/** サイドバー下のミニカード(ライブラリ→PLAY 導線)。 */
+function PlayMiniCard({
+  onOpenPlay,
+  onGoLibrary,
+}: {
+  onOpenPlay?: () => void;
+  onGoLibrary?: () => void;
+}) {
+  return (
+    <div className="sminicard">
+      <DieFaceIcon
+        face={5}
+        size={34}
+        color="#B02832"
+        className="sminicard-die"
+        style={{ backgroundColor: "var(--surface, #fff)" }}
+      />
+      <div className="sminicard-copy">
+        <button
+          type="button"
+          className="sminicard-title"
+          onClick={onGoLibrary}
+          title="ライブラリを開く"
+        >
+          購入した作品はライブラリへ
+        </button>
+        <button
+          type="button"
+          className="sminicard-link"
+          onClick={onOpenPlay}
+          title="PLAY タブを開く"
+        >
+          PLAYですぐ卓を立てる →
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1000,12 +1496,18 @@ export function StorePanel({
   initialCategory = null,
   homeSignal = 0,
   onGoLibrary,
+  onOpenBuilder,
+  onOpenPlay,
 }: {
   initialCategory?: RemoteProductType | null;
   /** インクリメントされるとホーム画面へ巻き戻す(ロゴ / ストアタブ)。 */
   homeSignal?: number;
   /** 「購入タブで開く」押下時(App がタブを切替える)。 */
   onGoLibrary?: () => void;
+  /** ビルダー CTA 押下時(App がビルダータブへ切替える)。 */
+  onOpenBuilder?: () => void;
+  /** サイドバーの PLAY 導線押下時(App が PLAY タブへ切替える)。 */
+  onOpenPlay?: () => void;
 }) {
   const { session } = useAuth();
 
@@ -2009,153 +2511,71 @@ export function StorePanel({
           )}
 
           {home && home.featured.length > 0 && (
-            <div className="shome" aria-busy={detailLoading}>
-              {/* 大型ヒーローバナー(web の StoreHero と同じ視覚言語) */}
-              <StoreHeroBanner
-                featured={home.featured[0] ?? null}
-                onSearch={(q) => browseWith({ q })}
-                onQuickTag={(opts) => browseWith(opts)}
-                onOpen={(it) => void openDetail(it)}
-              />
+            <div className="shome shome-dsn" aria-busy={detailLoading}>
+              <StoreAmbientApp />
+              <div className="shome-grid">
+                <div className="shome-main">
+                  <section>
+                    <StoreHeroBanner
+                      featured={home.featured[0] ?? null}
+                      total={home.overview.total}
+                      onSearch={(q) => browseWith({ q })}
+                      onQuickTag={(opts) => browseWith(opts)}
+                      onOpen={(it) => void openDetail(it)}
+                    />
+                    <TrustBar overview={home.overview} />
+                  </section>
 
-              <RankingSection
-                items={home.topRated.slice(0, 3)}
-                onOpen={(it) => void openDetail(it)}
-                onMore={() => browseWith({ sort: "rating" })}
-              />
+                  <CategoryDiceSec
+                    counts={home.overview.categoryCounts}
+                    onPick={(c) => browseWith({ category: c })}
+                  />
 
-              <SaleStrip
-                items={home.onSale}
-                onOpen={(it) => void openDetail(it)}
-                onMore={() => browseWith({ saleOnly: true })}
-              />
+                  <RankingSec
+                    items={home.topRated.slice(0, 6)}
+                    onOpen={(it) => void openDetail(it)}
+                    onMore={() => browseWith({ sort: "rating" })}
+                  />
 
-              <HeroCarousel
-                items={home.featured}
-                purchased={purchased}
-                onOpen={(it) => void openDetail(it)}
-              />
+                  <SaleStripSec
+                    items={home.onSale}
+                    onOpen={(it) => void openDetail(it)}
+                    onMore={() => browseWith({ saleOnly: true })}
+                  />
 
-              {/* カテゴリで探す(Web ホームと同じデザイン) */}
-              <section className="catsec">
-                <SecHead
-                  icon={<LayoutGrid size={16} />}
-                  tone="sky"
-                  title="カテゴリで探す"
-                  sub="ジャンルから作品を絞り込んで探せます"
-                />
+                  <NewWorksSec
+                    items={home.recent.slice(0, 9)}
+                    wished={wishIds}
+                    onOpen={(it) => void openDetail(it)}
+                    onMore={() => browseWith({ sort: "published" })}
+                  />
 
-                {/* 目玉: フルパッケージ(完成品ゲーム一式) */}
-                <button
-                  className="catfeat"
-                  onClick={() => browseWith({ category: "full_package" })}
-                >
-                  <span className="catfeat-ic">
-                    <Boxes size={24} />
-                  </span>
-                  <span className="catfeat-copy">
-                    <span className="catfeat-titlerow">
-                      <span className="catfeat-badge">目玉</span>
-                      <span className="catfeat-title">フルパッケージ</span>
-                    </span>
-                    <span className="catfeat-sub muted">
-                      買ってすぐ遊べる、完成品のゲーム一式（システム＋シナリオ）。ダウンロードして取り込むだけ。
-                    </span>
-                  </span>
-                  <span className="catfeat-arrow">→</span>
-                </button>
+                  <CreatorsSec
+                    entries={home.topCreators}
+                    onOpenCreator={(c) =>
+                      browseWith({ creator: { id: c.id, name: c.displayName } })
+                    }
+                    onOpenProduct={(it) => void openDetail(it)}
+                    onSeeAll={() => {
+                      setDetail(null);
+                      setView("creators");
+                    }}
+                  />
 
-                <div className="catcards">
-                  {CAT_CARDS.map((c) => (
-                    <button
-                      key={c.key}
-                      className={`catcard tone-${c.tone}`}
-                      onClick={() => browseWith({ category: c.key })}
-                    >
-                      <span className="catcard-icon">{c.icon}</span>
-                      <span className="catcard-label">
-                        {c.label}
-                        <span className="catcard-arrow">→</span>
-                      </span>
-                      <span className="catcard-sub">{c.sub}</span>
-                    </button>
-                  ))}
+                  <BuilderCta onOpenBuilder={onOpenBuilder} />
                 </div>
-              </section>
 
-              {/* 人気クリエイター TOP 3(Web ホームと同じデザイン) */}
-              {home.topCreators.length > 0 && (
-                <TopCreators
-                  entries={home.topCreators}
-                  onOpenCreator={(c) =>
-                    browseWith({ creator: { id: c.id, name: c.displayName } })
-                  }
-                  onOpenProduct={(it) => void openDetail(it)}
-                  onSeeAll={() => {
-                    setDetail(null);
-                    setView("creators");
-                  }}
-                />
-              )}
-
-              {/* クリエイターを探す */}
-              <button
-                className="creators-banner"
-                onClick={() => {
-                  setDetail(null);
-                  setView("creators");
-                }}
-              >
-                <span className="creators-banner-icon">
-                  <Users size={20} />
-                </span>
-                <span className="creators-banner-copy">
-                  <strong>クリエイターを探す</strong>
-                  <span className="muted">
-                    公開作品を持つクリエイターを一覧表示。「人」から作品に出会う入口。
-                  </span>
-                </span>
-                <span className="strip-more">すべて見る →</span>
-              </button>
-
-              <Strip
-                icon={<Flame size={16} />}
-                tone="coral"
-                title="急上昇"
-                items={home.trending}
-                purchased={purchased}
-                onOpen={(it) => void openDetail(it)}
-              />
-              <Strip
-                icon={<Sparkles size={16} />}
-                tone="sky"
-                title="新着"
-                items={home.recent}
-                purchased={purchased}
-                onOpen={(it) => void openDetail(it)}
-                onMore={() => browseWith({ sort: "published" })}
-              />
-              <Strip
-                icon={<ThumbsUp size={16} />}
-                tone="mint"
-                title="好評な作品"
-                items={home.topRated}
-                purchased={purchased}
-                onOpen={(it) => void openDetail(it)}
-                onMore={() => browseWith({ sort: "rating" })}
-              />
-              {home.byCategory.map(({ category: cat, items: catItems }) => (
-                <Strip
-                  key={cat}
-                  icon={CATEGORY_ICON[cat]}
-                  tone={CAT_TONE[cat]}
-                  title={PRODUCT_TYPE_LABEL[cat] ?? cat}
-                  items={catItems}
-                  purchased={purchased}
-                  onOpen={(it) => void openDetail(it)}
-                  onMore={() => browseWith({ category: cat })}
-                />
-              ))}
+                <aside className="shome-side">
+                  <StoreFilterSidebar
+                    counts={home.overview.categoryCounts}
+                    onApply={(opts) => browseWith(opts)}
+                  />
+                  <PlayMiniCard
+                    onOpenPlay={onOpenPlay}
+                    onGoLibrary={onGoLibrary}
+                  />
+                </aside>
+              </div>
             </div>
           )}
         </div>

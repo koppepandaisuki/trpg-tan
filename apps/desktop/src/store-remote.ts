@@ -683,37 +683,6 @@ export async function fetchTopRatedItems(limit: number): Promise<StoreItem[]> {
   return hasRating ? res.items : [];
 }
 
-/**
- * 急上昇 = 直近 30 日のレビュー数が多い順(レビューは公開データなので
- * 匿名でも集計できる)。0 件ならセクション非表示。
- */
-async function fetchTrendingItems(limit: number): Promise<StoreItem[]> {
-  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from("product_reviews")
-    .select("product_id, created_at")
-    .gte("created_at", since)
-    .limit(5000);
-  if (error || !data || data.length === 0) return [];
-
-  const counts = new Map<string, number>();
-  for (const r of data) counts.set(r.product_id, (counts.get(r.product_id) ?? 0) + 1);
-  const topIds = Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([id]) => id);
-
-  const { data: rows, error: rowErr } = await supabase
-    .from("products")
-    .select(LIST_COLUMNS)
-    .eq("status", "published")
-    .in("id", topIds);
-  if (rowErr) return [];
-  const byId = new Map(((rows ?? []) as ListRow[]).map((r) => [r.id, r] as const));
-  const ordered = topIds.map((id) => byId.get(id)).filter((r): r is ListRow => !!r);
-  return toStoreItems(ordered);
-}
-
 /** カルーセル用: StoreItem + スクリーンショット(右パネルのサムネ)。 */
 export type FeaturedItem = StoreItem & { screens: string[] };
 
@@ -798,56 +767,89 @@ async function fetchOnSaleItems(limit: number): Promise<StoreItem[]> {
   return toStoreItems(active);
 }
 
-const HOME_CATEGORIES: RemoteProductType[] = [
-  "scenario",
-  "rulebook",
-  "character_art",
-  "map",
-  "bgm_audio",
-];
+/**
+ * ストアホームの実データ集計(Web の getStoreOverview 移植)。
+ * 信頼バー(公開作品数・クリエイター数・平均評価)とカテゴリタイルの
+ * 実カウントに使う。products の slim select 1 本でまとめて数える。
+ * 平均評価はレビュー 0 件のとき null(呼び出し側でタイルごと非表示)。
+ */
+export interface StoreOverview {
+  total: number;
+  creatorCount: number;
+  avgStars: number | null;
+  categoryCounts: Partial<Record<RemoteProductType, number>>;
+}
+
+const EMPTY_OVERVIEW: StoreOverview = {
+  total: 0,
+  creatorCount: 0,
+  avgStars: null,
+  categoryCounts: {},
+};
+
+async function fetchStoreOverview(): Promise<StoreOverview> {
+  const [prodRes, reviewRes] = await Promise.all([
+    supabase
+      .from("products")
+      .select("creator_id, product_type")
+      .eq("status", "published")
+      .limit(5000),
+    supabase.from("product_reviews").select("stars").limit(5000),
+  ]);
+  if (prodRes.error || !prodRes.data) return EMPTY_OVERVIEW;
+
+  const creators = new Set<string>();
+  const categoryCounts: Partial<Record<RemoteProductType, number>> = {};
+  for (const r of prodRes.data as {
+    creator_id: string;
+    product_type: string;
+  }[]) {
+    creators.add(r.creator_id);
+    const t = r.product_type as RemoteProductType;
+    categoryCounts[t] = (categoryCounts[t] ?? 0) + 1;
+  }
+
+  let avgStars: number | null = null;
+  if (!reviewRes.error && reviewRes.data && reviewRes.data.length > 0) {
+    const stars = (reviewRes.data as { stars: number | null }[])
+      .map((r) => Number(r.stars))
+      .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5);
+    if (stars.length > 0) {
+      avgStars = stars.reduce((a, b) => a + b, 0) / stars.length;
+    }
+  }
+
+  return {
+    total: prodRes.data.length,
+    creatorCount: creators.size,
+    avgStars,
+    categoryCounts,
+  };
+}
 
 export interface StoreHome {
   featured: FeaturedItem[];
-  trending: StoreItem[];
   recent: StoreItem[];
   topRated: StoreItem[];
   /** セール中の作品(割引率が高い順)。Web の SaleStrip と同じデータ。 */
   onSale: StoreItem[];
   topCreators: TopCreatorEntry[];
-  byCategory: { category: RemoteProductType; items: StoreItem[] }[];
+  /** 信頼バー / カテゴリタイル用の実カウント。 */
+  overview: StoreOverview;
 }
 
 /** ホーム一式をまとめて取得(α 規模なので並列に投げるだけ)。 */
 export async function fetchStoreHome(): Promise<StoreHome> {
-  const [featured, trending, recent, topRated, onSale, topCreators, ...cats] =
+  const [featured, recent, topRated, onSale, topCreators, overview] =
     await Promise.all([
       fetchFeaturedItems(6),
-      fetchTrendingItems(12),
       fetchRecentItems(12),
       fetchTopRatedItems(12),
-      fetchOnSaleItems(4),
-      fetchTopCreators(3),
-      ...HOME_CATEGORIES.map((c) =>
-        fetchByRating({
-          page: 1,
-          pageSize: 8,
-          searchIds: null,
-          opts: { category: c },
-        }).then((r) => r.items),
-      ),
+      fetchOnSaleItems(6),
+      fetchTopCreators(4),
+      fetchStoreOverview(),
     ]);
-  return {
-    featured,
-    trending,
-    recent,
-    topRated,
-    onSale,
-    topCreators,
-    byCategory: HOME_CATEGORIES.map((category, i) => ({
-      category,
-      items: cats[i] ?? [],
-    })).filter((c) => c.items.length > 0),
-  };
+  return { featured, recent, topRated, onSale, topCreators, overview };
 }
 
 /* ===== 人気クリエイター TOP N(Web の getTopCreators 移植) ===== */
