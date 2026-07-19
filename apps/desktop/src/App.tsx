@@ -841,6 +841,8 @@ export function App() {
                   isPlay && (session || joining) ? resumePlay() : goTo(p.key)
                 }
               >
+                {/* PLAY はブランドの白ダイス付き CTA(App Store デザイン準拠)。 */}
+                {isPlay && <span className="play-die" aria-hidden />}
                 {p.label}
               </button>
             );
@@ -875,6 +877,8 @@ export function App() {
           <StorePanel
             homeSignal={storeHomeSig}
             onGoLibrary={() => setPage("library")}
+            onOpenBuilder={() => goTo("builder")}
+            onOpenPlay={() => goTo("play")}
           />
         )}
 
