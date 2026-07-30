@@ -61,6 +61,11 @@ const SECURITY_HEADERS = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // @trpg/core は TypeScript ソースをそのまま公開する社内パッケージ
+  // (packages/trpg-core)。Next 側でトランスパイルして取り込む。
+  // Web 版 PLAY が卓のロジック(reduce/イベント/同期プロトコル)を
+  // デスクトップと共有するために必要。
+  transpilePackages: ["@trpg/core"],
   experimental: {
     typedRoutes: true,
   },
@@ -80,6 +85,16 @@ const nextConfig = {
       { source: "/app", destination: "/app/index.html" },
       { source: "/app/", destination: "/app/index.html" },
     ];
+  },
+  webpack(config) {
+    // @trpg/core は ESM 規約どおり相対 import に .js を付けて書かれている
+    // (実体は .ts)。TypeScript / Vite はこれを解決できるが webpack は
+    // できないため、.js を .ts → .tsx → .js の順で探すよう教える。
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      ".js": [".ts", ".tsx", ".js"],
+    };
+    return config;
   },
 };
 
