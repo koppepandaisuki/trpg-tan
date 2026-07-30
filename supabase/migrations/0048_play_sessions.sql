@@ -67,17 +67,17 @@ create policy "play_sessions_delete_own"
   using (owner_id = auth.uid());
 
 -- updated_at を自動更新(アプリ側の入れ忘れでロビーの並びが崩れないように)。
-create or replace function public.touch_play_sessions_updated_at()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at := now();
-  return new;
-end;
-$$;
-
-drop trigger if exists play_sessions_touch_updated_at on public.play_sessions;
-create trigger play_sessions_touch_updated_at
+-- 0001 で定義済みの共通ヘルパ set_updated_at() を再利用する。
+drop trigger if exists play_sessions_set_updated_at on public.play_sessions;
+create trigger play_sessions_set_updated_at
   before update on public.play_sessions
-  for each row execute function public.touch_play_sessions_updated_at();
+  for each row execute function public.set_updated_at();
+
+-- ---------------------------------------------------------------------
+-- GRANT
+--   本プロジェクトはテーブル権限を明示的に付与する運用(0004〜0012 参照)。
+--   RLS は「どの行を触れるか」だけを決めるので、テーブル権限が無いと
+--   認証ユーザーでも 42501(permission denied)になる。
+--   卓は所有者だけのデータなので anon には一切与えない。
+-- ---------------------------------------------------------------------
+grant select, insert, update, delete on public.play_sessions to authenticated;
