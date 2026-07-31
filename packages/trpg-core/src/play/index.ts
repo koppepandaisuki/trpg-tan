@@ -78,3 +78,9 @@ export {
   type NetIntent,
   type LiveMsg,
 } from "./net.js";
+export {
+  replayToText,
+  replayToHtml,
+  type NameResolver,
+  type SecretGuard,
+} from "./replay.js";

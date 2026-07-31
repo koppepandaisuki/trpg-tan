@@ -39,6 +39,8 @@ import {
   type AssetItem,
   type AssetAction,
   type CoCEdition,
+  replayToText,
+  replayToHtml,
 } from "@trpg/core";
 import {
   Dices,
@@ -92,7 +94,6 @@ import { getLibrary, systemLabel } from "./library";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { toast } from "./Toasts";
 import { savePlayAs, savePlayToPath } from "./play-storage";
-import { replayToText, replayToHtml } from "./replay-export";
 import { FriendPickerModal } from "./FriendsPanel";
 import { PlayPlanGate } from "./PlayPlanGate";
 import { sendTableInvite } from "./friends-remote";

@@ -23,6 +23,10 @@ import {
   panelUpdateEvent,
   resourceEvent,
   boardSetEvent,
+  sceneAddEvent,
+  sceneSelectEvent,
+  sceneRenameEvent,
+  sceneRemoveEvent,
   parseCcfoliaCharacter,
   type Panel,
   type PanelResource,
@@ -34,6 +38,9 @@ import { PlayBoard } from "./play-board";
 import { PlayLog } from "./play-log";
 import { PlayPanelCard } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
+import { PlaySceneBar } from "./play-scene-bar";
+import { PlayMemo } from "./play-memo";
+import { PlayReplayButton } from "./play-replay-button";
 import { savePlayScene } from "@/lib/play/store";
 import { uploadPlayImage } from "@/lib/play/media";
 import { resolveInputToEvent, newEventCtx } from "@/lib/play/roll";
@@ -187,6 +194,13 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
           dispatch(
             panelUpdateEvent(newEventCtx(), p.id, intent.patch),
           );
+          break;
+        }
+        case "memo": {
+          // 共有メモは卓の覚書なので全員が編集できる(駒のような所有者検証はしない)。
+          // イベントソーシング対象外なので state を直接置き換える。
+          // 配信は scene 変更をトリガーにした state 配信が拾う。
+          setScene((s) => ({ ...s, sharedMemos: intent.memos }));
           break;
         }
         default:
@@ -379,6 +393,25 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
         {/* 左: 盤面 + 操作 */}
         <div className="min-w-0 space-y-2">
+          {/* シーン(場面ごとに盤面を持ち替える。駒は卓に属したまま) */}
+          <PlaySceneBar
+            scenes={scene.scenes ?? []}
+            activeId={scene.activeSceneId}
+            onSelect={(id) => dispatch(sceneSelectEvent(newEventCtx(), id))}
+            onAdd={(name) =>
+              dispatch(
+                sceneAddEvent(newEventCtx(), {
+                  id: crypto.randomUUID(),
+                  name,
+                }),
+              )
+            }
+            onRename={(id, name) =>
+              dispatch(sceneRenameEvent(newEventCtx(), id, name))
+            }
+            onRemove={(id) => dispatch(sceneRemoveEvent(newEventCtx(), id))}
+          />
+
           <div className="flex flex-wrap items-center gap-1.5">
             <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted">
               <ImagePlus className="h-3.5 w-3.5" aria-hidden />
@@ -421,6 +454,7 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
               <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
               コマ貼付
             </button>
+            <PlayReplayButton scene={scene} isGm />
           </div>
 
           <PlayBoard
@@ -456,8 +490,17 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
           </div>
         </div>
 
-        {/* 右: 駒一覧 */}
+        {/* 右: 共有メモ + 駒一覧 */}
         <aside className="space-y-2">
+          <PlayMemo
+            memos={scene.sharedMemos ?? []}
+            onChange={(memos) =>
+              // イベントではなく state に直接持つ(desktop 版と同じ扱い)。
+              // 参加者へは scene 変更に反応する state 配信で届く。
+              setScene((s) => ({ ...s, sharedMemos: memos }))
+            }
+          />
+
           <h2 className="text-xs font-semibold tracking-tight text-muted-foreground">
             キャラクター({scene.panels.length})
           </h2>

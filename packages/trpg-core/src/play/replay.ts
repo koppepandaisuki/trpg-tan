@@ -1,9 +1,12 @@
-import type { PlayEvent } from "@trpg/core";
+import type { PlayEvent } from "./types.js";
 
 /**
  * リプレイ(セッションログ)の書き出し。プレーンテキストと、発言者色・
- * タイムスタンプつきの整形 HTML の 2 形式を作る。GM(PlayTable)・参加者
- * (PlayClient)双方から使える純粋関数(名前解決は呼び出し側が渡す)。
+ * タイムスタンプつきの整形 HTML の 2 形式を作る。GM・参加者の双方から
+ * 使える純粋関数(名前解決は呼び出し側が渡す)。
+ *
+ * デスクトップ(PlayTable/PlayClient)と Web(components/play/*)が同じ
+ * 書き出し結果になるよう core に置く。ここは DOM にも fs にも触れない。
  */
 
 export type NameResolver = (channelId?: string) => string;

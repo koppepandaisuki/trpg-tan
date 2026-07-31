@@ -21,6 +21,8 @@ import { PlayBoard } from "./play-board";
 import { PlayLog } from "./play-log";
 import { PlayPanelCard } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
+import { PlayMemo } from "./play-memo";
+import { PlayReplayButton } from "./play-replay-button";
 import { connectRoom, type Room } from "@/lib/play/net";
 
 /**
@@ -80,6 +82,9 @@ export function PlayGuest({ code }: { code: string }) {
         } else if (msg.type === "event") {
           // ログの即時表示(状態の正は次の state)。
           setScene((s) => (s ? reduce(s, msg.ev) : s));
+        } else if (msg.type === "memo") {
+          // デスクトップ版 GM は共有メモを memo で単独配信する。
+          setScene((s) => (s ? { ...s, sharedMemos: msg.memos } : s));
         } else if (msg.type === "closed") {
           setClosed(true);
         }
@@ -231,6 +236,11 @@ export function PlayGuest({ code }: { code: string }) {
           <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
           自分のキャラを出す
         </button>
+        <PlayReplayButton
+          scene={scene}
+          isGm={false}
+          myPanelIds={myPanels.map((p) => p.id)}
+        />
       </div>
 
       {closed && (
@@ -290,6 +300,20 @@ export function PlayGuest({ code }: { code: string }) {
         </div>
 
         <aside className="space-y-2">
+          <PlayMemo
+            memos={scene.sharedMemos ?? []}
+            disabled={closed}
+            onChange={(memos) => {
+              // 自分の画面には即反映(相手の確定を待たない)。正は GM の state。
+              setScene((s) => (s ? { ...s, sharedMemos: memos } : s));
+              room?.send({
+                type: "intent",
+                from: room.selfId,
+                intent: { kind: "memo", memos },
+              });
+            }}
+          />
+
           <h2 className="text-xs font-semibold tracking-tight text-muted-foreground">
             キャラクター({scene.panels.length})
           </h2>

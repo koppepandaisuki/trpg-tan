@@ -21,6 +21,7 @@ import {
   type MemoPage,
   type RollEvent,
   type CutIn,
+  replayToText,
 } from "@trpg/core";
 import { getLibrary } from "./library";
 import { JoinPromo } from "./JoinPromo";
@@ -55,7 +56,6 @@ import {
   type WidgetIntent,
 } from "./play-bus";
 import { toast } from "./Toasts";
-import { replayToText } from "./replay-export";
 import { perceptualGain } from "./volume-settings";
 
 type Phase = "connecting" | "waiting" | "ready" | "closed" | "error";
