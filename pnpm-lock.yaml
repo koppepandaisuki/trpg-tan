@@ -17,6 +17,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.105.4
+      '@trpg/core':
+        specifier: workspace:*
+        version: link:packages/trpg-core
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.1

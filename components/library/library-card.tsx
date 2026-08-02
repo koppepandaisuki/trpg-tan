@@ -4,6 +4,7 @@ import { Star, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CoverImage } from "@/components/store/cover-image";
 import { DownloadButton } from "./download-button";
+import { StartPlayButton } from "./start-play-button";
 import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { categoryLabel, fileFormatLabel } from "@/lib/format/category";
 import { formatPrice } from "@/lib/format/price";
@@ -136,6 +137,12 @@ export function LibraryCard({ item }: LibraryCardProps) {
           disabled={downloadDisabled}
           label="ダウンロード"
         />
+        {/* 遊ぶための作品(シナリオ/フルパッケージ)は、そのまま Web PLAY の
+            卓を立てられるようにする。素材系(BGM・マップ単体等)には出さない。 */}
+        {(item.productType === "full_package" ||
+          item.productType === "scenario") && (
+          <StartPlayButton title={item.title} />
+        )}
         {reviewHref && (
           <Link
             href={reviewHref}

@@ -5,6 +5,7 @@ import {
   Library,
   Users,
   Download,
+  Dices,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -28,6 +29,8 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "ホーム", icon: Home },
   { href: "/store", label: "探す", icon: Store },
+  // ブラウザでそのまま卓を立てて遊べる(Web 版 PLAY)。
+  { href: "/play" as Route, label: "PLAY", icon: Dices },
   // デスクトップアプリの DL 導線(テスター配布のため目立つ位置に)。
   { href: "/download" as Route, label: "アプリ", icon: Download },
   { href: "/creator/products/new", label: "投稿する", icon: PlusCircle },
