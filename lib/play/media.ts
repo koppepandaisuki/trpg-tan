@@ -35,9 +35,17 @@ export async function uploadPlayImage(file: File): Promise<string> {
 
   const { error } = await supabase.storage.from("play").upload(path, file, {
     contentType: file.type,
-    upsert: true, // 同内容の再アップロードは上書き(冪等)
+    // upsert は使わない。パスが内容ハッシュなので同じパス = 同じ中身であり、
+    // 上書きする意味が無い。加えて upsert:true は Storage を「既存行を読んで
+    // 更新する」経路に入れるが、play バケットには SELECT ポリシーが無い
+    // (0022: public バケットなので CDN 読みには不要)ため RLS 違反になる。
+    upsert: false,
   });
-  if (error) throw new Error(`画像のアップロードに失敗しました: ${error.message}`);
+  // 同じ内容が既に上がっているのは正常(内容アドレス指定)。desktop の
+  // play-media.ts と同じ扱いにする。
+  if (error && !/exist|dupl|conflict|409/i.test(error.message)) {
+    throw new Error(`画像のアップロードに失敗しました: ${error.message}`);
+  }
 
   return supabase.storage.from("play").getPublicUrl(path).data.publicUrl;
 }
