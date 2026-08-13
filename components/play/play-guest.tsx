@@ -25,6 +25,7 @@ import { PlayPanelCard } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
 import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
+import { PlayTurnBar } from "./play-turn-bar";
 import { CutInOverlay, TelopOverlay } from "./play-fx";
 import { usePlayAudio } from "./use-play-audio";
 import { connectRoom, type Room } from "@/lib/play/net";
@@ -303,6 +304,8 @@ export function PlayGuest({ code }: { code: string }) {
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-2">
+          <PlayTurnBar panels={scene.panels} turn={scene.turn} readOnly />
+
           <PlayBoard
             board={
               scene.scenes?.find((s) => s.id === scene.activeSceneId)?.board ??
@@ -310,6 +313,7 @@ export function PlayGuest({ code }: { code: string }) {
             }
             panels={scene.panels}
             canDrag={isMine}
+            activeTurnId={scene.turn?.activePanelId ?? null}
             liveDrag={(panelId, x, y) =>
               room?.sendLive({ kind: "drag", panelId, x, y })
             }

@@ -27,7 +27,9 @@ import {
   sceneSelectEvent,
   sceneRenameEvent,
   sceneRemoveEvent,
+  turnSetEvent,
   parseCcfoliaCharacter,
+  type BgmTrack,
   type CutIn,
   type Panel,
   type PanelResource,
@@ -40,6 +42,7 @@ import { PlayLog } from "./play-log";
 import { PlayPanelCard } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
 import { PlaySceneBar } from "./play-scene-bar";
+import { PlayTurnBar } from "./play-turn-bar";
 import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
 import { PlayFxBar } from "./play-fx-bar";
@@ -73,7 +76,7 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
   // 演出(自分の画面にも出す。参加者へは cutin/telop/audio で配信)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
   const [telop, setTelop] = useState<string | null>(null);
-  const [bgmName, setBgmName] = useState<string | null>(null);
+  const [playingBgm, setPlayingBgm] = useState<BgmTrack | null>(null);
   const audio = usePlayAudio();
   // 途中入室した参加者へ現在の BGM を配り直すために覚えておく。
   const curBgmRef = useRef<string | null>(null);
@@ -284,17 +287,22 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
 
   /* ===== 演出(GM が発火 → 自分の画面 + 参加者へ) ===== */
 
-  /** BGM を差し替える / 止める(url=null で停止)。 */
-  function setBgm(url: string | null, name: string | null) {
-    curBgmRef.current = url;
-    setBgmName(name);
-    audio.handleAudio("bgm", url);
-    void room?.send({ type: "audio", channel: "bgm", src: url, loop: true });
+  /** BGM を差し替える / 止める(track=null で停止)。 */
+  function setBgm(track: BgmTrack | null) {
+    curBgmRef.current = track?.path ?? null;
+    setPlayingBgm(track);
+    audio.handleAudio("bgm", track?.path ?? null);
+    void room?.send({
+      type: "audio",
+      channel: "bgm",
+      src: track?.path ?? null,
+      loop: true,
+    });
   }
 
-  function fireSe(url: string) {
-    audio.handleAudio("se", url);
-    void room?.send({ type: "audio", channel: "se", src: url });
+  function fireSe(track: BgmTrack) {
+    audio.handleAudio("se", track.path);
+    void room?.send({ type: "audio", channel: "se", src: track.path });
   }
 
   function fireCutin(c: CutIn) {
@@ -442,6 +450,24 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
         {/* 左: 盤面 + 操作 */}
         <div className="min-w-0 space-y-2">
           {/* シーン(場面ごとに盤面を持ち替える。駒は卓に属したまま) */}
+          <PlayTurnBar
+            panels={scene.panels}
+            turn={scene.turn}
+            onNext={(round, panel, label) =>
+              dispatch(turnSetEvent(newEventCtx(), round, panel.id, label))
+            }
+            onReset={() =>
+              dispatch(
+                turnSetEvent(
+                  newEventCtx(),
+                  0,
+                  null,
+                  "⏱ ターン管理をリセット",
+                ),
+              )
+            }
+          />
+
           <PlaySceneBar
             scenes={scene.scenes ?? []}
             activeId={scene.activeSceneId}
@@ -510,6 +536,7 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
             panels={scene.panels}
             canDrag={() => true}
             selectedId={selectedId}
+            activeTurnId={scene.turn?.activePanelId ?? null}
             onSelect={setSelectedId}
             liveDrag={(panelId, x, y) =>
               room?.sendLive({ kind: "drag", panelId, x, y })
@@ -541,9 +568,14 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
         {/* 右: 演出 + 共有メモ + 駒一覧 */}
         <aside className="space-y-2">
           <PlayFxBar
+            bgmTracks={scene.bgm?.tracks ?? []}
+            seTracks={scene.se?.tracks ?? []}
+            onTracksChange={(kind, tracks) =>
+              setScene((s) => ({ ...s, [kind]: { tracks } }))
+            }
             cutins={scene.cutins ?? []}
             onCutinsChange={(cutins) => setScene((s) => ({ ...s, cutins }))}
-            bgmName={bgmName}
+            playingBgm={playingBgm}
             onBgm={setBgm}
             onSe={fireSe}
             onFireCutin={fireCutin}
