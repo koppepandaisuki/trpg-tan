@@ -8,11 +8,13 @@ import {
   ClipboardPaste,
   Loader2,
   Users,
+  Volume2,
   WifiOff,
 } from "lucide-react";
 import {
   reduce,
   parseCcfoliaCharacter,
+  type CutIn,
   type Panel,
   type PlayScene,
 } from "@trpg/core";
@@ -23,6 +25,8 @@ import { PlayPanelCard } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
 import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
+import { CutInOverlay, TelopOverlay } from "./play-fx";
+import { usePlayAudio } from "./use-play-audio";
 import { connectRoom, type Room } from "@/lib/play/net";
 
 /**
@@ -52,6 +56,15 @@ export function PlayGuest({ code }: { code: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const revRef = useRef(-1);
   const myName = useRef("");
+
+  // 演出(GM から配信される)。
+  const [cutin, setCutin] = useState<CutIn | null>(null);
+  const [telop, setTelop] = useState<string | null>(null);
+  const audio = usePlayAudio();
+  // cutin は id だけ届くので、受信ハンドラ(接続時に固定される closure)から
+  // 最新の scene を読むための ref。
+  const sceneRef = useRef<PlayScene | null>(null);
+  sceneRef.current = scene;
 
   // 入室名は前回のものを引き継ぐ(卓に入り直すたびに打ち直さなくてよい)。
   useEffect(() => {
@@ -85,6 +98,15 @@ export function PlayGuest({ code }: { code: string }) {
         } else if (msg.type === "memo") {
           // デスクトップ版 GM は共有メモを memo で単独配信する。
           setScene((s) => (s ? { ...s, sharedMemos: msg.memos } : s));
+        } else if (msg.type === "cutin") {
+          // id だけ届くので、自分が持っている scene から画像を引く。
+          // ハンドラは接続時の closure なので最新 scene は ref から読む。
+          const c = sceneRef.current?.cutins?.find((x) => x.id === msg.cutinId);
+          if (c) setCutin(c);
+        } else if (msg.type === "telop") {
+          setTelop(msg.text);
+        } else if (msg.type === "audio") {
+          audio.handleAudio(msg.channel, msg.src);
         } else if (msg.type === "closed") {
           setClosed(true);
         }
@@ -241,7 +263,31 @@ export function PlayGuest({ code }: { code: string }) {
           isGm={false}
           myPanelIds={myPanels.map((p) => p.id)}
         />
+        <label
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1"
+          title="自分に聞こえる音量(この端末だけ)"
+        >
+          <Volume2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={audio.volume}
+            onChange={(e) => audio.setVolume(Number(e.target.value))}
+            className="h-1 w-20 accent-primary"
+            aria-label="音量"
+          />
+        </label>
       </div>
+
+      {/* ブラウザは操作前の自動再生を止めるので、一度クリックしてもらう。 */}
+      {audio.blocked && (
+        <p className="inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <Volume2 className="h-4 w-4" aria-hidden />
+          音が止まっています。画面のどこかを一度クリックすると鳴ります。
+        </p>
+      )}
 
       {closed && (
         <p className="inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -371,6 +417,10 @@ export function PlayGuest({ code }: { code: string }) {
           </div>
         </aside>
       </div>
+
+      {/* 演出オーバーレイ(非ブロッキング・自動で消える) */}
+      {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}
+      {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}
     </div>
   );
 }

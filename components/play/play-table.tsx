@@ -28,6 +28,7 @@ import {
   sceneRenameEvent,
   sceneRemoveEvent,
   parseCcfoliaCharacter,
+  type CutIn,
   type Panel,
   type PanelResource,
   type PlayEvent,
@@ -41,6 +42,9 @@ import { PlayComposer } from "./play-composer";
 import { PlaySceneBar } from "./play-scene-bar";
 import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
+import { PlayFxBar } from "./play-fx-bar";
+import { CutInOverlay, TelopOverlay } from "./play-fx";
+import { usePlayAudio } from "./use-play-audio";
 import { savePlayScene } from "@/lib/play/store";
 import { uploadPlayImage } from "@/lib/play/media";
 import { resolveInputToEvent, newEventCtx } from "@/lib/play/roll";
@@ -65,6 +69,14 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+
+  // 演出(自分の画面にも出す。参加者へは cutin/telop/audio で配信)。
+  const [cutin, setCutin] = useState<CutIn | null>(null);
+  const [telop, setTelop] = useState<string | null>(null);
+  const [bgmName, setBgmName] = useState<string | null>(null);
+  const audio = usePlayAudio();
+  // 途中入室した参加者へ現在の BGM を配り直すために覚えておく。
+  const curBgmRef = useRef<string | null>(null);
 
   // 公開(参加募集)状態。
   const [room, setRoom] = useState<Room | null>(null);
@@ -230,6 +242,15 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
               panels: sceneRef.current.panels.filter((p) => !p.hidden),
             },
           });
+          // 途中入室でも今かかっている曲が揃うように BGM を配り直す。
+          if (curBgmRef.current) {
+            void r.send({
+              type: "audio",
+              channel: "bgm",
+              src: curBgmRef.current,
+              loop: true,
+            });
+          }
         }
       });
       r.onLive((live) => {
@@ -259,6 +280,33 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
     setRoom(null);
     setRoomCode(null);
     setParticipants([]);
+  }
+
+  /* ===== 演出(GM が発火 → 自分の画面 + 参加者へ) ===== */
+
+  /** BGM を差し替える / 止める(url=null で停止)。 */
+  function setBgm(url: string | null, name: string | null) {
+    curBgmRef.current = url;
+    setBgmName(name);
+    audio.handleAudio("bgm", url);
+    void room?.send({ type: "audio", channel: "bgm", src: url, loop: true });
+  }
+
+  function fireSe(url: string) {
+    audio.handleAudio("se", url);
+    void room?.send({ type: "audio", channel: "se", src: url });
+  }
+
+  function fireCutin(c: CutIn) {
+    setCutin(c);
+    // id だけ送る。画像は参加者が自分の scene.cutins から引く
+    // (画像を丸ごと載せると broadcast が詰まり、演出自体が届かなくなる)。
+    void room?.send({ type: "cutin", cutinId: c.id });
+  }
+
+  function fireTelop(text: string) {
+    setTelop(text);
+    void room?.send({ type: "telop", text });
   }
 
   /* ===== GM の操作 ===== */
@@ -490,8 +538,20 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
           </div>
         </div>
 
-        {/* 右: 共有メモ + 駒一覧 */}
+        {/* 右: 演出 + 共有メモ + 駒一覧 */}
         <aside className="space-y-2">
+          <PlayFxBar
+            cutins={scene.cutins ?? []}
+            onCutinsChange={(cutins) => setScene((s) => ({ ...s, cutins }))}
+            bgmName={bgmName}
+            onBgm={setBgm}
+            onSe={fireSe}
+            onFireCutin={fireCutin}
+            onTelop={fireTelop}
+            volume={audio.volume}
+            onVolumeChange={audio.setVolume}
+          />
+
           <PlayMemo
             memos={scene.sharedMemos ?? []}
             onChange={(memos) =>
@@ -551,6 +611,12 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
           )}
         </aside>
       </div>
+
+      {/* 演出オーバーレイ(非ブロッキング・自動で消える) */}
+      {cutin && (
+        <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />
+      )}
+      {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}
     </div>
   );
 }
