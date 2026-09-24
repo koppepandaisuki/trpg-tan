@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { assetNameFromFile, registerAsset, type AssetKind } from "./assets";
 
 /**
  * PLAY のメディア(盤面背景・駒画像・BGM/SE)を `play` バケット(migration 0022)
@@ -11,6 +12,9 @@ import { createClient } from "@/lib/supabase/client";
  *
  * パスは `<user_id>/<sha256>.<ext>`(内容ハッシュ)。同じファイルを何度上げても
  * 1 つに集約され、RLS(自分のフォルダのみ書ける)も満たす。
+ *
+ * アップロードしたものは play_assets(0049)にも登録し、ライブラリの「素材」に
+ * 並ぶ。卓で使った背景・BGM を、次の卓でライブラリから選び直せるようにするため。
  */
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // バケット上限 25MB に対して安全側
@@ -24,7 +28,7 @@ export async function uploadPlayImage(file: File): Promise<string> {
   if (file.size > MAX_IMAGE_BYTES) {
     throw new Error("画像が大きすぎます(20MB まで)");
   }
-  return upload(file, "画像");
+  return upload(file, "image", "画像");
 }
 
 /** BGM / 効果音。 */
@@ -35,10 +39,14 @@ export async function uploadPlayAudio(file: File): Promise<string> {
   if (file.size > MAX_AUDIO_BYTES) {
     throw new Error("音声が大きすぎます(24MB まで)");
   }
-  return upload(file, "音声");
+  return upload(file, "audio", "音声");
 }
 
-async function upload(file: File, label: string): Promise<string> {
+async function upload(
+  file: File,
+  kind: AssetKind,
+  label: string,
+): Promise<string> {
   const supabase = createClient();
   const {
     data: { user },
@@ -63,7 +71,21 @@ async function upload(file: File, label: string): Promise<string> {
     throw new Error(`${label}のアップロードに失敗しました: ${error.message}`);
   }
 
-  return supabase.storage.from("play").getPublicUrl(path).data.publicUrl;
+  const url = supabase.storage.from("play").getPublicUrl(path).data.publicUrl;
+
+  // ライブラリへの登録は「おまけ」。失敗しても(0049 未適用など)卓の
+  // 画像・音はもう使えるので、アップロード自体は成功として返す。
+  await registerAsset({
+    ownerId: user.id,
+    kind,
+    name: assetNameFromFile(file.name),
+    path,
+    url,
+    sizeBytes: file.size,
+    mime: file.type,
+  }).catch((e) => console.warn("[play-media] ライブラリ登録に失敗:", e));
+
+  return url;
 }
 
 async function sha256Hex(buf: ArrayBuffer): Promise<string> {

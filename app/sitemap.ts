@@ -1,130 +1,44 @@
 import type { MetadataRoute } from "next";
-import { listSitemapEntries } from "@/lib/queries/sitemap";
 
 /**
- * sitemap.xml の自動生成。
+ * sitemap.xml の自動生成(app/sitemap.ts → /sitemap.xml)。
  *
- * Next.js App Router の File Convention で、app/sitemap.ts を置くと
- * /sitemap.xml にアクセスしたとき自動で XML を生成する。
+ * 2026-09 にストア(作品売買)を廃止したので、作品ページ(/store/[slug])の
+ * 動的ルートは無くなり、公開ページだけの静的な一覧になった。
  *
- * 含めるルート:
- *  - / (ホーム)
- *  - /store (作品一覧、最重要 SEO 入口)
- *  - /store/[slug] (各作品詳細、動的)
- *  - /login, /signup (auth 入口、優先度低)
- *
- * 含めないルート(robots.ts で disallow と整合):
- *  - /admin/*  (管理画面、サインインが必要)
- *  - /creator/* (creator 専用、サインインが必要)
- *  - /library  (ログインユーザー専用)
- *  - /checkout/* (一時的な遷移ページ)
- *  - /auth/*   (callback / sign-out)
- *  - /403, /404 (エラー画面)
+ * 含めないルート(robots.ts の disallow と整合):
+ *  - /admin/*, /library, /play/*  (ログインユーザー専用)
+ *  - /checkout/*, /auth/*          (一時的な遷移ページ)
+ *  - /403, /404                    (エラー画面)
  *
  * baseUrl は metadataBase と同じ NEXT_PUBLIC_SITE_URL を使用。
- *
- * revalidate を 1 時間にして、Vercel が頻繁に DB クエリを叩くのを抑制
- * しつつ、新規商品の取り込みは 1 時間以内に行われる。
  */
-
-export const revalidate = 3600; // 1 hour
-
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://re-dice.net";
-
   const now = new Date();
 
-  // 静的ルート。priority と changeFrequency はサイトの構造に応じた
-  // SEO 重要度を反映:
-  //  - / (1.0): サイトのトップ、最重要
-  //  - /store (0.9): SEO 流入の主要先
-  //  - /signup (0.5): コンバージョン入口、中程度
-  //  - /login (0.3): 既存ユーザー向け、低
-  const staticRoutes: MetadataRoute.Sitemap = [
-    {
-      url: `${baseUrl}/`,
-      lastModified: now,
-      changeFrequency: "daily",
-      priority: 1.0,
-    },
-    {
-      url: `${baseUrl}/store`,
-      lastModified: now,
-      changeFrequency: "daily",
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/creators`,
-      lastModified: now,
-      changeFrequency: "daily",
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/download`,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/pricing`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/signup`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/login`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.3,
-    },
-    {
-      url: `${baseUrl}/terms`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-    {
-      url: `${baseUrl}/guidelines`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: `${baseUrl}/privacy`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-    {
-      url: `${baseUrl}/legal/tokushoho`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-    {
-      url: `${baseUrl}/help`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.4,
-    },
+  const route = (
+    path: string,
+    changeFrequency: "daily" | "weekly" | "monthly" | "yearly",
+    priority: number,
+  ): MetadataRoute.Sitemap[number] => ({
+    url: `${baseUrl}${path}`,
+    lastModified: now,
+    changeFrequency,
+    priority,
+  });
+
+  return [
+    route("/", "weekly", 1.0),
+    route("/download", "weekly", 0.8),
+    route("/schedule/new", "monthly", 0.6),
+    route("/pricing", "monthly", 0.5),
+    route("/signup", "monthly", 0.5),
+    route("/help", "monthly", 0.4),
+    route("/login", "monthly", 0.3),
+    route("/terms", "yearly", 0.2),
+    route("/privacy", "yearly", 0.2),
+    route("/legal/tokushoho", "yearly", 0.2),
   ];
-
-  // 動的ルート(商品詳細)。lastModified は商品の updated_at を使い、
-  // 編集された商品が「最近更新された」と検索エンジンに伝わる。
-  const products = await listSitemapEntries();
-  const productRoutes: MetadataRoute.Sitemap = products.map((p) => ({
-    url: `${baseUrl}/store/${p.slug}`,
-    lastModified: new Date(p.updatedAt),
-    changeFrequency: "weekly",
-    priority: 0.6,
-  }));
-
-  return [...staticRoutes, ...productRoutes];
 }

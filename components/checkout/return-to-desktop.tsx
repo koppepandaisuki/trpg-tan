@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * 決済成功/キャンセル画面でデスクトップアプリに戻る導線。
+ * 決済完了画面(プラン加入 / ゴールド購入)からデスクトップアプリに戻る導線。
  *
  *  - redice:// deep link を発火してアプリに通知する
  *  - 1.2 秒待っても可視のままなら、戻れなかった可能性が高いので
@@ -15,15 +15,11 @@ import { cn } from "@/lib/utils";
  *  - 親ページは return_to=desktop の時だけこのコンポーネントを置く。
  */
 export function ReturnToDesktop({
-  kind,
-  sessionId,
-  slug,
   subPlan,
   goldAmount,
 }: {
-  kind: "complete" | "cancel";
-  sessionId?: string;
-  slug?: string;
+  /** 互換のため残している(完了のみ。作品購入のキャンセル導線はストア廃止で撤去)。 */
+  kind?: "complete";
   subPlan?: string;
   goldAmount?: number;
 }) {
@@ -33,15 +29,9 @@ export function ReturnToDesktop({
     if (goldAmount) {
       return `redice://gold/complete?amount=${goldAmount}`;
     }
-    if (subPlan) {
-      return `redice://subscription/complete?plan=${subPlan}`;
-    }
-    const q = new URLSearchParams();
-    if (sessionId) q.set("session_id", sessionId);
-    if (slug) q.set("slug", slug);
-    const qs = q.toString();
-    return `redice://purchase/${kind}${qs ? `?${qs}` : ""}`;
-  }, [kind, sessionId, slug, subPlan, goldAmount]);
+    // プラン加入(subPlan 未指定でもアプリ側はプランを取り直すだけなので安全)。
+    return `redice://subscription/complete${subPlan ? `?plan=${subPlan}` : ""}`;
+  }, [subPlan, goldAmount]);
 
   React.useEffect(() => {
     // ブラウザのポップアップブロックに引っかからない手段で発火。

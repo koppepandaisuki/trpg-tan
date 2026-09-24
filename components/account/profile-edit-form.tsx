@@ -79,7 +79,7 @@ export function ProfileEditForm({ initialValues }: ProfileEditFormProps) {
           {...register("displayName")}
         />
         <p className="text-xs text-muted-foreground">
-          ストアや作品ページに表示される名前(50 文字以下)
+          フレンド一覧や卓で表示される名前(50 文字以下)
         </p>
         {errors.displayName && (
           <p className="text-xs text-destructive">{errors.displayName.message}</p>
@@ -95,12 +95,12 @@ export function ProfileEditForm({ initialValues }: ProfileEditFormProps) {
           id="bio"
           rows={4}
           maxLength={500}
-          placeholder="作風 / 得意ジャンル / 自己紹介など"
+          placeholder="好きなシステム / よく遊ぶ時間帯など"
           aria-invalid={!!errors.bio}
           {...register("bio")}
         />
         <p className="text-xs text-muted-foreground">
-          クリエイタープロフィールに表示されます(500 文字以下)
+          500 文字以下
         </p>
         {errors.bio && (
           <p className="text-xs text-destructive">{errors.bio.message}</p>

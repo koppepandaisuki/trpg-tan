@@ -63,7 +63,18 @@ import { connectRoom, makeRoomCode, type Room, type NetIntent } from "@/lib/play
  * の 2 方向へ流す。参加者からの操作は intent として受け、ここで検証してから
  * 正規イベント化する(乱数は GM 側だけで消費 = 全員の出目が一致)。
  */
-export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
+export function PlayTable({
+  initialScene,
+  canHost,
+}: {
+  initialScene: PlayScene;
+  /**
+   * 卓を公開(参加コード発行 = マルチ卓のホスト)できるか。PLAY プラン以上か管理者。
+   * 無料(basic)でも一人で盤面を触る・保存するのは自由で、公開だけがゲート対象
+   * (デスクトップ版 PlayTable の openShare と同じ線引き)。
+   */
+  canHost: boolean;
+}) {
   const [scene, setScene] = useState<PlayScene>(initialScene);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -86,6 +97,7 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [participants, setParticipants] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [planGate, setPlanGate] = useState(false);
 
   // 最新 scene を参照するための ref(Realtime のコールバックから読む)。
   const sceneRef = useRef(scene);
@@ -227,6 +239,10 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
 
   /** 参加募集を開始(参加コードを発行してルームを開く)。 */
   async function openRoom() {
+    if (!canHost) {
+      setPlanGate(true);
+      return;
+    }
     setBusy("卓を公開しています…");
     setError(null);
     try {
@@ -434,6 +450,29 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
           </Button>
         )}
       </div>
+
+      {planGate && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <Share2 className="h-4 w-4 shrink-0" aria-hidden />
+          <p className="min-w-0 flex-1">
+            卓を公開してみんなで遊ぶには
+            <span className="font-semibold">プレイプラン</span>
+            以上が必要です。一人で盤面を準備・保存するのは無料のままです。
+          </p>
+          <Link
+            href={"/pricing" as Route}
+            className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+          >
+            プランを見る
+          </Link>
+          <button
+            onClick={() => setPlanGate(false)}
+            className="shrink-0 text-xs text-amber-800 underline-offset-2 hover:underline"
+          >
+            閉じる
+          </button>
+        </div>
+      )}
 
       {error && (
         <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">

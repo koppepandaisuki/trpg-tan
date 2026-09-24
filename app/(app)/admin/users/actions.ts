@@ -3,8 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/session/require";
 import {
-  grantCreator,
-  revokeCreator,
   grantAdmin,
   revokeAdmin,
   adjustGold,
@@ -16,38 +14,6 @@ export type AdminActionResult = { ok: true } | { ok: false; message: string };
 export type AdjustGoldActionResult =
   | { ok: true; balance: number }
   | { ok: false; message: string };
-
-export async function grantCreatorAction(
-  targetUserId: string,
-): Promise<AdminActionResult> {
-  const admin = await requireAdmin();
-  if (admin.id === targetUserId) {
-    return { ok: false, message: "自分自身は変更できません" };
-  }
-  try {
-    await grantCreator(targetUserId);
-    revalidatePath("/admin/users");
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, message: messageOf(e) };
-  }
-}
-
-export async function revokeCreatorAction(
-  targetUserId: string,
-): Promise<AdminActionResult> {
-  const admin = await requireAdmin();
-  if (admin.id === targetUserId) {
-    return { ok: false, message: "自分自身は変更できません" };
-  }
-  try {
-    await revokeCreator(targetUserId);
-    revalidatePath("/admin/users");
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, message: messageOf(e) };
-  }
-}
 
 export async function grantAdminAction(
   targetUserId: string,

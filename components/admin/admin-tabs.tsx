@@ -4,8 +4,6 @@ import { cn } from "@/lib/utils";
 
 const TABS: Array<{ href: Route; label: string; match: (p: string) => boolean }> = [
   { href: "/admin/users", label: "ユーザー", match: (p) => p.startsWith("/admin/users") },
-  { href: "/admin/products", label: "作品", match: (p) => p.startsWith("/admin/products") },
-  { href: "/admin/orders", label: "取引", match: (p) => p.startsWith("/admin/orders") },
 ];
 
 export function AdminTabs({ pathname }: { pathname: string }) {

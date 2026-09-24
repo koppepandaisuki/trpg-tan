@@ -47,9 +47,9 @@ export function SiteFooter() {
               <BrandMark size="md" />
             </Link>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              シナリオ・アセット・パッケージの
+              卓を立てて、すぐ遊ぶ。
               <br />
-              マーケットプレイス
+              TRPG オンラインセッション
             </p>
             <div className="flex items-center gap-2">
               <Badge variant="muted">α</Badge>
@@ -74,11 +74,10 @@ export function SiteFooter() {
           {/* ナビゲーション */}
           <FooterColumn title="ナビゲーション">
             <FooterLink href="/" label="ホーム" />
-            <FooterLink href="/store" label="ストアを見る" />
-            <FooterLink href={"/download" as Route} label="アプリDL" />
-            <FooterLink href="/creators" label="クリエイター一覧" />
-            <FooterLink href="/creator/products/new" label="作品を投稿する" />
+            <FooterLink href={"/play" as Route} label="PLAY" />
             <FooterLink href="/library" label="ライブラリ" />
+            <FooterLink href={"/friends" as Route} label="フレンド" />
+            <FooterLink href={"/download" as Route} label="アプリDL" />
             <FooterLink href={"/schedule/new" as Route} label="日程調整" />
             <FooterLink href={"/pricing" as Route} label="料金プラン" />
           </FooterColumn>
@@ -86,7 +85,6 @@ export function SiteFooter() {
           {/* 情報(SSSSS で実ページに差替)*/}
           <FooterColumn title="情報">
             <FooterLink href="/terms" label="利用規約" />
-            <FooterLink href={"/guidelines" as Route} label="出品ガイドライン" />
             <FooterLink href="/privacy" label="プライバシーポリシー" />
             <FooterLink
               href="/legal/tokushoho"

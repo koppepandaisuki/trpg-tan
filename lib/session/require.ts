@@ -27,15 +27,6 @@ export async function requireUser(): Promise<CurrentUser> {
   return user;
 }
 
-export async function requireCreator(): Promise<CurrentUser> {
-  const user = await requireUser();
-  // admin is allowed to enter creator screens (confirmed in Phase 3 design)
-  if (!user.isCreator && !user.isAdmin) {
-    redirect("/403");
-  }
-  return user;
-}
-
 export async function requireAdmin(): Promise<CurrentUser> {
   const user = await requireUser();
   if (!user.isAdmin) {

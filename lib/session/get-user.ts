@@ -1,7 +1,6 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { autoGrantCreatorIfWhitelisted } from "@/lib/mutations/alpha-creator";
 import { autoGrantAdminIfWhitelisted } from "@/lib/mutations/alpha-admin";
 import { normalizePlan, type UserPlan } from "@/lib/plan";
 
@@ -13,7 +12,6 @@ export type CurrentUser = {
   id: string;
   email: string;
   displayName: string;
-  isCreator: boolean;
   isAdmin: boolean;
   /**
    * テスター権限(0041 migration)。リデームコード「TESTER」で付与され、
@@ -22,13 +20,6 @@ export type CurrentUser = {
    * 剥奪されない(必要なら profiles.is_tester を個別に false へ)。
    */
   isTester: boolean;
-  /**
-   * Stripe Connect charges enabled.
-   * - creator 視点の onboarding 完了フラグ
-   * - TopHeader 等で「Stripe 未接続」バッジ表示の判定に利用
-   * - D-020 PR2 で profiles に列追加(0010 migration)
-   */
-  stripeChargesEnabled: boolean;
   /** 料金プラン(0030/0031 migration)。basic / play(PLAY解放) / pro。 */
   plan: UserPlan;
 };
@@ -37,14 +28,12 @@ export type CurrentUser = {
  * Return the currently signed-in user joined with their profile, or null.
  *
  * The only place in the app that reads profiles for role decisions.
- * Other call sites should go through requireUser / requireCreator / requireAdmin.
+ * Other call sites should go through requireUser / requireAdmin.
  *
  * Cached per request (React cache) so calling it twice in one render is free.
  *
- * α 期間限定:env `ALPHA_AUTO_CREATOR_EMAILS` にメアドが含まれていれば、
- * 初回ログイン時に自動で `is_creator = true` を付与する。詳細は
- * `lib/access/alpha-whitelist.ts` / `lib/mutations/alpha-creator.ts`。
- * Phase 2 で creator 申請 UI が実装されたら関連コードごと削除予定。
+ * 2026-09 のストア廃止で creator(出品者)ロールと Stripe Connect の状態は
+ * 読まなくなった(profiles の列は残っているが UI では使わない)。
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = createClient();
@@ -58,7 +47,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const { data: profile, error } = await supabase
     .from("profiles")
     .select(
-      "display_name, is_creator, is_admin, is_tester, stripe_charges_enabled, plan",
+      "display_name, is_admin, is_tester, plan",
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -73,21 +62,10 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     console.error("[get-user] profile fetch failed", error);
   }
 
-  let isCreator = profile?.is_creator ?? false;
-
-  // α auto-grant: env に列挙されたメアドなら自動で creator 化。
+  // α auto-grant: env `ALPHA_AUTO_ADMIN_EMAILS` に列挙されたメアドなら admin 化。
   // 副作用(DB UPDATE)を read 関数の中で行うのは通常 anti-pattern だが、
   // 冪等(既に true なら no-op)かつ React cache でリクエスト内 1 回に
-  // 限定されるため許容する。Phase 2 で creator 申請 UI を実装したら除去。
-  if (!isCreator && user.email) {
-    const granted = await autoGrantCreatorIfWhitelisted(user.id, user.email);
-    if (granted) {
-      isCreator = true;
-    }
-  }
-
-  // α auto-grant: env `ALPHA_AUTO_ADMIN_EMAILS` に列挙されたメアドなら admin 化。
-  // creator と同じ冪等・1リクエスト1回の前提。env 未設定なら常に no-op。
+  // 限定されるため許容する。env 未設定なら常に no-op。
   let isAdmin = profile?.is_admin ?? false;
   if (!isAdmin && user.email) {
     const granted = await autoGrantAdminIfWhitelisted(user.id, user.email);
@@ -100,10 +78,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     id: user.id,
     email: user.email ?? "",
     displayName: profile?.display_name ?? "",
-    isCreator,
     isAdmin,
     isTester: profile?.is_tester ?? false,
-    stripeChargesEnabled: profile?.stripe_charges_enabled ?? false,
     plan: normalizePlan(profile?.plan),
   };
 });

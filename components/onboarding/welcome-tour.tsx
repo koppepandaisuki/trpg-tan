@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Store,
-  Upload,
-  Library,
+  Dices,
+  FolderOpen,
+  ScrollText,
   MessageCircle,
   ArrowRight,
   ArrowLeft,
@@ -20,8 +20,8 @@ import { cn } from "@/lib/utils";
 /**
  * 初回ログイン / 初回訪問時に表示されるオンボーディング tour。
  *
- * 5 ステップでサイトの主要機能(ようこそ → ストア → 投稿 → ライブラリ →
- * Discord)を一気に紹介する。α テスター UX の総仕上げ。
+ * 5 ステップでサイトの主要機能(ようこそ → PLAY → ライブラリ →
+ * キャラシ/ビルダー(アプリ) → Discord)を一気に紹介する。
  *
  * 仕様:
  *  - localStorage キー TOUR_STORAGE_KEY で「閉じた」or「完了」を記録
@@ -38,7 +38,8 @@ import { cn } from "@/lib/utils";
  *  - 「Discord で質問する」を常時 footer に表示
  */
 
-const TOUR_STORAGE_KEY = "paradice_welcome_tour_v1";
+// v2: 2026-09 のストア廃止で中身が変わったので、既存ユーザーにも一度見せ直す。
+const TOUR_STORAGE_KEY = "paradice_welcome_tour_v2";
 
 // 別所(フッター等)から tour を再表示するための CustomEvent 名
 const REOPEN_EVENT = "paradice:open-welcome-tour";
@@ -58,34 +59,34 @@ const STEPS: Step[] = [
     iconTone: "violet",
     title: "ようこそ、Re-dice TRPGサイトへ",
     description:
-      "シナリオ・アセット・パッケージを 作る・買う・遊ぶ。\n2 分でサイトの主要機能を見ていきましょう。",
+      "卓を立てて、すぐ遊ぶ。盤面・ダイス・キャラシ・BGM が 1 つに。\n1 分で主要機能を見ていきましょう。",
   },
   {
-    icon: Store,
+    icon: Dices,
     iconTone: "indigo",
-    title: "ストアで作品を探す",
+    title: "PLAY で卓を立てる",
     description:
-      "公開中の作品をカテゴリで絞り込んで探せます。トップページの「売上上位」「新着」も入口です。",
-    primaryLabel: "ストアを見る",
-    primaryHref: "/store",
+      "ブラウザで卓を作って、参加コードを渡すだけ。参加者はインストール不要です。",
+    primaryLabel: "PLAY を開く",
+    primaryHref: "/play",
   },
   {
-    icon: Upload,
-    iconTone: "amber",
-    title: "自分の作品を投稿する",
-    description:
-      "α 期間中は登録すると自動で creator 権限が付与されます。すぐに作品を投稿できます。\n高度なビルダーは Phase 2 で Desktop App として提供予定。",
-    primaryLabel: "作品を投稿する",
-    primaryHref: "/creator/products/new",
-  },
-  {
-    icon: Library,
+    icon: FolderOpen,
     iconTone: "emerald",
-    title: "ライブラリで購入作品を管理",
+    title: "ライブラリに卓と素材を保管",
     description:
-      "購入した作品はライブラリにまとめて表示されます。ダウンロードや状態確認はここから。",
+      "立てた卓と、背景・駒・BGM などの素材がまとめて並びます。次のセッションでそのまま使えます。",
     primaryLabel: "ライブラリを見る",
     primaryHref: "/library",
+  },
+  {
+    icon: ScrollText,
+    iconTone: "amber",
+    title: "キャラシとビルダーはアプリで",
+    description:
+      "キャラクターシートやシナリオ/システムビルダーは、デスクトップアプリで使えます（Windows・無料）。",
+    primaryLabel: "アプリをダウンロード",
+    primaryHref: "/download",
   },
   {
     icon: MessageCircle,

@@ -1,16 +1,25 @@
 "use client";
 
+import Link from "next/link";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Dices, Plus, LogIn, Trash2, Users } from "lucide-react";
+import { Dices, Plus, LogIn } from "lucide-react";
 import { createScene } from "@trpg/core";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { savePlayScene, deletePlaySession } from "@/lib/play/store";
 import type { PlaySessionSummary } from "@/lib/queries/play-sessions";
+import { TableGrid } from "./table-grid";
+
+/** ロビーに出す「最近の卓」の件数。すべてはライブラリで見る。 */
+const RECENT_LIMIT = 6;
 
 /**
- * PLAY ロビー(卓一覧 / 新規作成 / 参加コードで参加)。
+ * PLAY ロビー(新規作成 / 参加コードで参加 / 最近の卓)。
+ *
+ * 卓の保管と管理(全件・削除)はライブラリが持つ。ロビーは「遊び始める」ための
+ * 画面なので、最近の卓を数件だけ出して、続きはライブラリへ誘導する。
  *
  * 新規作成はその場で PlayScene を組んで play_sessions に保存し、卓画面へ。
  * 参加は DB を触らず、参加コードだけで Realtime のルームに入る。
@@ -129,91 +138,25 @@ export function PlayLobby({ sessions }: { sessions: PlaySessionSummary[] }) {
         </Card>
       </div>
 
-      {/* 保存済みの卓 */}
+      {/* 最近の卓 */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold tracking-tight">
-          保存した卓{list.length > 0 && `（${list.length}）`}
-        </h2>
-        {list.length === 0 ? (
-          <Card className="border-dashed border-border">
-            <CardContent className="py-8 text-center">
-              <Dices
-                className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50"
-                aria-hidden
-              />
-              <p className="text-sm text-muted-foreground">
-                まだ卓がありません。上の「作る」から最初の卓を立ててみましょう。
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((s) => (
-              <li key={s.id}>
-                <Card className="group relative overflow-hidden border-border transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
-                  <button
-                    onClick={() => router.push(`/play/${s.id}`)}
-                    className="block w-full text-left"
-                  >
-                    <div className="relative aspect-[16/9] overflow-hidden bg-muted">
-                      {s.thumbnail ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={s.thumbnail}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Dices
-                            className="h-7 w-7 text-muted-foreground/40"
-                            aria-hidden
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <CardContent className="space-y-1 py-3">
-                      <p className="line-clamp-1 text-sm font-semibold">
-                        {s.title}
-                      </p>
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <Users className="h-3 w-3" aria-hidden />
-                          {s.panelCount} 駒
-                        </span>
-                        <span>・</span>
-                        <span>{formatDate(s.updatedAt)}</span>
-                      </div>
-                    </CardContent>
-                  </button>
-                  <button
-                    onClick={() => void remove(s.id, s.title)}
-                    title="この卓を削除"
-                    aria-label={`「${s.title}」を削除`}
-                    className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-muted-foreground opacity-0 transition hover:text-red-600 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                  </button>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold tracking-tight">最近の卓</h2>
+          {list.length > RECENT_LIMIT && (
+            <Link
+              href={"/library" as Route}
+              className="text-xs text-muted-foreground transition hover:text-foreground"
+            >
+              ライブラリですべて見る（{list.length}）→
+            </Link>
+          )}
+        </div>
+        <TableGrid
+          sessions={list.slice(0, RECENT_LIMIT)}
+          onRemove={(s) => void remove(s.id, s.title)}
+          empty="まだ卓がありません。上の「作る」から最初の卓を立ててみましょう。"
+        />
       </div>
     </div>
   );
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat("ja-JP", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
 }

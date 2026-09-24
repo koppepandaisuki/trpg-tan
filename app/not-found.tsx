@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { Compass } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
@@ -52,10 +53,10 @@ export default function NotFound() {
                 トップへ戻る
               </Link>
               <Link
-                href="/store"
+                href={"/play" as Route}
                 className={cn(buttonVariants({ variant: "outline" }))}
               >
-                ストアを見る
+                PLAY を開く
               </Link>
             </div>
           </CardContent>
