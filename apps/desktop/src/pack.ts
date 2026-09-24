@@ -1,20 +1,16 @@
 import { join } from "@tauri-apps/api/path";
 import { mkdir, writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { save, open } from "@tauri-apps/plugin-dialog";
-import { appFetch as tauriFetch, WEB_BASE } from "./platform";
 import {
   parsePack,
   serializePack,
   collectPackMediaUrls,
   type TrpgPack,
 } from "@trpg/core";
-import { supabase } from "./supabase";
 import { upsertCustomSystem } from "./systems-store";
 import { getPlayIndex, upsertPlayIndex } from "./play-storage";
 import { getLibrary, upsertEntry, buildGenericEntry } from "./library";
 import { getPacksDir } from "./library-root";
-
-// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
 /**
  * 配布パッケージ(.paradice)の取り込み / 書き出し。
@@ -136,188 +132,4 @@ export async function exportPackToFile(pack: TrpgPack): Promise<string | null> {
   if (!path) return null;
   await writeTextFile(path, serializePack(pack));
   return path;
-}
-
-export interface PublishResult {
-  productId: string;
-  slug: string;
-}
-
-/**
- * アプリ内出品。下書き(draft)の full_package 商品を作り、.paradice を Storage に
- * アップロードする。表紙(cover)を渡すと同時にアップロードして cover_path を
- * 確定する。公開(published)は作者がクリエイターページで確認のうえ行う。
- */
-export async function publishPack(
-  pack: TrpgPack,
-  meta: { title: string; priceJpy: number; description?: string },
-  cover?: { blob: Blob; contentType: string },
-): Promise<PublishResult> {
-  const { data: sess } = await supabase.auth.getSession();
-  const token = sess.session?.access_token;
-  if (!token) throw new Error("ログインが必要です");
-
-  // 1. 下書き商品を作成 + アップロード token 取得(Bearer。CORS 回避で tauri fetch)。
-  //    表紙を出すなら coverContentType を渡し、covers 用 token も受け取る。
-  const res = await tauriFetch(`${WEB_BASE}/api/creator/pack/publish`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      title: meta.title,
-      priceJpy: meta.priceJpy,
-      description: meta.description,
-      systemLabel: pack.system?.name,
-      coverContentType: cover?.contentType,
-    }),
-  });
-  let info: {
-    ok?: boolean;
-    message?: string;
-    productId?: string;
-    slug?: string;
-    path?: string;
-    token?: string;
-    coverPath?: string | null;
-    coverToken?: string | null;
-  };
-  try {
-    info = (await res.json()) as typeof info;
-  } catch {
-    throw new Error(`サーバ応答が不正です (${res.status})`);
-  }
-  if (!res.ok || !info.ok || !info.path || !info.token || !info.productId) {
-    throw new Error(info.message ?? `出品に失敗しました (${res.status})`);
-  }
-
-  // 2. .paradice 本体を署名付き URL へアップロード。
-  const blob = new Blob([serializePack(pack)], { type: "application/json" });
-  const { error: upErr } = await supabase.storage
-    .from("product-files")
-    .uploadToSignedUrl(info.path, info.token, blob, {
-      contentType: "application/json",
-    });
-  if (upErr) throw new Error(`アップロードに失敗しました: ${upErr.message}`);
-
-  // 3. 表紙(任意)。失敗しても本体出品は成立済みなので throw せず警告に留める。
-  if (cover && info.coverPath && info.coverToken) {
-    const { error: covErr } = await supabase.storage
-      .from("covers")
-      .uploadToSignedUrl(info.coverPath, info.coverToken, cover.blob, {
-        contentType: cover.contentType,
-      });
-    if (covErr) {
-      console.warn("[publishPack] cover upload failed:", covErr.message);
-    }
-  }
-
-  return { productId: info.productId, slug: info.slug ?? "" };
-}
-
-/** 単一ファイル出品で選べるカテゴリ(full_package はビルダー経由の別フロー)。 */
-export type UploadProductType =
-  | "scenario"
-  | "rulebook"
-  | "map"
-  | "character_art"
-  | "bgm_audio";
-
-export type UploadFileFormat = "pdf" | "image_zip" | "audio";
-
-export interface PublishFileMeta {
-  title: string;
-  productType: UploadProductType;
-  fileFormat: UploadFileFormat;
-  priceJpy: number;
-  /** 割引率 0..100(100=無料配布)。省略時 0。 */
-  discountPercent?: number;
-  /** セール期間(ISO 文字列・任意)。両方 null/省略で無期限。 */
-  discountStartsAt?: string | null;
-  discountEndsAt?: string | null;
-  description?: string;
-  systemLabel?: string;
-  players?: string;
-  playtime?: string;
-  recommendedSkills?: string;
-  tags?: string[];
-}
-
-/**
- * 単一ファイル作品(PDF シナリオ / ZIP マップ・立ち絵 / 音声 BGM)を web と
- * 同等に出品する。下書き商品を作り、本体ファイルと(任意で)表紙を Storage へ
- * アップロードする。公開はブラウザのクリエイターページで確認のうえ行う。
- */
-export async function publishFileProduct(
-  file: { blob: Blob; contentType: string },
-  meta: PublishFileMeta,
-  cover?: { blob: Blob; contentType: string },
-): Promise<PublishResult> {
-  const { data: sess } = await supabase.auth.getSession();
-  const token = sess.session?.access_token;
-  if (!token) throw new Error("ログインが必要です");
-
-  // 1. 下書き商品を作成 + アップロード token 取得(Bearer。CORS 回避で tauri fetch)。
-  const res = await tauriFetch(`${WEB_BASE}/api/creator/product/publish`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      title: meta.title,
-      priceJpy: meta.priceJpy,
-      description: meta.description,
-      productType: meta.productType,
-      fileFormat: meta.fileFormat,
-      fileContentType: file.contentType,
-      systemLabel: meta.systemLabel,
-      players: meta.players,
-      playtime: meta.playtime,
-      recommendedSkills: meta.recommendedSkills,
-      tags: meta.tags,
-      coverContentType: cover?.contentType,
-    }),
-  });
-  let info: {
-    ok?: boolean;
-    message?: string;
-    productId?: string;
-    slug?: string;
-    path?: string;
-    token?: string;
-    coverPath?: string | null;
-    coverToken?: string | null;
-  };
-  try {
-    info = (await res.json()) as typeof info;
-  } catch {
-    throw new Error(`サーバ応答が不正です (${res.status})`);
-  }
-  if (!res.ok || !info.ok || !info.path || !info.token || !info.productId) {
-    throw new Error(info.message ?? `出品に失敗しました (${res.status})`);
-  }
-
-  // 2. 本体ファイルを署名付き URL へアップロード。
-  const { error: upErr } = await supabase.storage
-    .from("product-files")
-    .uploadToSignedUrl(info.path, info.token, file.blob, {
-      contentType: file.contentType,
-    });
-  if (upErr) throw new Error(`アップロードに失敗しました: ${upErr.message}`);
-
-  // 3. 表紙(任意)。失敗しても本体出品は成立済みなので警告に留める。
-  if (cover && info.coverPath && info.coverToken) {
-    const { error: covErr } = await supabase.storage
-      .from("covers")
-      .uploadToSignedUrl(info.coverPath, info.coverToken, cover.blob, {
-        contentType: cover.contentType,
-      });
-    if (covErr) {
-      console.warn("[publishFileProduct] cover upload failed:", covErr.message);
-    }
-  }
-
-  return { productId: info.productId, slug: info.slug ?? "" };
 }

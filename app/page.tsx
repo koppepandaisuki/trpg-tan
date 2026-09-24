@@ -110,8 +110,8 @@ export default async function HomePage() {
               卓を立てて、すぐ遊ぶ。
             </h1>
             <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-              盤面・ダイス・キャラシ・BGM が 1 つに。ブラウザならインストール不要、
-              参加者は参加コードを入れるだけです。
+              盤面・ダイス・キャラシ・BGM が 1 つに。ブラウザならインストール不要。
+              参加者はログインして、GM から届いた参加コードを入れるだけです。
             </p>
             <div className="flex flex-wrap gap-2 pt-2">
               <Link

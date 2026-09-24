@@ -70,7 +70,7 @@ export function ScenarioBuilderPanel({
     <div className="ss-scenario-build" style={{ display: "grid", gap: 14 }}>
       <p className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
         この卓をそのまま遊べるシナリオにします。ここで書いた内容は卓に保存され、
-        出品すれば「買って即PLAY」のシナリオになります。
+        .paradice に書き出せば仲間もすぐ遊べます。
       </p>
 
       {/* メタ */}
@@ -229,7 +229,7 @@ export function ScenarioBuilderPanel({
           }}
         >
           <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-            この卓を .paradice ファイルにまとめて配布・出品できます
+            この卓を .paradice ファイルにまとめて仲間に配布できます
             （盤面・パネル・BGM・カットイン・テキストストック・ HO/NPC を含む）。
           </p>
           <button

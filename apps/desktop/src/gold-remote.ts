@@ -6,7 +6,7 @@ import { supabase } from "./supabase";
  * ゴールド(アプリ内通貨)の Web API 呼び出し + 残高の共有ストア。
  *
  * 残高はモジュールレベルで保持し、購読(useGoldBalance)する各所
- * (ヘッダ / 設定 / ストア)へ即時に伝える。API は tauri-plugin-http を使い
+ * (ヘッダ / 設定)へ即時に伝える。API は tauri-plugin-http を使い
  * CORS を受けない(account-remote.ts と同方針)。
  */
 
@@ -17,16 +17,6 @@ export type GoldTx = {
   kind: string;
   note: string | null;
   createdAt: string;
-};
-
-/** クリエイター収益(受け取ったゴールドの集計)。 */
-export type GoldEarnings = {
-  /** 作品のゴールド売上(手数料差引後の受取ぶん)。 */
-  sales: number;
-  /** スーパーサンクス受領。 */
-  tips: number;
-  /** サンクスをくれた延べ回数。 */
-  supporters: number;
 };
 
 let currentBalance: number | null = null;
@@ -44,19 +34,16 @@ async function authToken(): Promise<string> {
   return token;
 }
 
-const ZERO_EARNINGS: GoldEarnings = { sales: 0, tips: 0, supporters: 0 };
-
-/** 残高 + 収益集計 + 直近履歴を取得。未ログインなら null 残高。 */
+/** 残高 + 直近履歴を取得。未ログインなら null 残高。 */
 export async function fetchGold(): Promise<{
   balance: number;
-  earnings: GoldEarnings;
   transactions: GoldTx[];
 }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) {
     setBalance(null);
-    return { balance: 0, earnings: ZERO_EARNINGS, transactions: [] };
+    return { balance: 0, transactions: [] };
   }
   const res = await fetch(`${WEB_BASE}/api/gold/balance`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -64,14 +51,12 @@ export async function fetchGold(): Promise<{
   const body = (await res.json()) as {
     ok?: boolean;
     balance?: number;
-    earnings?: GoldEarnings;
     transactions?: GoldTx[];
   };
   if (!res.ok || !body.ok) throw new Error(`残高の取得に失敗 (${res.status})`);
   setBalance(body.balance ?? 0);
   return {
     balance: body.balance ?? 0,
-    earnings: body.earnings ?? ZERO_EARNINGS,
     transactions: body.transactions ?? [],
   };
 }
@@ -130,54 +115,6 @@ export async function aiComplete(
     ok: false,
     reason: r.error.reason ?? "error",
     message: r.error.message ?? "AI の呼び出しに失敗しました",
-  };
-}
-
-/** 作品をゴールドで購入。成功で残高を更新。 */
-export async function purchaseWithGold(
-  productId: string,
-): Promise<
-  | { ok: true; balance: number }
-  | { ok: false; reason: string; message: string }
-> {
-  const r = await postJson<{ goldBalance: number }>("/api/purchase/gold", {
-    productId,
-  });
-  if (r.ok) {
-    setBalance(r.data.goldBalance);
-    return { ok: true, balance: r.data.goldBalance };
-  }
-  return {
-    ok: false,
-    reason: r.error.reason ?? "error",
-    message: r.error.message ?? "購入に失敗しました",
-  };
-}
-
-/** スーパーサンクス(クリエイターへゴールドを贈る)。成功で残高を更新。 */
-export async function sendTip(
-  creatorId: string,
-  amount: number,
-  productId?: string,
-  message?: string,
-): Promise<
-  | { ok: true; balance: number }
-  | { ok: false; reason: string; message: string }
-> {
-  const r = await postJson<{ goldBalance: number }>("/api/tips", {
-    creatorId,
-    amount,
-    productId,
-    message,
-  });
-  if (r.ok) {
-    setBalance(r.data.goldBalance);
-    return { ok: true, balance: r.data.goldBalance };
-  }
-  return {
-    ok: false,
-    reason: r.error.reason ?? "error",
-    message: r.error.message ?? "送信に失敗しました",
   };
 }
 

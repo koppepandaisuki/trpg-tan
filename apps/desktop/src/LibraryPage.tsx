@@ -1,644 +1,408 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Home,
-  Play,
-  Download,
+  FileInput,
   FolderOpen,
-  RefreshCw,
-  Package,
+  Image as ImageIcon,
+  LayoutGrid,
+  List,
+  Loader2,
+  Music,
+  Pause,
+  Pencil,
+  Play,
+  Trash2,
+  Upload,
 } from "lucide-react";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { exists } from "@tauri-apps/plugin-fs";
-import { importPackFromFile, importPackFromPath } from "./pack";
+import { importPackFromFile } from "./pack";
+import type { PlayIndexEntry } from "./play-storage";
 import { useAuth } from "./useAuth";
-import { supabaseConfigured } from "./supabase";
 import { isTauri } from "./storage";
-import { downloadToLibrary } from "./download";
-import {
-  getDownloadedMap,
-  markDownloaded,
-  type DownloadedEntry,
-} from "./downloaded";
-import {
-  fetchMyLibrary,
-  type RemoteLibraryItem,
-  type RemoteProductType,
-  PRODUCT_TYPE_LABEL,
-  FILE_FORMAT_LABEL,
-  AVAILABILITY_LABEL,
-} from "./library-remote";
 import { toast } from "./Toasts";
-import { SkelStrip } from "./Skeleton";
 import { EmptyState } from "./EmptyState";
+import { SavedTables } from "./SavedTables";
+import {
+  listMyAssets,
+  removeAsset,
+  renameAsset,
+  uploadAsset,
+  type AssetKind,
+  type PlayAsset,
+} from "./assets-remote";
+
+type Tab = "tables" | "assets";
+type Filter = "all" | AssetKind;
 
 /**
- * ライブラリ(Steam のライブラリ画面風)。
- *  - 左サイドバー: 持っている作品の一覧。ジャンル(種別)ごとに折りたたみ、
- *    (DL済み/総数) のカウント付き。検索で絞り込み
- *  - メイン: 「新着」「すぐ遊べる(DL済み)」シェルフ + 全作品グリッド。
- *    作品を選ぶと詳細(DL / 開く / 場所を開く)
+ * ライブラリ = 自分の卓 + 素材(画像・音声)の保管庫。
+ *
+ * 2026-09 のストア廃止までは「購入した作品」の一覧(Steam 風)だったが、
+ * 作品売買をやめたので「自分のゲームを保存しておく場所」に再定義した。
+ *   - 卓   : ローカルの .play 索引(PLAY ロビーと同じデータ)。.paradice の
+ *            取り込みと、.play ファイルを直接開く入口もここに置く。
+ *   - 素材 : クラウドの play_assets(Web 版ライブラリと共有。要ログイン)。
  */
-
-const GENRE_ORDER: RemoteProductType[] = [
-  "full_package",
-  "scenario",
-  "rulebook",
-  "character_art",
-  "map",
-  "bgm_audio",
-];
-
-/** Steam 風の相対日付ラベル(新着シェルフ用)。 */
-function relDay(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const that = new Date(d);
-  that.setHours(0, 0, 0, 0);
-  const days = Math.round((today.getTime() - that.getTime()) / 86400000);
-  if (days <= 0) return "今日";
-  if (days === 1) return "昨日";
-  if (days < 7) return "今週";
-  if (days < 14) return "1週間前";
-  return d.toLocaleDateString("ja-JP");
-}
-
 export function LibraryPage({
-  onView,
-  onGoStore,
-  onOpenPlay,
-  refreshSignal,
+  tables,
+  onOpenTable,
+  onRemoveTable,
+  onOpenTableFile,
+  onPackImported,
+  systemLabelOf,
 }: {
-  onView?: (item: RemoteLibraryItem, entry: DownloadedEntry) => void;
-  /** 空状態の「ストアを見る」(App がページ遷移)。 */
-  onGoStore?: () => void;
-  /**
-   * フルパッケージ(卓入り)を開いたとき、取り込んだ卓(.play)をそのまま PLAY で
-   * 開くための導線。引数は取り込んだ卓の絶対パス。
-   */
-  onOpenPlay?: (playPath: string) => void;
-  /** 親から購入完了など外部イベントで再 fetch させたい時にインクリメント。 */
-  refreshSignal?: number;
+  tables: PlayIndexEntry[];
+  onOpenTable: (e: PlayIndexEntry) => void;
+  onRemoveTable: (id: string) => void;
+  /** .play ファイルを選んで開く。 */
+  onOpenTableFile: () => void;
+  /** .paradice を取り込んだあと(卓索引の再読込 + 取り込んだ卓を開く)。 */
+  onPackImported: (firstPlayPath: string | null) => void;
+  systemLabelOf: (systemId: string) => string;
 }) {
-  const { session, ready } = useAuth();
-  const [items, setItems] = useState<RemoteLibraryItem[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<Tab>("tables");
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [downloaded, setDownloaded] = useState<Record<string, DownloadedEntry>>(
-    () => getDownloadedMap(),
-  );
-  const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [dlError, setDlError] = useState<Record<string, string>>({});
-
-  const [query, setQuery] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
-
-  /** .paradice パッケージを取り込む(システム/シナリオ/キャラをローカル展開)。 */
-  async function handleImportPack() {
+  async function importPack() {
+    if (!isTauri()) {
+      setError("パッケージの取り込みにはデスクトップアプリが必要です");
+      return;
+    }
     setImporting(true);
+    setError(null);
     try {
-      const res = await importPackFromFile();
-      if (res) {
-        const parts = [
-          res.system ? "システム" : "",
-          res.scenarios ? `シナリオ${res.scenarios}` : "",
-          res.sheets ? `キャラ${res.sheets}` : "",
-        ]
-          .filter(Boolean)
-          .join(" / ");
-        toast(`📦 「${res.name}」を取り込みました（${parts || "メタのみ"}）`);
-      }
+      const r = await importPackFromFile();
+      if (!r) return; // キャンセル
+      const parts = [
+        r.system ? "システム" : null,
+        r.scenarios > 0 ? `卓 ${r.scenarios}` : null,
+        r.sheets > 0 ? `キャラ ${r.sheets}` : null,
+      ].filter(Boolean);
+      toast(`📦 「${r.name}」を取り込みました（${parts.join(" / ") || "内容なし"}）`);
+      onPackImported(r.scenes[0]?.path ?? null);
     } catch (e) {
-      toast(`取り込みに失敗: ${e instanceof Error ? e.message : String(e)}`);
+      setError(`取り込めませんでした: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setImporting(false);
     }
   }
 
-  const userId = session?.user.id ?? null;
-  const canUseDownload = isTauri();
-
-  const load = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      setItems(await fetchMyLibrary(userId));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    if (userId) void load();
-    else setItems(null);
-  }, [userId, load]);
-
-  // 外部(App)から refreshSignal が来たら fetch をやり直す。
-  // 例: アプリ内決済後の redice://purchase/complete を受けた時など。
-  useEffect(() => {
-    if (refreshSignal !== undefined && userId) void load();
-  }, [refreshSignal, userId, load]);
-
-  async function handleDownload(it: RemoteLibraryItem) {
-    setBusy((b) => ({ ...b, [it.productId]: true }));
-    setDlError((e) => {
-      const n = { ...e };
-      delete n[it.productId];
-      return n;
-    });
-    try {
-      const res = await downloadToLibrary(it.productId);
-      const entry: DownloadedEntry = {
-        productId: it.productId,
-        path: res.path,
-        relativePath: res.relativePath,
-        ext: res.ext,
-        bytes: res.bytes,
-        downloadedAt: new Date().toISOString(),
-      };
-      markDownloaded(entry);
-      setDownloaded((d) => ({ ...d, [it.productId]: entry }));
-      toast(`⬇ 「${it.title}」をダウンロードしました`);
-    } catch (e) {
-      setDlError((er) => ({
-        ...er,
-        [it.productId]: e instanceof Error ? e.message : String(e),
-      }));
-    } finally {
-      setBusy((b) => ({ ...b, [it.productId]: false }));
-    }
-  }
-
-  /** ダウンロード物がパッケージ(.paradice)か。 */
-  const isPackEntry = (e: DownloadedEntry) =>
-    e.ext?.toLowerCase() === "paradice" ||
-    e.path.toLowerCase().endsWith(".paradice");
-
-  /**
-   * 記録された保存先にファイルが無ければ取り直して最新パスに更新する。
-   * 旧バージョンで保存した古いパスや、ライブラリ場所の切替・ファイル移動で
-   * パスがズレても「開く」が確実に動くようにする(DL は productId 固定で冪等)。
-   */
-  async function ensureLocalFile(
-    it: RemoteLibraryItem,
-    entry: DownloadedEntry,
-  ): Promise<DownloadedEntry> {
-    try {
-      if (await exists(entry.path)) return entry;
-    } catch {
-      // exists 判定に失敗しても取り直しを試みる
-    }
-    const res = await downloadToLibrary(it.productId);
-    const fresh: DownloadedEntry = {
-      ...entry,
-      path: res.path,
-      relativePath: res.relativePath,
-      ext: res.ext,
-      bytes: res.bytes,
-      downloadedAt: new Date().toISOString(),
-    };
-    markDownloaded(fresh);
-    setDownloaded((d) => ({ ...d, [it.productId]: fresh }));
-    return fresh;
-  }
-
-  /** 「開く」: パッケージなら取り込み(セットアップ無し)、その他は viewer へ。 */
-  async function openItem(it: RemoteLibraryItem, entryArg: DownloadedEntry) {
-    let entry: DownloadedEntry;
-    try {
-      entry = await ensureLocalFile(it, entryArg);
-    } catch (e) {
-      toast(
-        `ファイルを開けませんでした(取り直しに失敗): ${e instanceof Error ? e.message : String(e)}`,
-      );
-      return;
-    }
-    if (isPackEntry(entry)) {
-      try {
-        const res = await importPackFromPath(entry.path);
-        // 卓(.play)が入っているフルパッケージは、取り込んだうえで最初の卓を
-        // そのまま PLAY で開く(リクエスト: 開いたら PLAY 画面へ直行)。
-        if (res.scenes.length > 0 && onOpenPlay) {
-          toast(`▶ 「${res.name}」を開きます`);
-          onOpenPlay(res.scenes[0].path);
-          return;
-        }
-        const parts = [
-          res.system ? "システム" : "",
-          res.scenarios ? `シナリオ${res.scenarios}` : "",
-          res.sheets ? `キャラ${res.sheets}` : "",
-        ]
-          .filter(Boolean)
-          .join(" / ");
-        toast(
-          `📦 「${res.name}」を取り込みました（${parts || "メタのみ"}）。上部メニューの「PLAY / ビルダー」で使えます`,
-        );
-      } catch (e) {
-        toast(`取り込みに失敗: ${e instanceof Error ? e.message : String(e)}`);
-      }
-      return;
-    }
-    onView?.(it, entry);
-  }
-
-  async function handleReveal(productId: string, it?: RemoteLibraryItem) {
-    const entry = downloaded[productId];
-    if (!entry) return;
-    try {
-      // パスが古い/ファイルが無ければ取り直してから表示する。
-      const fresh = it ? await ensureLocalFile(it, entry) : entry;
-      await revealItemInDir(fresh.path);
-    } catch (e) {
-      console.error("[library] reveal failed", e);
-    }
-  }
-
-  // 検索でサイドバー / グリッドを絞り込み(タイトル / 作者名)。
-  const q = query.trim().toLowerCase();
-  const filtered = useMemo(() => {
-    const list = items ?? [];
-    if (!q) return list;
-    return list.filter(
-      (it) =>
-        it.title.toLowerCase().includes(q) ||
-        it.creator.displayName.toLowerCase().includes(q),
-    );
-  }, [items, q]);
-
-  // ジャンル(種別)ごとにグループ化。
-  const groups = useMemo(() => {
-    const map = new Map<RemoteProductType, RemoteLibraryItem[]>();
-    for (const it of filtered) {
-      const list = map.get(it.productType) ?? [];
-      list.push(it);
-      map.set(it.productType, list);
-    }
-    return GENRE_ORDER.filter((g) => map.has(g)).map((g) => ({
-      genre: g,
-      items: map.get(g)!,
-    }));
-  }, [filtered]);
-
-  const selected =
-    (items ?? []).find((it) => it.purchaseId === selectedId) ?? null;
-
-  function toggleGroup(g: string) {
-    setCollapsed((s) => {
-      const n = new Set(s);
-      if (n.has(g)) n.delete(g);
-      else n.add(g);
-      return n;
-    });
-  }
-
-  /* ===== 未ログイン / 未設定 ===== */
-  if (!supabaseConfigured) {
-    return (
-      <div className="page">
-        <p className="muted" style={{ padding: 24 }}>
-          ログイン未設定のため購入ライブラリは使えません。
-        </p>
-      </div>
-    );
-  }
-  if (!ready) return <div className="page" />;
-  if (!session) {
-    return (
-      <div className="page libpage-login">
-        <div className="pclient-card">
-          <p>📚 ログインすると、購入した作品がここに並びます。</p>
-          <p className="muted" style={{ fontSize: 12 }}>
-            右上の「Google でログイン」から。
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  /* ===== 作品詳細(メイン右側) ===== */
-  function renderActions(it: RemoteLibraryItem) {
-    if (!canUseDownload || it.availability !== "available") return null;
-    const entry = downloaded[it.productId];
-    return (
-      <div className="work-actions">
-        {entry ? (
-          <>
-            <button
-              className="btn btn-primary ibtn"
-              onClick={() => void openItem(it, entry)}
-            >
-              {isPackEntry(entry) ? (
-                <>
-                  <Package size={15} /> 取り込んで使う
-                </>
-              ) : (
-                <>
-                  <Play size={15} /> 開く
-                </>
-              )}
-            </button>
-            <button
-              className="btn ibtn"
-              onClick={() => void handleReveal(it.productId, it)}
-            >
-              <FolderOpen size={15} /> 場所を開く
-            </button>
-            <button
-              className="btn ibtn"
-              disabled={busy[it.productId]}
-              onClick={() => void handleDownload(it)}
-              title="もう一度ダウンロードして上書き"
-            >
-              <RefreshCw size={14} /> {busy[it.productId] ? "DL中…" : "再DL"}
-            </button>
-          </>
-        ) : (
-          <button
-            className="btn btn-primary ibtn"
-            disabled={busy[it.productId]}
-            onClick={() => void handleDownload(it)}
-          >
-            <Download size={15} />{" "}
-            {busy[it.productId] ? "ダウンロード中…" : "ダウンロード"}
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  const recent = [...(items ?? [])].slice(0, 10); // fetchMyLibrary は paid_at 降順
-  const ready2play = (items ?? []).filter((it) => downloaded[it.productId]);
-  const dlCount = (list: RemoteLibraryItem[]) =>
-    list.filter((it) => downloaded[it.productId]).length;
-
   return (
-    <div className="libpage">
-      {/* ===== 左サイドバー: 所持作品の一覧(ジャンル別) ===== */}
-      <aside className="libside">
-        <div className="libside-top">
-          <input
-            className="input"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="🔍 作品・作者を検索"
-          />
+    <div className="page">
+      <div className="page-wrap">
+        <header className="lobby-hero">
+          <h2 className="lobby-title">
+            ライブラリ
+            <span className="lobby-title-en">LIBRARY</span>
+          </h2>
+          <p className="lobby-sub">自分の卓と、卓で使う素材をまとめて保管します</p>
+        </header>
+
+        <div className="tabs" role="tablist" style={{ maxWidth: 360 }}>
           <button
-            className="btn mini ibtn"
-            onClick={() => void load()}
-            disabled={loading}
-            title="購入情報を再取得"
+            role="tab"
+            aria-selected={tab === "tables"}
+            className={`tab ${tab === "tables" ? "active" : ""}`}
+            onClick={() => setTab("tables")}
           >
-            <RefreshCw size={13} className={loading ? "spin" : ""} />
+            卓（{tables.length}）
           </button>
-          {canUseDownload && (
-            <button
-              className="btn mini ibtn"
-              onClick={() => void handleImportPack()}
-              disabled={importing}
-              title="パッケージ(.paradice)を取り込む（システム/シナリオ/キャラを展開）"
-            >
-              <Package size={13} /> {importing ? "取込中…" : "取り込み"}
-            </button>
-          )}
+          <button
+            role="tab"
+            aria-selected={tab === "assets"}
+            className={`tab ${tab === "assets" ? "active" : ""}`}
+            onClick={() => setTab("assets")}
+          >
+            素材
+          </button>
         </div>
-        <button
-          className={`libside-home ibtn ${selected ? "" : "active"}`}
-          onClick={() => setSelectedId(null)}
-        >
-          <Home size={14} /> ホーム
-        </button>
 
-        <div className="libside-list">
-          {items && items.length === 0 && (
-            <p className="muted" style={{ padding: "8px 6px", fontSize: 12 }}>
-              まだ購入した作品はありません。ストアで探してみましょう。
-            </p>
-          )}
-          {groups.map(({ genre, items: list }) => (
-            <div key={genre} className="libgroup">
-              <button
-                className="libgroup-head"
-                onClick={() => toggleGroup(genre)}
-                aria-expanded={!collapsed.has(genre)}
-              >
-                <span className="libgroup-arrow">
-                  {collapsed.has(genre) ? "▸" : "▾"}
-                </span>
-                {PRODUCT_TYPE_LABEL[genre] ?? genre}
-                <span className="libgroup-count">
-                  ({dlCount(list)}/{list.length})
-                </span>
-              </button>
-              {!collapsed.has(genre) &&
-                list.map((it) => (
-                  <button
-                    key={it.purchaseId}
-                    className={`librow ${selectedId === it.purchaseId ? "active" : ""} ${
-                      downloaded[it.productId] ? "dl" : ""
-                    }`}
-                    onClick={() => setSelectedId(it.purchaseId)}
-                    title={it.title}
-                  >
-                    <span className="librow-thumb">
-                      {it.coverUrl ? <img src={it.coverUrl} alt="" loading="lazy" /> : "◆"}
-                    </span>
-                    <span className="librow-name">{it.title}</span>
-                  </button>
-                ))}
-            </div>
-          ))}
-        </div>
-      </aside>
-
-      {/* ===== メイン ===== */}
-      <main className="libmain">
         {error && (
-          <p className="tag fail" style={{ margin: "12px 16px" }}>
+          <p className="tag fail" style={{ display: "block", marginBottom: 10 }}>
             {error}
           </p>
         )}
 
-        {selected ? (
-          /* --- 作品詳細 --- */
-          <div className="libdetail">
-            <div className="libdetail-cover">
-              {selected.coverUrl ? (
-                <img src={selected.coverUrl} alt={selected.title} />
-              ) : (
-                <span className="store-noimg">No Image</span>
-              )}
-            </div>
-            <div className="libdetail-info">
-              <h2 className="libdetail-title">{selected.title}</h2>
-              <p className="libdetail-creator muted">
-                {selected.creator.displayName || "（無名）"}
-              </p>
-              <div className="work-badges">
-                <span className="work-badge">
-                  {PRODUCT_TYPE_LABEL[selected.productType] ?? selected.productType}
-                </span>
-                <span className="work-badge">
-                  {FILE_FORMAT_LABEL[selected.fileFormat] ?? selected.fileFormat}
-                </span>
-                {downloaded[selected.productId] && (
-                  <span className="work-badge done">DL済み</span>
-                )}
-                {selected.availability !== "available" && (
-                  <span className="work-badge warn">
-                    {AVAILABILITY_LABEL[selected.availability]}
-                  </span>
-                )}
+        {tab === "tables" ? (
+          <section className="lobby-saved">
+            <div className="lobby-saved-head">
+              <div className="lib-toolbar">
+                <button className="btn mini" onClick={onOpenTableFile}>
+                  <FolderOpen size={14} /> 卓ファイルを開く
+                </button>
+                <button
+                  className="btn mini"
+                  onClick={() => void importPack()}
+                  disabled={importing}
+                  title=".paradice(配布パッケージ)からシステム・卓・キャラを取り込みます"
+                >
+                  {importing ? (
+                    <Loader2 size={14} className="spin" />
+                  ) : (
+                    <FileInput size={14} />
+                  )}{" "}
+                  パッケージを取り込む
+                </button>
               </div>
-
-              {renderActions(selected)}
-
-              {dlError[selected.productId] && (
-                <p className="tag fail" style={{ fontSize: 11 }}>
-                  {dlError[selected.productId]}
-                </p>
-              )}
-
-              <dl className="store-dl libdetail-meta">
-                <dt>購入日</dt>
-                <dd>{new Date(selected.paidAt).toLocaleDateString("ja-JP")}</dd>
-                <dt>価格</dt>
-                <dd>
-                  {selected.amountJpy === 0
-                    ? "無料"
-                    : `¥${selected.amountJpy.toLocaleString("ja-JP")}`}
-                </dd>
-                {downloaded[selected.productId] && (
-                  <>
-                    <dt>保存先</dt>
-                    <dd className="libdetail-path">
-                      {downloaded[selected.productId].path}
-                    </dd>
-                  </>
-                )}
-              </dl>
+              <div className="lobby-viewtoggle">
+                <button
+                  className={`lobby-vbtn ${view === "grid" ? "on" : ""}`}
+                  onClick={() => setView("grid")}
+                  title="グリッド表示"
+                  aria-pressed={view === "grid"}
+                >
+                  <LayoutGrid size={15} />
+                </button>
+                <button
+                  className={`lobby-vbtn ${view === "list" ? "on" : ""}`}
+                  onClick={() => setView("list")}
+                  title="リスト表示"
+                  aria-pressed={view === "list"}
+                >
+                  <List size={15} />
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          /* --- ホーム(シェルフ) --- */
-          <div className="libhome">
-            {loading && items === null && (
-              <>
-                <SkelStrip count={5} />
-                <SkelStrip count={5} />
-              </>
-            )}
-
-            {items && items.length === 0 && (
+            {tables.length === 0 ? (
               <EmptyState
-                title="まだ購入した作品はありません"
-                hint="ストアで購入すると、ここに並んですぐ遊べます。"
-                action={
-                  onGoStore
-                    ? { label: "ストアを見る", onClick: onGoStore }
-                    : undefined
-                }
+                title="まだ卓がありません"
+                hint="PLAY で卓を作って保存すると、ここに並びます。"
+              />
+            ) : (
+              <SavedTables
+                entries={tables}
+                view={view}
+                onOpen={onOpenTable}
+                onRemove={onRemoveTable}
+                systemLabelOf={systemLabelOf}
               />
             )}
-
-            {recent.length > 0 && (
-              <section className="libshelf">
-                <h3 className="libshelf-title">新着</h3>
-                <div className="libshelf-row">
-                  {recent.map((it) => (
-                    <button
-                      key={it.purchaseId}
-                      className="libshelf-card"
-                      onClick={() => setSelectedId(it.purchaseId)}
-                      title={it.title}
-                    >
-                      <span className="libshelf-when muted">
-                        {relDay(it.paidAt)}
-                      </span>
-                      <span className="libshelf-cover">
-                        {it.coverUrl ? (
-                          <img src={it.coverUrl} alt="" loading="lazy" />
-                        ) : (
-                          <span className="store-noimg">No Image</span>
-                        )}
-                        {downloaded[it.productId] && (
-                          <span className="store-owned-chip">DL済み</span>
-                        )}
-                      </span>
-                      <span className="libshelf-name">{it.title}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {ready2play.length > 0 && (
-              <section className="libshelf">
-                <h3 className="libshelf-title">すぐ遊べる（ダウンロード済み）</h3>
-                <div className="libshelf-row">
-                  {ready2play.map((it) => (
-                    <button
-                      key={it.purchaseId}
-                      className="libshelf-card"
-                      onClick={() => {
-                        const entry = downloaded[it.productId];
-                        if (entry) void openItem(it, entry);
-                        else setSelectedId(it.purchaseId);
-                      }}
-                      title={`${it.title} を開く`}
-                    >
-                      <span className="libshelf-when muted">▶ 開く</span>
-                      <span className="libshelf-cover">
-                        {it.coverUrl ? (
-                          <img src={it.coverUrl} alt="" loading="lazy" />
-                        ) : (
-                          <span className="store-noimg">No Image</span>
-                        )}
-                      </span>
-                      <span className="libshelf-name">{it.title}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {filtered.length > 0 && (
-              <section className="libshelf">
-                <h3 className="libshelf-title">
-                  すべての作品{q ? `（「${query.trim()}」で絞り込み）` : ""}
-                </h3>
-                <div className="libshelf-grid">
-                  {filtered.map((it) => (
-                    <button
-                      key={it.purchaseId}
-                      className="libshelf-card"
-                      onClick={() => setSelectedId(it.purchaseId)}
-                      title={it.title}
-                    >
-                      <span className="libshelf-cover">
-                        {it.coverUrl ? (
-                          <img src={it.coverUrl} alt="" loading="lazy" />
-                        ) : (
-                          <span className="store-noimg">No Image</span>
-                        )}
-                        {downloaded[it.productId] && (
-                          <span className="store-owned-chip">DL済み</span>
-                        )}
-                      </span>
-                      <span className="libshelf-name">{it.title}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
+          </section>
+        ) : (
+          <AssetsPanel />
         )}
-      </main>
+      </div>
     </div>
   );
+}
+
+/* ===================================================================== */
+
+function AssetsPanel() {
+  const { session, ready } = useAuth();
+  const user = session?.user ?? null;
+  const [assets, setAssets] = useState<PlayAsset[] | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      setAssets(await listMyAssets());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setAssets([]);
+    }
+  }, []);
+
+  const uid = user?.id ?? null;
+  useEffect(() => {
+    if (uid) void reload();
+    else setAssets(null);
+  }, [uid, reload]);
+
+  // 画面を離れたら試聴を止める。
+  useEffect(() => () => audioRef.current?.pause(), []);
+
+  if (!ready) return null;
+  if (!user) {
+    return (
+      <EmptyState
+        title="ログインすると素材を保管できます"
+        hint="背景・駒・BGM などをクラウドに保管して、Web 版とアプリの両方の卓で使えます。右上のアカウントからログインしてください。"
+      />
+    );
+  }
+
+  async function upload(files: FileList) {
+    setError(null);
+    const list = Array.from(files);
+    try {
+      for (const [i, f] of list.entries()) {
+        setBusy(list.length > 1 ? `アップロード中 ${i + 1}/${list.length}` : "アップロード中");
+        await uploadAsset(f);
+      }
+      await reload();
+      toast(`🗂 素材を ${list.length} 件追加しました`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function rename(a: PlayAsset) {
+    const name = window.prompt("素材の名前", a.name);
+    if (name === null || name.trim() === a.name) return;
+    try {
+      await renameAsset(a.id, name);
+      setAssets((l) => l?.map((x) => (x.id === a.id ? { ...x, name: name.trim() } : x)) ?? l);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function remove(a: PlayAsset) {
+    if (
+      !window.confirm(
+        `「${a.name}」をライブラリから外しますか？\n（すでに卓で使っている画像・音はそのまま残ります）`,
+      )
+    )
+      return;
+    try {
+      await removeAsset(a.id);
+      setAssets((l) => l?.filter((x) => x.id !== a.id) ?? l);
+      if (playingId === a.id) stop();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  function toggle(a: PlayAsset) {
+    if (playingId === a.id) {
+      stop();
+      return;
+    }
+    audioRef.current?.pause();
+    const el = new Audio(a.url);
+    el.volume = 0.5;
+    el.onended = () => setPlayingId(null);
+    void el.play().catch(() => setPlayingId(null));
+    audioRef.current = el;
+    setPlayingId(a.id);
+  }
+  function stop() {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setPlayingId(null);
+  }
+
+  const all = assets ?? [];
+  const shown = filter === "all" ? all : all.filter((a) => a.kind === filter);
+  const count = (k: AssetKind) => all.filter((a) => a.kind === k).length;
+
+  return (
+    <section>
+      <div className="lib-toolbar" style={{ marginBottom: 12 }}>
+        <div className="asset-filter" role="group" aria-label="種類で絞り込み">
+          {(
+            [
+              ["all", `すべて（${all.length}）`],
+              ["image", `画像（${count("image")}）`],
+              ["audio", `音声（${count("audio")}）`],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              className={filter === k ? "on" : ""}
+              aria-pressed={filter === k}
+              onClick={() => setFilter(k)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          className="btn btn-primary mini"
+          style={{ marginLeft: "auto" }}
+          onClick={() => inputRef.current?.click()}
+          disabled={!!busy}
+        >
+          {busy ? <Loader2 size={14} className="spin" /> : <Upload size={14} />}{" "}
+          {busy ?? "素材を追加"}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*,audio/*"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const files = e.target.files;
+            if (files && files.length > 0) void upload(files);
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      {error && (
+        <p className="tag fail" style={{ display: "block", marginBottom: 10 }}>
+          {error}
+        </p>
+      )}
+
+      {assets === null ? (
+        <p className="lobby-sub">
+          <Loader2 size={14} className="spin" /> 読み込み中…
+        </p>
+      ) : shown.length === 0 ? (
+        <EmptyState
+          title={all.length === 0 ? "まだ素材がありません" : "この種類の素材はまだありません"}
+          hint="背景・駒・BGM などを追加しておくと、卓でいつでも使えます。Web 版で追加した素材もここに並びます。"
+          action={{ label: "＋ 素材を追加", onClick: () => inputRef.current?.click() }}
+        />
+      ) : (
+        <div className="asset-grid">
+          {shown.map((a) => (
+            <div className="asset-card" key={a.id}>
+              {a.kind === "image" ? (
+                <div className="asset-thumb">
+                  <img src={a.url} alt={a.name} loading="lazy" draggable={false} />
+                </div>
+              ) : (
+                <button
+                  className="asset-thumb audio"
+                  onClick={() => toggle(a)}
+                  aria-label={playingId === a.id ? `「${a.name}」の試聴を止める` : `「${a.name}」を試聴`}
+                >
+                  <Music size={26} />
+                  <span className="asset-play">
+                    {playingId === a.id ? <Pause size={14} /> : <Play size={14} />}
+                  </span>
+                </button>
+              )}
+              <div className="asset-meta">
+                <span className="asset-name" title={a.name}>
+                  {a.kind === "image" ? <ImageIcon size={12} /> : <Music size={12} />} {a.name}
+                </span>
+                <span className="asset-size">{formatSize(a.sizeBytes)}</span>
+              </div>
+              <div className="asset-actions">
+                <button title="名前を変える" aria-label="名前を変える" onClick={() => void rename(a)}>
+                  <Pencil size={13} />
+                </button>
+                <button
+                  className="danger"
+                  title="ライブラリから外す"
+                  aria-label="ライブラリから外す"
+                  onClick={() => void remove(a)}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }

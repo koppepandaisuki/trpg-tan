@@ -5,13 +5,14 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 /**
  * 「ライブラリの場所」を一元管理する。
  *
- * ストア DL / .paradice 取り込み / .play (卓) / .ccsheet (キャラシ) の
+ * .paradice 取り込み / .play (卓) / .ccsheet (キャラシ) の
  * 保存・取り込み先デフォルトをすべて 1 つのルート配下にまとめる。
  * Steam の「ストレージ」設定と同じ発想 — ユーザーが場所を選び替えても
  * 全部その下に集約される。
  *
  *   <root>/
- *     downloads/   ← 購入物の生ファイル(.paradice 等)
+ *     downloads/   ← (旧)ストア購入物の生ファイル。2026-09 のストア廃止で
+ *                    もう書き込まないが、既存ユーザーのフォルダには残りうる。
  *     packs/       ← 取り込み済みパッケージの展開先(.play, .ccsheet)
  *     sessions/    ← 卓 (.play) の Save As ダイアログの既定パス
  *     characters/  ← キャラシ (.ccsheet) の Save As ダイアログの既定パス
@@ -83,7 +84,6 @@ async function subDir(name: string): Promise<string> {
   return p;
 }
 
-export const getDownloadsDir = (): Promise<string> => subDir("downloads");
 export const getPacksDir = (): Promise<string> => subDir("packs");
 export const getSessionsDir = (): Promise<string> => subDir("sessions");
 export const getCharactersDir = (): Promise<string> => subDir("characters");

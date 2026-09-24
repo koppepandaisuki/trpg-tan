@@ -11,29 +11,23 @@ import {
   Sun,
   Settings,
   Plus,
-  FolderDown,
+  FolderOpen,
   Dices,
   DoorOpen,
   BookOpen,
   Users,
   Play,
   KeyRound,
-  LayoutGrid,
-  List,
-  Clock,
   ChevronRight,
   CalendarClock,
   ScrollText,
   Wrench,
-  UploadCloud,
   Coins,
 } from "lucide-react";
 import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
 import { AuthControl } from "./AuthControl";
 import { AccountMenu } from "./AccountMenu";
 import { AmbientBg } from "./AmbientBg";
-import { Viewer } from "./Viewer";
-import { StorePanel } from "./StorePanel";
 import { findSystem } from "./systems-store";
 import { Settings as SettingsScreen, type SettingsTab } from "./Settings";
 import { Toasts, toast } from "./Toasts";
@@ -43,8 +37,6 @@ import { FriendsButton } from "./FriendsPanel";
 import { initDeepLinkAuth, initBrowserHandoffAuth } from "./auth";
 import { applySavedAppIcon } from "./app-icon";
 import { initDeepLinkPurchase } from "./deep-link-purchase";
-import type { RemoteLibraryItem } from "./library-remote";
-import type { DownloadedEntry } from "./downloaded";
 import {
   getLibrary,
   upsertEntry,
@@ -60,6 +52,7 @@ import {
   removePlayIndex,
   buildPlayIndexEntry,
   readPlayFromPath,
+  loadPlayViaDialog,
   type PlayIndexEntry,
 } from "./play-storage";
 import {
@@ -77,6 +70,7 @@ import { refreshGold, useGoldBalance } from "./gold-remote";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
 import { NewCharacterMenu } from "./NewCharacterMenu";
 import { SheetSystemPicker } from "./SheetSystemPicker";
+import { SavedTables } from "./SavedTables";
 // タイトルロゴ(2026-07 リブランド)。文字色が違うためライト/ダークで別画像。
 import logoLight from "./assets/re-dice.png";
 import logoDark from "./assets/re-dice-dark.png";
@@ -86,9 +80,9 @@ import logoDark from "./assets/re-dice-dark.png";
 // WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)。
 const SCHEDULE_WEB_BASE = WEB_BASE;
 
-// 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。ストアは初期
-// 表示なので即時読込のまま。PLAY 一式・ビルダー・ライブラリ・キャラシートは、その
-// 画面を開いたときに別チャンクとして読み込まれる(Suspense でローダー表示)。
+// 重い画面は遅延読込にして初期バンドルを小さくし、起動を速くする。PLAY 一式・
+// ビルダー・ライブラリ・キャラシートは、その画面を開いたときに別チャンクとして
+// 読み込まれる(Suspense でローダー表示)。
 const PlayTable = lazy(() =>
   import("./PlayTable").then((m) => ({ default: m.PlayTable })),
 );
@@ -100,9 +94,6 @@ const SystemBuilder = lazy(() =>
 );
 const ScenarioBuilder = lazy(() =>
   import("./ScenarioBuilder").then((m) => ({ default: m.ScenarioBuilder })),
-);
-const UploadProductPanel = lazy(() =>
-  import("./UploadProductPanel").then((m) => ({ default: m.UploadProductPanel })),
 );
 const LibraryPage = lazy(() =>
   import("./LibraryPage").then((m) => ({ default: m.LibraryPage })),
@@ -123,12 +114,10 @@ function ScreenLoading() {
   );
 }
 
-type Page = "store" | "library" | "play" | "characters" | "builder";
-type Viewing = { item: RemoteLibraryItem; entry: DownloadedEntry };
+type Page = "library" | "play" | "characters" | "builder";
 type Session = { scene: PlayScene; path: string | null };
 
 const PAGES: { key: Page; label: string }[] = [
-  { key: "store", label: "ストア" },
   { key: "library", label: "ライブラリ" },
   { key: "play", label: "PLAY" },
   { key: "characters", label: "キャラクター" },
@@ -143,6 +132,9 @@ const LOBBY_STEPS: { icon: typeof DoorOpen; label: string }[] = [
   { icon: Play, label: "プレイ開始" },
 ];
 
+/** PLAY ロビーに出す「最近の卓」の件数。すべてはライブラリで見る(Web 版と同じ)。 */
+const RECENT_TABLES = 6;
+
 /** 組み込みシステム id の表示名(なければ findSystem → id フォールバック)。 */
 const BUILTIN_SYS_LABEL: Record<string, string> = {
   coc7: "クトゥルフ神話TRPG(第7版)",
@@ -153,35 +145,19 @@ function tableSystemLabel(id: string): string {
   return BUILTIN_SYS_LABEL[id] ?? findSystem(id)?.name ?? id ?? "汎用";
 }
 
-/** ISO 日時を「たった今 / N分前 / N時間前 / 昨日 / N日前 / 日付」に。 */
-function relTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return "";
-  const m = Math.floor((Date.now() - t) / 60000);
-  if (m < 1) return "たった今";
-  if (m < 60) return `${m}分前`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}時間前`;
-  const d = Math.floor(h / 24);
-  if (d === 1) return "昨日";
-  if (d < 7) return `${d}日前`;
-  return new Date(iso).toLocaleDateString("ja-JP");
-}
-
 /**
  * アプリのルート。Steam ライクなシェル:
- *  - 上部ナビ(ストア / ライブラリ / 卓 / キャラクター)+ 右にログイン
- *  - 各ページは全幅。起動直後はストアがフロント
+ *  - 上部ナビ(ライブラリ / PLAY / キャラクター / ビルダー)+ 右にログイン
+ *  - 各ページは全幅。起動直後は PLAY(ロビー)がフロント
+ *    (2026-09 のストア廃止まではストアがフロントだった)
  *  - 下部バー(卓の作成 / DL 管理 / 設定)
  *  - PLAY(卓・ネット参加)は全画面で被さり、☰ ドロワーで抜けられる
  */
 export function App() {
-  // Steam ライクに、起動直後はストアをフロントに出す。
-  const [page, setPage] = useState<Page>("store");
+  // 起動直後は PLAY(ロビー)をフロントに出す。
+  const [page, setPage] = useState<Page>("play");
   // ビルダー(作成ハブ)のモード: システム作成 / シナリオ作成。
-  const [builderMode, setBuilderMode] = useState<
-    "system" | "scenario" | "upload"
-  >(
+  const [builderMode, setBuilderMode] = useState<"system" | "scenario">(
     "scenario",
   );
   // PLAY 中にキャラシを卓の上へオーバーレイ表示する(卓は閉じない)。
@@ -204,8 +180,6 @@ export function App() {
     path?: string | null;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // アプリ内ビューア(購入物の閲覧)。null のとき非表示。
-  const [viewing, setViewing] = useState<Viewing | null>(null);
   // PLAY(セッション卓)。開いている卓と保存済み索引。
   const [playIndex, setPlayIndex] = useState<PlayIndexEntry[]>(() =>
     getPlayIndex(),
@@ -221,8 +195,6 @@ export function App() {
   const [joinName, setJoinName] = useState(
     () => localStorage.getItem("trpg.net.name.v1") ?? "",
   );
-  // セッション卓ロビーの保存済み卓の表示(グリッド / リスト)。
-  const [lobbyView, setLobbyView] = useState<"grid" | "list">("grid");
   // 効果音などの設定モーダル。
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("account");
@@ -232,10 +204,6 @@ export function App() {
   }
   // PLAY 中のドロワー(☰)。卓を抜けずにナビへアクセスする。
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // ロゴ / ストアタブのクリックでストアをホーム画面に巻き戻すシグナル。
-  const [storeHomeSig, setStoreHomeSig] = useState(0);
-  // ライブラリ強制リフレッシュ(redice://purchase/complete などで +1)。
-  const [librarySig, setLibrarySig] = useState(0);
   // プラン再取得シグナル(redice://subscription/complete などで +1)。
   const [planSig, setPlanSig] = useState(0);
   // ゴールド残高(ヘッダのチップ表示用。gold-remote が共有ストア)。
@@ -275,22 +243,11 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // redice://purchase/complete|cancel を購読。決済完了でライブラリへ
-  // 自動移動 + 強制リフレッシュ。webhook 反映に数秒の遅延があるため
-  // 初回 fetch で出なくても再度ボタン押下で再取得できる。
+  // redice://subscription|gold/complete を購読(Web の決済完了ページから戻る)。
+  // webhook 反映に数秒の遅延があるので、少し待ってもう一度取り直す。
   useEffect(() => {
     if (!isTauri()) return;
     void initDeepLinkPurchase({
-      onComplete: () => {
-        toast("✅ 購入が完了しました。ライブラリで開けます");
-        setPage("library");
-        setLibrarySig((n) => n + 1);
-        // webhook 反映ラグを吸収して 4 秒後にもう一度。
-        window.setTimeout(() => setLibrarySig((n) => n + 1), 4000);
-      },
-      onCancel: () => {
-        toast("購入はキャンセルされました");
-      },
       onSubscriptionComplete: ({ plan }) => {
         const label = plan === "pro" ? "Pro" : "プレイ";
         toast(`✅ ${label}プランが有効になりました`);
@@ -321,16 +278,15 @@ export function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  /** ページ遷移(セッション/参加を畳む)。ストアは常にホームから。 */
+  /** ページ遷移(セッション/参加を畳む)。 */
   function goTo(p: Page) {
     // PLAY 中は卓を閉じず背面へ退避(接続を保ったままアプリ内を移動)。
     if (session || joining) {
       setPlayMinimized(true);
     }
     setPage(p);
-    if (p === "store") setStoreHomeSig((n) => n + 1);
-    // PLAY を開くたびに卓一覧を最新化(ライブラリから取り込んだ卓も一覧に出す)。
-    if (p === "play") setPlayIndex(getPlayIndex());
+    // PLAY / ライブラリを開くたびに卓一覧を最新化(取り込んだ卓も一覧に出す)。
+    if (p === "play" || p === "library") setPlayIndex(getPlayIndex());
     setDrawerOpen(false);
     setError(null);
   }
@@ -402,12 +358,12 @@ export function App() {
   }
 
   /**
-   * フルパッケージ(卓入り)をライブラリで開いたとき、取り込んだ卓(.play)を
-   * そのまま PLAY 画面で開く。取り込み済みの卓は PLAY ロビーの「保存済みの卓」
-   * 一覧にも出るので、あとから一覧で開き直せる。
+   * パッケージ(.paradice)をライブラリで取り込んだあと。取り込んだ卓は索引に
+   * 入っているので一覧を読み直し、卓が含まれていれば最初の 1 つを開く。
    */
-  async function openPackPlay(playPath: string) {
-    setPlayIndex(getPlayIndex()); // 取り込んだ卓をロビー一覧へ反映
+  async function onPackImported(playPath: string | null) {
+    setPlayIndex(getPlayIndex()); // 取り込んだ卓を一覧へ反映
+    if (!playPath) return;
     if (!isTauri()) {
       setError("卓を開くにはデスクトップアプリが必要です");
       return;
@@ -422,6 +378,27 @@ export function App() {
       setError(null);
     } catch (e) {
       setError(`卓を開けませんでした: ${String(e)}`);
+    }
+  }
+
+  /** 卓ファイル(.play)を選んで開く。開いた卓は索引にも載せる。 */
+  async function openTableFile() {
+    if (!isTauri()) {
+      setError("卓ファイルを開くにはデスクトップアプリが必要です");
+      return;
+    }
+    try {
+      const r = await loadPlayViaDialog();
+      if (!r) return; // キャンセル
+      await handlePlayPersist(r.scene, r.path);
+      setSession({ scene: r.scene, path: r.path });
+      setJoining(null);
+      setPlayMinimized(false);
+      setDrawerOpen(false);
+      setPage("play");
+      setError(null);
+    } catch (e) {
+      setError(`卓ファイルを開けませんでした: ${String(e)}`);
     }
   }
 
@@ -815,8 +792,8 @@ export function App() {
       <header className="topbar">
         <span
           className="topbar-brand"
-          onClick={() => goTo("store")}
-          title="ストアのトップへ"
+          onClick={() => goTo("play")}
+          title="PLAY のトップへ"
         >
           {/* タイトルロゴ。ライト=黒文字 / ダーク=白文字 の別画像を切替。 */}
           <img
@@ -873,21 +850,14 @@ export function App() {
       <main className="app-main">
         <Suspense fallback={<ScreenLoading />}>
         <div className="page-fade" key={page}>
-        {page === "store" && (
-          <StorePanel
-            homeSignal={storeHomeSig}
-            onGoLibrary={() => setPage("library")}
-            onOpenBuilder={() => goTo("builder")}
-            onOpenPlay={() => goTo("play")}
-          />
-        )}
-
         {page === "library" && (
           <LibraryPage
-            onView={(item, entry) => setViewing({ item, entry })}
-            onGoStore={() => goTo("store")}
-            onOpenPlay={(playPath) => void openPackPlay(playPath)}
-            refreshSignal={librarySig}
+            tables={playIndex}
+            onOpenTable={(e) => void openSession(e)}
+            onRemoveTable={removeSessionEntry}
+            onOpenTableFile={() => void openTableFile()}
+            onPackImported={(p) => void onPackImported(p)}
+            systemLabelOf={tableSystemLabel}
           />
         )}
 
@@ -990,32 +960,17 @@ export function App() {
                 </section>
               </div>
 
-              {/* 保存済みの卓 */}
+              {/* 最近の卓(すべて・取り込み・ファイルから開くはライブラリ) */}
               <section className="lobby-saved">
                 <div className="lobby-saved-head">
                   <h3 className="lobby-saved-title">
-                    保存済みの卓
-                    <span className="lobby-en">SAVED TABLES</span>
+                    最近の卓
+                    <span className="lobby-en">RECENT TABLES</span>
                     <span className="lobby-count">{playIndex.length}</span>
                   </h3>
-                  <div className="lobby-viewtoggle">
-                    <button
-                      className={`lobby-vbtn ${lobbyView === "grid" ? "on" : ""}`}
-                      onClick={() => setLobbyView("grid")}
-                      title="グリッド表示"
-                      aria-pressed={lobbyView === "grid"}
-                    >
-                      <LayoutGrid size={15} />
-                    </button>
-                    <button
-                      className={`lobby-vbtn ${lobbyView === "list" ? "on" : ""}`}
-                      onClick={() => setLobbyView("list")}
-                      title="リスト表示"
-                      aria-pressed={lobbyView === "list"}
-                    >
-                      <List size={15} />
-                    </button>
-                  </div>
+                  <button className="btn mini" onClick={() => goTo("library")}>
+                    <FolderOpen size={14} /> ライブラリですべて見る
+                  </button>
                 </div>
 
                 {playIndex.length === 0 ? (
@@ -1025,68 +980,13 @@ export function App() {
                     action={{ label: "＋ 新しい卓を作る", onClick: newSession }}
                   />
                 ) : (
-                  <div className={`lobby-grid ${lobbyView}`}>
-                    {playIndex.map((e) => (
-                      <div
-                        key={e.id}
-                        className="lobby-card"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => void openSession(e)}
-                        onKeyDown={(ev) =>
-                          ev.key === "Enter" && void openSession(e)
-                        }
-                        title={e.path}
-                      >
-                        <div className="lobby-card-cover">
-                          <span className="lobby-card-badge">ローカル</span>
-                          {e.thumbnail ? (
-                            <img
-                              className="lobby-card-thumb"
-                              src={e.thumbnail}
-                              alt=""
-                            />
-                          ) : (
-                            <Dices className="lobby-card-art" size={40} />
-                          )}
-                          <button
-                            className="lobby-card-del"
-                            title="一覧から外す(ファイルは消えません)"
-                            aria-label="一覧から外す"
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              removeSessionEntry(e.id);
-                            }}
-                          >
-                            ×
-                          </button>
-                        </div>
-                        <div className="lobby-card-body">
-                          <h4 className="lobby-card-title">{e.title}</h4>
-                          <p className="lobby-card-sys">
-                            {e.systemLabel ?? tableSystemLabel(e.systemId)}
-                          </p>
-                          {e.tags && e.tags.length > 0 && (
-                            <div className="lobby-card-tags">
-                              {e.tags.slice(0, 4).map((t) => (
-                                <span key={t} className="lobby-card-tag">
-                                  {t}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          <div className="lobby-card-stats">
-                            <span title="駒数">
-                              <Users size={13} /> {e.panelCount} 駒
-                            </span>
-                            <span title="最終更新">
-                              <Clock size={13} /> {relTime(e.updatedAt)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <SavedTables
+                    entries={playIndex.slice(0, RECENT_TABLES)}
+                    view="grid"
+                    onOpen={(e) => void openSession(e)}
+                    onRemove={removeSessionEntry}
+                    systemLabelOf={tableSystemLabel}
+                  />
                 )}
               </section>
 
@@ -1116,18 +1016,10 @@ export function App() {
               >
                 <Wrench size={16} /> システムを作る
               </button>
-              <button
-                className={`bhub-tab ${builderMode === "upload" ? "on" : ""}`}
-                onClick={() => setBuilderMode("upload")}
-              >
-                <UploadCloud size={16} /> 作品を投稿
-              </button>
             </div>
             <div className="bhub-content">
               {builderMode === "system" ? (
                 <SystemBuilder onCreateCharacter={newGenericCharacter} />
-              ) : builderMode === "upload" ? (
-                <UploadProductPanel />
               ) : (
                 <ScenarioBuilder
                   index={playIndex}
@@ -1149,7 +1041,7 @@ export function App() {
           <Plus size={14} /> 新しい卓
         </button>
         <button className="bottombar-btn ibtn" onClick={() => goTo("library")}>
-          <FolderDown size={14} /> ダウンロードの管理
+          <FolderOpen size={14} /> ライブラリ
         </button>
         <span className="bottombar-right">
           <button
@@ -1183,14 +1075,6 @@ export function App() {
         </button>
       )}
 
-      {/* アプリ内ビューア(購入物の閲覧)。上に重ねる。*/}
-      {viewing && (
-        <Viewer
-          item={viewing.item}
-          entry={viewing.entry}
-          onClose={() => setViewing(null)}
-        />
-      )}
 
       {showSettings && (
         <SettingsScreen

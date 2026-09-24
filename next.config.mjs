@@ -77,6 +77,19 @@ const nextConfig = {
       },
     ];
   },
+  // 2026-09 にストア(作品売買)を廃止した。ブックマーク・共有リンク・古い
+  // デスクトップ版が指す旧 URL を 404 で行き止まりにせず、近い画面へ送る。
+  // 将来ストアを復活させる余地を残すため permanent にはしない(307)。
+  async redirects() {
+    return [
+      { source: "/store", destination: "/", permanent: false },
+      { source: "/store/:path*", destination: "/", permanent: false },
+      { source: "/creators", destination: "/", permanent: false },
+      { source: "/creator/:path*", destination: "/", permanent: false },
+      { source: "/guidelines", destination: "/terms", permanent: false },
+      { source: "/checkout/cancel", destination: "/pricing", permanent: false },
+    ];
+  },
   async rewrites() {
     return [
       // スマホ(PWA)版 SPA。scripts/build-mobile-app.mjs が public/app/ に

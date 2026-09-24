@@ -28,7 +28,7 @@ export function requireLogin(reason?: string) {
 let welcomePromptShown = false;
 
 const WELCOME_REASON =
-  "ログインすると、購入した作品の同期・フレンド・マルチプレイ・AI アシスタントなど、すべての機能が使えるようになります。";
+  "ログインすると、素材のクラウド保管・フレンド・マルチプレイ・AI アシスタントなど、すべての機能が使えるようになります。";
 
 export function LoginGate() {
   const { session, ready } = useAuth();

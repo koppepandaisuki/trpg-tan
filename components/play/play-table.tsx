@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Grid3x3,
   ImagePlus,
+  FolderOpen,
   Plus,
   ClipboardPaste,
   Share2,
@@ -46,6 +47,7 @@ import { PlayTurnBar } from "./play-turn-bar";
 import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
 import { PlayFxBar } from "./play-fx-bar";
+import { AssetPicker } from "./asset-picker";
 import { CutInOverlay, TelopOverlay } from "./play-fx";
 import { usePlayAudio } from "./use-play-audio";
 import { savePlayScene } from "@/lib/play/store";
@@ -98,6 +100,8 @@ export function PlayTable({
   const [participants, setParticipants] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [planGate, setPlanGate] = useState(false);
+  // ライブラリから背景を選ぶピッカー。
+  const [bgPicker, setBgPicker] = useState(false);
 
   // 最新 scene を参照するための ref(Realtime のコールバックから読む)。
   const sceneRef = useRef(scene);
@@ -540,6 +544,14 @@ export function PlayTable({
               />
             </label>
             <button
+              onClick={() => setBgPicker(true)}
+              title="ライブラリの画像を背景にする"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+            >
+              <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+              ライブラリから
+            </button>
+            <button
               onClick={() =>
                 dispatch(
                   boardSetEvent(newEventCtx(), {
@@ -682,6 +694,18 @@ export function PlayTable({
           )}
         </aside>
       </div>
+
+      {bgPicker && (
+        <AssetPicker
+          kind="image"
+          title="ライブラリから背景を選ぶ"
+          onClose={() => setBgPicker(false)}
+          onPick={(a) => {
+            setBgPicker(false);
+            dispatch(boardSetEvent(newEventCtx(), { image: a.url }));
+          }}
+        />
+      )}
 
       {/* 演出オーバーレイ(非ブロッキング・自動で消える) */}
       {cutin && (

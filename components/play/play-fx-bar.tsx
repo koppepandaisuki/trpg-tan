@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import {
   Clapperboard,
+  FolderOpen,
   Loader2,
   Music,
   Plus,
@@ -13,6 +14,8 @@ import {
 } from "lucide-react";
 import type { BgmTrack, CutIn } from "@trpg/core";
 import { uploadPlayAudio, uploadPlayImage } from "@/lib/play/media";
+import type { PlayAsset } from "@/lib/play/assets";
+import { AssetPicker } from "./asset-picker";
 
 /**
  * GM 用の演出コントロール(BGM / SE / カットイン / テロップ)。
@@ -59,6 +62,8 @@ export function PlayFxBar({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [telop, setTelop] = useState("");
+  // ライブラリから選ぶピッカー(null = 閉)。
+  const [picker, setPicker] = useState<"bgm" | "se" | "cutin" | null>(null);
   const bgmInput = useRef<HTMLInputElement>(null);
   const seInput = useRef<HTMLInputElement>(null);
   const cutinInput = useRef<HTMLInputElement>(null);
@@ -76,6 +81,35 @@ export function PlayFxBar({
       name: file.name.replace(/\.[^.]+$/, "").slice(0, 30),
       path: await uploadPlayAudio(file),
     };
+  }
+
+  /**
+   * ライブラリの素材を卓に取り込む。同じ URL がすでに卓にあれば重複させず、
+   * それをそのまま鳴らす / 流す。
+   */
+  function pickFromLibrary(a: PlayAsset) {
+    const kind = picker;
+    setPicker(null);
+    if (kind === "cutin") {
+      const existing = cutins.find((c) => c.image === a.url);
+      if (!existing) {
+        onCutinsChange([
+          ...cutins,
+          { id: crypto.randomUUID(), name: a.name.slice(0, 24), image: a.url },
+        ]);
+      }
+      return;
+    }
+    if (kind === "bgm" || kind === "se") {
+      const list = kind === "bgm" ? bgmTracks : seTracks;
+      let track = list.find((t) => t.path === a.url);
+      if (!track) {
+        track = { id: crypto.randomUUID(), name: a.name.slice(0, 30), path: a.url };
+        onTracksChange(kind, [...list, track]);
+      }
+      if (kind === "bgm") onBgm(track);
+      else onSe(track);
+    }
   }
 
   async function withBusy(label: string, fn: () => Promise<void>) {
@@ -133,10 +167,18 @@ export function PlayFxBar({
             </button>
           )}
           <button
+            onClick={() => setPicker("bgm")}
+            disabled={disabled || !!busy}
+            title="ライブラリから選ぶ"
+            className={`${playingBgm ? "" : "ml-auto "}text-muted-foreground transition hover:text-foreground disabled:opacity-50`}
+          >
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          <button
             onClick={() => bgmInput.current?.click()}
             disabled={disabled || !!busy}
             title="音源を追加"
-            className={`${playingBgm ? "" : "ml-auto "}text-muted-foreground transition hover:text-foreground disabled:opacity-50`}
+            className="text-muted-foreground transition hover:text-foreground disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -195,10 +237,18 @@ export function PlayFxBar({
             効果音
           </span>
           <button
+            onClick={() => setPicker("se")}
+            disabled={disabled || !!busy}
+            title="ライブラリから選ぶ"
+            className={`ml-auto text-muted-foreground transition hover:text-foreground disabled:opacity-50`}
+          >
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          <button
             onClick={() => seInput.current?.click()}
             disabled={disabled || !!busy}
             title="効果音を追加"
-            className="ml-auto text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+            className="text-muted-foreground transition hover:text-foreground disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -241,10 +291,18 @@ export function PlayFxBar({
             カットイン
           </span>
           <button
+            onClick={() => setPicker("cutin")}
+            disabled={disabled || !!busy}
+            title="ライブラリから選ぶ"
+            className={`ml-auto text-muted-foreground transition hover:text-foreground disabled:opacity-50`}
+          >
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          <button
             onClick={() => cutinInput.current?.click()}
             disabled={disabled || !!busy}
             title="カットインを登録"
-            className="ml-auto text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+            className="text-muted-foreground transition hover:text-foreground disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -335,6 +393,21 @@ export function PlayFxBar({
           送信
         </button>
       </form>
+
+      {picker && (
+        <AssetPicker
+          kind={picker === "cutin" ? "image" : "audio"}
+          title={
+            picker === "bgm"
+              ? "ライブラリから BGM を選ぶ"
+              : picker === "se"
+                ? "ライブラリから効果音を選ぶ"
+                : "ライブラリからカットイン画像を選ぶ"
+          }
+          onClose={() => setPicker(null)}
+          onPick={pickFromLibrary}
+        />
+      )}
     </div>
   );
 }
