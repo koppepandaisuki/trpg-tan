@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ClipboardPaste,
   Loader2,
+  ScrollText,
   Users,
   Volume2,
   WifiOff,
@@ -26,6 +27,7 @@ import { PlayComposer } from "./play-composer";
 import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
 import { PlayTurnBar } from "./play-turn-bar";
+import { CharacterPicker } from "./character-picker";
 import { CutInOverlay, TelopOverlay } from "./play-fx";
 import { usePlayAudio } from "./use-play-audio";
 import { connectRoom, type Room } from "@/lib/play/net";
@@ -66,6 +68,8 @@ export function PlayGuest({ code }: { code: string }) {
   // 最新の scene を読むための ref。
   const sceneRef = useRef<PlayScene | null>(null);
   sceneRef.current = scene;
+  // 保存したキャラ(キャラシ)を卓に出すピッカー。
+  const [charPicker, setCharPicker] = useState(false);
 
   // 入室名は前回のものを引き継ぐ(卓に入り直すたびに打ち直さなくてよい)。
   useEffect(() => {
@@ -257,6 +261,14 @@ export function PlayGuest({ code }: { code: string }) {
           className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
         >
           <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
+          コマ貼付
+        </button>
+        <button
+          onClick={() => setCharPicker(true)}
+          title="キャラシで保存した自分のキャラを駒として出す"
+          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+        >
+          <ScrollText className="h-3.5 w-3.5" aria-hidden />
           自分のキャラを出す
         </button>
         <PlayReplayButton
@@ -421,6 +433,21 @@ export function PlayGuest({ code }: { code: string }) {
           </div>
         </aside>
       </div>
+
+      {charPicker && (
+        <CharacterPicker
+          onClose={() => setCharPicker(false)}
+          onPick={(panel) => {
+            setCharPicker(false);
+            // GM が owner(入室名)を刻んで登場させる(ココフォリア貼付と同じ経路)。
+            void room?.send({
+              type: "intent",
+              from: room.selfId,
+              intent: { kind: "add-char", panel: { ...panel, pos: { x: 0.5, y: 0.6 } } },
+            });
+          }}
+        />
+      )}
 
       {/* 演出オーバーレイ(非ブロッキング・自動で消える) */}
       {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}

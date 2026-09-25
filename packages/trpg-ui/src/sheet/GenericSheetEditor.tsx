@@ -6,29 +6,32 @@ import {
   type GenericSheet,
   type SystemDef,
 } from "@trpg/core";
-import { saveGenericSheet, saveSheetToPath, isTauri } from "./storage";
-import { toast } from "./Toasts";
+import type { SheetIO } from "./io";
 import { NumStepper } from "./NumStepper";
 
 /**
  * 汎用キャラクターシート・エディタ(カスタムシステム用)。
  * SystemDef(能力値・技能・リソース)に沿ったフォームを自動生成する。
- * 保存は CoC と同じ .ccsheet(JSON / kind:"generic")。
+ * 保存形式は CoC と同じ .ccsheet(JSON / kind:"generic")。保存先は io で注入する
+ * (デスクトップ=ファイル / Web=クラウド)。
  */
 export function GenericSheetEditor({
+  io,
   def,
   initial,
-  initialPath,
+  initialRef,
   onSaved,
   onBack,
 }: {
+  /** 保存・読込の実装。 */
+  io: SheetIO;
   /** 由来システム(再生成ボタン等で参照。開けないときは null)。 */
   def: SystemDef | null;
   /** 既存シート(null なら def から新規作成)。 */
   initial: GenericSheet | null;
-  /** 既存キャラのファイルパス(ライブラリから開いたとき)。上書き保存に使う。 */
-  initialPath?: string | null;
-  onSaved: (sheet: GenericSheet, path: string) => void;
+  /** 既存キャラの保存先(ファイルパス / 行 id)。上書き保存に使う。 */
+  initialRef?: string | null;
+  onSaved: (sheet: GenericSheet, ref: string) => void;
   /** 「← システム選択」に戻る。*/
   onBack?: () => void;
 }) {
@@ -37,9 +40,9 @@ export function GenericSheetEditor({
     if (def) return newGenericSheet(def, crypto.randomUUID());
     throw new Error("システム定義かシートのどちらかが必要です");
   });
-  // 現在の保存先。あれば「保存」で上書き、無ければ別名保存ダイアログを出す。
-  const [currentPath, setCurrentPath] = useState<string | null>(
-    initialPath ?? null,
+  // 現在の保存先。あれば「保存」で上書き、無ければ新規保存(デスクトップはダイアログ)。
+  const [currentRef, setCurrentRef] = useState<string | null>(
+    initialRef ?? null,
   );
   const [error, setError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -56,39 +59,38 @@ export function GenericSheetEditor({
     reader.readAsDataURL(file);
   }
 
-  /** 上書き保存。保存先が未確定(新規)なら別名保存にフォールバック。
-   *  ブラウザ(PWA)では storage.ts が localStorage に保存する。 */
+  /** 保存結果を反映(保存先を覚え、複製なら新しい id に切り替える)。 */
+  function afterSave(r: { ref: string; sheetId?: string }, msg: string) {
+    setCurrentRef(r.ref);
+    const saved = r.sheetId ? { ...sheet, id: r.sheetId } : sheet;
+    if (r.sheetId) patch({ id: r.sheetId });
+    onSaved(saved, r.ref);
+    setSavedFlash(true);
+    window.setTimeout(() => setSavedFlash(false), 1600);
+    io.notify?.(msg);
+  }
+
+  /** 上書き保存。保存先が未確定(新規)なら新規保存にフォールバック。 */
   async function save() {
     setError(null);
     try {
-      let path = currentPath;
-      if (path) {
-        await saveSheetToPath(sheet, path);
-      } else {
-        path = await saveGenericSheet(sheet);
-        if (!path) return; // キャンセル
-        setCurrentPath(path);
-      }
-      onSaved(sheet, path);
-      setSavedFlash(true);
-      window.setTimeout(() => setSavedFlash(false), 1600);
-      toast(currentPath ? "✓ 上書き保存しました" : "✓ キャラを保存しました");
+      const r = await io.save(sheet, currentRef);
+      if (!r) return; // キャンセル
+      afterSave(r, currentRef ? "✓ 上書き保存しました" : "✓ キャラを保存しました");
     } catch (e) {
-      setError(`保存に失敗しました: ${String(e)}`);
+      setError(`保存に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
-  /** 別名で保存(Tauri はダイアログ / ブラウザは新規保存)。以後はその新しいパスへ上書き。 */
+  /** 別名で保存(デスクトップ=別ファイル / Web=複製)。以後はその新しい保存先へ上書き。 */
   async function saveAs() {
     setError(null);
     try {
-      const path = await saveGenericSheet(sheet);
-      if (!path) return;
-      setCurrentPath(path);
-      onSaved(sheet, path);
-      toast("✓ 別名で保存しました");
+      const r = await io.saveAs(sheet);
+      if (!r) return;
+      afterSave(r, "✓ 別名で保存しました");
     } catch (e) {
-      setError(`保存に失敗しました: ${String(e)}`);
+      setError(`保存に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -167,7 +169,7 @@ export function GenericSheetEditor({
         <button
           className="btn"
           onClick={() => void saveAs()}
-          title="別の名前/場所に保存"
+          title={io.target === "file" ? "別の名前/場所に保存" : "複製して別のキャラとして保存"}
         >
           別名で保存
         </button>
@@ -175,16 +177,22 @@ export function GenericSheetEditor({
           className="btn btn-primary"
           onClick={() => void save()}
           title={
-            currentPath
-              ? "同じファイルに上書き保存（ダイアログを出しません）"
-              : "保存先を選んで保存"
+            currentRef
+              ? io.target === "file"
+                ? "同じファイルに上書き保存（ダイアログを出しません）"
+                : "上書き保存"
+              : io.target === "file"
+                ? "保存先を選んで保存"
+                : "保存"
           }
         >
           {savedFlash
             ? "✓ 保存しました"
-            : currentPath
+            : currentRef
               ? "上書き保存"
-              : "保存 (.ccsheet)"}
+              : io.target === "file"
+                ? "保存 (.ccsheet)"
+                : "保存"}
         </button>
       </div>
 

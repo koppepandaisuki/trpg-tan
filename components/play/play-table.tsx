@@ -8,6 +8,7 @@ import {
   Grid3x3,
   ImagePlus,
   FolderOpen,
+  ScrollText,
   Plus,
   ClipboardPaste,
   Share2,
@@ -48,6 +49,7 @@ import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
 import { PlayFxBar } from "./play-fx-bar";
 import { AssetPicker } from "./asset-picker";
+import { CharacterPicker } from "./character-picker";
 import { CutInOverlay, TelopOverlay } from "./play-fx";
 import { usePlayAudio } from "./use-play-audio";
 import { savePlayScene } from "@/lib/play/store";
@@ -102,6 +104,8 @@ export function PlayTable({
   const [planGate, setPlanGate] = useState(false);
   // ライブラリから背景を選ぶピッカー。
   const [bgPicker, setBgPicker] = useState(false);
+  // 保存したキャラ(キャラシ)を卓に出すピッカー。
+  const [charPicker, setCharPicker] = useState(false);
 
   // 最新 scene を参照するための ref(Realtime のコールバックから読む)。
   const sceneRef = useRef(scene);
@@ -579,6 +583,14 @@ export function PlayTable({
               <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
               コマ貼付
             </button>
+            <button
+              onClick={() => setCharPicker(true)}
+              title="キャラシで保存したキャラを駒として出す"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+            >
+              <ScrollText className="h-3.5 w-3.5" aria-hidden />
+              キャラを出す
+            </button>
             <PlayReplayButton scene={scene} isGm />
           </div>
 
@@ -694,6 +706,21 @@ export function PlayTable({
           )}
         </aside>
       </div>
+
+      {charPicker && (
+        <CharacterPicker
+          onClose={() => setCharPicker(false)}
+          onPick={(panel) => {
+            setCharPicker(false);
+            dispatch(
+              panelAddEvent(newEventCtx(), {
+                ...panel,
+                pos: { x: 0.3 + Math.random() * 0.4, y: 0.3 + Math.random() * 0.3 },
+              }),
+            );
+          }}
+        />
+      )}
 
       {bgPicker && (
         <AssetPicker

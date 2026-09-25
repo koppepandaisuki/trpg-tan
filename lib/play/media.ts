@@ -20,15 +20,22 @@ import { assetNameFromFile, registerAsset, type AssetKind } from "./assets";
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // バケット上限 25MB に対して安全側
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024;
 
-/** 盤面背景・駒画像。 */
-export async function uploadPlayImage(file: File): Promise<string> {
+/**
+ * 盤面背景・駒画像。
+ * register=false で素材ライブラリに登録しない(キャラシの立ち絵など。ライブラリは
+ * 「卓 + 素材」で、キャラは入れない方針のため)。
+ */
+export async function uploadPlayImage(
+  file: File,
+  opts: { register?: boolean } = {},
+): Promise<string> {
   if (!file.type.startsWith("image/")) {
     throw new Error("画像ファイルを選んでください");
   }
   if (file.size > MAX_IMAGE_BYTES) {
     throw new Error("画像が大きすぎます(20MB まで)");
   }
-  return upload(file, "image", "画像");
+  return upload(file, "image", "画像", opts.register ?? true);
 }
 
 /** BGM / 効果音。 */
@@ -39,13 +46,14 @@ export async function uploadPlayAudio(file: File): Promise<string> {
   if (file.size > MAX_AUDIO_BYTES) {
     throw new Error("音声が大きすぎます(24MB まで)");
   }
-  return upload(file, "audio", "音声");
+  return upload(file, "audio", "音声", true);
 }
 
 async function upload(
   file: File,
   kind: AssetKind,
   label: string,
+  register: boolean,
 ): Promise<string> {
   const supabase = createClient();
   const {
@@ -72,6 +80,8 @@ async function upload(
   }
 
   const url = supabase.storage.from("play").getPublicUrl(path).data.publicUrl;
+
+  if (!register) return url;
 
   // ライブラリへの登録は「おまけ」。失敗しても(0049 未適用など)卓の
   // 画像・音はもう使えるので、アップロード自体は成功として返す。

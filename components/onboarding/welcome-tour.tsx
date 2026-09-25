@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
  * 初回ログイン / 初回訪問時に表示されるオンボーディング tour。
  *
  * 5 ステップでサイトの主要機能(ようこそ → PLAY → ライブラリ →
- * キャラシ/ビルダー(アプリ) → Discord)を一気に紹介する。
+ * キャラシ → Discord)を一気に紹介する。
  *
  * 仕様:
  *  - localStorage キー TOUR_STORAGE_KEY で「閉じた」or「完了」を記録
@@ -82,11 +82,11 @@ const STEPS: Step[] = [
   {
     icon: ScrollText,
     iconTone: "amber",
-    title: "キャラシとビルダーはアプリで",
+    title: "キャラシを作る",
     description:
-      "キャラクターシートやシナリオ/システムビルダーは、デスクトップアプリで使えます（Windows・無料）。",
-    primaryLabel: "アプリをダウンロード",
-    primaryHref: "/download",
+      "13 システム対応のキャラクターシートを、ブラウザでもアプリと同じエディタで作れます。シナリオ/システムのビルダーはデスクトップアプリで。",
+    primaryLabel: "キャラシを開く",
+    primaryHref: "/characters",
   },
   {
     icon: MessageCircle,

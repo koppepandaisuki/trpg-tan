@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // Tauri は固定ポートの dev サーバーを期待する。src-tauri 配下は監視対象外に。
-// @trpg/core はワークスペースの TS ソースを直接読むため最適化対象から除外。
+// @trpg/core / @trpg/ui はワークスペースの TS ソースを直接読むため最適化対象から除外。
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
@@ -23,6 +23,12 @@ export default defineConfig({
     watch: { ignored: ["**/src-tauri/**"] },
   },
   optimizeDeps: {
-    exclude: ["@trpg/core"],
+    exclude: ["@trpg/core", "@trpg/ui"],
+  },
+  // @trpg/ui(ワークスペースの共有 UI)はリポジトリ直下の node_modules から react を
+  // 解決しうる。アプリ側の react と別コピーになると hooks が壊れる
+  // (Invalid hook call)ので、必ず 1 つに寄せる。
+  resolve: {
+    dedupe: ["react", "react-dom", "lucide-react"],
   },
 });

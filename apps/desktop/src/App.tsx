@@ -68,8 +68,9 @@ import {
 } from "./window-settings";
 import { refreshGold, useGoldBalance } from "./gold-remote";
 import { makePlayThumbnail, downscaleImage } from "./play-thumb";
-import { NewCharacterMenu } from "./NewCharacterMenu";
-import { SheetSystemPicker } from "./SheetSystemPicker";
+import { NewCharacterMenu } from "@trpg/ui/new-character-menu";
+import { SheetSystemPicker } from "@trpg/ui/sheet-system-picker";
+import { desktopSheetIO, desktopSheetSources } from "./sheet-io";
 import { SavedTables } from "./SavedTables";
 // タイトルロゴ(2026-07 リブランド)。文字色が違うためライト/ダークで別画像。
 import logoLight from "./assets/re-dice.png";
@@ -99,10 +100,12 @@ const LibraryPage = lazy(() =>
   import("./LibraryPage").then((m) => ({ default: m.LibraryPage })),
 );
 const CharacterSheet = lazy(() =>
-  import("./CharacterSheet").then((m) => ({ default: m.CharacterSheet })),
+  import("@trpg/ui/character-sheet").then((m) => ({ default: m.CharacterSheet })),
 );
 const GenericSheetEditor = lazy(() =>
-  import("./GenericSheetEditor").then((m) => ({ default: m.GenericSheetEditor })),
+  import("@trpg/ui/generic-sheet-editor").then((m) => ({
+    default: m.GenericSheetEditor,
+  })),
 );
 
 /** 遅延読込の待機中に出すローダー(画面切替の一瞬だけ)。 */
@@ -575,6 +578,7 @@ export function App() {
         <div className="sidebar-head">
           <strong>キャラクター</strong>
           <NewCharacterMenu
+            sources={desktopSheetSources}
             onNewCoC={newCharacter}
             onNewGeneric={newGenericCharacter}
             onImported={openImportedSheet}
@@ -598,6 +602,7 @@ export function App() {
         {!charEditorOpen ? (
           /* まず「どのシステムで作るか」を選ぶ(クリックでエディタへ直行)。 */
           <SheetSystemPicker
+            sources={desktopSheetSources}
             onPickCoC={(sid) => newCharacter(sid)}
             onPickGeneric={newGenericCharacter}
             onImported={openImportedSheet}
@@ -606,18 +611,20 @@ export function App() {
         ) : activeGeneric ? (
           <GenericSheetEditor
             key={activeGeneric.key}
+            io={desktopSheetIO}
             def={activeGeneric.def}
             initial={activeGeneric.sheet}
-            initialPath={activeGeneric.path}
+            initialRef={activeGeneric.path}
             onSaved={handleGenericSaved}
             onBack={() => setCharEditorOpen(false)}
           />
         ) : (
           <CharacterSheet
             key={active.key}
+            io={desktopSheetIO}
             initialSheet={active.sheet}
             initialSystemId={cocSystemId}
-            initialPath={active.path}
+            initialRef={active.path}
             onSaved={handleSaved}
             onBack={() => setCharEditorOpen(false)}
           />

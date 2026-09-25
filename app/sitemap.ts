@@ -31,6 +31,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     route("/", "weekly", 1.0),
+    route("/characters", "monthly", 0.8),
     route("/download", "weekly", 0.8),
     route("/schedule/new", "monthly", 0.6),
     route("/pricing", "monthly", 0.5),

@@ -5,6 +5,7 @@ import {
   Download,
   Dices,
   CalendarDays,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -31,8 +32,10 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/play" as Route, label: "PLAY", icon: Dices },
   // 自分の卓と素材(画像・音声)の保管庫。
   { href: "/library", label: "ライブラリ", icon: FolderOpen },
+  // キャラクターシート(デスクトップと同じエディタ。ログインなしでも作れる)。
+  { href: "/characters" as Route, label: "キャラシ", icon: ScrollText },
   { href: "/friends" as Route, label: "フレンド", icon: Users },
   { href: "/schedule/new" as Route, label: "日程調整", icon: CalendarDays },
-  // デスクトップアプリ(キャラシ・ビルダー)の DL 導線。
+  // デスクトップアプリ(ビルダー等)の DL 導線。
   { href: "/download" as Route, label: "アプリ", icon: Download },
 ];

@@ -76,6 +76,7 @@ export function SiteFooter() {
             <FooterLink href="/" label="ホーム" />
             <FooterLink href={"/play" as Route} label="PLAY" />
             <FooterLink href="/library" label="ライブラリ" />
+            <FooterLink href={"/characters" as Route} label="キャラシ" />
             <FooterLink href={"/friends" as Route} label="フレンド" />
             <FooterLink href={"/download" as Route} label="アプリDL" />
             <FooterLink href={"/schedule/new" as Route} label="日程調整" />

@@ -55,7 +55,7 @@ const PLANS: {
     tagline: "まずは無料で",
     perks: [
       { label: "ライブラリ（卓・素材の保管）" },
-      { label: "キャラクター作成" },
+      { label: "キャラシ作成(保存 10 体まで)" },
       { label: "PLAY：フレンドの卓にゲスト参加" },
       { label: "日程調整（基本）" },
     ],
@@ -78,8 +78,8 @@ const PLANS: {
     tagline: "作る人・上級者へ",
     perks: [
       { label: "プレイのすべて" },
+      { label: "キャラシの保存数 無制限", star: true },
       { label: "日程調整 強化（無制限＋空き時間レコメンド）", soon: true },
-      { label: "卓・キャラシのクラウド保存", soon: true },
       { label: "Pro バッジ", soon: true },
     ],
   },

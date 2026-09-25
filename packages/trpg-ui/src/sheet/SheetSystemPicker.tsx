@@ -12,8 +12,7 @@ import {
   type CharacterSheet,
   type GenericSheet,
 } from "@trpg/core";
-import { getAllSystems } from "./systems-store";
-import { importVampireBloodSheet } from "./vampire-import";
+import type { SheetSources } from "./io";
 import { SystemIcon } from "./system-visuals";
 
 /** 最近使ったシステム(id 配列, 先頭が最新)。coc7/coc6 or 自作システムの id。 */
@@ -47,11 +46,14 @@ function pushRecent(id: string) {
  * 他サイト取り込み(キャラクター保管所)。
  */
 export function SheetSystemPicker({
+  sources,
   onPickCoC,
   onPickGeneric,
   onImported,
   onImportedGeneric,
 }: {
+  /** 選べるシステムと、キャラクター保管所の取得(アプリごとに注入)。 */
+  sources: SheetSources;
   /** CoC の版を選んで新規作成。 */
   onPickCoC: (systemId: "coc7" | "coc6") => void;
   /** ビルダー系システムで新規作成。 */
@@ -89,7 +91,7 @@ export function SheetSystemPicker({
     setImportBusy(true);
     setImportErr(null);
     try {
-      const sheet = await importVampireBloodSheet(importUrl);
+      const sheet = await sources.importVampireBlood(importUrl);
       setImportUrl("");
       setImportOpen(false);
       onImported(sheet);
@@ -100,7 +102,7 @@ export function SheetSystemPicker({
     }
   }
 
-  const systems = getAllSystems();
+  const systems = sources.getSystems();
 
   // 選択を記録してから遷移(次回ピッカーの先頭に出す)。
   function pickCoC(sid: "coc7" | "coc6") {
@@ -331,7 +333,7 @@ export function SheetSystemPicker({
 
       <p className="syspick-foot muted">
         <FilePlus2 size={12} aria-hidden /> 保存済みのキャラは左の一覧から開けます。
-        新しいシステムは「ビルダー」で自作すると、ここに並びます。
+        新しいシステムはアプリの「ビルダー」で自作すると、ここに並びます。
       </p>
     </div>
   );

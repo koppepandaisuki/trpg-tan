@@ -358,7 +358,7 @@ function AccountLinkSection({ planSig = 0 }: { planSig?: number }) {
 const PLAN_OPTIONS: { key: UserPlan; label: string; price: string; desc: string }[] = [
   { key: "basic", label: "基本", price: "無料", desc: "ライブラリ・キャラシ・卓に参加" },
   { key: "play", label: "プレイ", price: "¥500/月", desc: "PLAY 解放(卓を立てる・全機能)" },
-  { key: "pro", label: "Pro", price: "¥980/月", desc: "プレイの全部 + 上級者向け特典(予定)" },
+  { key: "pro", label: "Pro", price: "¥980/月", desc: "プレイの全部 + キャラシ保存数 無制限(Web)" },
 ];
 
 function PlanSection({ planSig = 0 }: { planSig?: number }) {

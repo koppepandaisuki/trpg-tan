@@ -11,6 +11,8 @@ import "@fontsource/noto-sans-jp/500.css";
 import "@fontsource/noto-sans-jp/700.css";
 import "@fontsource/noto-sans-jp/900.css";
 import "./styles.css";
+// キャラシ部品(@trpg/ui)のスタイル。Web 版と共有するため styles.css から分離した。
+import "@trpg/ui/sheet.css";
 
 // 描画前に console / 未捕捉エラーの取り込みを開始(net.* の計測ログも拾える)。
 installDiag();

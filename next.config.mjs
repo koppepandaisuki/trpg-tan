@@ -29,9 +29,14 @@ function buildCsp() {
   const connectSrc = ["'self'", origin, wsOrigin].filter(Boolean).join(" ");
   const imgSrc = ["'self'", "data:", "blob:", origin].filter(Boolean).join(" ");
 
+  // 開発サーバー(next dev)は React Refresh 等で eval を使う。これを禁止すると
+  // ハイドレーションが失敗し、dev では全ページが操作できなくなる。本番ビルドは
+  // eval を使わないので、'unsafe-eval' は development のときだけ足す。
+  const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline'${devEval}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src ${imgSrc}`,
     "font-src 'self' data:",
@@ -64,8 +69,9 @@ const nextConfig = {
   // @trpg/core は TypeScript ソースをそのまま公開する社内パッケージ
   // (packages/trpg-core)。Next 側でトランスパイルして取り込む。
   // Web 版 PLAY が卓のロジック(reduce/イベント/同期プロトコル)を
-  // デスクトップと共有するために必要。
-  transpilePackages: ["@trpg/core"],
+  // デスクトップと共有するために必要。@trpg/ui はキャラシのエディタ一式
+  // (デスクトップと同じコンポーネントを Web でも描画する)。
+  transpilePackages: ["@trpg/core", "@trpg/ui"],
   experimental: {
     typedRoutes: true,
   },

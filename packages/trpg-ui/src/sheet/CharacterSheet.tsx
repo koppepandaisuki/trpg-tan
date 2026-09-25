@@ -26,12 +26,7 @@ import {
   type SystemDefinition,
   type OccupationDef,
 } from "@trpg/core";
-import {
-  saveSheet,
-  saveSheetToPath,
-  loadSheetViaDialog,
-  isTauri,
-} from "./storage";
+import { isGenericSheet, type SheetIO } from "./io";
 import { OccupationIcon } from "./OccupationIcon";
 import { InfoTip } from "./InfoTip";
 import {
@@ -109,28 +104,31 @@ function makeCustomOccupation(
 }
 
 interface CharacterSheetProps {
+  /** 保存・読込の実装(デスクトップ=ファイル / Web=クラウド)。 */
+  io: SheetIO;
   /** 既存キャラを開くときの初期シート(新規なら null/未指定)*/
   initialSheet?: Sheet | null;
   /** 新規作成時の版(システムピッカーで選択)。initialSheet があればそちら優先。*/
   initialSystemId?: SystemId;
-  /** 既存キャラのファイルパス(ライブラリから開いたとき)。上書き保存に使う。*/
-  initialPath?: string | null;
-  /** 保存に成功したとき(ライブラリ索引の更新用)*/
-  onSaved?: (sheet: Sheet, path: string) => void;
+  /** 既存キャラの保存先(ファイルパス / 行 id)。上書き保存に使う。*/
+  initialRef?: string | null;
+  /** 保存に成功したとき(一覧の更新用)*/
+  onSaved?: (sheet: Sheet, ref: string) => void;
   /** 「← システム選択」に戻る。*/
   onBack?: () => void;
 }
 
 export function CharacterSheet({
+  io,
   initialSheet,
   initialSystemId,
-  initialPath,
+  initialRef,
   onSaved,
   onBack,
 }: CharacterSheetProps) {
-  // 現在の保存先。あれば「保存」で上書き、無ければ別名保存ダイアログを出す。
-  const [currentPath, setCurrentPath] = useState<string | null>(
-    initialPath ?? null,
+  // 現在の保存先。あれば「保存」で上書き、無ければ新規保存(デスクトップはダイアログ)。
+  const [currentRef, setCurrentRef] = useState<string | null>(
+    initialRef ?? null,
   );
   const [systemId, setSystemId] = useState<SystemId>(() =>
     initialSheet ? sysIdOf(initialSheet) : (initialSystemId ?? "coc7"),
@@ -275,62 +273,66 @@ export function CharacterSheet({
     setCustomSkills(sheet.customSkills ?? []);
   }
 
-  /** 上書き保存。保存先が未確定(新規)なら別名保存にフォールバック。
-   *  ブラウザ(PWA)では storage.ts が localStorage に保存する。 */
+  /** 保存結果を反映(保存先を覚え、複製なら新しい id に切り替える)。 */
+  function afterSave(sheet: Sheet, r: { ref: string; sheetId?: string }, msg: string) {
+    setCurrentRef(r.ref);
+    const saved = r.sheetId ? { ...sheet, id: r.sheetId } : sheet;
+    if (r.sheetId) setId(r.sheetId);
+    onSaved?.(saved, r.ref);
+    say(msg);
+  }
+
+  /** 通知(アプリ側のトーストがあればそちら、無ければエディタ内に表示)。 */
+  function say(msg: string) {
+    if (io.notify) io.notify(msg);
+    setMessage(msg);
+  }
+
+  /** 上書き保存。保存先が未確定(新規)なら新規保存にフォールバック。 */
   async function onSave() {
     try {
       const sheet = buildSheet();
-      if (currentPath) {
-        await saveSheetToPath(sheet, currentPath);
-        onSaved?.(sheet, currentPath);
-        setMessage("上書き保存しました");
+      const r = await io.save(sheet, currentRef);
+      if (!r) {
+        setMessage("保存をキャンセルしました");
         return;
       }
-      const path = await saveSheet(sheet);
-      if (path) {
-        setCurrentPath(path);
-        onSaved?.(sheet, path);
-        setMessage("保存しました(ライブラリに追加)");
-      } else {
-        setMessage("保存をキャンセルしました");
-      }
+      afterSave(sheet, r, currentRef ? "上書き保存しました" : "保存しました");
     } catch (e) {
-      setMessage(`保存に失敗: ${String(e)}`);
+      setMessage(`保存に失敗: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
-  /** 別名で保存(Tauri はダイアログ / ブラウザは新規保存)。以後はその新しいパスへ上書き。 */
+  /** 別名で保存(デスクトップ=別ファイル / Web=複製)。以後はその新しい保存先へ上書き。 */
   async function onSaveAs() {
     try {
       const sheet = buildSheet();
-      const path = await saveSheet(sheet);
-      if (path) {
-        setCurrentPath(path);
-        onSaved?.(sheet, path);
-        setMessage("別名で保存しました");
-      } else {
+      const r = await io.saveAs(sheet);
+      if (!r) {
         setMessage("保存をキャンセルしました");
+        return;
       }
+      afterSave(sheet, r, "別名で保存しました");
     } catch (e) {
-      setMessage(`保存に失敗: ${String(e)}`);
+      setMessage(`保存に失敗: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
   async function onImport() {
-    if (!isTauri()) {
-      setMessage("読込はデスクトップアプリ(tauri dev/build)でのみ利用できます");
-      return;
-    }
+    if (!io.load) return;
     try {
-      const result = await loadSheetViaDialog();
-      if (result) {
-        applySheet(result.sheet);
-        setCurrentPath(result.path); // 以後はこのファイルへ上書きできる
-        onSaved?.(result.sheet, result.path); // ライブラリにも索引を残す
-        setMessage("読み込みました");
+      const result = await io.load();
+      if (!result) return;
+      if (isGenericSheet(result.sheet)) {
+        setMessage("汎用システムのキャラです。システム選択から開き直してください");
+        return;
       }
+      applySheet(result.sheet);
+      setCurrentRef(result.ref); // 以後はこの保存先へ上書きできる
+      if (result.ref) onSaved?.(result.sheet, result.ref); // 一覧にも残す
+      setMessage("読み込みました");
     } catch (e) {
-      setMessage(`読込に失敗: ${String(e)}`);
+      setMessage(`読込に失敗: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -377,26 +379,30 @@ export function CharacterSheet({
           {name || "(名前未設定)"}
         </span>
         <div style={{ flex: 1 }} />
-        <button className="btn mini" onClick={onImport}>
-          インポート
-        </button>
+        {io.load && (
+          <button className="btn mini" onClick={() => void onImport()}>
+            インポート
+          </button>
+        )}
         <button
           className="btn mini"
-          onClick={onSaveAs}
-          title="別の名前/場所に保存"
+          onClick={() => void onSaveAs()}
+          title={io.target === "file" ? "別の名前/場所に保存" : "複製して別のキャラとして保存"}
         >
           別名で保存
         </button>
         <button
           className="btn mini btn-primary"
-          onClick={onSave}
+          onClick={() => void onSave()}
           title={
-            currentPath
-              ? "同じファイルに上書き保存 (Ctrl+S)"
-              : "保存先を選んで保存 (Ctrl+S)"
+            currentRef
+              ? "上書き保存 (Ctrl+S)"
+              : io.target === "file"
+                ? "保存先を選んで保存 (Ctrl+S)"
+                : "保存 (Ctrl+S)"
           }
         >
-          {currentPath ? "上書き保存" : "保存"}
+          {currentRef ? "上書き保存" : "保存"}
         </button>
       </div>
 

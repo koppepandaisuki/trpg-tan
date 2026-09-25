@@ -53,11 +53,10 @@ const FEATURES: Feature[] = [
     body: "立てた卓と、背景・駒・BGM などの素材をまとめて保管。次のセッションでそのまま使えます。",
   },
   {
-    href: "/download" as Route,
+    href: "/characters" as Route,
     icon: ScrollText,
     title: "キャラシ",
-    body: "13 システム対応のキャラクターシート。能力値からチャットパレットまで自動で作れます。",
-    appOnly: true,
+    body: "13 システム対応のキャラクターシート。能力値からチャットパレットまで、ブラウザでもアプリと同じエディタで作れます。",
   },
   {
     href: "/download" as Route,

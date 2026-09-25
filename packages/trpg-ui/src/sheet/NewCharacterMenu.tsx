@@ -6,8 +6,7 @@ import {
   type CharacterSheet,
   type GenericSheet,
 } from "@trpg/core";
-import { getAllSystems } from "./systems-store";
-import { importVampireBloodSheet } from "./vampire-import";
+import type { SheetSources } from "./io";
 
 /**
  * 「＋ 新規」キャラクター作成メニュー。CoC を特別扱いせず、追加済みの全システム
@@ -21,11 +20,14 @@ import { importVampireBloodSheet } from "./vampire-import";
  * ボタンの矩形から座標を出す(クリッピングを回避)。
  */
 export function NewCharacterMenu({
+  sources,
   onNewCoC,
   onNewGeneric,
   onImported,
   onImportedGeneric,
 }: {
+  /** 選べるシステムと、キャラクター保管所の取得(アプリごとに注入)。 */
+  sources: SheetSources;
   onNewCoC: () => void;
   onNewGeneric: (def: SystemDef) => void;
   /** 保管所などから取り込んだシートをエディタで開く。 */
@@ -92,7 +94,7 @@ export function NewCharacterMenu({
     setImportBusy(true);
     setImportErr(null);
     try {
-      const sheet = await importVampireBloodSheet(importUrl);
+      const sheet = await sources.importVampireBlood(importUrl);
       closeAll();
       setImportUrl("");
       onImported?.(sheet);
@@ -127,7 +129,7 @@ export function NewCharacterMenu({
           tag: null as string | null,
           pick: onNewCoC,
         },
-        ...getAllSystems().map((s) => ({
+        ...sources.getSystems().map((s) => ({
           key: s.id,
           icon: s.icon ?? "🎲",
           name: s.name || "(名称未設定)",
