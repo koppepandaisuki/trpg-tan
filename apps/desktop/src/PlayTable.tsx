@@ -15,6 +15,7 @@ import {
   freeRollEvent,
   compareRollEvent,
   diceBotRollEvent,
+  externalRollEvent,
   chatEvent,
   parseDiceCommand,
   resourceEvent,
@@ -98,6 +99,7 @@ import {
   type LinkStatus,
 } from "./net";
 import { LinkBadge } from "./LinkBadge";
+import { bcdiceIdOf, evalBcdice, loadBcdiceSystem } from "./bcdice";
 import { useLiveDrag } from "./use-live-drag";
 import { WEB_BASE } from "./platform";
 import { getLibrary, systemLabel } from "./library";
@@ -479,6 +481,18 @@ export function PlayTable({
     setScene((s) => ({ ...s, diceBot: id }));
     setDirty(true);
   }
+  // BCDice のシステムが選ばれていれば先読みしておく(最初の 1 投が遅れないように)。
+  const bcdiceId = bcdiceIdOf(diceBot);
+  useEffect(() => {
+    if (!bcdiceId) return;
+    loadBcdiceSystem(bcdiceId).catch(() =>
+      setError(
+        import.meta.env.DEV
+          ? "開発サーバー(vite dev / tauri dev)では BCDice を読み込めません。ビルド版で確認してください。"
+          : "ダイスボット(BCDice)を読み込めませんでした",
+      ),
+    );
+  }, [bcdiceId]);
   /** 卓のシステム(保存カードの表示・判定版・既定ダイス)を変更。 */
   function setSystemId(id: string) {
     setScene((s) => (s.systemId === id ? s : { ...s, systemId: id }));
@@ -1139,10 +1153,15 @@ export function PlayTable({
     // 発言者がキャラ駒で自分のダイスボットを持つなら、卓のグローバル選択より
     // それを優先する(混在システム卓で各キャラが自分の記法で振れる)。
     const rollBot = speakerPanel?.diceBot ?? diceBot;
-    const botEv = diceBotRollEvent(newCtx(), name, raw, rollBot);
+    // BCDice のシステム(GM 端末で読み込み済みのもの)。
+    const bcId = bcdiceIdOf(rollBot);
+    const ext = bcId ? evalBcdice(bcId, raw) : null;
+    const botEv = ext
+      ? externalRollEvent(newCtx(), name, ext)
+      : diceBotRollEvent(newCtx(), name, raw, rollBot);
     if (botEv) {
       let ev: RollEvent = botEv;
-      if (isSecret) ev = { ...ev, secret: true, visibleTo: [...viewers] };
+      if (isSecret || ev.secret) ev = { ...ev, secret: true, visibleTo: [...viewers] };
       if (ch) ev = { ...ev, channel: ch };
       if (msgColor) ev = { ...ev, color: msgColor };
       dispatch(ev);
