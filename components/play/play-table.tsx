@@ -31,6 +31,8 @@ import {
   sceneRemoveEvent,
   turnSetEvent,
   parseCcfoliaCharacter,
+  createSceneBroadcaster,
+  type SceneBroadcaster,
   type BgmTrack,
   type CutIn,
   type Panel,
@@ -55,7 +57,14 @@ import { usePlayAudio } from "./use-play-audio";
 import { savePlayScene } from "@/lib/play/store";
 import { uploadPlayImage } from "@/lib/play/media";
 import { resolveInputToEvent, newEventCtx } from "@/lib/play/roll";
-import { connectRoom, makeRoomCode, type Room, type NetIntent } from "@/lib/play/net";
+import {
+  connectRoom,
+  makeRoomCode,
+  type Room,
+  type NetIntent,
+  type LinkStatus,
+} from "@/lib/play/net";
+import { PlayLinkBadge } from "./play-link-badge";
 
 /**
  * 卓本体(GM ビュー・Web 版)。
@@ -63,7 +72,8 @@ import { connectRoom, makeRoomCode, type Room, type NetIntent } from "@/lib/play
  * 状態は PlayScene ひとつ。操作はすべて PlayEvent にして `reduce` に通す
  * (デスクトップ版とまったく同じイベントソーシング)。確定した状態は
  *   - play_sessions へオートセーブ(自分の卓の保存)
- *   - Realtime へ state 配信(参加者の画面へ反映)
+ *   - 参加者へ配信(参加者の画面へ反映)。GM だけの秘密を除いた投影の「差分」を、
+ *     WebRTC 直結(直結できない相手には Supabase 中継)で送る(@trpg/core sync.ts)
  * の 2 方向へ流す。参加者からの操作は intent として受け、ここで検証してから
  * 正規イベント化する(乱数は GM 側だけで消費 = 全員の出目が一致)。
  */
@@ -100,6 +110,7 @@ export function PlayTable({
   const [room, setRoom] = useState<Room | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [participants, setParticipants] = useState<string[]>([]);
+  const [link, setLink] = useState<LinkStatus | null>(null);
   const [copied, setCopied] = useState(false);
   const [planGate, setPlanGate] = useState(false);
   // ライブラリから背景を選ぶピッカー。
@@ -110,7 +121,11 @@ export function PlayTable({
   // 最新 scene を参照するための ref(Realtime のコールバックから読む)。
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
-  const revRef = useRef(0);
+  // 参加者への配信(差分・集約)。卓を公開している間だけ存在する。
+  const broadcasterRef = useRef<SceneBroadcaster | null>(null);
+  // participant id(hello の from)→ 入室名。intent の送り主を名前で確かめる
+  // (駒の owner は入室名で刻む = 参加者側の「自分の駒」判定と一致させる)。
+  const memberNames = useRef(new Map<string, string>());
   const inputRef = useRef<HTMLInputElement>(null);
 
   /* ===== オートセーブ(変更が落ち着いたら保存) ===== */
@@ -128,21 +143,15 @@ export function PlayTable({
     return () => window.clearTimeout(saveTimer.current);
   }, [scene]);
 
-  /* ===== 参加者へ state を配信(変更のたび) ===== */
+  /* ===== 参加者へ配信(変更のたび。送信中の変更は 1 本に集約) ===== */
   useEffect(() => {
-    if (!room) return;
-    revRef.current += 1;
-    // 秘匿駒は参加者に送らない(GM の画面にだけ薄く出る)。
-    const shared: PlayScene = {
-      ...scene,
-      panels: scene.panels.filter((p) => !p.hidden),
-    };
-    void room.send({ type: "state", rev: revRef.current, scene: shared });
+    broadcasterRef.current?.update(scene);
   }, [scene, room]);
 
   /* ===== 退出時に接続を閉じる ===== */
   useEffect(() => {
     return () => {
+      broadcasterRef.current?.stop();
       room?.close();
     };
   }, [room]);
@@ -160,8 +169,11 @@ export function PlayTable({
 
   /* ===== 参加者からの intent を処理(GM が権威) ===== */
   const handleIntent = useCallback(
-    (from: string, intent: NetIntent) => {
+    (fromId: string, intent: NetIntent) => {
       const cur = sceneRef.current;
+      // 送り主の入室名(hello で記録)。知らない相手の操作は受け付けない。
+      const from = memberNames.current.get(fromId);
+      if (!from) return;
       switch (intent.kind) {
         case "send": {
           const ev = resolveInputToEvent({
@@ -255,20 +267,19 @@ export function PlayTable({
     setError(null);
     try {
       const code = makeRoomCode();
-      const r = await connectRoom(code, "GM");
+      const r = await connectRoom(code, "GM", {
+        role: "host",
+        onLinkStatus: setLink,
+      });
+      const b = createSceneBroadcaster({ send: (m) => r.send(m) });
+      broadcasterRef.current = b;
+      b.update(sceneRef.current);
       r.onMessage((msg) => {
         if (msg.type === "intent") handleIntent(msg.from, msg.intent);
-        // hello を受けたら現在状態を送って参加者を追いつかせる。
+        // hello(入室 / 再同期の要求)を受けたら全量を送って追いつかせる。
         if (msg.type === "hello") {
-          revRef.current += 1;
-          void r.send({
-            type: "state",
-            rev: revRef.current,
-            scene: {
-              ...sceneRef.current,
-              panels: sceneRef.current.panels.filter((p) => !p.hidden),
-            },
-          });
+          memberNames.current.set(msg.from, msg.name);
+          b.join(msg.proto);
           // 途中入室でも今かかっている曲が揃うように BGM を配り直す。
           if (curBgmRef.current) {
             void r.send({
@@ -302,11 +313,15 @@ export function PlayTable({
   }
 
   function closeRoom() {
+    broadcasterRef.current?.stop();
+    broadcasterRef.current = null;
     void room?.send({ type: "closed" });
     room?.close();
     setRoom(null);
     setRoomCode(null);
     setParticipants([]);
+    setLink(null);
+    memberNames.current.clear();
   }
 
   /* ===== 演出(GM が発火 → 自分の画面 + 参加者へ) ===== */
@@ -431,6 +446,7 @@ export function PlayTable({
               <Users className="h-3 w-3" aria-hidden />
               {participants.length} 人参加中
             </span>
+            <PlayLinkBadge status={link} />
             <button
               onClick={() => {
                 void navigator.clipboard.writeText(roomCode);

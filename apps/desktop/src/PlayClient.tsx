@@ -10,7 +10,8 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import {
-  reduce,
+  createSceneMirror,
+  SYNC_PROTOCOL,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
@@ -40,7 +41,7 @@ import { MemoPanel } from "./MemoPanel";
 import { SideStack } from "./SideStack";
 import { CutInOverlay } from "./CutIn";
 import { TelopOverlay } from "./TextStock";
-import { connectRoom, type NetIntent, type Room } from "./net";
+import { connectRoom, type NetIntent, type Room, type LinkStatus } from "./net";
 import { resolveSceneMedia } from "./play-media";
 import { useLiveDrag } from "./use-live-drag";
 import {
@@ -186,9 +187,8 @@ export function PlayClient({
   // 画像束(key→URL/dataURL)。GM は state を "cas:<key>" 参照の軽量版で流し、画像実体は
   // 別 media メッセージで送ってくる。ここに溜めて state の参照を実体へ復元する。
   const mediaMapRef = useRef<Map<string, string>>(new Map());
-  // 適用済み state の版。rev が進んだときだけ置き換える(broadcast の順序逆転で
-  // 古い state が新しいのを潰すのを防ぐ)。
-  const lastRevRef = useRef(-1);
+  // 直結(P2P)/ 中継 の状態(診断・表示用)。
+  const [link, setLink] = useState<LinkStatus | null>(null);
   // 楽観反映した自分の駒(panelId → 予測した駒 + 失効時刻)。権威 state が追いつく/
   // 猶予が切れる/権威から消えるまで、権威の上に被せて自分の操作を即時に見せる。
   const optimistic = useRef<Map<string, { panel: Panel; until: number }>>(
@@ -207,7 +207,7 @@ export function PlayClient({
     let helloTimer: number | undefined;
     void (async () => {
       try {
-        r = await connectRoom(code, name);
+        r = await connectRoom(code, name, { onLinkStatus: setLink });
         if (!alive) {
           r.close();
           return;
@@ -223,23 +223,40 @@ export function PlayClient({
           else if (gmSeen) setPhase("closed");
         });
         r.onProgress((p) => alive && setProgress(p));
+        // GM の卓の写し(全量 / 差分 / チャット・ダイス / 共有メモを適用)。
+        const mirror = createSceneMirror();
+        const hello = () =>
+          roomRef.current?.send({
+            type: "hello",
+            from: r!.selfId,
+            name,
+            proto: SYNC_PROTOCOL,
+          });
+        const show = () => {
+          if (!mirror.scene) return;
+          // 軽量な卓の "cas:<key>" 参照を、受信済みの画像実体へ復元してから
+          // 楽観反映を被せる(まだ届いていない画像は参照のまま=後続 media で埋まる)。
+          setScene(
+            overlayOptimistic(resolveSceneMedia(mirror.scene, mediaMapRef.current)),
+          );
+        };
         r.onMessage((msg) => {
           if (!alive) return;
-          if (msg.type === "state") {
-            // 古い state(順序逆転)は無視。同 rev(heartbeat)は、楽観反映の期限切れを
-            // 掃除して権威へ戻すときだけ再適用する(楽観が無ければ何もしない=再描画なし)。
-            if (msg.rev < lastRevRef.current) return;
-            if (msg.rev === lastRevRef.current && optimistic.current.size === 0)
-              return;
-            lastRevRef.current = msg.rev;
-            got = true;
-            if (helloTimer) window.clearInterval(helloTimer);
-            // 軽量 state の "cas:<key>" 参照を、受信済みの画像実体へ復元してから
-            // 楽観反映を被せる(まだ届いていない画像は参照のまま=後続 media で埋まる)。
-            setScene(
-              overlayOptimistic(resolveSceneMedia(msg.scene, mediaMapRef.current)),
-            );
-            setPhase("ready");
+          const res = mirror.receive(msg);
+          if (res.resync) hello();
+          if (res.changed) {
+            if (!got) {
+              got = true;
+              if (helloTimer) window.clearInterval(helloTimer);
+              setPhase("ready");
+            }
+            show();
+            if (msg.type === "event" && msg.ev.kind === "roll") setMotion(msg.ev);
+            return;
+          }
+          if (msg.type === "tick") {
+            // 心拍: 楽観反映の期限切れを掃除して GM の状態へ戻す(楽観が無ければ何もしない)。
+            if (optimistic.current.size > 0) show();
           } else if (msg.type === "media") {
             // 画像束を受け取りキャッシュ。表示中 scene に残る未解決参照を埋める
             // (解決済み URL や通常のログ文字列には触れないのでログは保持される)。
@@ -247,25 +264,19 @@ export function PlayClient({
               mediaMapRef.current.set(k, v);
             }
             setScene((s) => (s ? resolveSceneMedia(s, mediaMapRef.current) : s));
-          } else if (msg.type === "event") {
-            // チャット/ダイスのみ即時(ログ即時表示＋ダイス演出)。状態は state が権威。
-            setScene((s) => (s ? reduce(s, msg.ev) : s));
-            if (msg.ev.kind === "roll") setMotion(msg.ev);
           } else if (msg.type === "cutin") {
             // id だけ届くので参加者の scene から画像を引く。
             const c = sceneRef.current?.cutins?.find((x) => x.id === msg.cutinId);
             if (c) setCutin(c);
           } else if (msg.type === "telop") {
             setTelop(msg.text);
-          } else if (msg.type === "memo") {
-            setScene((s) => (s ? { ...s, sharedMemos: msg.memos } : s));
           } else if (msg.type === "audio") {
             handleAudio(msg.channel, msg.src);
           } else if (msg.type === "closed") {
             setPhase("closed");
           }
         });
-        r.send({ type: "hello", from: r.selfId, name });
+        hello();
         setPhase("waiting");
         // snapshot が来るまで hello を再送する。GM が後から共有を開始した場合や、
         // 最初の hello が取りこぼされた場合に「卓データ待ち」で固まらないため。
@@ -277,7 +288,7 @@ export function PlayClient({
             return;
           }
           tries += 1;
-          roomRef.current?.send({ type: "hello", from: r!.selfId, name });
+          hello();
         }, 2500);
       } catch (e) {
         if (alive) {
@@ -306,10 +317,17 @@ export function PlayClient({
         `name: ${name}`,
         `room: ${code}`,
         `play: ${scene?.id ?? "?"} / ${scene?.systemId ?? "?"}`,
+        `link: ${
+          link
+            ? link.relayOnly
+              ? "中継のみ"
+              : link.peers.map((p) => `${p.name || "?"}=${p.link}`).join(",") || "-"
+            : "-"
+        }`,
       ].join("\n"),
     );
     return () => setDiagContext(null);
-  }, [code, name, scene?.id, scene?.systemId]);
+  }, [code, name, scene?.id, scene?.systemId, link]);
 
   // [ / ] でドロワー開閉(入力中は無効)。
   useEffect(() => {

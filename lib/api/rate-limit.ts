@@ -28,6 +28,8 @@ export const RATE_LIMITS = {
   planCheckout: { limit: 20, windowSeconds: 60 },
   /** キャラクター保管所の取り込み(サーバーが外部サイトを代理取得するので乱用を抑止)。 */
   sheetImport: { limit: 20, windowSeconds: 60 },
+  /** 卓の TURN 資格情報の発行(Cloudflare API を叩くので乱用を抑止)。 */
+  playIce: { limit: 30, windowSeconds: 600 },
 } as const satisfies Record<string, RateRule>;
 
 /**

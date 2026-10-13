@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   reduce,
+  createSceneBroadcaster,
+  type SceneBroadcaster,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
@@ -88,7 +90,9 @@ import {
   type NetIntent,
   type NetMsg,
   type Room,
+  type LinkStatus,
 } from "./net";
+import { LinkBadge } from "./LinkBadge";
 import { useLiveDrag } from "./use-live-drag";
 import { getLibrary, systemLabel } from "./library";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
@@ -208,13 +212,14 @@ export function PlayTable({
   // 最新の scene を常に参照できるように(集約スナップショット送信が読む)。
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
-  // スナップショット送信の集約状態。参加者の hello 再送で何度も呼ばれても、
-  // 同時に 1 本だけ送り、送信中なら 1 本だけ予約する(連投によるメモリ膨張=
-  // ホストの Out of Memory を防ぐ)。
-  const snapRef = useRef({ sending: false, queued: false });
-  // 既に media 送信済みの画像 key 集合。state(軽量)は毎回送るが、画像実体は初出の
-  // ものだけ送る(駒移動のたびに巨大画像を再送しない)。新規参加者の hello でクリア
-  // して全画像を再送する。
+  // 参加者への配信(@trpg/core sync.ts)。GM だけの秘密を除いた投影の差分を送り、
+  // 送信中の変更は 1 本に集約する。新規参加者・再同期要求には全量を送る。
+  const broadcasterRef = useRef<SceneBroadcaster | null>(null);
+  // 直結(P2P)/ 中継 の状態(共有ポップオーバーに出す)。
+  const [link, setLink] = useState<LinkStatus | null>(null);
+  // 既に media 送信済みの画像 key 集合。卓データは画像を "cas:" 参照にした軽量版を
+  // 送り、画像実体は初出のものだけ送る(駒移動のたびに巨大画像を再送しない)。
+  // 新規参加者の hello でクリアして全画像を再送する。
   const sentMediaRef = useRef<Set<string>>(new Set());
   // 参加者 selfId → 表示名。hello で記録し、intent の所有権チェックに使う。
   const memberNames = useRef<Map<string, string>>(new Map());
@@ -224,31 +229,14 @@ export function PlayTable({
     path: null,
     loop: false,
   });
-  // 配信した状態スナップショットの版(単調増加)。参加者は rev が進んだときだけ
-  // 置き換える。broadcast の順序逆転で古い state が新しいのを潰すのを防ぐ。
-  const revRef = useRef(0);
 
   const characters = useMemo(() => getLibrary(), []);
 
-  // 卓状態が変わるたびに、参加者へ権威スナップショット(state)を配信する。
-  // sendSnapshotCoalesced は単一フライト(送信中の追加要求は 1 本だけ予約)なので、
-  // 連続変更でも詰まらず最後の状態が必ず届く。rev を進めて順序逆転を防ぐ。
-  // これにより、broadcast の取りこぼしがあっても次の state で必ず収束する。
+  // 卓状態が変わるたびに、参加者へ差分を配信する(送信中の変更は集約)。
+  // 取りこぼした参加者は broadcaster の心拍(tick)で気づいて全量をもらい直す。
   useEffect(() => {
-    revRef.current += 1;
-    if (roomRef.current) void sendSnapshotCoalesced();
-    // sendSnapshotCoalesced は安定参照(関数宣言)。scene の変化だけで発火させる。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    broadcasterRef.current?.update(scene);
   }, [scene]);
-
-  // idle heartbeat: 無操作で最後の state を取りこぼした参加者も、定期再送で収束する
-  // (rev 据え置きなので最新の参加者には no-op、遅れている参加者だけ適用される)。
-  useEffect(() => {
-    if (!room) return;
-    const h = window.setInterval(() => void sendSnapshotCoalesced(), 4000);
-    return () => window.clearInterval(h);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room]);
 
   // 不具合報告に PLAY の文脈(役割・卓・参加人数)を載せる。マウント中だけ登録。
   useEffect(() => {
@@ -1254,68 +1242,6 @@ export function PlayTable({
     }
   }
 
-  /**
-   * 参加者へ現在の卓全体(スナップショット)を送る。集約版。
-   * 参加者は hello を再送してくるため何度も呼ばれ得るが、同時に走るのは 1 本だけ。
-   * 送信中に来た要求は queued にまとめ、完了後にもう 1 本だけ送る(途中で入室した
-   * 人もカバーしつつ、連投でメモリが膨張してホストが落ちるのを防ぐ)。
-   */
-  async function sendSnapshotCoalesced() {
-    // 参加者へ送る履歴の上限。盤面・駒・ターンは scene に復元済みで、古いログは
-    // 状態復元に不要(表示用スクロールバックだけ)。長時間卓で log が肥大化すると
-    // join のたびに全部を直列送信して遅くなるため、末尾 N 件に絞って join を一定化。
-    // state は変更のたびに送るので、ログは末尾 N 件に絞って軽くする(スクロール
-    // バック表示用。状態復元には不要)。
-    const LOG_LIMIT = 120;
-    const st = snapRef.current;
-    if (st.sending) {
-      st.queued = true;
-      return;
-    }
-    st.sending = true;
-    try {
-      do {
-        st.queued = false;
-        const r = roomRef.current;
-        if (!r) break;
-        // 秘匿キャラは参加者へ送らない(閲覧制限): 駒本体も、その駒名の発言ログも除外。
-        const s = sceneRef.current;
-        const hiddenNames = new Set(
-          s.panels.filter((p) => p.hidden).map((p) => p.name),
-        );
-        const forNet = {
-          ...s,
-          panels: s.panels.filter((p) => !p.hidden),
-          // 先に末尾 N 件へ絞ってから秘匿フィルタ(全履歴を毎回走査しない)。
-          // 長時間卓で log が数千件でも、1 回の同期は末尾 N 件分で一定。
-          log: (s.log ?? [])
-            .slice(-LOG_LIMIT)
-            .filter((e) => {
-              const actor = (e as { actor?: string }).actor;
-              return !actor || !hiddenNames.has(actor);
-            }),
-        };
-        // 画像(data URL)を分離: state は軽量(cas 参照)、画像実体は初出のものだけ送る。
-        const { lite, media } = splitSceneMedia(forNet);
-        // 画像は 1 枚ずつ送る。まとめて 1 通にすると数百チャンクの巨大メッセージになり、
-        // 再入室時(全画像を再送)に取りこぼして「画像が出ない」原因になる。1 枚ずつなら
-        // 1 枚の失敗が他に波及せず、sent に入れないので次のスナップショットで再送される。
-        for (const [k, v] of Object.entries(media)) {
-          if (sentMediaRef.current.has(k)) continue;
-          try {
-            await r.send({ type: "media", media: { [k]: v } });
-            sentMediaRef.current.add(k);
-          } catch {
-            // 失敗した画像は sent に入れず、次回スナップショットで再送する。
-          }
-        }
-        await r.send({ type: "state", rev: revRef.current, scene: lite });
-      } while (st.queued);
-    } finally {
-      st.sending = false;
-    }
-  }
-
   // 受信ハンドラは毎レンダー最新化(古い scene を掴んだままにしない)。
   useEffect(() => {
     netMsgRef.current = (msg: NetMsg) => {
@@ -1326,7 +1252,8 @@ export function PlayTable({
         // media で再送させる(cas 参照だけ届いて画像が解決できないのを防ぐ)。
         sentMediaRef.current.clear();
         // 新規参加者へ現在の卓全体を送る(集約。hello 連投でも 1 本ずつ)。
-        void sendSnapshotCoalesced();
+        // proto を申告しない旧版のアプリが居れば、以後は全量配信に戻る。
+        broadcasterRef.current?.join(msg.proto);
         // 既に BGM を流しているなら再配信して、途中入室でも鳴るようにする
         // (broadcast で全員に届くが、参加者側は同じ曲なら鳴らし直さない)。
         if (curBgmRef.current.path) {
@@ -1362,7 +1289,27 @@ export function PlayTable({
       // transform: 送信直前にメディアを Storage の URL へ逃がす(Realtime を軽く)。
       const r = await connectRoom(makeRoomCode(), "GM", {
         transform: sanitizeForNet,
+        role: "host",
+        onLinkStatus: setLink,
       });
+      sentMediaRef.current.clear();
+      const b = createSceneBroadcaster({
+        send: (m) => r.send(m),
+        // 画像(data URL)を分離: 卓データは軽量(cas 参照)、画像実体は初出のものだけ
+        // 1 枚ずつ先に送る(まとめると巨大メッセージになり取りこぼしやすい)。
+        prepare: async (projected) => {
+          const { lite, media } = splitSceneMedia(projected);
+          const before: NetMsg[] = [];
+          for (const [k, v] of Object.entries(media)) {
+            if (sentMediaRef.current.has(k)) continue;
+            sentMediaRef.current.add(k);
+            before.push({ type: "media", media: { [k]: v } });
+          }
+          return { scene: lite, before };
+        },
+      });
+      broadcasterRef.current = b;
+      b.update(sceneRef.current);
       r.onMessage((m) => netMsgRef.current(m));
       r.onPresence(setMembers);
       setRoom(r);
@@ -1376,6 +1323,9 @@ export function PlayTable({
   }
 
   function stopShare() {
+    broadcasterRef.current?.stop();
+    broadcasterRef.current = null;
+    setLink(null);
     roomRef.current?.send({ type: "closed" });
     roomRef.current?.close();
     setRoom(null);
@@ -1386,6 +1336,7 @@ export function PlayTable({
   // 卓を閉じる/アンマウント時はルームも畳む。
   useEffect(() => {
     return () => {
+      broadcasterRef.current?.stop();
       roomRef.current?.send({ type: "closed" });
       roomRef.current?.close();
     };
@@ -1653,6 +1604,7 @@ export function PlayTable({
               ? "参加者を待っています…"
               : `参加中: ${members.filter((n) => n !== "GM").join("・")}`}
           </div>
+          <LinkBadge status={link} />
           <div className="share-row share-actions">
             <button className="btn mini" onClick={() => setSharePop(false)}>
               閉じる

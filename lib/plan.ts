@@ -36,3 +36,13 @@ export function planUnlocksPlay(plan: string | null | undefined): boolean {
   return p === "play" || p === "pro";
 }
 
+
+/**
+ * 卓の TURN 中継(直結できない回線でも確実に繋がり、相手に IP アドレスを
+ * 見せない)を使えるプランか。有料プランの特典。サーバー側で TURN の鍵が
+ * 設定されているときだけ実際に有効になる(lib/play/ice.ts)。
+ */
+export function planIncludesTurnRelay(plan: string | null | undefined): boolean {
+  const p = normalizePlan(plan);
+  return p === "play" || p === "pro";
+}

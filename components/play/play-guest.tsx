@@ -13,8 +13,9 @@ import {
   WifiOff,
 } from "lucide-react";
 import {
-  reduce,
   parseCcfoliaCharacter,
+  createSceneMirror,
+  SYNC_PROTOCOL,
   type CutIn,
   type Panel,
   type PlayScene,
@@ -30,15 +31,17 @@ import { PlayTurnBar } from "./play-turn-bar";
 import { CharacterPicker } from "./character-picker";
 import { CutInOverlay, TelopOverlay } from "./play-fx";
 import { usePlayAudio } from "./use-play-audio";
-import { connectRoom, type Room } from "@/lib/play/net";
+import { connectRoom, type Room, type LinkStatus } from "@/lib/play/net";
+import { PlayLinkBadge } from "./play-link-badge";
 
 /**
  * 卓の参加者ビュー(Web 版)。
  *
  * GM が権威なので、ここでは自分で状態を作らない:
- *   - `state`(スナップショット)を受けたら丸ごと置き換える(rev が進んだ時のみ)
- *   - `event`(チャット/ダイス)はログ即時表示のためだけに reduce する
- *   - 自分の操作は intent として GM へ送り、返ってきた state で確定する
+ *   - `state`(全量)/ `patch`(差分)/ `event`(チャット・ダイス)を
+ *     @trpg/core の SceneMirror に通して GM と同じ卓を保つ
+ *   - 差分を取りこぼしたら hello を送り直して全量をもらう(自動で追いつく)
+ *   - 自分の操作は intent として GM へ送り、返ってきた差分で確定する
  */
 export function PlayGuest({ code }: { code: string }) {
   const [name, setName] = useState("");
@@ -57,8 +60,8 @@ export function PlayGuest({ code }: { code: string }) {
   const [input, setInput] = useState("");
   const [speakerId, setSpeakerId] = useState("GM");
   const inputRef = useRef<HTMLInputElement>(null);
-  const revRef = useRef(-1);
   const myName = useRef("");
+  const [link, setLink] = useState<LinkStatus | null>(null);
 
   // 演出(GM から配信される)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
@@ -76,8 +79,10 @@ export function PlayGuest({ code }: { code: string }) {
     setName(localStorage.getItem("redice.play.name") ?? "");
   }, []);
 
+  const helloTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     return () => {
+      window.clearInterval(helloTimer.current);
       room?.close();
     };
   }, [room]);
@@ -90,20 +95,28 @@ export function PlayGuest({ code }: { code: string }) {
     try {
       localStorage.setItem("redice.play.name", nm);
       myName.current = nm;
-      const r = await connectRoom(code, nm);
+      const r = await connectRoom(code, nm, { onLinkStatus: setLink });
+      const mirror = createSceneMirror();
+      const hello = () =>
+        void r.send({
+          type: "hello",
+          from: r.selfId,
+          name: nm,
+          proto: SYNC_PROTOCOL,
+        });
+      // 卓データが届くまで hello を送り直す(GM が後から公開した / 最初の hello を
+      // 取りこぼした場合に「卓データ待ち」で固まらないため)。
+      window.clearInterval(helloTimer.current);
+      helloTimer.current = window.setInterval(() => {
+        if (mirror.scene) window.clearInterval(helloTimer.current);
+        else hello();
+      }, 4000);
       r.onMessage((msg) => {
-        if (msg.type === "state") {
-          // 順序逆転で古い state が新しいものを潰さないよう rev で守る。
-          if (msg.rev <= revRef.current) return;
-          revRef.current = msg.rev;
-          setScene(msg.scene);
-        } else if (msg.type === "event") {
-          // ログの即時表示(状態の正は次の state)。
-          setScene((s) => (s ? reduce(s, msg.ev) : s));
-        } else if (msg.type === "memo") {
-          // デスクトップ版 GM は共有メモを memo で単独配信する。
-          setScene((s) => (s ? { ...s, sharedMemos: msg.memos } : s));
-        } else if (msg.type === "cutin") {
+        // 状態(全量 / 差分 / チャット・ダイス / 共有メモ)は mirror が担当。
+        const res = mirror.receive(msg);
+        if (res.changed) setScene(mirror.scene);
+        if (res.resync) hello();
+        if (msg.type === "cutin") {
           // id だけ届くので、自分が持っている scene から画像を引く。
           // ハンドラは接続時の closure なので最新 scene は ref から読む。
           const c = sceneRef.current?.cutins?.find((x) => x.id === msg.cutinId);
@@ -137,7 +150,7 @@ export function PlayGuest({ code }: { code: string }) {
       setRoom(r);
       setJoined(true);
       // 参加を知らせる → GM が現在状態を送り返してくれる。
-      await r.send({ type: "hello", from: r.selfId, name: nm });
+      hello();
     } catch (e) {
       setError(e instanceof Error ? e.message : "参加できませんでした");
     } finally {
@@ -256,6 +269,7 @@ export function PlayGuest({ code }: { code: string }) {
           <Users className="h-3 w-3" aria-hidden />
           {participants.length} 人
         </span>
+        <PlayLinkBadge status={link} />
         <button
           onClick={addMyCharacter}
           className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"

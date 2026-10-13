@@ -439,7 +439,12 @@ export function createSceneBroadcaster(
   const timer =
     hbMs > 0
       ? setInterval(() => {
-          if (rev > 0 && !running && !legacy) {
+          if (rev === 0 || running) return;
+          if (legacy) {
+            // 旧版の参加者は tick を知らないので、全量を定期的に送り直して収束させる。
+            needFull = true;
+            kick();
+          } else {
             void params.send({ type: "tick", rev, epoch }).catch(() => {});
           }
         }, hbMs)

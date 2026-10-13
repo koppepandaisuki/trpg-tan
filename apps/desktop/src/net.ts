@@ -1,11 +1,18 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import {
+  createHybridTransport,
   createRoom,
   roomTopic,
+  DEFAULT_ICE_SERVERS,
+  type IceServerConfig,
+  type LinkStatus,
+  type PeerInfo,
   type Room,
-  type RoomTransport,
+  type RtcPeerConnectionLike,
+  type SignalingTransport,
 } from "@trpg/core";
 import { supabase } from "./supabase";
+import { appFetch, WEB_BASE } from "./platform";
 
 /**
  * ネットワーク同期の Supabase Realtime アダプタ。
@@ -22,7 +29,50 @@ export {
   type NetMsg,
   type NetIntent,
   type LiveMsg,
+  type LinkStatus,
 } from "@trpg/core";
+
+const P2P_PREF_KEY = "redice.play.p2p";
+
+/**
+ * 利用者の設定: P2P 直結を使うか(既定: 使う)。Web 版と同じキー。
+ * 使わない = 相手に IP アドレスを知らせない代わりに、すべて中継で送る(少し遅い)。
+ */
+export function readP2pPreference(): boolean {
+  try {
+    return localStorage.getItem(P2P_PREF_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function writeP2pPreference(on: boolean): void {
+  try {
+    localStorage.setItem(P2P_PREF_KEY, on ? "on" : "off");
+  } catch {
+    // 保存できない環境は今回だけの設定になる
+  }
+}
+
+/** ICE サーバー(STUN / 有料プランなら TURN)を Web API からもらう。失敗時は公開 STUN。 */
+async function fetchIceServers(): Promise<IceServerConfig[]> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    const res = await Promise.race([
+      appFetch(`${WEB_BASE}/api/play/ice`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 3000)),
+    ]);
+    const body = (await res.json()) as { iceServers?: IceServerConfig[] };
+    return body.iceServers && body.iceServers.length > 0
+      ? body.iceServers
+      : DEFAULT_ICE_SERVERS;
+  } catch {
+    return DEFAULT_ICE_SERVERS;
+  }
+}
 
 /** ルームに接続する(GM/参加者 共通)。subscribe 完了で resolve。 */
 export async function connectRoom(
@@ -34,9 +84,17 @@ export async function connectRoom(
      * のに使う)。変換は送信キュー内で行うので逐次・確実。
      */
     transform?: Parameters<typeof createRoom>[1]["transform"];
+    /** 卓を開いた側(GM)は "host"。参加者は "guest"(既定)。 */
+    role?: "host" | "guest";
+    /** 直結の状態(誰と直結 / 中継か)。 */
+    onLinkStatus?: (s: LinkStatus) => void;
   },
 ): Promise<Room> {
   const topic = roomTopic(code);
+  const role = opts?.role ?? "guest";
+  const p2p =
+    readP2pPreference() && typeof globalThis.RTCPeerConnection === "function";
+  const iceServers = p2p ? await fetchIceServers() : DEFAULT_ICE_SERVERS;
 
   // 再接続 / 再試行 / 再マウントで同名チャンネルが残っていると、supabase.channel()
   // は同 topic の既存チャンネルを“再利用”する。それが既に subscribe 済み
@@ -61,17 +119,21 @@ export async function connectRoom(
     config: { broadcast: { self: false, ack: true }, presence: { key: selfId } },
   });
 
+  type Meta = { name?: string; role?: "host" | "guest" };
   let onPresenceSync: (names: string[]) => void = () => {};
+  let onPeers: (peers: PeerInfo[]) => void = () => {};
   channel.on("presence", { event: "sync" }, () => {
-    const state = channel.presenceState<{ name: string }>();
-    const names = Object.values(state)
-      .flat()
-      .map((m) => m.name)
-      .filter(Boolean);
-    onPresenceSync(names);
+    const state = channel.presenceState<Meta>();
+    const peers: PeerInfo[] = Object.entries(state).map(([id, metas]) => ({
+      id,
+      name: metas[0]?.name ?? "",
+      role: metas[0]?.role,
+    }));
+    onPresenceSync(peers.map((p) => p.name).filter(Boolean));
+    onPeers(peers);
   });
 
-  const transport: RoomTransport = {
+  const signal: SignalingTransport = {
     send: async (event, payload) => {
       const res = await channel.send({ type: "broadcast", event, payload });
       return res === "ok";
@@ -82,15 +144,38 @@ export async function connectRoom(
     onPresenceSync: (cb) => {
       onPresenceSync = cb;
     },
+    onPeers: (cb) => {
+      onPeers = cb;
+    },
     close: async () => {
       await supabase.removeChannel(channel);
     },
   };
 
+  // GM ⇔ 参加者を WebRTC で直結(サーバーを経由しない)。直結できない相手には
+  // 上の Supabase 中継で送る(@trpg/core p2p.ts)。
+  const transport = createHybridTransport(signal, {
+    selfId,
+    role,
+    iceServers,
+    createPeerConnection: p2p
+      ? (config) =>
+          new RTCPeerConnection(config) as unknown as RtcPeerConnectionLike
+      : undefined,
+    onStatus: opts?.onLinkStatus,
+    log: (line) => console.info(line),
+  });
+  const room = createRoom(transport, {
+    code,
+    selfId,
+    transform: opts?.transform,
+    log: (line) => console.info(line),
+  });
+
   return new Promise<Room>((resolve, reject) => {
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
-        void channel.track({ name: displayName });
+        void channel.track({ name: displayName, role } satisfies Meta);
         // 計測: 接続先プロジェクト + ack 往復(≒ネットワーク遅延=リージョンの近さ)。
         // ~50ms=近い(Tokyo 等) / ~200ms=遠い。大きいほど直列送信が遅くなる。
         console.info(
@@ -105,14 +190,7 @@ export async function connectRoom(
             // 無視
           }
         })();
-        resolve(
-          createRoom(transport, {
-            code,
-            selfId,
-            transform: opts?.transform,
-            log: (line) => console.info(line),
-          }),
-        );
+        resolve(room);
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         // 失敗チャンネルを残すと次の接続で再利用され同じ不具合を招く。撤去する。
         void supabase.removeChannel(channel);
