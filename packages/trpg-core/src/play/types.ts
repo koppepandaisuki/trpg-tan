@@ -351,6 +351,11 @@ export interface RollEvent extends BaseEvent {
   secret?: boolean;
   /** 秘匿時に出目を見せる相手(パネル id / 将来のプレイヤー id)。空=GMのみ。 */
   visibleTo?: string[];
+  /**
+   * 参加者へ配信する際に出目を抜き取った印(sync.ts の projectForPlayers)。
+   * GM だけが見るシークレットダイスは、出目そのものを通信に載せない。
+   */
+  redacted?: boolean;
   /** 個別チャット内で振った場合のチャンネル(未設定=メイン)。 */
   channel?: string;
   /** 発言者名の文字色(CSS color)。未設定は既定色。 */

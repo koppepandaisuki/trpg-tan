@@ -1,4 +1,5 @@
 import type { PlayEvent, PlayScene, Panel, MemoPage } from "./types.js";
+import type { ScenePatch } from "./sync.js";
 
 /**
  * ネットワーク同期(卓のリアルタイム配信)の共有プロトコル。
@@ -20,15 +21,33 @@ import type { PlayEvent, PlayScene, Panel, MemoPage } from "./types.js";
 
 const CHUNK = 60_000; // UTF-16 文字数。Realtime の上限(~256KB)に対して安全側。
 
+/**
+ * 同期プロトコルの版。hello に載せて GM へ申告する。
+ *   - 1(未申告): state(全量)だけを理解する旧クライアント
+ *   - 2: patch(差分)/ tick(rev の心拍)を理解する
+ * GM は参加者に 1 人でも旧版がいれば全量配信に戻す(sync.ts の broadcaster)。
+ */
+export const SYNC_PROTOCOL = 2;
+
 export type NetMsg =
-  | { type: "hello"; from: string; name: string }
+  | { type: "hello"; from: string; name: string; proto?: number }
   /**
    * 権威スナップショット(状態置換)。GM の現在状態(秘匿駒を除いた scene)を丸ごと
    * 配信し、参加者は rev が進んだときだけ scene を置き換える。取りこぼしても次の
    * 配信で必ず収束する(イベント再生のような恒久ズレが起きない)。rev は単調増加で、
    * broadcast の順序逆転(古い state が新しい state を潰す)を防ぐ。
+   * epoch は GM の配信の世代(GM がページを開き直すと rev が 1 から振り直しになる
+   * ため、世代が変わったら rev に関係なく受け入れる)。
    */
-  | { type: "state"; rev: number; scene: PlayScene }
+  | { type: "state"; rev: number; scene: PlayScene; epoch?: string }
+  /**
+   * 差分(proto 2)。参加者は自分の rev が base と一致するときだけ適用し、
+   * ずれていれば hello を送り直して全量(state)をもらう。駒を 1 つ動かすたびに
+   * 卓全体(数十〜数百 KB)を送らずに済むので、体感の遅延と通信量が桁で減る。
+   */
+  | { type: "patch"; rev: number; base: number; patch: ScenePatch; epoch?: string }
+  /** GM の現在 rev の心拍(proto 2)。最後の差分を取りこぼした参加者が自力で追いつく。 */
+  | { type: "tick"; rev: number; epoch?: string }
   /** 即時イベント(チャット/ダイスのみ)。ログ即時表示＋ダイス演出用。状態は state が権威。 */
   | { type: "event"; ev: PlayEvent }
   /**
@@ -119,6 +138,15 @@ export interface RoomTransport {
   close(): Promise<void>;
 }
 
+/** presence から分かる参加者(P2P 接続の相手探しに使う)。 */
+export interface PeerInfo {
+  /** 接続ごとの participant id(presence key)。 */
+  id: string;
+  name: string;
+  /** 卓を開いた側(GM)なら "host"。 */
+  role?: "host" | "guest";
+}
+
 export interface Room {
   code: string;
   /** 自分の participant id。 */
@@ -199,9 +227,19 @@ export function createRoom(
     string,
     { parts: string[]; got: number; n: number; t0: number }
   >();
+  // 組み立て済みの mid。P2P と中継の両方から同じメッセージが届くことがある
+  // (中継へ切り替わった瞬間など)ので、二重に onMessage しないよう覚えておく。
+  const done = new Set<string>();
+  const doneOrder: string[] = [];
+  function markDone(mid: string) {
+    done.add(mid);
+    doneOrder.push(mid);
+    if (doneOrder.length > 512) done.delete(doneOrder.shift()!);
+  }
 
   transport.onBroadcast("chunk", (payload) => {
     const c = payload as ChunkPayload;
+    if (done.has(c.mid)) return;
     let buf = buffers.get(c.mid);
     if (!buf) {
       buf = {
@@ -220,6 +258,7 @@ export function createRoom(
     if (buf.n > 1) onProg({ received: buf.got, total: buf.n });
     if (buf.got === buf.n) {
       buffers.delete(c.mid);
+      markDone(c.mid);
       if (buf.n > 1) onProg(null); // 完了
       const text = buf.parts.join("");
       // 計測: 大きい受信(卓データ等)の所要時間 / サイズ / チャンク数。
