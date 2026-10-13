@@ -47,6 +47,12 @@ export default function LicensesPage() {
           ))}
         </ul>
       </LegalSection>
+      <LegalSection heading="ダイスボット">
+        <p>
+          BCDice — BSD 3-Clause License(© BCDice Project)。卓のダイスボットで「BCDice」の
+          システムを選んだときに、GM の端末で読み込みます。
+        </p>
+      </LegalSection>
       <LegalSection heading="フォント">
         <p>
           Noto Sans JP — SIL Open Font License 1.1(© Google LLC / Adobe)

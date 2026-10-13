@@ -4,10 +4,12 @@ import {
   freeRollEvent,
   compareRollEvent,
   diceBotRollEvent,
+  externalRollEvent,
   parseDiceCommand,
   panelVariables,
   substituteVars,
   type EventCtx,
+  type ExternalDiceResult,
   type Panel,
   type PlayEvent,
   type PlayScene,
@@ -20,6 +22,7 @@ import {
  * 同じ表示になるようにする:
  *   1. チャパレ変数({共鳴} 等)を発言者の駒データで置換
  *   2. ダイスボット(システム固有コマンド)を先に解釈
+ *      (卓のダイスボットが BCDice のシステムなら、GM 端末で読み込んだ BCDice で振る)
  *   3. 汎用のダイスコマンド(CC<= / 2d6>=8 / 1d100 / choice[...])
  *   4. どれでもなければ普通の発言
  *
@@ -38,6 +41,11 @@ export function resolveInputToEvent(params: {
   color?: string;
   secret?: boolean;
   visibleTo?: string[];
+  /**
+   * 外部ダイスエンジン(BCDice)。bot("bcdice:<ID>" 等)とコマンドを受け、該当すれば
+   * 結果を返す。GM の画面だけが渡す(lib/play/bcdice.ts の evalBcdice)。
+   */
+  external?: (bot: string, raw: string) => ExternalDiceResult | null;
 }): PlayEvent | null {
   const { ctx, scene, speakerId, as, channel, color } = params;
   const speakerPanel: Panel | undefined = scene.panels.find(
@@ -63,6 +71,10 @@ export function resolveInputToEvent(params: {
 
   // 1) システム固有のダイスボット(卓のシステム or 駒のダイスボット)。
   const bot = speakerPanel?.diceBot ?? scene.diceBot;
+  if (bot && params.external) {
+    const ext = params.external(bot, raw);
+    if (ext) return decorate(externalRollEvent(ctx, name, ext));
+  }
   if (bot) {
     const botEv = diceBotRollEvent(ctx, name, raw, bot);
     if (botEv) return decorate(botEv);

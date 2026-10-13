@@ -24,6 +24,7 @@
     "@supabase/supabase-js": "^2.45.0",
     "@trpg/core": "workspace:*",
     "@trpg/ui": "workspace:*",
+    "bcdice": "4.10.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "fflate": "^0.8.3",

@@ -69,6 +69,10 @@ export default function RightsPage() {
           ))}
           <li>5th Edition SRD 互換(下記「SRD 5.1」)</li>
         </ul>
+        <p>
+          このほか、ダイスボット BCDice(BSD 3-Clause License)が対応する 280 以上の
+          システムのダイスコマンドを使えます(ダイスの判定のみ。キャラクターシートは汎用)。
+        </p>
       </LegalSection>
 
       <LegalSection heading="『クトゥルフ神話TRPG』シリーズ">

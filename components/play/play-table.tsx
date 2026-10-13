@@ -68,6 +68,14 @@ import {
 } from "@/lib/play/net";
 import { PlayLinkBadge } from "./play-link-badge";
 import { PlayScenarioPanel } from "./play-scenario-panel";
+import { DiceBotPicker } from "./dicebot-picker";
+import { bcdiceIdOf, evalBcdice } from "@/lib/play/bcdice";
+
+/** 卓のダイスボットが BCDice のときだけ、GM 端末で読み込んだ BCDice で振る。 */
+function bcdiceExternal(bot: string, raw: string) {
+  const id = bcdiceIdOf(bot);
+  return id ? evalBcdice(id, raw) : null;
+}
 
 /**
  * 卓本体(GM ビュー・Web 版)。
@@ -140,9 +148,7 @@ export function PlayTable({
     saveTimer.current = window.setTimeout(() => {
       setSaving(true);
       savePlayScene(scene)
-        .catch((e) =>
-          setError(e instanceof Error ? e.message : "保存に失敗しました"),
-        )
+        .catch((e) => setError(e instanceof Error ? e.message : "保存に失敗しました"))
         .finally(() => setSaving(false));
     }, 1200);
     return () => window.clearTimeout(saveTimer.current);
@@ -182,13 +188,12 @@ export function PlayTable({
       switch (intent.kind) {
         case "send": {
           const ev = resolveInputToEvent({
+            external: bcdiceExternal,
             ctx: newEventCtx(),
             scene: cur,
             speakerId: intent.speakerId,
             // 参加者が「自分の名前」で喋る場合は駒が無いので as で補う。
-            as: cur.panels.some((p) => p.id === intent.speakerId)
-              ? undefined
-              : from,
+            as: cur.panels.some((p) => p.id === intent.speakerId) ? undefined : from,
             raw: intent.raw,
             channel: intent.channel,
             color: intent.color,
@@ -205,17 +210,13 @@ export function PlayTable({
           if (p.owner !== from) break;
           const res = p.resources.find((r) => r.key === intent.resourceKey);
           if (!res) break;
-          dispatch(
-            resourceEvent(newEventCtx(), p.name, p, res, intent.delta),
-          );
+          dispatch(resourceEvent(newEventCtx(), p.name, p, res, intent.delta));
           break;
         }
         case "move": {
           const p = cur.panels.find((x) => x.id === intent.panelId);
           if (!p || p.owner !== from || p.locked) break;
-          dispatch(
-            panelMoveEvent(newEventCtx(), p.id, intent.x, intent.y),
-          );
+          dispatch(panelMoveEvent(newEventCtx(), p.id, intent.x, intent.y));
           break;
         }
         case "add-char": {
@@ -243,9 +244,7 @@ export function PlayTable({
         case "panel-update": {
           const p = cur.panels.find((x) => x.id === intent.panelId);
           if (!p || p.owner !== from) break;
-          dispatch(
-            panelUpdateEvent(newEventCtx(), p.id, intent.patch),
-          );
+          dispatch(panelUpdateEvent(newEventCtx(), p.id, intent.patch));
           break;
         }
         case "memo": {
@@ -365,6 +364,7 @@ export function PlayTable({
 
   function send(text: string) {
     const ev = resolveInputToEvent({
+      external: bcdiceExternal,
       ctx: newEventCtx(),
       scene,
       speakerId,
@@ -394,18 +394,14 @@ export function PlayTable({
   }
 
   function pasteCcfolia() {
-    const text = prompt(
-      "ココフォリアの「コマをコピー」した内容を貼り付けてください",
-    );
+    const text = prompt("ココフォリアの「コマをコピー」した内容を貼り付けてください");
     if (!text?.trim()) return;
     const panel = parseCcfoliaCharacter(text, () => crypto.randomUUID());
     if (!panel) {
       setError("ココフォリア駒の JSON ではないようです");
       return;
     }
-    dispatch(
-      panelAddEvent(newEventCtx(), { ...panel, pos: { x: 0.5, y: 0.5 } }),
-    );
+    dispatch(panelAddEvent(newEventCtx(), { ...panel, pos: { x: 0.5, y: 0.5 } }));
   }
 
   async function setBackground(file: File | undefined) {
@@ -422,8 +418,7 @@ export function PlayTable({
     }
   }
 
-  const board = scene.scenes?.find((s) => s.id === scene.activeSceneId)?.board ??
-    scene.board;
+  const board = scene.scenes?.find((s) => s.id === scene.activeSceneId)?.board ?? scene.board;
 
   return (
     <div className="space-y-3">
@@ -542,16 +537,7 @@ export function PlayTable({
             onNext={(round, panel, label) =>
               dispatch(turnSetEvent(newEventCtx(), round, panel.id, label))
             }
-            onReset={() =>
-              dispatch(
-                turnSetEvent(
-                  newEventCtx(),
-                  0,
-                  null,
-                  "⏱ ターン管理をリセット",
-                ),
-              )
-            }
+            onReset={() => dispatch(turnSetEvent(newEventCtx(), 0, null, "⏱ ターン管理をリセット"))}
           />
 
           <PlaySceneBar
@@ -566,9 +552,7 @@ export function PlayTable({
                 }),
               )
             }
-            onRename={(id, name) =>
-              dispatch(sceneRenameEvent(newEventCtx(), id, name))
-            }
+            onRename={(id, name) => dispatch(sceneRenameEvent(newEventCtx(), id, name))}
             onRemove={(id) => dispatch(sceneRemoveEvent(newEventCtx(), id))}
           />
 
@@ -630,6 +614,11 @@ export function PlayTable({
               <ScrollText className="h-3.5 w-3.5" aria-hidden />
               キャラを出す
             </button>
+            <DiceBotPicker
+              value={scene.diceBot}
+              systemId={scene.systemId}
+              onChange={(bot) => setScene((s) => ({ ...s, diceBot: bot }))}
+            />
             <PlayReplayButton scene={scene} isGm />
             <button
               onClick={() => downloadPlayFile(scene)}
@@ -648,12 +637,8 @@ export function PlayTable({
             selectedId={selectedId}
             activeTurnId={scene.turn?.activePanelId ?? null}
             onSelect={setSelectedId}
-            liveDrag={(panelId, x, y) =>
-              room?.sendLive({ kind: "drag", panelId, x, y })
-            }
-            onMove={(panelId, x, y) =>
-              dispatch(panelMoveEvent(newEventCtx(), panelId, x, y))
-            }
+            liveDrag={(panelId, x, y) => room?.sendLive({ kind: "drag", panelId, x, y })}
+            onMove={(panelId, x, y) => dispatch(panelMoveEvent(newEventCtx(), panelId, x, y))}
           />
 
           {/* ログ + 入力 */}
@@ -681,6 +666,7 @@ export function PlayTable({
             scene={scene}
             onSay={(text) => {
               const ev = resolveInputToEvent({
+                external: bcdiceExternal,
                 ctx: newEventCtx(),
                 scene,
                 speakerId: "GM",
@@ -696,9 +682,7 @@ export function PlayTable({
           <PlayFxBar
             bgmTracks={scene.bgm?.tracks ?? []}
             seTracks={scene.se?.tracks ?? []}
-            onTracksChange={(kind, tracks) =>
-              setScene((s) => ({ ...s, [kind]: { tracks } }))
-            }
+            onTracksChange={(kind, tracks) => setScene((s) => ({ ...s, [kind]: { tracks } }))}
             cutins={scene.cutins ?? []}
             onCutinsChange={(cutins) => setScene((s) => ({ ...s, cutins }))}
             playingBgm={playingBgm}
@@ -739,6 +723,7 @@ export function PlayTable({
                   onSend={(t) => {
                     setSpeakerId(p.id);
                     const ev = resolveInputToEvent({
+                      external: bcdiceExternal,
                       ctx: newEventCtx(),
                       scene,
                       speakerId: p.id,
@@ -748,9 +733,7 @@ export function PlayTable({
                     if (ev) dispatch(ev);
                   }}
                   onResource={(panel, r, delta) =>
-                    dispatch(
-                      resourceEvent(newEventCtx(), panel.name, panel, r, delta),
-                    )
+                    dispatch(resourceEvent(newEventCtx(), panel.name, panel, r, delta))
                   }
                   onToggleHidden={(panel) =>
                     dispatch(
@@ -798,9 +781,7 @@ export function PlayTable({
       )}
 
       {/* 演出オーバーレイ(非ブロッキング・自動で消える) */}
-      {cutin && (
-        <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />
-      )}
+      {cutin && <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />}
       {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}
     </div>
   );

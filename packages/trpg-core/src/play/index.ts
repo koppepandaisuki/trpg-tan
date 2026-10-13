@@ -60,6 +60,9 @@ export {
   resourceEvent,
   turnSetEvent,
   logClearEvent,
+  externalRollEvent,
+  totalFromResultText,
+  type ExternalDiceResult,
 } from "./actions.js";
 export {
   panelColor,
