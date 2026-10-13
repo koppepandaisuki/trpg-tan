@@ -69,6 +69,7 @@ import {
 import { PlayLinkBadge } from "./play-link-badge";
 import { PlayScenarioPanel } from "./play-scenario-panel";
 import { DiceBotPicker } from "./dicebot-picker";
+import { PlayTimer } from "./play-timer";
 import { bcdiceIdOf, evalBcdice } from "@/lib/play/bcdice";
 
 /** 卓のダイスボットが BCDice のときだけ、GM 端末で読み込んだ BCDice で振る。 */
@@ -614,6 +615,18 @@ export function PlayTable({
               <ScrollText className="h-3.5 w-3.5" aria-hidden />
               キャラを出す
             </button>
+            <PlayTimer
+              timer={scene.timer}
+              canControl
+              onChange={(t) =>
+                setScene((s) => {
+                  const next = { ...s };
+                  if (t) next.timer = t;
+                  else delete next.timer;
+                  return next;
+                })
+              }
+            />
             <DiceBotPicker
               value={scene.diceBot}
               systemId={scene.systemId}

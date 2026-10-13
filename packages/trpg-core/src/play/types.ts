@@ -264,6 +264,20 @@ export interface ScenarioInfo {
   npcs?: ScenarioNpc[];
 }
 
+/**
+ * 卓のタイマー。動いている間は endsAt(終了時刻)を、止めている間は remainingSec を持つ。
+ * 端末ごとの時計で残りを計算する(数秒の時計ずれは許容)。
+ */
+export interface PlayTimer {
+  label?: string;
+  /** 最初に設定した長さ(秒)。リセットに使う。 */
+  durationSec: number;
+  /** 動作中の終了時刻(ISO)。一時停止中は null。 */
+  endsAt: string | null;
+  /** 一時停止中の残り(秒)。 */
+  remainingSec: number;
+}
+
 /** メモの 1 ページ(名前付き)。共有メモ・個人メモで使い回す。 */
 export interface MemoPage {
   id: string;
@@ -306,6 +320,8 @@ export interface PlayScene {
   tags?: string[];
   /** ターン管理(ラウンド数 + 手番の駒)。round 0 = 未開始。 */
   turn?: { round: number; activePanelId: string | null };
+  /** 卓のタイマー(GM が動かし、全員の画面に同じ残り時間が出る)。play/timer.ts。 */
+  timer?: PlayTimer;
   log: PlayEvent[];
   meta: { createdAt: string; updatedAt: string };
 }

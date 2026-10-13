@@ -33,6 +33,7 @@ import { CutInOverlay, TelopOverlay } from "./play-fx";
 import { usePlayAudio } from "./use-play-audio";
 import { connectRoom, type Room, type LinkStatus } from "@/lib/play/net";
 import { PlayLinkBadge } from "./play-link-badge";
+import { PlayTimer } from "./play-timer";
 
 /**
  * 卓の参加者ビュー(Web 版)。
@@ -277,6 +278,7 @@ export function PlayGuest({
           {participants.length} 人
         </span>
         <PlayLinkBadge status={link} />
+        <PlayTimer timer={scene.timer} canControl={false} />
         <button
           onClick={addMyCharacter}
           className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"

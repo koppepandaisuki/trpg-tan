@@ -33,6 +33,7 @@ export {
   type Handout,
   type ScenarioNpc,
   type MemoPage,
+  type PlayTimer,
 } from "./types.js";
 export {
   createScene,
@@ -137,3 +138,12 @@ export {
   PlayFileError,
   MAX_PLAY_FILE_CHARS,
 } from "./file.js";
+export {
+  timerRemaining,
+  timerRunning,
+  startTimer,
+  pauseTimer,
+  resumeTimer,
+  resetTimer,
+  formatTimer,
+} from "./timer.js";
