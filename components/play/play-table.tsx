@@ -15,6 +15,7 @@ import {
   Check,
   Users,
   Loader2,
+  Link2,
 } from "lucide-react";
 import {
   reduce,
@@ -84,7 +85,8 @@ export function PlayTable({
 }: {
   initialScene: PlayScene;
   /**
-   * 卓を公開(参加コード発行 = マルチ卓のホスト)できるか。PLAY プラン以上か管理者。
+   * 卓を公開(参加コード発行 = マルチ卓のホスト)できるか。既定は誰でも可
+   * (lib/plan.ts canHostTable。env で有料制に戻せる)。
    * 無料(basic)でも一人で盤面を触る・保存するのは自由で、公開だけがゲート対象
    * (デスクトップ版 PlayTable の openShare と同じ線引き)。
    */
@@ -113,6 +115,7 @@ export function PlayTable({
   const [participants, setParticipants] = useState<string[]>([]);
   const [link, setLink] = useState<LinkStatus | null>(null);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [planGate, setPlanGate] = useState(false);
   // ライブラリから背景を選ぶピッカー。
   const [bgPicker, setBgPicker] = useState(false);
@@ -463,6 +466,24 @@ export function PlayTable({
                 <Share2 className="h-3.5 w-3.5" aria-hidden />
               )}
               {roomCode}
+            </button>
+            <button
+              onClick={() => {
+                void navigator.clipboard.writeText(
+                  `${window.location.origin}/play/join/${roomCode}`,
+                );
+                setLinkCopied(true);
+                window.setTimeout(() => setLinkCopied(false), 1600);
+              }}
+              title="招待リンクをコピー(開くだけで参加できます。ログイン不要)"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:border-primary/40"
+            >
+              {linkCopied ? (
+                <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+              ) : (
+                <Link2 className="h-3.5 w-3.5" aria-hidden />
+              )}
+              招待リンク
             </button>
             <Button variant="outline" size="sm" onClick={closeRoom}>
               公開をやめる

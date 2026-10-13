@@ -3,7 +3,7 @@ import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlayLobby } from "@/components/play/play-lobby";
-import { requireUser } from "@/lib/session/require";
+import { getCurrentUser } from "@/lib/session/get-user";
 import { listMyPlaySessions } from "@/lib/queries/play-sessions";
 
 export const metadata = {
@@ -20,8 +20,10 @@ export const metadata = {
  * Realtime の broadcast(@trpg/core の共有プロトコル)で同期する。
  */
 export default async function PlayLobbyPage() {
-  const user = await requireUser();
-  const sessions = await listMyPlaySessions(user.id);
+  // ロビーはログイン不要(参加コードでの参加は誰でもできる)。卓を立てる・
+  // 自分の卓を開くときだけログインへ誘導する。
+  const user = await getCurrentUser();
+  const sessions = user ? await listMyPlaySessions(user.id) : [];
 
   return (
     <>
@@ -46,7 +48,7 @@ export default async function PlayLobbyPage() {
           </CardContent>
         </Card>
 
-        <PlayLobby sessions={sessions} />
+        <PlayLobby sessions={sessions} signedIn={!!user} />
       </PageContainer>
     </>
   );

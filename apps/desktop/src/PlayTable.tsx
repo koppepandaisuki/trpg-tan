@@ -94,6 +94,7 @@ import {
 } from "./net";
 import { LinkBadge } from "./LinkBadge";
 import { useLiveDrag } from "./use-live-drag";
+import { WEB_BASE } from "./platform";
 import { getLibrary, systemLabel } from "./library";
 import { readSheetFromPath, isGenericSheet, isTauri } from "./storage";
 import { toast } from "./Toasts";
@@ -1274,15 +1275,16 @@ export function PlayTable({
     setNetBusy(true);
     setError(null);
     try {
-      // マルチ卓のホスト(参加コード発行)は PLAY プラン以上が必要。無料(basic)は
-      // 「参加のみ」。管理者(admin)はプラン不問で全機能可(ゲート免除・案内も出さない)。
-      // 未ログインはログイン誘導、ログイン済み basic はプラン案内を出す。
+      // マルチ卓のホスト(参加コード発行)の可否はサーバーが決める(既定: 無料でも可。
+      // web の lib/plan.ts canHostTable)。未ログインはログイン誘導、ホスト不可の
+      // プランならプラン案内を出す。
       const acct = await getMyAccount();
       if (!acct.loggedIn) {
         requireLogin("「みんなで遊ぶ」(卓を立てる)にはログインが必要です。");
         return;
       }
-      if (!acct.isAdmin && acct.plan === "basic") {
+      const canHost = acct.canHost ?? (acct.isAdmin || acct.plan !== "basic");
+      if (!canHost) {
         setPlanGateOpen(true);
         return;
       }
@@ -1588,6 +1590,18 @@ export function PlayTable({
               コピー
             </button>
             <button
+              className="btn mini"
+              onClick={() => {
+                void navigator.clipboard.writeText(
+                  `${WEB_BASE || window.location.origin}/play/join/${room.code}`,
+                );
+                toast("🔗 招待リンクをコピーしました(ブラウザで開くだけで参加できます)");
+              }}
+              title="招待リンクをコピー(相手はブラウザで開くだけ。ログイン・インストール不要)"
+            >
+              リンク
+            </button>
+            <button
               className="btn mini btn-primary"
               onClick={() => setFriendInviteOpen(true)}
               title="フレンドに参加コードを通知"
@@ -1596,8 +1610,8 @@ export function PlayTable({
             </button>
           </div>
           <p className="share-note">
-            参加者はアプリの「卓」タブ →「ネットワークで参加」にこのコードを
-            入力します。ダイス・チャット・盤面が同期されます。
+            参加者は招待リンクをブラウザで開くだけで参加できます(ログイン・インストール
+            不要)。アプリなら「卓」タブ →「ネットワークで参加」にコードを入力します。
           </p>
           <div className="share-members">
             {members.filter((n) => n !== "GM").length === 0

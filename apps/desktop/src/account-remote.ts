@@ -54,6 +54,11 @@ export type MyAccount = {
   /** テスター権限(リデームコード「TESTER」で付与)。Stripe を介さずプラン切替可。 */
   isTester: boolean;
   loggedIn: boolean;
+  /**
+   * 卓のホスト(参加コード発行)ができるか。サーバーが決める(既定: 無料でも可)。
+   * 古いサーバー/キャッシュで欠けているときは従来どおり「basic 以外 or 管理者」。
+   */
+  canHost?: boolean;
 };
 
 /**
@@ -118,6 +123,7 @@ export async function getMyAccount(): Promise<MyAccount> {
       plan?: string;
       admin?: boolean;
       tester?: boolean;
+      canHost?: boolean;
     };
     if (res.ok && body.ok) {
       const acct: MyAccount = {
@@ -125,6 +131,7 @@ export async function getMyAccount(): Promise<MyAccount> {
         isAdmin: Boolean(body.admin),
         isTester: Boolean(body.tester),
         loggedIn: true,
+        ...(typeof body.canHost === "boolean" ? { canHost: body.canHost } : {}),
       };
       writeAccountCache(acct);
       return acct;

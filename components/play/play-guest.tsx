@@ -43,7 +43,14 @@ import { PlayLinkBadge } from "./play-link-badge";
  *   - 差分を取りこぼしたら hello を送り直して全量をもらう(自動で追いつく)
  *   - 自分の操作は intent として GM へ送り、返ってきた差分で確定する
  */
-export function PlayGuest({ code }: { code: string }) {
+export function PlayGuest({
+  code,
+  signedIn = true,
+}: {
+  code: string;
+  /** ログイン中か(未ログインでも参加できる。保存キャラの呼び出しだけ要ログイン)。 */
+  signedIn?: boolean;
+}) {
   const [name, setName] = useState("");
   const [joined, setJoined] = useState(false);
   const [scene, setScene] = useState<PlayScene | null>(null);
@@ -277,14 +284,25 @@ export function PlayGuest({ code }: { code: string }) {
           <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
           コマ貼付
         </button>
-        <button
-          onClick={() => setCharPicker(true)}
-          title="キャラシで保存した自分のキャラを駒として出す"
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
-        >
-          <ScrollText className="h-3.5 w-3.5" aria-hidden />
-          自分のキャラを出す
-        </button>
+        {signedIn ? (
+          <button
+            onClick={() => setCharPicker(true)}
+            title="キャラシで保存した自分のキャラを駒として出す"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+          >
+            <ScrollText className="h-3.5 w-3.5" aria-hidden />
+            自分のキャラを出す
+          </button>
+        ) : (
+          <Link
+            href={`/login?next=${encodeURIComponent(`/play/join/${code}`)}` as Route}
+            title="ログインすると、キャラシで保存したキャラを駒として出せます"
+            className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-muted"
+          >
+            <ScrollText className="h-3.5 w-3.5" aria-hidden />
+            ログインして保存キャラを使う
+          </Link>
+        )}
         <PlayReplayButton
           scene={scene}
           isGm={false}

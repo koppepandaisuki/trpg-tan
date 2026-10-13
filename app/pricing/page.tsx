@@ -9,7 +9,7 @@ import { isPlanBillingConfigured } from "@/lib/stripe/subscription";
 export const metadata = {
   title: "料金プラン",
   description:
-    "Re-dice の料金プラン。基本（無料）/ プレイ（PLAY解放）/ Pro の3段階。",
+    "Re-dice の料金プラン。卓のホスト・参加は無料。基本（無料）/ プレイ / Pro の3段階。",
 };
 
 type Perk = { label: string; soon?: boolean; star?: boolean };
@@ -52,23 +52,25 @@ const PLANS: {
   {
     plan: "basic",
     icon: Sparkles,
-    tagline: "まずは無料で",
+    tagline: "卓を立てるのも遊ぶのも無料",
     perks: [
-      { label: "ライブラリ（卓・素材の保管）" },
-      { label: "キャラシ作成(保存 10 体まで)" },
-      { label: "PLAY：フレンドの卓にゲスト参加" },
-      { label: "日程調整（基本）" },
+      { label: "卓のホスト・参加(回数の制限なし)", star: true },
+      { label: "BGM・カットイン・シーン・ターン管理など全 PLAY 機能" },
+      { label: "GM⇔参加者の直結(P2P)で軽快な同期" },
+      { label: "参加者はログイン不要・インストール不要" },
+      { label: "シナリオ工房から卓を作る" },
+      { label: "キャラシ作成(保存 10 体まで)・日程調整" },
     ],
   },
   {
     plan: "play",
     icon: Gamepad2,
-    tagline: "もっと遊ぶ人へ",
+    tagline: "もっと快適に遊ぶ人へ",
     featured: true,
     perks: [
       { label: "基本のすべて" },
-      { label: "PLAY 解放：自分で卓を立てる（ホスト）", star: true },
-      { label: "BGM・カットイン・ウィジェット等の全 PLAY 機能" },
+      { label: "広告なし", soon: true },
+      { label: "確実接続の中継(TURN):直結できない回線でも速く、IP を相手に出さない", star: true, soon: true },
       { label: "フレンド無制限" },
     ],
   },
@@ -126,7 +128,7 @@ export default async function PricingPage() {
               料金プラン
             </h1>
             <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-              まずは無料で。遊ぶなら「プレイ」、作る・もっと使うなら「Pro」。
+              卓のホストも参加も無料。もっと快適にするなら「プレイ」、作る・もっと使うなら「Pro」。
             </p>
             {currentPlan && (
               <p className="mt-2 text-xs text-muted-foreground">
