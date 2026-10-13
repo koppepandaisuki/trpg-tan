@@ -140,6 +140,8 @@ export function PlayTable({
   // participant id(hello の from)→ 入室名。intent の送り主を名前で確かめる
   // (駒の owner は入室名で刻む = 参加者側の「自分の駒」判定と一致させる)。
   const memberNames = useRef(new Map<string, string>());
+  // 退室させた participant id(以後の hello / 操作を無視する)。
+  const kicked = useRef(new Set<string>());
   const inputRef = useRef<HTMLInputElement>(null);
 
   /* ===== オートセーブ(変更が落ち着いたら保存) ===== */
@@ -283,6 +285,7 @@ export function PlayTable({
         if (msg.type === "intent") handleIntent(msg.from, msg.intent);
         // hello(入室 / 再同期の要求)を受けたら全量を送って追いつかせる。
         if (msg.type === "hello") {
+          if (kicked.current.has(msg.from)) return;
           memberNames.current.set(msg.from, msg.name);
           b.join(msg.proto);
           // 途中入室でも今かかっている曲が揃うように BGM を配り直す。
@@ -447,7 +450,14 @@ export function PlayTable({
               <Users className="h-3 w-3" aria-hidden />
               {participants.length} 人参加中
             </span>
-            <PlayLinkBadge status={link} />
+            <PlayLinkBadge
+              status={link}
+              onKick={(peer) => {
+                kicked.current.add(peer.id);
+                memberNames.current.delete(peer.id);
+                void room?.send({ type: "kick", to: peer.id });
+              }}
+            />
             <button
               onClick={() => {
                 void navigator.clipboard.writeText(roomCode);

@@ -224,6 +224,8 @@ export function PlayTable({
   const sentMediaRef = useRef<Set<string>>(new Set());
   // 参加者 selfId → 表示名。hello で記録し、intent の所有権チェックに使う。
   const memberNames = useRef<Map<string, string>>(new Map());
+  // 退室させた participant id(以後の hello / 操作を無視する)。
+  const kickedRef = useRef<Set<string>>(new Set());
   // 現在配信中の BGM。途中入室した参加者は再生中の BGM メッセージを取りこぼす
   // ため、hello を受けたら同じ BGM を再配信して late-joiner にも鳴らす。
   const curBgmRef = useRef<{ path: string | null; loop: boolean }>({
@@ -1247,6 +1249,7 @@ export function PlayTable({
   useEffect(() => {
     netMsgRef.current = (msg: NetMsg) => {
       if (msg.type === "hello") {
+        if (kickedRef.current.has(msg.from)) return;
         // 参加者名を記録(intent の所有権判定に使う)。
         memberNames.current.set(msg.from, msg.name);
         // 新規参加者は画像を 1 枚も持っていないので、送信済みフラグを消して全画像を
@@ -1261,6 +1264,7 @@ export function PlayTable({
           void broadcastAudio("bgm", curBgmRef.current.path, curBgmRef.current.loop);
         }
       } else if (msg.type === "intent") {
+        if (kickedRef.current.has(msg.from)) return;
         applyIntent(msg.intent, msg.from);
       }
     };
@@ -1618,7 +1622,15 @@ export function PlayTable({
               ? "参加者を待っています…"
               : `参加中: ${members.filter((n) => n !== "GM").join("・")}`}
           </div>
-          <LinkBadge status={link} />
+          <LinkBadge
+            status={link}
+            onKick={(peer) => {
+              kickedRef.current.add(peer.id);
+              memberNames.current.delete(peer.id);
+              void roomRef.current?.send({ type: "kick", to: peer.id });
+              toast(`🚪 ${peer.name || "参加者"} を退室させました`);
+            }}
+          />
           <div className="share-row share-actions">
             <button className="btn mini" onClick={() => setSharePop(false)}>
               閉じる

@@ -70,7 +70,12 @@ export type NetMsg =
    *   - channel "se": 単発再生(効果音 / カットイン音)。
    */
   | { type: "audio"; channel: "bgm" | "se"; src: string | null; loop?: boolean }
-  | { type: "closed" };
+  | { type: "closed" }
+  /**
+   * GM が参加者を退室させる(to = 参加者の participant id)。該当する参加者は
+   * 切断して「退室させられました」を表示する。GM 側はその id の操作を以後受け付けない。
+   */
+  | { type: "kick"; to: string };
 
 /** 参加者 → GM の操作意図。GM が検証して正規イベント化する。 */
 export type NetIntent =

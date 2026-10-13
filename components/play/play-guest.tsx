@@ -62,6 +62,7 @@ export function PlayGuest({
     total: number;
   } | null>(null);
   const [closed, setClosed] = useState(false);
+  const [kicked, setKicked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
 
@@ -135,6 +136,10 @@ export function PlayGuest({
           audio.handleAudio(msg.channel, msg.src);
         } else if (msg.type === "closed") {
           setClosed(true);
+        } else if (msg.type === "kick" && msg.to === r.selfId) {
+          setKicked(true);
+          setClosed(true);
+          r.close();
         }
       });
       r.onLive((live) => {
@@ -339,7 +344,7 @@ export function PlayGuest({
       {closed && (
         <p className="inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           <WifiOff className="h-4 w-4" aria-hidden />
-          GM が卓を閉じました。
+          {kicked ? "GM により卓から退室しました。" : "GM が卓を閉じました。"}
         </p>
       )}
       {error && (

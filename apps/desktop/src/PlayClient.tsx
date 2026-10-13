@@ -107,6 +107,8 @@ export function PlayClient({
   onMenu?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("connecting");
+  // GM により退室させられた(closed の表示文言を変える)。
+  const [kickedOut, setKickedOut] = useState(false);
   const [netError, setNetError] = useState<string | null>(null);
   // 無料(basic / 未ログイン)参加者か。卓DL中のハウス広告(JoinPromo)の表示判定に使う。
   // 課金(play/pro)・管理者には広告を出さない。
@@ -274,6 +276,10 @@ export function PlayClient({
             handleAudio(msg.channel, msg.src);
           } else if (msg.type === "closed") {
             setPhase("closed");
+          } else if (msg.type === "kick" && msg.to === r?.selfId) {
+            setKickedOut(true);
+            setPhase("closed");
+            roomRef.current?.close();
           }
         });
         hello();
@@ -930,7 +936,9 @@ export function PlayClient({
                 </p>
               </div>
             ))}
-          {phase === "closed" && <p>👋 GM が共有を終了しました。</p>}
+          {phase === "closed" && (
+            <p>{kickedOut ? "🚪 GM により卓から退室しました。" : "👋 GM が共有を終了しました。"}</p>
+          )}
           {phase === "error" && (
             <p className="tag fail">接続できませんでした: {netError}</p>
           )}

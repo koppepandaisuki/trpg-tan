@@ -14,7 +14,14 @@ import { readP2pPreference, writeP2pPreference } from "@/lib/play/net";
  *
  * 設定の変更は次に卓へ入ったときから効く(接続中の経路は切り替えない)。
  */
-export function PlayLinkBadge({ status }: { status: LinkStatus | null }) {
+export function PlayLinkBadge({
+  status,
+  onKick,
+}: {
+  status: LinkStatus | null;
+  /** GM のとき: 参加者を退室させる(荒らし対策)。 */
+  onKick?: (peer: { id: string; name: string }) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [p2p, setP2p] = useState(() =>
     typeof window === "undefined" ? true : readP2pPreference(),
@@ -65,12 +72,28 @@ export function PlayLinkBadge({ status }: { status: LinkStatus | null }) {
             {status.peers.map((p) => (
               <li key={p.id} className="flex justify-between gap-2">
                 <span className="truncate">{p.name || "参加者"}</span>
-                <span className="shrink-0 text-muted-foreground">
+                <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
                   {p.link === "p2p" ? "直結" : p.link === "connecting" ? "接続中…" : "中継"}
+                  {onKick && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`「${p.name || "参加者"}」を卓から退室させますか？`)) onKick(p);
+                      }}
+                      className="rounded border border-red-200 px-1.5 text-[10px] text-red-700 hover:bg-red-50"
+                    >
+                      退室
+                    </button>
+                  )}
                 </span>
               </li>
             ))}
           </ul>
+          {onKick && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              荒らしが入り直してくる場合は「公開をやめる」→ もう一度公開すると、参加コードが変わります。
+            </p>
+          )}
           <p className="mt-2 leading-relaxed text-muted-foreground">
             直結はサーバーを経由しないので速く、直結できない相手とは自動で中継に
             切り替わります。直結の相手(GM と参加者)には互いの IP アドレスが伝わります。

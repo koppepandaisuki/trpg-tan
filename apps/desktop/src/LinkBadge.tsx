@@ -10,7 +10,14 @@ import { readP2pPreference, writeP2pPreference } from "./net";
  *     直結の相手(GM ⇔ 参加者)には互いの IP アドレスが伝わる。
  *   - 中継: サーバー(Supabase)を経由する。IP アドレスは相手に伝わらない。
  */
-export function LinkBadge({ status }: { status: LinkStatus | null }) {
+export function LinkBadge({
+  status,
+  onKick,
+}: {
+  status: LinkStatus | null;
+  /** GM のとき: 参加者を退室させる(荒らし対策)。 */
+  onKick?: (peer: { id: string; name: string }) => void;
+}) {
   const [p2p, setP2p] = useState(readP2pPreference);
   if (!status) return null;
   const total = status.peers.length;
@@ -35,6 +42,16 @@ export function LinkBadge({ status }: { status: LinkStatus | null }) {
               <span>{p.name || "参加者"}</span>
               <span>
                 {p.link === "p2p" ? "直結" : p.link === "connecting" ? "接続中…" : "中継"}
+                {onKick && (
+                  <button
+                    className="btn mini link-kick"
+                    onClick={() => {
+                      if (confirm(`「${p.name || "参加者"}」を卓から退室させますか？`)) onKick(p);
+                    }}
+                  >
+                    退室
+                  </button>
+                )}
               </span>
             </li>
           ))}
