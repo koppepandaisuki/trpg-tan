@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP, Noto_Serif_JP } from "next/font/google";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
+import { AdsenseScript } from "@/components/ads/adsense-script";
 import { AmbientBackground } from "@/components/layout/ambient-background";
 import { TestModeBanner } from "@/components/banner/test-mode-banner";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -121,6 +122,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* α 期間中のフィードバック収集インフラ。Server Component が
             認証状態を確認、ログイン済の時だけ floating button を出す。 */}
         <FeedbackLauncher />
+        <AdsenseScript />
 
         {/* 初回訪問時に表示されるオンボーディング tour。
             localStorage で初回判定、別所(フッター)から再表示も可能。 */}

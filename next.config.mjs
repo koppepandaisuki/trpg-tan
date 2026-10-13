@@ -23,11 +23,46 @@ function supabaseOrigin() {
   }
 }
 
+/**
+ * 広告(Google AdSense)を出すときだけ許可するドメイン。NEXT_PUBLIC_ADSENSE_CLIENT が
+ * 未設定なら何も足さない(広告を出さない間は CSP を広げない)。
+ */
+const ADSENSE = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+  ? {
+      script: [
+        "https://pagead2.googlesyndication.com",
+        "https://*.googlesyndication.com",
+        "https://*.adtrafficquality.google",
+        "https://www.googletagservices.com",
+      ],
+      frame: [
+        "https://googleads.g.doubleclick.net",
+        "https://tpc.googlesyndication.com",
+        "https://*.googlesyndication.com",
+        "https://www.google.com",
+        "https://*.adtrafficquality.google",
+      ],
+      connect: [
+        "https://pagead2.googlesyndication.com",
+        "https://*.googlesyndication.com",
+        "https://*.adtrafficquality.google",
+        "https://*.doubleclick.net",
+      ],
+    }
+  : { script: [], frame: [], connect: [] };
+
 function buildCsp() {
   const origin = supabaseOrigin();
   const wsOrigin = origin ? origin.replace(/^http/, "ws") : null;
-  const connectSrc = ["'self'", origin, wsOrigin].filter(Boolean).join(" ");
-  const imgSrc = ["'self'", "data:", "blob:", origin].filter(Boolean).join(" ");
+  const connectSrc = ["'self'", origin, wsOrigin, ...ADSENSE.connect]
+    .filter(Boolean)
+    .join(" ");
+  // 画像は https 全般を許可: ココフォリアの駒(外部ストレージの立ち絵 URL)や
+  // 利用者が URL で指定した画像・広告の画像を表示するため。
+  const imgSrc = ["'self'", "data:", "blob:", "https:"].join(" ");
+  // 音声(BGM/SE)は Supabase Storage の公開 URL から再生する。media-src を
+  // 書かないと default-src 'self' に落ちて、本番だけ音が鳴らない。
+  const mediaSrc = ["'self'", "data:", "blob:", origin].filter(Boolean).join(" ");
 
   // 開発サーバー(next dev)は React Refresh 等で eval を使う。これを禁止すると
   // ハイドレーションが失敗し、dev では全ページが操作できなくなる。本番ビルドは
@@ -36,15 +71,17 @@ function buildCsp() {
 
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${devEval}`,
+    `script-src 'self' 'unsafe-inline'${devEval}${ADSENSE.script.map((d) => ` ${d}`).join("")}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src ${imgSrc}`,
+    `media-src ${mediaSrc}`,
     "font-src 'self' data:",
     `connect-src ${connectSrc}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
+    ...(ADSENSE.frame.length > 0 ? [`frame-src ${ADSENSE.frame.join(" ")}`] : []),
   ].join("; ");
 }
 

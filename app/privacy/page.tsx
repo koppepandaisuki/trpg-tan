@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { ShieldCheck } from "lucide-react";
 import { LegalLayout, LegalSection } from "@/components/legal/legal-layout";
 import { ContactInfo } from "@/components/legal/contact-info";
+import { adsenseClient } from "@/lib/ads";
 import {
   DISCLOSE_ON_REQUEST,
   LEGAL_UPDATED_AT,
@@ -74,8 +75,17 @@ const EXTERNAL: ExternalTransmission[] = [
   },
 ];
 
+const ADSENSE_ROW: ExternalTransmission = {
+  to: "Google LLC(米国)",
+  purpose: "広告の配信・効果測定・不正防止(Google AdSense。無料プランのロビー等のみ)",
+  data: "Cookie 等の識別子、IP アドレス、閲覧したページ、ブラウザ情報",
+  policy: "https://policies.google.com/technologies/ads",
+  when: "広告が表示されるページを開いたとき",
+};
+
 export default function PrivacyPage() {
   const op = getOperator();
+  const external = adsenseClient() ? [...EXTERNAL, ADSENSE_ROW] : EXTERNAL;
   return (
     <LegalLayout
       title="プライバシーポリシー"
@@ -172,7 +182,7 @@ export default function PrivacyPage() {
               </tr>
             </thead>
             <tbody>
-              {EXTERNAL.map((e) => (
+              {external.map((e) => (
                 <tr key={e.to + e.purpose} className="border-b border-border align-top">
                   <td className="py-1.5 pr-2">{e.to}</td>
                   <td className="py-1.5 pr-2">{e.purpose}</td>
@@ -187,8 +197,10 @@ export default function PrivacyPage() {
         <p>
           このほか、AI 機能を使った場合は入力内容が回答の生成のため Anthropic, PBC(米国)へ、
           外部のキャラクターシート保管サービスから取り込む場合は運営者のサーバーから当該
-          サービスへ、取り込み対象の URL が送信されます。本サービスに広告を表示する場合は、
-          広告配信事業者と送信される情報をこの表に追記してから表示します。
+          サービスへ、取り込み対象の URL が送信されます。卓で利用者が URL で指定した画像
+          (外部サービスの立ち絵等)は、閲覧する端末がその URL のサーバーから直接読み込みます。
+          本サービスに広告を表示する場合は、広告配信事業者と送信される情報をこの表に
+          載せてから表示します。
         </p>
       </LegalSection>
 

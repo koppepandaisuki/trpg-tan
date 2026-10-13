@@ -3,6 +3,7 @@ import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlayLobby } from "@/components/play/play-lobby";
+import { AdArea } from "@/components/ads/ad-area";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { listMyPlaySessions } from "@/lib/queries/play-sessions";
 
@@ -49,6 +50,7 @@ export default async function PlayLobbyPage() {
         </Card>
 
         <PlayLobby sessions={sessions} signedIn={!!user} />
+        <AdArea />
       </PageContainer>
     </>
   );

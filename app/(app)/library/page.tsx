@@ -6,6 +6,7 @@ import { LibraryView } from "@/components/library/library-view";
 import { requireUser } from "@/lib/session/require";
 import { listMyPlaySessions } from "@/lib/queries/play-sessions";
 import { listMyPlayAssets } from "@/lib/queries/play-assets";
+import { AdArea } from "@/components/ads/ad-area";
 
 export const metadata = {
   title: "ライブラリ",
@@ -61,6 +62,7 @@ export default async function LibraryPage({
           assetsReady={assets.ok}
           initialTab={searchParams.tab === "assets" ? "assets" : "tables"}
         />
+        <AdArea />
       </PageContainer>
     </>
   );
