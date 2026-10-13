@@ -125,3 +125,12 @@ export {
   KOBO_BACKUP_MAX_VERSION,
   type KoboScenarioRef,
 } from "./kobo.js";
+export {
+  parsePlayFile,
+  serializePlayFile,
+  clonePlayScene,
+  migratePlayScene,
+  playFileName,
+  PlayFileError,
+  MAX_PLAY_FILE_CHARS,
+} from "./file.js";

@@ -16,6 +16,7 @@ import {
   Users,
   Loader2,
   Link2,
+  Download,
 } from "lucide-react";
 import {
   reduce,
@@ -55,7 +56,7 @@ import { AssetPicker } from "./asset-picker";
 import { CharacterPicker } from "./character-picker";
 import { CutInOverlay, TelopOverlay } from "./play-fx";
 import { usePlayAudio } from "./use-play-audio";
-import { savePlayScene } from "@/lib/play/store";
+import { savePlayScene, downloadPlayFile } from "@/lib/play/store";
 import { uploadPlayImage } from "@/lib/play/media";
 import { resolveInputToEvent, newEventCtx } from "@/lib/play/roll";
 import {
@@ -630,6 +631,14 @@ export function PlayTable({
               キャラを出す
             </button>
             <PlayReplayButton scene={scene} isGm />
+            <button
+              onClick={() => downloadPlayFile(scene)}
+              title="卓をファイル(.play)に書き出す。バックアップや、デスクトップ版・別の卓への持ち運びに"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              卓を書き出す
+            </button>
           </div>
 
           <PlayBoard

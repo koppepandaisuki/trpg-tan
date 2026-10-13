@@ -8,7 +8,12 @@ import { Dices, Plus, LogIn, BookOpenText } from "lucide-react";
 import { createScene } from "@trpg/core";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { savePlayScene, deletePlaySession } from "@/lib/play/store";
+import {
+  savePlayScene,
+  deletePlaySession,
+  duplicatePlaySession,
+  importPlayFile,
+} from "@/lib/play/store";
 import type { PlaySessionSummary } from "@/lib/queries/play-sessions";
 import { TableGrid } from "./table-grid";
 import { readKoboBackup, type KoboBackup } from "@/lib/play/kobo-import";
@@ -92,6 +97,32 @@ export function PlayLobby({
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setCreating(false);
+    }
+  }
+
+  async function duplicate(id: string) {
+    setError(null);
+    try {
+      const newId = await duplicatePlaySession(id);
+      router.push(`/play/${newId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  const playInput = useRef<HTMLInputElement>(null);
+  async function pickPlayFile(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setImporting(true);
+    try {
+      const id = await importPlayFile(file);
+      router.push(`/play/${id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setImporting(false);
+    } finally {
+      if (playInput.current) playInput.current.value = "";
     }
   }
 
@@ -190,7 +221,7 @@ export function PlayLobby({
           <CardContent className="flex flex-wrap items-center gap-3 py-4">
             <BookOpenText className="h-5 w-5 shrink-0 text-primary" aria-hidden />
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold tracking-tight">シナリオ工房から卓を作る</h2>
+              <h2 className="text-sm font-semibold tracking-tight">シナリオ工房・卓ファイルから作る</h2>
               <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                 「TRPGシナリオ工房」の設定 →「バックアップ」で書き出した .zip を選ぶと、
                 シーン・読み上げ文・NPC・ハンドアウト・判定メモ入りの卓ができます (秘密の情報は GM
@@ -210,6 +241,21 @@ export function PlayLobby({
               disabled={importing}
             >
               {importing ? "読み込み中…" : "バックアップを選ぶ"}
+            </Button>
+            <input
+              ref={playInput}
+              type="file"
+              accept=".play,application/json"
+              className="hidden"
+              onChange={(e) => void pickPlayFile(e.target.files?.[0])}
+            />
+            <Button
+              variant="ghost"
+              onClick={() => playInput.current?.click()}
+              disabled={importing}
+              title="Re-dice で書き出した卓ファイル(.play。デスクトップ版と共通)を読み込む"
+            >
+              卓ファイル(.play)を読み込む
             </Button>
             {kobo && (
               <div className="w-full space-y-2 rounded-md border border-border bg-muted/40 p-3">
@@ -255,6 +301,7 @@ export function PlayLobby({
           <TableGrid
             sessions={list.slice(0, RECENT_LIMIT)}
             onRemove={(s) => void remove(s.id, s.title)}
+          onDuplicate={(s) => void duplicate(s.id)}
             empty="まだ卓がありません。上の「作る」から最初の卓を立ててみましょう。"
           />
         </div>

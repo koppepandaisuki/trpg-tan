@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import {
   Dices,
@@ -18,7 +19,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TableGrid } from "@/components/play/table-grid";
-import { deletePlaySession } from "@/lib/play/store";
+import { deletePlaySession, duplicatePlaySession } from "@/lib/play/store";
 import { uploadPlayAudio, uploadPlayImage } from "@/lib/play/media";
 import {
   listMyAssets,
@@ -54,6 +55,17 @@ export function LibraryView({
   const [tab, setTab] = useState<Tab>(initialTab);
   const [tables, setTables] = useState(sessions);
   const [error, setError] = useState<string | null>(null);
+
+  const router = useRouter();
+  async function duplicateTable(s: PlaySessionSummary) {
+    setError(null);
+    try {
+      const id = await duplicatePlaySession(s.id);
+      router.push(`/play/${id}` as Route);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   async function removeTable(s: PlaySessionSummary) {
     if (!confirm(`「${s.title}」を削除しますか？この操作は取り消せません。`))
@@ -103,6 +115,7 @@ export function LibraryView({
           <TableGrid
             sessions={tables}
             onRemove={(s) => void removeTable(s)}
+            onDuplicate={(s) => void duplicateTable(s)}
             empty="まだ卓がありません。PLAY で卓を立てると、ここに保存されます。"
           />
         </div>
