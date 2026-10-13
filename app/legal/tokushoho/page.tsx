@@ -1,50 +1,64 @@
+import Link from "next/link";
+import type { Route } from "next";
 import { Scale } from "lucide-react";
 import { LegalLayout, LegalSection } from "@/components/legal/legal-layout";
+import { ContactInfo } from "@/components/legal/contact-info";
+import {
+  DISCLOSE_ON_REQUEST,
+  LEGAL_UPDATED_AT,
+  getOperator,
+} from "@/lib/legal/operator";
 
 export const metadata = { title: "特定商取引法に基づく表記" };
 
 /**
- * 特定商取引法に基づく表記(暫定版)。
+ * 特定商取引法に基づく表記。
  *
- * 2026-09 のストア(作品売買)廃止後、有償で提供するのは料金プラン(月額)と
- * ゴールドのみ。表記もその 2 つに合わせた。
- *
- * 注意: 実際の事業者情報(氏名・住所・電話番号等)は本番運用前に
- * 正確な内容へ差し替えること。α 期間中はプレースホルダ。
+ * 有償で提供するのは料金プラン(月額)とゴールドのみ(2026-09 にストア廃止)。
+ * 事業者の氏名・住所・電話番号は env(lib/legal/operator.ts)から表示し、未設定なら
+ * 「請求があれば遅滞なく開示」とする(法 11 条ただし書)。ただし Stripe の審査では
+ * 表記の実在が確認されることがあるため、本番では設定を推奨(docs/legal/README.md)。
  */
 export default function TokushohoPage() {
+  const op = getOperator();
   return (
     <LegalLayout
       title="特定商取引法に基づく表記"
       icon={Scale}
-      lastUpdated="2026-09-24"
+      lastUpdated={LEGAL_UPDATED_AT}
     >
-      <p>
-        「特定商取引に関する法律」第11条に基づき、以下のとおり表記します。
-      </p>
-
       <LegalSection heading="販売事業者">
-        <p>Re-dice TRPGサイト 運営者</p>
-        <p className="text-xs">
-          ※ α テスト期間中のため、正式な事業者情報は本リリース時に掲載します。
-          請求があった場合は遅滞なく開示いたします。
-        </p>
+        <p>{op.name ?? DISCLOSE_ON_REQUEST}</p>
       </LegalSection>
 
       <LegalSection heading="運営責任者">
-        <p>α テスト期間中につき、Discord にてお問い合わせください。</p>
+        <p>{op.representative ?? DISCLOSE_ON_REQUEST}</p>
+      </LegalSection>
+
+      <LegalSection heading="所在地">
+        <p>{op.address ?? DISCLOSE_ON_REQUEST}</p>
+      </LegalSection>
+
+      <LegalSection heading="電話番号">
+        <p>{op.phone ?? DISCLOSE_ON_REQUEST}</p>
+        <p className="text-xs">
+          お問い合わせは、まず下記のお問い合わせ先へお願いします(電話での対応は行って
+          いない場合があります)。
+        </p>
       </LegalSection>
 
       <LegalSection heading="お問い合わせ先">
-        <p>
-          本サービスの Discord コミュニティ。原則として 5 営業日以内に返信します。
-        </p>
+        <ContactInfo purpose="お問い合わせ・上記事項の開示請求" />
+        <p>原則として 5 営業日以内に返信します。</p>
       </LegalSection>
 
       <LegalSection heading="販売価格">
         <p>
-          料金プラン(月額)は料金プランページに、ゴールドは購入画面に、
-          それぞれ税込価格で表示します。
+          料金プラン(月額)は
+          <Link className="underline" href={"/pricing" as Route}>
+            料金プランページ
+          </Link>
+          に、ゴールドは購入画面に、それぞれ税込価格で表示します。
         </p>
       </LegalSection>
 
@@ -56,7 +70,7 @@ export default function TokushohoPage() {
         <p>クレジットカード決済(Stripe)。</p>
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            料金プラン: 申込時に初回分を決済し、以降は解約するまで毎月の更新日に
+            料金プラン: 申込時に初回分を決済し、以降は解約するまで 1 か月ごとの更新日に
             自動で決済されます。
           </li>
           <li>ゴールド: 購入手続きの完了時に決済されます。</li>
@@ -67,26 +81,27 @@ export default function TokushohoPage() {
         <p>決済完了後、ただちにご利用いただけます。</p>
       </LegalSection>
 
-      <LegalSection heading="契約期間・解約">
+      <LegalSection heading="契約期間・解約(自動更新)">
         <p>
-          料金プランは 1 か月単位の自動更新契約です。料金プランページの
-          「契約を管理」からいつでも解約でき、解約後は次回以降の請求が停止します。
+          料金プランは 1 か月単位の自動更新契約です。料金プランページの「契約を管理」から
+          いつでも解約できます。解約後は次回以降の請求が停止し、支払い済みの期間の終了まで
+          有料の機能をご利用いただけます。
         </p>
       </LegalSection>
 
       <LegalSection heading="返品・キャンセル">
         <p>
           デジタルサービスの性質上、決済完了後の返金は原則としてお受けできません
-          (料金プランの日割り返金、購入済みゴールドの払い戻しを含みます)。
-          ただし、サービスの不具合によりご利用いただけない場合は、運営者の判断により
-          返金対応を行うことがあります。
+          (料金プランの日割り返金、購入済みゴールドの払い戻しを含みます)。ただし、
+          本サービスの不具合等により相当期間ご利用いただけなかった場合は、返金等の対応を
+          行います。
         </p>
       </LegalSection>
 
       <LegalSection heading="動作環境">
         <p>
-          最新版の主要ブラウザ(Chrome / Edge / Safari / Firefox)。
-          デスクトップアプリは Windows に対応しています。
+          最新版の主要ブラウザ(Chrome / Edge / Safari / Firefox)。デスクトップアプリは
+          Windows に対応しています。
         </p>
       </LegalSection>
     </LegalLayout>

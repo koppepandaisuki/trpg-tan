@@ -26,6 +26,7 @@ describe("RATE_LIMITS config", () => {
         "feedback",
         "goldCheckout",
         "planCheckout",
+        "playIce",
         "redeem",
         "sheetImport",
       ].sort(),

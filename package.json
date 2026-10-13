@@ -15,7 +15,8 @@
     "test:run": "vitest run",
     "check:server-only": "node scripts/check-server-only.mjs",
     "check:env": "node scripts/check-env.mjs",
-    "check:secrets": "node scripts/check-no-secrets.mjs"
+    "check:secrets": "node scripts/check-no-secrets.mjs",
+    "licenses:gen": "node scripts/gen-oss-licenses.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

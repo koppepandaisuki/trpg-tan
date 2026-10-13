@@ -23,6 +23,7 @@ const CATEGORIES: { value: FeedbackCategory; label: string }[] = [
   { value: "bug", label: "🐛 バグ" },
   { value: "feature_request", label: "✨ 機能要望" },
   { value: "question", label: "❓ 質問" },
+  { value: "report", label: "🚩 権利侵害・違反の申告" },
   { value: "other", label: "📝 その他" },
 ];
 

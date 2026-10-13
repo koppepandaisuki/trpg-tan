@@ -24,6 +24,7 @@ const RECOMMENDED = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
   "CRON_SECRET", // 異常検知 cron の認証(未設定だと cron は 503)
+  "CONTACT_EMAIL", // 規約・特商法のお問い合わせ先(未設定だとフォーム/Discord のみ)
 ];
 
 const isProd = process.env.VERCEL_ENV === "production";

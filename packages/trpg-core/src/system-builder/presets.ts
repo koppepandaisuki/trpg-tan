@@ -14,7 +14,7 @@ import type { SystemDef } from "./types.js";
  *  - 説明文(note / palette のコメント)はすべて自前の文章。
  *  - ルールブック本文・データ表・イラスト・ロゴは一切含めない。
  *  - 各 note に「ファンメイドの簡易テンプレート」であることを明示する。
- *  - D&D は SRD 5.1(CC-BY-4.0)の範囲に限定し、note に帰属表示を記載。
+ *  - 5版 SRD 互換は SRD 5.1(CC-BY-4.0)の範囲に限定し、note と /legal/rights に帰属表示を記載。
  */
 export const SYSTEM_PRESETS: SystemDef[] = [
   {
@@ -376,7 +376,9 @@ export const SYSTEM_PRESETS: SystemDef[] = [
   },
   {
     id: "preset-dnd5e",
-    name: "D&D 第5版 (SRD)",
+    // 「D&D」は Wizards of the Coast の商標で、SRD のライセンス(CC BY 4.0)は商標の
+    // 使用を許諾しない。名称には使わず「5版 SRD 互換」と表す(帰属表示は /legal/rights)。
+    name: "5th Edition SRD 互換",
     icon: "🐉",
     preset: true,
     diceBot: "d20",

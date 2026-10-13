@@ -8,8 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
  * 利用規約 / プライバシーポリシー / 特商法ページ共通のレイアウト。
  * hero ヘッダー + Breadcrumb + prose 風の本文カード。
  *
- * α 期間中の内容は「暫定版」である旨を上部に明示する。Phase 2 で
- * 弁護士レビューを経た正式版に差し替える想定。
+ * 上部に改定の告知方針を出す(定型約款の変更ルール。利用規約 第 18 条)。
  *
  * Server Component(状態なし)。
  */
@@ -51,10 +50,10 @@ export function LegalLayout({
           </CardContent>
         </Card>
 
-        {/* α 期間中の暫定版注記 */}
-        <div className="rounded-md border border-amber-200 bg-amber-50/60 px-4 py-3 text-xs leading-relaxed text-amber-900">
-          本ページは α テスト期間中の暫定版です。正式リリース時に内容を改定する
-          場合があります。重要な変更がある場合は Discord 等でお知らせします。
+        {/* 改定の告知方針(民法 548 条の 4) */}
+        <div className="rounded-md border border-border bg-muted/40 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          内容を変更する場合は、変更後の内容と効力発生日を、効力発生日より前に本サービス上で
+          お知らせします。
         </div>
 
         {/* 本文 */}

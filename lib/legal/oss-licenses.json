@@ -1,0 +1,676 @@
+[
+  {
+    "name": "@anthropic-ai/sdk",
+    "versions": [
+      "0.104.1"
+    ],
+    "license": "MIT",
+    "author": "Anthropic",
+    "homepage": "https://github.com/anthropics/anthropic-sdk-typescript#readme"
+  },
+  {
+    "name": "@babel/runtime",
+    "versions": [
+      "7.29.7"
+    ],
+    "license": "MIT",
+    "author": "The Babel Team",
+    "homepage": "https://babel.dev/docs/en/next/babel-runtime"
+  },
+  {
+    "name": "@fontsource/noto-sans-jp",
+    "versions": [
+      "5.2.9"
+    ],
+    "license": "OFL-1.1",
+    "author": "Google Inc.",
+    "homepage": "https://fontsource.org/fonts/noto-sans-jp"
+  },
+  {
+    "name": "@hookform/resolvers",
+    "versions": [
+      "3.10.0"
+    ],
+    "license": "MIT",
+    "author": "bluebill1049",
+    "homepage": "https://react-hook-form.com"
+  },
+  {
+    "name": "@next/env",
+    "versions": [
+      "14.2.35"
+    ],
+    "license": "MIT",
+    "author": "Next.js Team",
+    "homepage": "https://github.com/vercel/next.js#readme"
+  },
+  {
+    "name": "@next/swc-darwin-arm64",
+    "versions": [
+      "14.2.33"
+    ],
+    "license": "MIT",
+    "homepage": "https://github.com/vercel/next.js#readme"
+  },
+  {
+    "name": "@stablelib/base64",
+    "versions": [
+      "1.0.1"
+    ],
+    "license": "MIT",
+    "author": "Dmitry Chestnykh",
+    "homepage": "https://github.com/StableLib/stablelib/tree/master/packages/base64"
+  },
+  {
+    "name": "@supabase/auth-js",
+    "versions": [
+      "2.105.4"
+    ],
+    "license": "MIT",
+    "author": "Supabase",
+    "homepage": "https://github.com/supabase/supabase-js/tree/master/packages/core/auth-js"
+  },
+  {
+    "name": "@supabase/functions-js",
+    "versions": [
+      "2.105.4"
+    ],
+    "license": "MIT",
+    "author": "Supabase",
+    "homepage": "https://github.com/supabase/supabase-js/tree/master/packages/core/functions-js"
+  },
+  {
+    "name": "@supabase/phoenix",
+    "versions": [
+      "0.4.2"
+    ],
+    "license": "MIT",
+    "author": "Chris McCord",
+    "homepage": "https://github.com/supabase/phoenix#readme"
+  },
+  {
+    "name": "@supabase/postgrest-js",
+    "versions": [
+      "2.105.4"
+    ],
+    "license": "MIT",
+    "author": "Supabase",
+    "homepage": "https://github.com/supabase/supabase-js/tree/master/packages/core/postgrest-js"
+  },
+  {
+    "name": "@supabase/realtime-js",
+    "versions": [
+      "2.105.4"
+    ],
+    "license": "MIT",
+    "author": "Supabase",
+    "homepage": "https://github.com/supabase/supabase-js/tree/master/packages/core/realtime-js"
+  },
+  {
+    "name": "@supabase/ssr",
+    "versions": [
+      "0.4.1"
+    ],
+    "license": "MIT",
+    "author": "Supabase, Inc.",
+    "homepage": "https://github.com/supabase/ssr#readme"
+  },
+  {
+    "name": "@supabase/storage-js",
+    "versions": [
+      "2.105.4"
+    ],
+    "license": "MIT",
+    "author": "Supabase",
+    "homepage": "https://github.com/supabase/supabase-js/tree/master/packages/core/storage-js"
+  },
+  {
+    "name": "@supabase/supabase-js",
+    "versions": [
+      "2.105.4"
+    ],
+    "license": "MIT",
+    "author": "Supabase",
+    "homepage": "https://github.com/supabase/supabase-js/tree/master/packages/core/supabase-js"
+  },
+  {
+    "name": "@swc/counter",
+    "versions": [
+      "0.1.3"
+    ],
+    "license": "Apache-2.0",
+    "author": "강동윤",
+    "homepage": "https://swc.rs"
+  },
+  {
+    "name": "@swc/helpers",
+    "versions": [
+      "0.5.5"
+    ],
+    "license": "Apache-2.0",
+    "author": "강동윤",
+    "homepage": "https://swc.rs"
+  },
+  {
+    "name": "@tauri-apps/api",
+    "versions": [
+      "2.11.0"
+    ],
+    "license": "Apache-2.0 OR MIT",
+    "homepage": "https://github.com/tauri-apps/tauri#readme"
+  },
+  {
+    "name": "@tauri-apps/plugin-deep-link",
+    "versions": [
+      "2.4.9"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
+  },
+  {
+    "name": "@tauri-apps/plugin-dialog",
+    "versions": [
+      "2.7.1"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
+  },
+  {
+    "name": "@tauri-apps/plugin-fs",
+    "versions": [
+      "2.5.1"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
+  },
+  {
+    "name": "@tauri-apps/plugin-http",
+    "versions": [
+      "2.5.9"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
+  },
+  {
+    "name": "@tauri-apps/plugin-opener",
+    "versions": [
+      "2.5.4"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
+  },
+  {
+    "name": "@tauri-apps/plugin-process",
+    "versions": [
+      "2.3.1"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
+  },
+  {
+    "name": "@tauri-apps/plugin-updater",
+    "versions": [
+      "2.10.1"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
+  },
+  {
+    "name": "@types/node",
+    "versions": [
+      "20.19.41"
+    ],
+    "license": "MIT",
+    "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node"
+  },
+  {
+    "name": "busboy",
+    "versions": [
+      "1.6.0"
+    ],
+    "license": "MIT",
+    "author": "Brian White",
+    "homepage": "https://github.com/mscdex/busboy#readme"
+  },
+  {
+    "name": "call-bind-apply-helpers",
+    "versions": [
+      "1.0.2"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/call-bind-apply-helpers#readme"
+  },
+  {
+    "name": "call-bound",
+    "versions": [
+      "1.0.4"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/call-bound#readme"
+  },
+  {
+    "name": "caniuse-lite",
+    "versions": [
+      "1.0.30001793"
+    ],
+    "license": "CC-BY-4.0",
+    "author": "Ben Briggs",
+    "homepage": "https://github.com/browserslist/caniuse-lite#readme"
+  },
+  {
+    "name": "class-variance-authority",
+    "versions": [
+      "0.7.1"
+    ],
+    "license": "Apache-2.0",
+    "author": "Joe Bell",
+    "homepage": "https://github.com/joe-bell/cva#readme"
+  },
+  {
+    "name": "client-only",
+    "versions": [
+      "0.0.1"
+    ],
+    "license": "MIT",
+    "homepage": "https://reactjs.org/"
+  },
+  {
+    "name": "clsx",
+    "versions": [
+      "2.1.1"
+    ],
+    "license": "MIT",
+    "author": "Luke Edwards",
+    "homepage": "https://github.com/lukeed/clsx#readme"
+  },
+  {
+    "name": "cookie",
+    "versions": [
+      "0.6.0"
+    ],
+    "license": "MIT",
+    "author": "Roman Shtylman",
+    "homepage": "https://github.com/jshttp/cookie#readme"
+  },
+  {
+    "name": "dunder-proto",
+    "versions": [
+      "1.0.1"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/es-shims/dunder-proto#readme"
+  },
+  {
+    "name": "es-define-property",
+    "versions": [
+      "1.0.1"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/es-define-property#readme"
+  },
+  {
+    "name": "es-errors",
+    "versions": [
+      "1.3.0"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/es-errors#readme"
+  },
+  {
+    "name": "es-object-atoms",
+    "versions": [
+      "1.1.1"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/es-object-atoms#readme"
+  },
+  {
+    "name": "fast-sha256",
+    "versions": [
+      "1.3.0"
+    ],
+    "license": "Unlicense",
+    "author": "Dmitry Chestnykh",
+    "homepage": "https://github.com/dchest/fast-sha256-js#readme"
+  },
+  {
+    "name": "fflate",
+    "versions": [
+      "0.8.3"
+    ],
+    "license": "MIT",
+    "author": "Arjun Barrett",
+    "homepage": "https://101arrowz.github.io/fflate"
+  },
+  {
+    "name": "function-bind",
+    "versions": [
+      "1.1.2"
+    ],
+    "license": "MIT",
+    "author": "Raynos",
+    "homepage": "https://github.com/Raynos/function-bind"
+  },
+  {
+    "name": "get-intrinsic",
+    "versions": [
+      "1.3.0"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/get-intrinsic#readme"
+  },
+  {
+    "name": "get-proto",
+    "versions": [
+      "1.0.1"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/get-proto#readme"
+  },
+  {
+    "name": "gopd",
+    "versions": [
+      "1.2.0"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/gopd#readme"
+  },
+  {
+    "name": "graceful-fs",
+    "versions": [
+      "4.2.11"
+    ],
+    "license": "ISC",
+    "homepage": "https://github.com/isaacs/node-graceful-fs#readme"
+  },
+  {
+    "name": "has-symbols",
+    "versions": [
+      "1.1.0"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/has-symbols#readme"
+  },
+  {
+    "name": "hasown",
+    "versions": [
+      "2.0.3"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/inspect-js/hasOwn#readme"
+  },
+  {
+    "name": "iceberg-js",
+    "versions": [
+      "0.8.1"
+    ],
+    "license": "MIT",
+    "author": "mandarini",
+    "homepage": "https://github.com/supabase/iceberg-js#readme"
+  },
+  {
+    "name": "js-tokens",
+    "versions": [
+      "4.0.0"
+    ],
+    "license": "MIT",
+    "author": "Simon Lydell",
+    "homepage": "https://github.com/lydell/js-tokens#readme"
+  },
+  {
+    "name": "json-schema-to-ts",
+    "versions": [
+      "3.1.1"
+    ],
+    "license": "MIT",
+    "author": "Thomas Aribart",
+    "homepage": "https://github.com/ThomasAribart/json-schema-to-ts#readme"
+  },
+  {
+    "name": "loose-envify",
+    "versions": [
+      "1.4.0"
+    ],
+    "license": "MIT",
+    "author": "Andres Suarez",
+    "homepage": "https://github.com/zertosh/loose-envify"
+  },
+  {
+    "name": "lucide-react",
+    "versions": [
+      "0.424.0"
+    ],
+    "license": "ISC",
+    "author": "Eric Fennis",
+    "homepage": "https://lucide.dev"
+  },
+  {
+    "name": "math-intrinsics",
+    "versions": [
+      "1.1.0"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/es-shims/math-intrinsics#readme"
+  },
+  {
+    "name": "nanoid",
+    "versions": [
+      "3.3.12"
+    ],
+    "license": "MIT",
+    "author": "Andrey Sitnik",
+    "homepage": "https://github.com/ai/nanoid#readme"
+  },
+  {
+    "name": "next",
+    "versions": [
+      "14.2.35"
+    ],
+    "license": "MIT",
+    "homepage": "https://nextjs.org"
+  },
+  {
+    "name": "object-inspect",
+    "versions": [
+      "1.13.4"
+    ],
+    "license": "MIT",
+    "author": "James Halliday",
+    "homepage": "https://github.com/inspect-js/object-inspect"
+  },
+  {
+    "name": "picocolors",
+    "versions": [
+      "1.1.1"
+    ],
+    "license": "ISC",
+    "author": "Alexey Raspopov",
+    "homepage": "https://github.com/alexeyraspopov/picocolors#readme"
+  },
+  {
+    "name": "postcss",
+    "versions": [
+      "8.4.31"
+    ],
+    "license": "MIT",
+    "author": "Andrey Sitnik",
+    "homepage": "https://postcss.org/"
+  },
+  {
+    "name": "qs",
+    "versions": [
+      "6.15.2"
+    ],
+    "license": "BSD-3-Clause",
+    "homepage": "https://github.com/ljharb/qs"
+  },
+  {
+    "name": "react",
+    "versions": [
+      "18.3.1"
+    ],
+    "license": "MIT",
+    "homepage": "https://reactjs.org/"
+  },
+  {
+    "name": "react-dom",
+    "versions": [
+      "18.3.1"
+    ],
+    "license": "MIT",
+    "homepage": "https://reactjs.org/"
+  },
+  {
+    "name": "react-hook-form",
+    "versions": [
+      "7.76.0"
+    ],
+    "license": "MIT",
+    "author": "Beier",
+    "homepage": "https://react-hook-form.com"
+  },
+  {
+    "name": "scheduler",
+    "versions": [
+      "0.23.2"
+    ],
+    "license": "MIT",
+    "homepage": "https://reactjs.org/"
+  },
+  {
+    "name": "side-channel",
+    "versions": [
+      "1.1.0"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/side-channel#readme"
+  },
+  {
+    "name": "side-channel-list",
+    "versions": [
+      "1.0.1"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/side-channel-list#readme"
+  },
+  {
+    "name": "side-channel-map",
+    "versions": [
+      "1.0.1"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/side-channel-map#readme"
+  },
+  {
+    "name": "side-channel-weakmap",
+    "versions": [
+      "1.0.2"
+    ],
+    "license": "MIT",
+    "author": "Jordan Harband",
+    "homepage": "https://github.com/ljharb/side-channel-weakmap#readme"
+  },
+  {
+    "name": "source-map-js",
+    "versions": [
+      "1.2.1"
+    ],
+    "license": "BSD-3-Clause",
+    "author": "Valentin 7rulnik Semirulnik",
+    "homepage": "https://github.com/7rulnik/source-map-js"
+  },
+  {
+    "name": "standardwebhooks",
+    "versions": [
+      "1.0.0"
+    ],
+    "license": "MIT",
+    "author": "Standard Webhooks",
+    "homepage": "https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/javascript"
+  },
+  {
+    "name": "streamsearch",
+    "versions": [
+      "1.1.0"
+    ],
+    "license": "MIT",
+    "author": "Brian White",
+    "homepage": "https://github.com/mscdex/streamsearch#readme"
+  },
+  {
+    "name": "stripe",
+    "versions": [
+      "16.12.0"
+    ],
+    "license": "MIT",
+    "author": "Stripe",
+    "homepage": "https://github.com/stripe/stripe-node"
+  },
+  {
+    "name": "styled-jsx",
+    "versions": [
+      "5.1.1"
+    ],
+    "license": "MIT",
+    "homepage": "https://github.com/vercel/styled-jsx#readme"
+  },
+  {
+    "name": "tailwind-merge",
+    "versions": [
+      "2.6.1"
+    ],
+    "license": "MIT",
+    "author": "Dany Castillo",
+    "homepage": "https://github.com/dcastil/tailwind-merge"
+  },
+  {
+    "name": "ts-algebra",
+    "versions": [
+      "2.0.0"
+    ],
+    "license": "MIT",
+    "author": "Thomas Aribart",
+    "homepage": "https://github.com/ThomasAribart/ts-algebra#readme"
+  },
+  {
+    "name": "tslib",
+    "versions": [
+      "2.8.1"
+    ],
+    "license": "0BSD",
+    "author": "Microsoft Corp.",
+    "homepage": "https://www.typescriptlang.org/"
+  },
+  {
+    "name": "undici-types",
+    "versions": [
+      "6.21.0"
+    ],
+    "license": "MIT",
+    "homepage": "https://undici.nodejs.org"
+  },
+  {
+    "name": "zod",
+    "versions": [
+      "3.25.76"
+    ],
+    "license": "MIT",
+    "author": "Colin McDonnell",
+    "homepage": "https://zod.dev"
+  }
+]

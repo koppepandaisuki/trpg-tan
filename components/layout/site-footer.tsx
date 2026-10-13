@@ -88,6 +88,12 @@ export function SiteFooter() {
             <FooterLink href="/terms" label="利用規約" />
             <FooterLink href="/privacy" label="プライバシーポリシー" />
             <FooterLink
+              href={"/legal/guidelines" as Route}
+              label="コミュニティガイドライン"
+            />
+            <FooterLink href={"/legal/rights" as Route} label="権利表記・対応システム" />
+            <FooterLink href={"/legal/licenses" as Route} label="OSS ライセンス" />
+            <FooterLink
               href="/legal/tokushoho"
               label="特定商取引法に基づく表記"
             />
