@@ -179,6 +179,9 @@ export function createHybridTransport(
   const relayHooked = new Set<string>();
   let peers: PeerInfo[] = [];
   let presenceIds = new Set<string>();
+  // host: 参加者を初めて見た時刻。申し込みが来ないまま時間が経った相手は
+  // (P2P を切っている / 旧版のアプリ)「中継」と表示する。
+  const firstSeen = new Map<string, number>();
   let lastRelayRx = -Infinity;
   const links = new Map<string, Link>();
   const attempts = new Map<string, number>();
@@ -197,7 +200,12 @@ export function createHybridTransport(
       peers: targets().map((p) => ({
         id: p.id,
         name: p.name,
-        link: links.get(p.id)?.kind ?? (p2pEnabled ? "connecting" : "relay"),
+        link:
+          links.get(p.id)?.kind ??
+          (p2pEnabled &&
+          Date.now() - (firstSeen.get(p.id) ?? Date.now()) < connectTimeout
+            ? "connecting"
+            : "relay"),
       })),
     });
   }
@@ -421,6 +429,15 @@ export function createHybridTransport(
       }
     }
     presenceIds = ids;
+    if (role === "host") {
+      for (const p of targets()) {
+        if (firstSeen.has(p.id)) continue;
+        firstSeen.set(p.id, Date.now());
+        // 申し込みが来なければ、待ち時間が過ぎた時点で表示を「中継」に改める。
+        setTimeout(() => !closed && emitStatus(), connectTimeout + 50);
+      }
+      for (const id of [...firstSeen.keys()]) if (!ids.has(id)) firstSeen.delete(id);
+    }
     if (role === "guest" && p2pEnabled) {
       for (const p of targets()) {
         if (!links.has(p.id) && !retryAt.has(p.id)) void dial(p.id);
