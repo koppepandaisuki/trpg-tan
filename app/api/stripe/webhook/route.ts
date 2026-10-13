@@ -7,8 +7,6 @@ import {
 } from "@/lib/stripe/client";
 import {
   handleCheckoutCompleted,
-  handleChargeRefunded,
-  handleAccountUpdated,
   handleDisputeCreated,
   handleDisputeClosed,
 } from "@/lib/stripe/webhook";
@@ -81,22 +79,6 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      case "charge.refunded": {
-        // Full refund only — partial refunds are intentionally ignored
-        // (see decideRefundOutcome in lib/stripe/webhook.ts).
-        const charge = event.data.object as Stripe.Charge;
-        await handleChargeRefunded(charge);
-        break;
-      }
-
-      case "account.updated": {
-        // D-020 PR2: sync profiles.stripe_charges_enabled.
-        // No-op for accounts not in our DB (warn log + 200 ack).
-        const account = event.data.object as Stripe.Account;
-        await handleAccountUpdated(account);
-        break;
-      }
-
       case "charge.dispute.created": {
         // チャージバック発生 → 運営に即時アラート(対応は Stripe DB で手動)。
         const dispute = event.data.object as Stripe.Dispute;
@@ -127,14 +109,15 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      case "charge.refunded":
       case "charge.refund.updated":
       case "refund.created":
-      case "refund.updated": {
-        // Sibling refund events: ack-only. The canonical "charge is now
-        // fully refunded" signal we act on is charge.refunded; the
-        // siblings would over-fire and double-handle if we treated them
-        // as triggers too.
-        console.info("[webhook] refund event acknowledged", {
+      case "refund.updated":
+      case "account.updated": {
+        // ack のみ。返金の purchases 反映と Stripe Connect(出品者アカウント)
+        // 同期は 2026-09 のストア廃止で撤去した。Connect 側の webhook
+        // エンドポイントが残っていても再送させないよう 200 を返す。
+        console.info("[webhook] event acknowledged (no-op)", {
           type: event.type,
           id: event.id,
         });

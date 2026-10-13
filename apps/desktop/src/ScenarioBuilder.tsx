@@ -7,10 +7,7 @@ import {
   ChevronLeft,
   Clock,
   LayoutDashboard,
-  Store,
-  Loader2,
-  X,
-  ImagePlus,
+  FileOutput,
 } from "lucide-react";
 import {
   createScene,
@@ -27,21 +24,21 @@ import {
   savePlayToPath,
   type PlayIndexEntry,
 } from "./play-storage";
-import { publishPack } from "./pack";
+import { exportPackToFile } from "./pack";
 import { getCustomSystems } from "./systems-store";
-import { useAuth } from "./useAuth";
 import { toast } from "./Toasts";
-import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
-
-// WEB_BASE は platform.ts(Tauri=env / ブラウザ=同一オリジン相対)
 
 /**
  * シナリオ作成(ビルダー内「シナリオを作る」)。
  *
  * PLAY(卓を立てて遊ぶ)とは独立した入口。基本はフォームだけで
  * あらすじ/HO/NPC/シーン台本を編集できる(盤面なし)。盤面配置・BGM・
- * カットイン・出品(.paradice)まで作り込みたい人は「卓ごと編集」で
- * 同じデータを PLAY の卓エディタで開ける(シナリオ = 卓 のため)。
+ * カットインまで作り込みたい人は「卓ごと編集」で同じデータを PLAY の
+ * 卓エディタで開ける(シナリオ = 卓 のため)。
+ *
+ * 「書き出す」は .paradice(配布パッケージ)ファイルを作る。仲間に渡せば
+ * ライブラリの「パッケージを取り込む」でそのまま遊べる。2026-09 のストア
+ * 廃止までは、ここが「ストアに出品」だった。
  *
  * 保存実体は .play ファイル(卓と同じ)。索引も共有するので、ここで作った
  * シナリオは PLAY ロビーの「保存済みの卓」にも出る。
@@ -70,7 +67,6 @@ export function ScenarioBuilder({
   /** 「卓ごと編集」: 同じシナリオ(卓)を PLAY の卓エディタで開く。 */
   onOpenTable: (scene: PlayScene, path: string | null) => void;
 }) {
-  const { session } = useAuth();
   const [editing, setEditing] = useState<{
     scene: PlayScene;
     path: string | null;
@@ -78,14 +74,7 @@ export function ScenarioBuilder({
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // 出品ダイアログ(null = 閉)。cover はアプリ内で選んだ表紙画像。
-  const [pub, setPub] = useState<{
-    title: string;
-    price: number;
-    desc: string;
-    cover: { url: string; blob: Blob; type: string } | null;
-  } | null>(null);
-  const [publishing, setPublishing] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   function newScenario() {
     const scene = createScene({
@@ -150,65 +139,32 @@ export function ScenarioBuilder({
     onOpenTable(res.scene, res.path);
   }
 
-  function openPublish() {
+  /** .paradice として書き出す(仲間に渡す / バックアップ)。 */
+  async function exportScenario() {
     if (!editing) return;
-    if (!session) {
-      setError("出品するにはログインが必要です(右上のアカウントから)。");
-      return;
-    }
-    const s = editing.scene;
-    setPub({
-      title: s.title || "無題のシナリオ",
-      price: 0,
-      desc: s.scenario?.synopsis ?? "",
-      cover: null,
-    });
-  }
-
-  async function doPublish() {
-    if (!editing || !pub) return;
-    setPublishing(true);
+    setExporting(true);
     setError(null);
     try {
       const scene: PlayScene = {
         ...editing.scene,
         meta: { ...editing.scene.meta, updatedAt: new Date().toISOString() },
       };
-      // カスタムシステムを使っていれば同梱(プリセットは購入者に内蔵)。
+      // カスタムシステムを使っていれば同梱(プリセットは受け取る側に内蔵)。
       const sys = getCustomSystems().find((x) => x.id === scene.systemId);
-      const name = pub.title.trim() || "無題のシナリオ";
-      const description = pub.desc.trim() || undefined;
       const pack = buildPack({
         id: crypto.randomUUID(),
-        name,
-        description,
+        name: scene.title.trim() || "無題のシナリオ",
+        description: scene.scenario?.synopsis?.trim() || undefined,
         now: new Date().toISOString(),
         system: sys,
         scenarios: [scene],
       });
-      const r = await publishPack(
-        pack,
-        {
-          title: name,
-          priceJpy: Math.max(0, Math.round(pub.price)),
-          description,
-        },
-        pub.cover
-          ? { blob: pub.cover.blob, contentType: pub.cover.type }
-          : undefined,
-      );
-      setPub(null);
-      toast(
-        pub.cover
-          ? "🛒 下書きを作成しました。ブラウザで内容を確認して公開してください。"
-          : "🛒 下書きを作成しました。ブラウザで表紙を設定して公開してください。",
-      );
-      // 仕上げ(表紙・価格確認・公開)の web ページを直接開く。
-      void openUrl(`${WEB_BASE}/creator/products/${r.productId}/edit`);
+      const path = await exportPackToFile(pack);
+      if (path) toast(`📦 書き出しました: ${path}`);
     } catch (e) {
-      setError(`出品に失敗: ${e instanceof Error ? e.message : String(e)}`);
+      setError(`書き出しに失敗: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
-      setPublishing(false);
+      setExporting(false);
     }
   }
 
@@ -314,7 +270,7 @@ export function ScenarioBuilder({
               className="btn"
               onClick={() => void openInTable()}
               disabled={busy}
-              title="盤面・コマ・BGM・出品(.paradice)まで作り込む"
+              title="盤面・コマ・BGM・カットインまで作り込む"
             >
               <LayoutDashboard size={15} /> 卓ごと編集
             </button>
@@ -322,12 +278,12 @@ export function ScenarioBuilder({
               <Save size={15} /> {busy ? "保存中…" : "保存"}
             </button>
             <button
-              className="btn btn-primary"
-              onClick={openPublish}
-              disabled={busy || publishing}
-              title="このシナリオをストアに出品(下書き作成→ブラウザで表紙設定→公開)"
+              className="btn"
+              onClick={() => void exportScenario()}
+              disabled={busy || exporting}
+              title="配布パッケージ(.paradice)として書き出します。仲間はライブラリの「パッケージを取り込む」で遊べます"
             >
-              <Store size={15} /> 出品する
+              <FileOutput size={15} /> {exporting ? "書き出し中…" : "書き出す"}
             </button>
           </div>
         </div>
@@ -356,137 +312,10 @@ export function ScenarioBuilder({
 
         <div className="scb-edit-foot">
           <Package size={14} />
-          盤面の配置・コマ・BGM・カットイン・出品（.paradice
-          書き出し）は「卓ごと編集」から行えます。
+          盤面の配置・コマ・BGM・カットインは「卓ごと編集」から、配布用の
+          パッケージ（.paradice）は「書き出す」から作れます。
         </div>
       </div>
-
-      {pub && (
-        <div className="scb-pub-overlay" onClick={() => setPub(null)}>
-          <div className="scb-pub" onClick={(e) => e.stopPropagation()}>
-            <div className="scb-pub-head">
-              <strong>
-                <Store size={16} /> ストアに出品
-              </strong>
-              <button
-                className="scb-pub-x"
-                onClick={() => setPub(null)}
-                aria-label="閉じる"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-              下書きを作成してアップロードします。このあとブラウザで
-              <b>表紙の設定</b>と<b>公開</b>を行います（有料は Stripe
-              連携が必要）。
-            </p>
-            <label className="scb-pub-field">
-              <span>タイトル</span>
-              <input
-                className="input"
-                value={pub.title}
-                onChange={(e) => setPub({ ...pub, title: e.target.value })}
-                placeholder="作品名"
-              />
-            </label>
-            <div className="scb-pub-field">
-              <span>表紙画像（任意・PNG / JPG / WebP）</span>
-              <div className="scb-pub-cover">
-                {pub.cover ? (
-                  <>
-                    <img
-                      src={pub.cover.url}
-                      alt=""
-                      className="scb-pub-cover-img"
-                    />
-                    <button
-                      className="btn mini"
-                      onClick={() => setPub({ ...pub, cover: null })}
-                    >
-                      <X size={13} /> 外す
-                    </button>
-                  </>
-                ) : (
-                  <label className="btn mini scb-pub-cover-pick">
-                    <ImagePlus size={14} /> 画像を選ぶ
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      hidden
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f && /^image\/(png|jpe?g|webp)$/i.test(f.type)) {
-                          setPub((p) =>
-                            p
-                              ? {
-                                  ...p,
-                                  cover: {
-                                    url: URL.createObjectURL(f),
-                                    blob: f,
-                                    type: f.type,
-                                  },
-                                }
-                              : p,
-                          );
-                        }
-                        e.currentTarget.value = "";
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
-              <span className="scb-pub-hint">
-                未設定でも出品できます（あとでブラウザで設定）。
-              </span>
-            </div>
-
-            <label className="scb-pub-field">
-              <span>価格（円・0 で無料）</span>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                step={100}
-                value={pub.price}
-                onChange={(e) =>
-                  setPub({ ...pub, price: Number(e.target.value) || 0 })
-                }
-              />
-            </label>
-            <label className="scb-pub-field">
-              <span>説明（任意）</span>
-              <textarea
-                className="input"
-                rows={3}
-                value={pub.desc}
-                onChange={(e) => setPub({ ...pub, desc: e.target.value })}
-                placeholder="どんなシナリオか。あらすじや遊び方など"
-              />
-            </label>
-            <div className="scb-pub-actions">
-              <button className="btn" onClick={() => setPub(null)}>
-                キャンセル
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => void doPublish()}
-                disabled={publishing}
-              >
-                {publishing ? (
-                  <>
-                    <Loader2 size={15} className="spin" /> 出品中…
-                  </>
-                ) : (
-                  <>
-                    <Store size={15} /> 下書きを作成して続ける
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -2,71 +2,23 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Signed upload URL issuance for the upload feature (Ph-γ).
+ * Signed upload URL issuance (avatars).
  *
- * Only place in the codebase that calls `createSignedUploadUrl` against
- * Supabase Storage. Pairs with `lib/storage/signed-url.ts` (download
- * side); both use `service_role` and live behind `import "server-only"`.
+ * signed URLs bypass Storage RLS, so the caller's auth check is the only
+ * gate before this runs (app/api/account/avatar-upload-url).
  *
- * Authorization is the caller's responsibility (see
- * lib/access/upload-access.ts). signed URLs bypass Storage RLS, so the
- * access check is the only gate before this function runs.
- *
- * About the URL TTL:
- *   @supabase/supabase-js@^2.45 exposes only `{ upsert }` on
- *   createSignedUploadUrl. The URL's own validity is fixed server-side by
- *   Supabase (default ~2 h, not user-configurable from the SDK). The
- *   Route Handlers advertise `expiresIn: 300` to the client as the
- *   intended use-by window (decisions Q10 / J-E). Clients should start
- *   the PUT within 5 minutes; if SDK gains a TTL option in a future
- *   version, this comment + the route handlers should be updated together.
- *
- * `upsert: true` is mandatory: the F-1 self-heal path requires the
- * client to be able to overwrite the same `{creator_id}/{product_id}.{ext}`
- * key on retry.
+ * 2026-09 のストア廃止で、表紙・作品ファイル・スクリーンショット用の発行は
+ * 撤去した。
  */
 
-const COVERS_BUCKET = "covers";
-const PRODUCT_FILES_BUCKET = "product-files";
 const AVATARS_BUCKET = "avatars";
-const SCREENSHOTS_BUCKET = "screenshots";
-
-export async function createCoverUploadUrl(path: string): Promise<string> {
-  const admin = createAdminClient();
-  const { data, error } = await admin.storage
-    .from(COVERS_BUCKET)
-    .createSignedUploadUrl(path, { upsert: true });
-
-  if (error || !data?.signedUrl) {
-    throw new Error(
-      `[createCoverUploadUrl] failed: ${error?.message ?? "no url"}`,
-    );
-  }
-  return data.signedUrl;
-}
-
-export async function createProductFileUploadUrl(
-  path: string,
-): Promise<string> {
-  const admin = createAdminClient();
-  const { data, error } = await admin.storage
-    .from(PRODUCT_FILES_BUCKET)
-    .createSignedUploadUrl(path, { upsert: true });
-
-  if (error || !data?.signedUrl) {
-    throw new Error(
-      `[createProductFileUploadUrl] failed: ${error?.message ?? "no url"}`,
-    );
-  }
-  return data.signedUrl;
-}
 
 /**
- * アバター画像用 signed upload URL。avatars バケットは public-read かつ
+ * プロフィール画像用 signed upload URL。avatars バケットは public-read かつ
  * 自分のフォルダ(<user_id>/...)にのみ書き込み可能。
  *
- * upsert: true で 同じ path への再アップロードを許可(プロフィール画像の
- * 差し替えで使う、creator が何度も変えても新規 path が乱立しない設計)。
+ * upsert: true で同じ path への再アップロードを許可(差し替えのたびに
+ * 新しい path が乱立しないように)。
  */
 export async function createAvatarUploadUrl(path: string): Promise<string> {
   const admin = createAdminClient();
@@ -77,29 +29,6 @@ export async function createAvatarUploadUrl(path: string): Promise<string> {
   if (error || !data?.signedUrl) {
     throw new Error(
       `[createAvatarUploadUrl] failed: ${error?.message ?? "no url"}`,
-    );
-  }
-  return data.signedUrl;
-}
-
-/**
- * 商品スクリーンショット用 signed upload URL。screenshots バケットは
- * public-read かつ <creator_id>/... 配下のみ書き込み可。
- *
- * 1 商品が複数枚持てるので path には order_index を含める想定
- * (<creator_id>/<product_id>/<index>.{ext})。
- */
-export async function createScreenshotUploadUrl(
-  path: string,
-): Promise<string> {
-  const admin = createAdminClient();
-  const { data, error } = await admin.storage
-    .from(SCREENSHOTS_BUCKET)
-    .createSignedUploadUrl(path, { upsert: true });
-
-  if (error || !data?.signedUrl) {
-    throw new Error(
-      `[createScreenshotUploadUrl] failed: ${error?.message ?? "no url"}`,
     );
   }
   return data.signedUrl;

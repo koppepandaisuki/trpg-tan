@@ -81,9 +81,8 @@ export default async function AccountSettingsPage() {
                   プロフィール設定
                 </h1>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  表示名 / 自己紹介 / SNS リンクを編集できます。クリエイタープロフィールページ
-                  (<code className="rounded-sm bg-muted px-1 py-0.5 text-xs">/creator/{user.id.slice(0, 8)}…</code>)
-                  に反映されます。
+                  表示名 / 自己紹介 / SNS リンクを編集できます。表示名はフレンド一覧や
+                  卓の参加者として表示されます。
                 </p>
               </div>
             </div>

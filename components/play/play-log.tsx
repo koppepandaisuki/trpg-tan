@@ -84,6 +84,14 @@ function LogRow({ ev, canSeeSecret }: { ev: PlayEvent; canSeeSecret: boolean }) 
       <p className="text-center text-[11px] text-muted-foreground">{ev.text}</p>
     );
   }
+  if (ev.kind === "turn-set") {
+    // 進行の区切りなので、システムメッセージより少し目立たせる。
+    return (
+      <p className="my-1 text-center text-[11px] font-semibold text-primary">
+        {ev.label}
+      </p>
+    );
+  }
   if (ev.kind === "chat") {
     return (
       <p className="text-sm leading-relaxed">
@@ -100,7 +108,7 @@ function LogRow({ ev, canSeeSecret }: { ev: PlayEvent; canSeeSecret: boolean }) 
   if (ev.kind === "roll") {
     return <RollRow ev={ev} canSeeSecret={canSeeSecret} />;
   }
-  // resource / panel 系はログに出さない(盤面に反映済み)。
+  // resource / panel / scene 系はログに出さない(盤面に反映済み)。
   return null;
 }
 

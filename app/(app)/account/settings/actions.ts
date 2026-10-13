@@ -55,7 +55,6 @@ export async function updateAvatarPathAction(
   }
 
   revalidatePath("/account/settings");
-  revalidatePath(`/creator/${user.id}`);
 
   return { ok: true };
 }
@@ -107,11 +106,8 @@ export async function updateProfileAction(
     return { ok: false, error: "保存に失敗しました。少し時間をおいて再度お試しください。" };
   }
 
-  // 自分のプロフィールページ + 設定ページのキャッシュ無効化。
-  // 他人の閲覧は revalidate しない(ISR の負荷を抑える、次回アクセス
-  // 時に最新化されるので実用上問題ない)。
+  // 設定ページのキャッシュ無効化。
   revalidatePath("/account/settings");
-  revalidatePath(`/creator/${user.id}`);
 
   return { ok: true };
 }
@@ -301,7 +297,7 @@ export async function deleteAccountAction(
     return {
       ok: false,
       error:
-        "作品を公開・登録中のため退会できません。先にすべての作品を削除するか、Discord にてご相談ください。",
+        "過去に出品した作品のデータが残っているため、自動では退会できません。お手数ですが Discord にてご連絡ください(運営側で整理します)。",
     };
   }
 

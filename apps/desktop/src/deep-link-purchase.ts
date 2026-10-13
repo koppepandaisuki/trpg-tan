@@ -2,19 +2,22 @@ import { onOpenUrl, getCurrent } from "@tauri-apps/plugin-deep-link";
 import { listen } from "@tauri-apps/api/event";
 
 /**
- * 購入の deep-link コールバック登録。
+ * 決済完了の deep-link コールバック登録。
  *
- * Web の決済成功/キャンセルページが下記 URL に飛ばすので、それを受けて
- * ライブラリ更新やトースト表示を上位コンポーネントに伝える:
+ * Web の決済完了ページが下記 URL に飛ばすので、それを受けてプラン/ゴールドの
+ * 再取得やトースト表示を上位コンポーネントに伝える:
  *
- *   - redice://purchase/complete?session_id=...
- *   - redice://purchase/cancel?slug=...
+ *   - redice://subscription/complete?plan=...
+ *   - redice://gold/complete?amount=...
  *   (旧ブランドの paradice:// も受理する)
+ *
+ * 作品購入の redice://purchase/* は 2026-09 のストア廃止で撤去した
+ * (古い Web ページから飛んできても無視する)。
  *
  * auth.ts と並列に `getCurrent / deep-link-url / onOpenUrl` の 3 経路を
  * 張る。auth 用 handler は prefix が違うので衝突しない。
  *
- * 同じ session_id を複数経路で受け取っても重複処理しないよう内部でガード。
+ * 同じ URL を複数経路で受け取っても重複処理しないよう内部でガード。
  */
 
 const processedSessions = new Set<string>();
@@ -27,28 +30,17 @@ function stripScheme(raw: string): string | null {
 }
 
 export type PurchaseDeepLinkHandlers = {
-  onComplete?: (info: { sessionId: string | null }) => void;
-  onCancel?: (info: { slug: string | null }) => void;
   onSubscriptionComplete?: (info: { plan: string | null }) => void;
   onGoldComplete?: (info: { amount: number | null }) => void;
 };
 
 function handleUrl(raw: string, handlers: PurchaseDeepLinkHandlers): void {
   const rest = stripScheme(raw);
-  if (
-    !rest ||
-    (!rest.startsWith("purchase/") &&
-      !rest.startsWith("subscription/") &&
-      !rest.startsWith("gold/"))
-  )
+  if (!rest || (!rest.startsWith("subscription/") && !rest.startsWith("gold/")))
     return;
   try {
     const u = new URL(raw);
-    const scheme = rest.startsWith("subscription/")
-      ? "subscription"
-      : rest.startsWith("gold/")
-        ? "gold"
-        : "purchase";
+    const scheme = rest.startsWith("subscription/") ? "subscription" : "gold";
     const kind = u.pathname.replace(/^\/+/, "");
     if (scheme === "gold" && kind === "complete") {
       const amt = Number(u.searchParams.get("amount"));
@@ -62,14 +54,6 @@ function handleUrl(raw: string, handlers: PurchaseDeepLinkHandlers): void {
       if (processedSessions.has(dedupKey)) return;
       processedSessions.add(dedupKey);
       handlers.onSubscriptionComplete?.({ plan });
-    } else if (scheme === "purchase" && kind === "complete") {
-      const sessionId = u.searchParams.get("session_id");
-      const dedupKey = sessionId ?? `complete:${Date.now()}`;
-      if (processedSessions.has(dedupKey)) return;
-      processedSessions.add(dedupKey);
-      handlers.onComplete?.({ sessionId });
-    } else if (scheme === "purchase" && kind === "cancel") {
-      handlers.onCancel?.({ slug: u.searchParams.get("slug") });
     }
   } catch (e) {
     console.error("[purchase-deeplink] failed to parse:", raw, e);

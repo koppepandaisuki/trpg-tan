@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   Grid3x3,
   ImagePlus,
+  FolderOpen,
+  ScrollText,
   Plus,
   ClipboardPaste,
   Share2,
@@ -27,7 +29,10 @@ import {
   sceneSelectEvent,
   sceneRenameEvent,
   sceneRemoveEvent,
+  turnSetEvent,
   parseCcfoliaCharacter,
+  type BgmTrack,
+  type CutIn,
   type Panel,
   type PanelResource,
   type PlayEvent,
@@ -39,8 +44,14 @@ import { PlayLog } from "./play-log";
 import { PlayPanelCard } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
 import { PlaySceneBar } from "./play-scene-bar";
+import { PlayTurnBar } from "./play-turn-bar";
 import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
+import { PlayFxBar } from "./play-fx-bar";
+import { AssetPicker } from "./asset-picker";
+import { CharacterPicker } from "./character-picker";
+import { CutInOverlay, TelopOverlay } from "./play-fx";
+import { usePlayAudio } from "./use-play-audio";
 import { savePlayScene } from "@/lib/play/store";
 import { uploadPlayImage } from "@/lib/play/media";
 import { resolveInputToEvent, newEventCtx } from "@/lib/play/roll";
@@ -56,7 +67,18 @@ import { connectRoom, makeRoomCode, type Room, type NetIntent } from "@/lib/play
  * の 2 方向へ流す。参加者からの操作は intent として受け、ここで検証してから
  * 正規イベント化する(乱数は GM 側だけで消費 = 全員の出目が一致)。
  */
-export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
+export function PlayTable({
+  initialScene,
+  canHost,
+}: {
+  initialScene: PlayScene;
+  /**
+   * 卓を公開(参加コード発行 = マルチ卓のホスト)できるか。PLAY プラン以上か管理者。
+   * 無料(basic)でも一人で盤面を触る・保存するのは自由で、公開だけがゲート対象
+   * (デスクトップ版 PlayTable の openShare と同じ線引き)。
+   */
+  canHost: boolean;
+}) {
   const [scene, setScene] = useState<PlayScene>(initialScene);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -66,11 +88,24 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
+  // 演出(自分の画面にも出す。参加者へは cutin/telop/audio で配信)。
+  const [cutin, setCutin] = useState<CutIn | null>(null);
+  const [telop, setTelop] = useState<string | null>(null);
+  const [playingBgm, setPlayingBgm] = useState<BgmTrack | null>(null);
+  const audio = usePlayAudio();
+  // 途中入室した参加者へ現在の BGM を配り直すために覚えておく。
+  const curBgmRef = useRef<string | null>(null);
+
   // 公開(参加募集)状態。
   const [room, setRoom] = useState<Room | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [participants, setParticipants] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [planGate, setPlanGate] = useState(false);
+  // ライブラリから背景を選ぶピッカー。
+  const [bgPicker, setBgPicker] = useState(false);
+  // 保存したキャラ(キャラシ)を卓に出すピッカー。
+  const [charPicker, setCharPicker] = useState(false);
 
   // 最新 scene を参照するための ref(Realtime のコールバックから読む)。
   const sceneRef = useRef(scene);
@@ -212,6 +247,10 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
 
   /** 参加募集を開始(参加コードを発行してルームを開く)。 */
   async function openRoom() {
+    if (!canHost) {
+      setPlanGate(true);
+      return;
+    }
     setBusy("卓を公開しています…");
     setError(null);
     try {
@@ -230,6 +269,15 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
               panels: sceneRef.current.panels.filter((p) => !p.hidden),
             },
           });
+          // 途中入室でも今かかっている曲が揃うように BGM を配り直す。
+          if (curBgmRef.current) {
+            void r.send({
+              type: "audio",
+              channel: "bgm",
+              src: curBgmRef.current,
+              loop: true,
+            });
+          }
         }
       });
       r.onLive((live) => {
@@ -259,6 +307,38 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
     setRoom(null);
     setRoomCode(null);
     setParticipants([]);
+  }
+
+  /* ===== 演出(GM が発火 → 自分の画面 + 参加者へ) ===== */
+
+  /** BGM を差し替える / 止める(track=null で停止)。 */
+  function setBgm(track: BgmTrack | null) {
+    curBgmRef.current = track?.path ?? null;
+    setPlayingBgm(track);
+    audio.handleAudio("bgm", track?.path ?? null);
+    void room?.send({
+      type: "audio",
+      channel: "bgm",
+      src: track?.path ?? null,
+      loop: true,
+    });
+  }
+
+  function fireSe(track: BgmTrack) {
+    audio.handleAudio("se", track.path);
+    void room?.send({ type: "audio", channel: "se", src: track.path });
+  }
+
+  function fireCutin(c: CutIn) {
+    setCutin(c);
+    // id だけ送る。画像は参加者が自分の scene.cutins から引く
+    // (画像を丸ごと載せると broadcast が詰まり、演出自体が届かなくなる)。
+    void room?.send({ type: "cutin", cutinId: c.id });
+  }
+
+  function fireTelop(text: string) {
+    setTelop(text);
+    void room?.send({ type: "telop", text });
   }
 
   /* ===== GM の操作 ===== */
@@ -379,6 +459,29 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
         )}
       </div>
 
+      {planGate && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <Share2 className="h-4 w-4 shrink-0" aria-hidden />
+          <p className="min-w-0 flex-1">
+            卓を公開してみんなで遊ぶには
+            <span className="font-semibold">プレイプラン</span>
+            以上が必要です。一人で盤面を準備・保存するのは無料のままです。
+          </p>
+          <Link
+            href={"/pricing" as Route}
+            className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+          >
+            プランを見る
+          </Link>
+          <button
+            onClick={() => setPlanGate(false)}
+            className="shrink-0 text-xs text-amber-800 underline-offset-2 hover:underline"
+          >
+            閉じる
+          </button>
+        </div>
+      )}
+
       {error && (
         <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
@@ -394,6 +497,24 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
         {/* 左: 盤面 + 操作 */}
         <div className="min-w-0 space-y-2">
           {/* シーン(場面ごとに盤面を持ち替える。駒は卓に属したまま) */}
+          <PlayTurnBar
+            panels={scene.panels}
+            turn={scene.turn}
+            onNext={(round, panel, label) =>
+              dispatch(turnSetEvent(newEventCtx(), round, panel.id, label))
+            }
+            onReset={() =>
+              dispatch(
+                turnSetEvent(
+                  newEventCtx(),
+                  0,
+                  null,
+                  "⏱ ターン管理をリセット",
+                ),
+              )
+            }
+          />
+
           <PlaySceneBar
             scenes={scene.scenes ?? []}
             activeId={scene.activeSceneId}
@@ -427,6 +548,14 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
               />
             </label>
             <button
+              onClick={() => setBgPicker(true)}
+              title="ライブラリの画像を背景にする"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+            >
+              <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+              ライブラリから
+            </button>
+            <button
               onClick={() =>
                 dispatch(
                   boardSetEvent(newEventCtx(), {
@@ -454,6 +583,14 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
               <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
               コマ貼付
             </button>
+            <button
+              onClick={() => setCharPicker(true)}
+              title="キャラシで保存したキャラを駒として出す"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+            >
+              <ScrollText className="h-3.5 w-3.5" aria-hidden />
+              キャラを出す
+            </button>
             <PlayReplayButton scene={scene} isGm />
           </div>
 
@@ -462,6 +599,7 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
             panels={scene.panels}
             canDrag={() => true}
             selectedId={selectedId}
+            activeTurnId={scene.turn?.activePanelId ?? null}
             onSelect={setSelectedId}
             liveDrag={(panelId, x, y) =>
               room?.sendLive({ kind: "drag", panelId, x, y })
@@ -490,8 +628,25 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
           </div>
         </div>
 
-        {/* 右: 共有メモ + 駒一覧 */}
+        {/* 右: 演出 + 共有メモ + 駒一覧 */}
         <aside className="space-y-2">
+          <PlayFxBar
+            bgmTracks={scene.bgm?.tracks ?? []}
+            seTracks={scene.se?.tracks ?? []}
+            onTracksChange={(kind, tracks) =>
+              setScene((s) => ({ ...s, [kind]: { tracks } }))
+            }
+            cutins={scene.cutins ?? []}
+            onCutinsChange={(cutins) => setScene((s) => ({ ...s, cutins }))}
+            playingBgm={playingBgm}
+            onBgm={setBgm}
+            onSe={fireSe}
+            onFireCutin={fireCutin}
+            onTelop={fireTelop}
+            volume={audio.volume}
+            onVolumeChange={audio.setVolume}
+          />
+
           <PlayMemo
             memos={scene.sharedMemos ?? []}
             onChange={(memos) =>
@@ -551,6 +706,39 @@ export function PlayTable({ initialScene }: { initialScene: PlayScene }) {
           )}
         </aside>
       </div>
+
+      {charPicker && (
+        <CharacterPicker
+          onClose={() => setCharPicker(false)}
+          onPick={(panel) => {
+            setCharPicker(false);
+            dispatch(
+              panelAddEvent(newEventCtx(), {
+                ...panel,
+                pos: { x: 0.3 + Math.random() * 0.4, y: 0.3 + Math.random() * 0.3 },
+              }),
+            );
+          }}
+        />
+      )}
+
+      {bgPicker && (
+        <AssetPicker
+          kind="image"
+          title="ライブラリから背景を選ぶ"
+          onClose={() => setBgPicker(false)}
+          onPick={(a) => {
+            setBgPicker(false);
+            dispatch(boardSetEvent(newEventCtx(), { image: a.url }));
+          }}
+        />
+      )}
+
+      {/* 演出オーバーレイ(非ブロッキング・自動で消える) */}
+      {cutin && (
+        <CutInOverlay cutin={cutin} onDone={() => setCutin(null)} />
+      )}
+      {telop && <TelopOverlay text={telop} onDone={() => setTelop(null)} />}
     </div>
   );
 }

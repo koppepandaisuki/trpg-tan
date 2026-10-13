@@ -37,7 +37,7 @@ export default async function SignupPage() {
               </div>
               <h1 className="text-xl font-semibold tracking-tight">新規登録</h1>
               <p className="text-xs text-muted-foreground">
-                TRPG マーケットプレイスを始めましょう
+                卓を立てて、すぐ遊びましょう
               </p>
             </div>
 
@@ -48,8 +48,7 @@ export default async function SignupPage() {
                 aria-hidden
               />
               <span>
-                α テスター歓迎中。サインアップした方には自動で creator 権限が付与され、
-                すぐに商品を出品できます。
+                α テスター歓迎中。登録するとすぐに卓を立てられます。
               </span>
             </div>
 

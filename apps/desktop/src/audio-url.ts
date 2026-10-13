@@ -29,6 +29,11 @@ function mimeOf(path: string): string {
 }
 
 export async function audioUrl(path: string): Promise<string> {
+  // Web 版で作られた卓は音源を Storage の公開 URL で持つ(ブラウザにローカル
+  // パスが無いため)。<audio> はそのまま鳴らせるので readFile を通さない。
+  // これが無いと、web で作った卓をデスクトップで開いたとき音が出ない。
+  if (/^https?:\/\//i.test(path)) return path;
+
   const hit = cache.get(path);
   if (hit) return hit;
   const bytes = await readFile(path);
@@ -56,6 +61,9 @@ const dataCache = new Map<string, string>();
  * blob URL はこの端末でしか使えないので、ネット配信(参加者の再生)にはこちらを使う。
  */
 export async function audioDataUrl(path: string): Promise<string> {
+  // 既に公開 URL(Web 版で作られた卓の音源)ならそのまま配信できる。
+  if (/^https?:\/\//i.test(path)) return path;
+
   const hit = dataCache.get(path);
   if (hit) return hit;
   const bytes = await readFile(path);

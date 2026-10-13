@@ -3,9 +3,9 @@
  *
  * ポリシー:
  *  - 1 ゴールド ≒ ¥1 の感覚で価格設定(パックは等価)。
- *  - 用途: PLAY の AI 従量課金 / 作品のゴールド購入 / スーパーサンクス。
- *  - 現金化(払い出し)はできない。クリエイターが受け取ったゴールドも
- *    アプリ内でのみ利用できる。
+ *  - 用途: PLAY の AI 従量課金。
+ *    (作品のゴールド購入 / スーパーサンクスは 2026-09 のストア廃止で撤去)
+ *  - 現金化(払い出し)はできない。
  */
 
 /** Stripe で購入できるゴールドパック。 */
@@ -46,42 +46,6 @@ export function goldErrorMessage(raw: string): {
       status: 402,
       reason: "insufficient_gold",
       message: "ゴールドが不足しています",
-    };
-  if (raw.includes("already_purchased"))
-    return {
-      status: 409,
-      reason: "already_purchased",
-      message: "すでに購入済みです",
-    };
-  if (raw.includes("free_product"))
-    return {
-      status: 400,
-      reason: "free_product",
-      message: "無料作品はそのまま入手できます",
-    };
-  if (raw.includes("product_not_found"))
-    return {
-      status: 404,
-      reason: "product_not_found",
-      message: "作品が見つかりません",
-    };
-  if (raw.includes("own_product"))
-    return {
-      status: 400,
-      reason: "own_product",
-      message: "自分の作品は購入できません",
-    };
-  if (raw.includes("invalid_recipient"))
-    return {
-      status: 400,
-      reason: "invalid_recipient",
-      message: "送り先が不正です",
-    };
-  if (raw.includes("recipient_not_found"))
-    return {
-      status: 404,
-      reason: "recipient_not_found",
-      message: "送り先が見つかりません",
     };
   if (raw.includes("invalid_amount"))
     return {

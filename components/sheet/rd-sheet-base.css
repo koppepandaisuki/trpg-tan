@@ -1,0 +1,444 @@
+/*
+ * Web 版キャラシの土台(デスクトップと同じ描画環境を .rd-sheet の中に作る)。
+ *
+ * キャラシのエディタは @trpg/ui(デスクトップと共通のコンポーネント)で、
+ * 固有のスタイルは @trpg/ui/sheet.css にある。ただしデスクトップは
+ *   - :root にテーマ変数(--surface / --primary …)を持ち
+ *   - .btn / .input / .card / .tabs などの基本部品をグローバルに定義し
+ *   - 見出し・表・リストはブラウザ既定のまま使っている
+ * のに対し、Web は Tailwind の preflight(見出しや表をリセット)と、同名の
+ * shadcn 用変数(--primary 等を HSL 成分で持つ)がある。そこで .rd-sheet の中だけ:
+ *   1. デスクトップのライトテーマ変数を定義する(Web はライト専用)
+ *   2. preflight のリセットを revert でブラウザ既定に戻す
+ *   3. デスクトップのグローバル規則を :where(.rd-sheet) で囲んで複製する
+ *      (:where は詳細度 0 なので、デスクトップと同じ詳細度関係のまま効く)
+ *
+ * 注意: .rd-sheet の中では --primary / --border が別の意味になるので、
+ * Tailwind のユーティリティ(bg-primary 等)をこの中で使わないこと。
+ *
+ * 3 の複製はデスクトップ apps/desktop/src/styles.css の基本部品から生成した
+ * (2026-09)。基本部品の見た目を変えたらここも合わせる。
+ */
+
+/* ---------- 1. テーマ変数 + 文字の既定(デスクトップの :root / body 相当) ---------- */
+.rd-sheet {
+  --bg: #fdfaf5;
+  --surface: #ffffff;
+  --surface-2: #faf5ec;
+  --surface-3: #f3ead9;
+  --border: rgba(164, 120, 44, 0.18);
+  --border-strong: rgba(164, 120, 44, 0.34);
+  --text: #2a1c14;
+  --text-muted: #77644f;
+  --text-faint: #8b7862;
+  --primary: #b02832;
+  --primary-hover: #93202a;
+  --primary-soft: #fceceb;
+  --primary-deep: #8a1d26;
+  --mint: #d9b45c;
+  --mint-soft: #f9f0da;
+  --mint-deep: #8f6f1a;
+  --gold: #c9a227;
+  --gold-soft: #f8f0d6;
+  --gold-deep: #8f6f1a;
+  --coral: #f0876b;
+  --shadow-xs: 0 1px 2px rgba(94, 52, 24, 0.06);
+  --shadow-sm: 0 1px 2px rgba(94, 52, 24, 0.05), 0 3px 10px rgba(94, 52, 24, 0.07);
+  --shadow-md: 0 6px 14px rgba(94, 52, 24, 0.09), 0 18px 38px rgba(94, 52, 24, 0.12);
+  --shadow-lg: 0 12px 28px rgba(94, 52, 24, 0.12), 0 34px 64px rgba(94, 52, 24, 0.18);
+  --ring: 0 0 0 3px rgba(176, 40, 50, 0.22);
+  --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --grad-primary: linear-gradient(135deg, #c8434c 0%, #93202a 100%);
+  --grad-accent: linear-gradient(120deg, var(--primary) 0%, var(--mint) 100%);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --dur-1: 0.12s;
+  --dur-2: 0.18s;
+  --dur-3: 0.26s;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  font-family: var(--font-sans), "Noto Sans JP", system-ui, "Segoe UI", "Yu Gothic UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+/* ---------- 2. Tailwind preflight を打ち消す(ブラウザ既定に戻す) ---------- */
+:where(.rd-sheet) *,
+:where(.rd-sheet) ::before,
+:where(.rd-sheet) ::after {
+  border-width: revert;
+  border-style: revert;
+  border-color: revert;
+}
+:where(.rd-sheet) h1,
+:where(.rd-sheet) h2,
+:where(.rd-sheet) h3,
+:where(.rd-sheet) h4,
+:where(.rd-sheet) h5,
+:where(.rd-sheet) h6 {
+  font-size: revert;
+  font-weight: revert;
+  margin: revert;
+}
+:where(.rd-sheet) p,
+:where(.rd-sheet) blockquote,
+:where(.rd-sheet) dl,
+:where(.rd-sheet) dd,
+:where(.rd-sheet) figure,
+:where(.rd-sheet) hr,
+:where(.rd-sheet) pre {
+  margin: revert;
+}
+:where(.rd-sheet) ul,
+:where(.rd-sheet) ol,
+:where(.rd-sheet) menu {
+  list-style: revert;
+  margin: revert;
+  padding: revert;
+}
+:where(.rd-sheet) table {
+  border-collapse: revert;
+  text-indent: revert;
+  border-color: revert;
+}
+:where(.rd-sheet) button,
+:where(.rd-sheet) input,
+:where(.rd-sheet) optgroup,
+:where(.rd-sheet) select,
+:where(.rd-sheet) textarea {
+  font-size: revert;
+  font-weight: revert;
+  line-height: revert;
+  letter-spacing: revert;
+  margin: revert;
+  padding: revert;
+  color: revert;
+}
+:where(.rd-sheet) button,
+:where(.rd-sheet) [type="button"],
+:where(.rd-sheet) [type="reset"],
+:where(.rd-sheet) [type="submit"] {
+  background-color: revert;
+  background-image: revert;
+  -webkit-appearance: revert;
+  appearance: revert;
+}
+:where(.rd-sheet) img,
+:where(.rd-sheet) video {
+  display: revert;
+  vertical-align: revert;
+  max-width: revert;
+  height: revert;
+}
+
+/* ---------- 3a. デスクトップのグローバル要素規則 ---------- */
+:where(.rd-sheet) * {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(164, 120, 44, 0.35) transparent;
+}
+:where(.rd-sheet) :focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--radius-sm);
+}
+:where(.rd-sheet) ::selection {
+  background: rgba(176, 40, 50, 0.3);
+}
+:where(.rd-sheet) button {
+  color: inherit;
+  font-family: inherit;
+}
+:where(.rd-sheet) button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---------- 3b. デスクトップの基本部品(.btn / .input / .card / .tabs …) ---------- */
+:where(.rd-sheet) .app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 30px 40px 72px;
+}
+:where(.rd-sheet) .tabs {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 2px rgba(94, 52, 24, 0.05);
+}
+:where(.rd-sheet) .tab {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 8px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition:
+    color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
+}
+:where(.rd-sheet) .tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.5);
+}
+:where(.rd-sheet) .tab.active {
+  background: linear-gradient(180deg, var(--surface), var(--surface-2));
+  color: var(--primary-deep);
+  box-shadow:
+    0 1px 2px rgba(94, 52, 24, 0.08),
+    0 2px 6px rgba(94, 52, 24, 0.06);
+}
+:where(.rd-sheet) .tab.active:hover {
+  background: linear-gradient(180deg, var(--surface), var(--surface-2));
+}
+:where(.rd-sheet) .input:disabled {
+  background: var(--surface-2);
+  color: var(--text-faint);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+:where(.rd-sheet) .muted {
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+:where(.rd-sheet) .card {
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-sm), var(--card-edge);
+  margin-top: 16px;
+  transition:
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+:where(.rd-sheet) .card:hover {
+  box-shadow: var(--shadow-md), var(--card-edge);
+  border-color: var(--border-strong);
+}
+:where(.rd-sheet) .card > strong,
+:where(.rd-sheet) .card > .row > strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+:where(.rd-sheet) .card > strong::before,
+:where(.rd-sheet) .card > .row > strong::before {
+  content: "";
+  width: 4px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--grad-accent);
+  flex-shrink: 0;
+}
+:where(.rd-sheet) .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+:where(.rd-sheet) .btn {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-md);
+  padding: 9px 16px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out);
+}
+:where(.rd-sheet) .btn:hover {
+  border-color: var(--primary);
+  color: var(--primary-deep);
+  background: var(--surface-2);
+}
+:where(.rd-sheet) .btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+:where(.rd-sheet) .btn-primary {
+  position: relative;
+  overflow: hidden;
+  background: var(--grad-primary);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+  box-shadow:
+    0 2px 6px rgba(33, 152, 214, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+:where(.rd-sheet) .btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.4) 48%,
+    rgba(255, 255, 255, 0.4) 52%,
+    transparent 70%
+  );
+  transform: translateX(-130%);
+  transition: transform 0.62s var(--ease-out);
+  pointer-events: none;
+}
+:where(.rd-sheet) .btn-primary:hover::after {
+  transform: translateX(130%);
+}
+:where(.rd-sheet) .btn-primary:hover {
+  color: #fff;
+  background: var(--grad-primary);
+  filter: brightness(1.06) saturate(1.05);
+  transform: translateY(-1px);
+  box-shadow:
+    0 8px 20px rgba(33, 152, 214, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+:where(.rd-sheet) .btn-primary:active {
+  filter: brightness(0.98);
+  transform: translateY(0);
+}
+:where(.rd-sheet) .tag {
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+:where(.rd-sheet) .tag.ok {
+  background: var(--mint-soft);
+  border-color: var(--mint);
+  color: #0f766e;
+}
+:where(.rd-sheet) .tag.fail {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+:where(.rd-sheet) .input {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 11px;
+  font-size: 15px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  transition: all 0.12s;
+}
+:where(.rd-sheet) .input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+:where(.rd-sheet) .btn.mini {
+  padding: 5px 11px;
+  font-size: 13px;
+  border-radius: 9px;
+}
+:where(.rd-sheet) .chip {
+  display: inline-block;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--primary-soft);
+  border: 1px solid var(--border);
+  color: var(--primary-deep);
+}
+:where(.rd-sheet) .skills {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 14px;
+}
+:where(.rd-sheet) .skills th,
+:where(.rd-sheet) .skills td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+:where(.rd-sheet) .skills th {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+:where(.rd-sheet) .skills td:nth-child(n + 2),
+:where(.rd-sheet) .skills th:nth-child(n + 2) {
+  text-align: center;
+}
+:where(.rd-sheet) .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+:where(.rd-sheet) .rqa-book-del {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
+}
+:where(.rd-sheet) .rqa-book-del:hover {
+  color: #b91c1c;
+}
+:where(.rd-sheet) .sysb-note {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--gold-deep);
+  background: var(--gold-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+:where(.rd-sheet) .sysb-help {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+:where(.rd-sheet) .sysb-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+:where(.rd-sheet) .sysb-row .input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  font-size: 13px;
+}
+:where(.rd-sheet) .sysb-ta {
+  min-height: 76px;
+  resize: vertical;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+@media (max-width: 640px) {
+  :where(.rd-sheet) .card {
+    padding: 14px;
+  }
+}

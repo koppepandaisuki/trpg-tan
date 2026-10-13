@@ -26,6 +26,7 @@ export function PlayBoard({
   onMove,
   onSelect,
   selectedId,
+  activeTurnId,
   liveDrag,
 }: {
   board: BoardState | undefined;
@@ -38,6 +39,8 @@ export function PlayBoard({
   liveDrag?: (panelId: string, x: number, y: number) => void;
   onSelect?: (panelId: string | null) => void;
   selectedId?: string | null;
+  /** 現在の手番の駒(ターン管理中のみ)。全員の画面で同じ駒が光る。 */
+  activeTurnId?: string | null;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -157,6 +160,10 @@ export function PlayBoard({
               draggable && !p.locked ? "cursor-grab active:cursor-grabbing" : "",
               dragId === p.id ? "z-50" : "",
               selectedId === p.id ? "outline outline-2 outline-primary" : "",
+              // 手番はリングで示す(GM のローカル選択 outline とは別の見た目)。
+              activeTurnId === p.id
+                ? "ring-4 ring-amber-400 ring-offset-2 ring-offset-transparent"
+                : "",
               p.hidden ? "opacity-40" : "",
             ].join(" ")}
             style={{

@@ -22,6 +22,8 @@ import { isSameOriginRequest } from "@/lib/api/origin";
  *   - confirm に「退会する」が必要(誤操作防止)。
  *   - products.creator_id は profiles への on delete restrict のため、作品を
  *     1 つでも持つ creator は削除できない → 事前に件数を見て丁寧に拒否する。
+ *     2026-09 のストア廃止で作品を消す UI が無くなったので、該当者は運営が
+ *     個別に整理する(Discord へ誘導)。
  *
  * 成功時、クライアントはサインアウトする。
  */
@@ -115,7 +117,7 @@ export async function POST(request: NextRequest) {
       {
         ok: false,
         message:
-          "作品を公開・登録中のため退会できません。先にすべての作品を削除するか、Discord にてご相談ください。",
+          "過去に出品した作品のデータが残っているため、自動では退会できません。お手数ですが Discord にてご連絡ください(運営側で整理します)。",
       },
       { status: 409 },
     );

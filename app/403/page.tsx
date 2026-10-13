@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { ShieldAlert } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
@@ -13,7 +14,7 @@ export const metadata = {
 /**
  * 403 page.
  *
- * `requireCreator` / `requireAdmin` 等のロールガードが拒否したときに
+ * `requireAdmin` 等のロールガードが拒否したときに
  * redirect されてくるページ。
  *
  * 見た目は他の状態画面(success / cancel / empty state)と統一した
@@ -44,7 +45,7 @@ export default function ForbiddenPage() {
               </h1>
               <p className="mx-auto max-w-sm text-sm text-muted-foreground">
                 このページを表示するには適切な権限が必要です。
-                クリエイター登録や管理者権限が必要な場合は、運営にお問い合わせください。
+                管理者権限が必要な場合は、運営にお問い合わせください。
               </p>
             </div>
 
@@ -56,10 +57,10 @@ export default function ForbiddenPage() {
                 トップへ戻る
               </Link>
               <Link
-                href="/store"
+                href={"/play" as Route}
                 className={cn(buttonVariants({ variant: "outline" }))}
               >
-                ストアを見る
+                PLAY を開く
               </Link>
             </div>
           </CardContent>

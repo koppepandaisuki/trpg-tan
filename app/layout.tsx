@@ -41,7 +41,7 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://re-dice.net";
 
 const DESCRIPTION =
-  "シナリオ・ルールブック・マップ・BGM など、TRPG向け作品を販売・購入できるマーケットプレイス。クリエイターは α 期間中、自動で出品権限が付与されます。";
+  "ブラウザで卓を立ててすぐ遊べる TRPG オンラインセッションツール。盤面・ダイス・キャラシ・BGM が 1 つに。参加者はインストール不要。";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -54,11 +54,11 @@ export const metadata: Metadata = {
   keywords: [
     "TRPG",
     "テーブルトークRPG",
+    "オンラインセッション",
+    "セッションツール",
+    "ダイス",
+    "キャラシ",
     "シナリオ",
-    "ルールブック",
-    "マップ",
-    "BGM",
-    "マーケットプレイス",
     "Re-dice",
     "クトゥルフ",
     "創作",

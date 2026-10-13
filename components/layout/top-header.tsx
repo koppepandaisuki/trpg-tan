@@ -1,16 +1,9 @@
 import Link from "next/link";
-import {
-  Bell,
-  LogOut,
-  AlertCircle,
-  MessageCircle,
-  LayoutDashboard,
-} from "lucide-react";
+import { Bell, LogOut, MessageCircle } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { MobileMenu } from "@/components/layout/mobile-menu";
-import { SearchBar } from "@/components/layout/search-bar";
 import { NavLinks } from "@/components/layout/nav-links";
 import { PresenceHeartbeat } from "@/components/friends/presence-heartbeat";
 import { getCurrentUser } from "@/lib/session/get-user";
@@ -22,7 +15,10 @@ import { cn } from "@/lib/utils";
  *
  * Responsive 構造:
  *  - < md: ロゴ + ハンバーガー(MobileMenu)のみ
- *  - >= md: ロゴ + 検索バー + nav + ユーザーメニュー(現状維持)
+ *  - >= md: ロゴ + nav + ユーザーメニュー
+ *
+ * 2026-09 のストア廃止で、作品検索バーとクリエイター導線(Stripe 接続警告・
+ * ダッシュボード)は撤去した。
  *
  * NAV_ITEMS は MobileMenu と共有するため components/layout/nav-items.ts に
  * 切り出し済(Server → Client の props で Lucide Icon Component を渡せない
@@ -50,12 +46,6 @@ export async function TopHeader({ className }: { className?: string }) {
           <BrandMark size="md" />
         </Link>
 
-        {/* 検索バー(デスクトップのみ。モバイルは MobileMenu 内に配置)。
-            IIIII で実機能化:Enter で /store?q= に遷移。 */}
-        <div className="hidden flex-1 max-w-xl md:block">
-          <SearchBar />
-        </div>
-
         {/* デスクトップ用 nav(現在地ハイライト付き。アプリのトップバーと同挙動) */}
         <NavLinks />
 
@@ -72,9 +62,7 @@ export async function TopHeader({ className }: { className?: string }) {
                 ? {
                     displayName: user.displayName,
                     email: user.email,
-                    isCreator: user.isCreator,
                     isAdmin: user.isAdmin,
-                    stripeChargesEnabled: user.stripeChargesEnabled,
                   }
                 : null
             }
@@ -116,40 +104,11 @@ function AuthedMenu({
   user: {
     displayName: string;
     email: string;
-    isCreator: boolean;
     isAdmin: boolean;
-    stripeChargesEnabled: boolean;
   };
 }) {
   return (
     <>
-      {/* creator かつ Stripe 未接続のときだけ警告バッジを出す。クリックで
-          onboarding ページへ。creator が「接続忘れ」のまま商品を作って詰む
-          のを防ぐリマインダー。 */}
-      {user.isCreator && !user.stripeChargesEnabled && (
-        <Link
-          href="/creator/onboarding"
-          className="hidden items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100 sm:inline-flex"
-          aria-label="Stripe 接続が未完了です。クリックして設定に進む"
-        >
-          <AlertCircle className="h-3 w-3" aria-hidden />
-          <span>Stripe 未接続</span>
-        </Link>
-      )}
-
-      {/* creator はヘッダーから 1 クリックでダッシュボードへ(DDDDDD)。
-          作品管理 / 売上集計の起点。creator でないユーザーには出さない。 */}
-      {user.isCreator && (
-        <Link
-          href="/creator/dashboard"
-          className="hidden items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground lg:inline-flex"
-          aria-label="クリエイターダッシュボードを開く"
-        >
-          <LayoutDashboard className="h-4 w-4" aria-hidden />
-          <span>ダッシュボード</span>
-        </Link>
-      )}
-
       <DiscordOrBellButton />
 
       {/* 表示名 + ロールバッジ全体をプロフィール設定リンクに。
@@ -166,11 +125,6 @@ function AuthedMenu({
           {user.isAdmin && (
             <Badge variant="category" className="text-[10px]">
               admin
-            </Badge>
-          )}
-          {user.isCreator && (
-            <Badge variant="muted" className="text-[10px]">
-              creator
             </Badge>
           )}
         </span>

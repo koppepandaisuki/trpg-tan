@@ -1,202 +1,210 @@
+import Link from "next/link";
+import type { Route } from "next";
+import {
+  CalendarDays,
+  Dices,
+  FolderOpen,
+  Hammer,
+  ScrollText,
+  Sparkles,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { HomeHero } from "@/components/store/home-hero";
-import { ProductStrip } from "@/components/store/product-strip";
-import { CategoryGrid } from "@/components/store/category-grid";
-import { HomeCarousel } from "@/components/store/home-carousel";
-import { RecentlyViewed } from "@/components/recent/recently-viewed";
-import { FavoritesSection } from "@/components/favorites/favorites-section";
-import { FollowingCreatorsSection } from "@/components/creator/following-creators-section";
-import { TopCreatorsSection } from "@/components/creator/top-creators-section";
-import { CreatorEntryCard } from "@/components/creator/creator-entry-card";
-import { CreatorApplyCta } from "@/components/store/creator-apply-cta";
-import { AppDownloadCta } from "@/components/store/app-download-cta";
+import { AppDownloadCta } from "@/components/home/app-download-cta";
+import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/session/get-user";
-import {
-  listRecentProducts,
-  listTopSellingProducts,
-  listTopRatedProducts,
-  listFeaturedProducts,
-  listProductsByCategory,
-} from "@/lib/queries/products";
-import { getTopCreators } from "@/lib/queries/top-creators";
-import { publicCoverUrl, publicAvatarUrl } from "@/lib/format/storage";
-import { STORE_CATEGORIES, categoryLabel } from "@/lib/format/category";
-import type { ProductType } from "@/lib/queries/types";
+import { listMyPlaySessions } from "@/lib/queries/play-sessions";
+import { cn } from "@/lib/utils";
 
 /**
- * トップページ = ストアのランディング。Steam の Store front page を参考に、
- * 上から:
- *   1. Hero(サイトの概要 + 主導線)
- *   2. 売上上位 strip(購入数の多い順、無ければ新着に fallback)
- *   3. 新着 strip(published_at desc)
- *   4. カテゴリ grid(クリックで /store?category=xxx)
+ * トップページ。
  *
- * α 期間中は実商品が少ないため、strip は空のときは描画しない
- * (ProductStrip 側で 0 件チェック)。Hero は常に出る。
+ * 2026-09 にストア(作品売買)を廃止し、Re-dice は「卓を立てて遊ぶ道具」に
+ * 絞った。トップは その道具の入口 = PLAY / ライブラリ / キャラシ /
+ * ビルダー / フレンド / 日程調整 を並べる。
+ *
+ * ログイン中は自分の卓を最近のものから出して、すぐ再開できるようにする。
  */
 
-// root layout の title.default に任せて、ホームでは独自 title を出さない
-// (「Re-dice TRPGサイト」がブラウザタブに出る)。
+// root layout の title.default に任せる(「Re-dice TRPGサイト」)。
 
-// 1 分で revalidate(ストアのフロントなので頻繁更新は不要)
-export const revalidate = 60;
+interface Feature {
+  href: Route;
+  icon: LucideIcon;
+  title: string;
+  body: string;
+  /** ブラウザでは使えず、デスクトップアプリで使う機能。 */
+  appOnly?: boolean;
+}
 
-// ジャンル別おすすめ用のカテゴリ一覧(STORE_CATEGORIES から「すべて」を除外)。
-// 表示順は STORE_CATEGORIES の並びを尊重(シナリオ → ルールブック → マップ
-// → アートワーク → BGM)。
-const RECOMMENDATION_CATEGORIES: ProductType[] = STORE_CATEGORIES.filter(
-  (c): c is { value: ProductType; label: string } => c.value !== null,
-).map((c) => c.value);
+const FEATURES: Feature[] = [
+  {
+    href: "/play" as Route,
+    icon: Dices,
+    title: "PLAY",
+    body: "ブラウザで卓を立てて、参加コードを渡すだけでセッション開始。盤面・ダイス・BGM・カットインまで。",
+  },
+  {
+    href: "/library" as Route,
+    icon: FolderOpen,
+    title: "ライブラリ",
+    body: "立てた卓と、背景・駒・BGM などの素材をまとめて保管。次のセッションでそのまま使えます。",
+  },
+  {
+    href: "/characters" as Route,
+    icon: ScrollText,
+    title: "キャラシ",
+    body: "13 システム対応のキャラクターシート。能力値からチャットパレットまで、ブラウザでもアプリと同じエディタで作れます。",
+  },
+  {
+    href: "/download" as Route,
+    icon: Hammer,
+    title: "ビルダー",
+    body: "自作シナリオ(あらすじ・HO・NPC・シーン)や独自システムを組み立てて、そのまま卓に。",
+    appOnly: true,
+  },
+  {
+    href: "/friends" as Route,
+    icon: Users,
+    title: "フレンド",
+    body: "いつもの仲間を登録して、卓にワンタップで招待。",
+  },
+  {
+    href: "/schedule/new" as Route,
+    icon: CalendarDays,
+    title: "日程調整",
+    body: "候補日を並べて URL を共有するだけ。全員の都合が一目でわかります。",
+  },
+];
 
 export default async function HomePage() {
-  // ログイン状態 + クリエイター/管理者かどうか(申請カードの出し分けに使う)。
-  const currentUser = await getCurrentUser();
-  const showCreatorApply =
-    !currentUser || (!currentUser.isCreator && !currentUser.isAdmin);
-
-  // 売上上位 / 新着 / 好評 / 人気クリエイター / フィーチャー /
-  // 各カテゴリの上位作品 をすべて並行 fetch
-  const [
-    topSellers,
-    recent,
-    topRated,
-    topCreators,
-    featured,
-    ...categoryRecommendations
-  ] = await Promise.all([
-    listTopSellingProducts(12),
-    listRecentProducts(12),
-    listTopRatedProducts(12),
-    getTopCreators(3),
-    listFeaturedProducts(8),
-    ...RECOMMENDATION_CATEGORIES.map((cat) => listProductsByCategory(cat, 6)),
-  ]);
-
-  // Carousel に渡す軽量 item に変換(server で URL 解決 → client 安全)
-  const carouselItems = featured.map((p) => ({
-    slug: p.slug,
-    title: p.title,
-    coverUrl: publicCoverUrl(p.coverPath),
-    productType: p.productType,
-    priceJpy: p.priceJpy,
-    discountPercent: p.discountPercent,
-    discountStartsAt: p.discountStartsAt,
-    discountEndsAt: p.discountEndsAt,
-    reviewSummary: p.reviewSummary ?? null,
-    creator: {
-      id: p.creator.id,
-      displayName: p.creator.displayName,
-      avatarUrl: publicAvatarUrl(p.creator.avatarPath),
-    },
-  }));
-
-  // 「売上上位」が新着に fallback している場合、両者が重複する。
-  // 重複表示を避けるため、新着は売上上位に含まれない ID のみに絞る。
-  const topSellerIds = new Set(topSellers.map((p) => p.id));
-  const filteredRecent = recent.filter((p) => !topSellerIds.has(p.id));
-
-  const hasProducts = topSellers.length > 0 || recent.length > 0;
-
-  // listTopSellingProducts は購入ゼロのとき listRecentProducts に
-  // fallback する設計。両者の長さが同じで重複が完全 = まだ実購入が無い
-  // ことの目印になる。テスター向けに表示文言を分岐させる。
-  const noRealSalesYet =
-    topSellers.length > 0 &&
-    topSellers.length === recent.length &&
-    topSellers.every((p, i) => p.id === recent[i].id);
+  const user = await getCurrentUser();
+  const recent = user ? (await listMyPlaySessions(user.id)).slice(0, 3) : [];
 
   return (
     <>
       <TopHeader />
       <PageContainer className="space-y-10 py-8">
-        <HomeHero hasProducts={hasProducts} />
+        {/* ===== Hero ===== */}
+        <section className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-primary-soft via-white to-mint-soft p-8 shadow-sm sm:p-10">
+          <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-mint/15 blur-3xl" />
+          <Sparkles
+            className="pointer-events-none absolute right-8 top-7 h-5 w-5 text-gold/70"
+            aria-hidden
+          />
+          <Sparkles
+            className="pointer-events-none absolute right-24 top-20 h-3.5 w-3.5 text-primary/50"
+            aria-hidden
+          />
 
-        {/* デスクトップアプリの DL 誘導(テスター配布期間)。常時表示。 */}
+          <div className="relative max-w-2xl space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-3 py-1 text-xs font-medium text-primary backdrop-blur">
+              <Dices className="h-3.5 w-3.5 text-gold" aria-hidden />
+              TRPG オンラインセッション
+            </div>
+            <h1 className="font-serif text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+              卓を立てて、すぐ遊ぶ。
+            </h1>
+            <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
+              盤面・ダイス・キャラシ・BGM が 1 つに。ブラウザならインストール不要。
+              参加者はログインして、GM から届いた参加コードを入れるだけです。
+            </p>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Link
+                href={"/play" as Route}
+                className={cn(buttonVariants({ variant: "primary" }))}
+              >
+                卓を立てる
+              </Link>
+              <Link
+                href={"/download" as Route}
+                className={cn(buttonVariants({ variant: "outline" }))}
+              >
+                アプリをダウンロード
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* ===== 最近の卓(ログイン中のみ) ===== */}
+        {recent.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <h2 className="font-serif text-lg font-semibold tracking-tight">
+                最近の卓
+              </h2>
+              <Link
+                href={"/library" as Route}
+                className="text-xs text-muted-foreground transition hover:text-foreground"
+              >
+                ライブラリですべて見る →
+              </Link>
+            </div>
+            <ul className="grid gap-3 sm:grid-cols-3">
+              {recent.map((s) => (
+                <li key={s.id}>
+                  <Link
+                    href={`/play/${s.id}` as Route}
+                    className="block rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+                  >
+                    <p className="truncate font-semibold">{s.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {s.systemLabel ?? "システム未設定"} · 駒 {s.panelCount}
+                    </p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      {new Intl.DateTimeFormat("ja-JP", {
+                        month: "numeric",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(new Date(s.updatedAt))}{" "}
+                      更新
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* ===== できること ===== */}
+        <section className="space-y-3">
+          <h2 className="font-serif text-lg font-semibold tracking-tight">
+            できること
+          </h2>
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f) => (
+              <li key={f.title}>
+                <Link
+                  href={f.href}
+                  className="group flex h-full gap-3 rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary-soft text-primary transition-transform duration-300 group-hover:scale-110">
+                    <f.icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  <span className="min-w-0 space-y-1">
+                    <span className="flex items-center gap-2">
+                      <span className="font-semibold">{f.title}</span>
+                      {f.appOnly && (
+                        <span className="rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground">
+                          アプリ
+                        </span>
+                      )}
+                    </span>
+                    <span className="block text-xs leading-relaxed text-muted-foreground">
+                      {f.body}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         <AppDownloadCta />
-
-        {/* Steam ライク大型カルーセル(TTTT): 売上上位 + 好評 + 新着 を
-            組合せた注目作品を auto-rotate。実商品が 1 件もないときは
-            描画ゼロ(α 初期は HomeHero だけが見える)。 */}
-        <HomeCarousel items={carouselItems} />
-
-        {/* お気に入りは localStorage 由来。0 件のときは描画ゼロ。
-            最近見たの上に置いて、常連の「自分の棚」感を強化。 */}
-        <FavoritesSection />
-
-        {/* フォロー中のクリエイター。DB(creator_follows)由来。ISR を保つため
-            クライアントで server action 取得。0 件 / 未ログインは描画ゼロ。 */}
-        <FollowingCreatorsSection />
-
-        {/* 「最近見た作品」は localStorage 由来の client section。
-            履歴がない訪問者には何も描画されない設計なので、上位に置いても
-            ノイズにならない(2 回目訪問以降の常連 UX に効く)。 */}
-        <RecentlyViewed />
-
-        <ProductStrip
-          title="人気ランキング"
-          description={
-            noRealSalesYet
-              ? "実購入データが集まり次第、売上順に並び替わります(現状は新着順で表示)"
-              : "購入数が多い順"
-          }
-          products={topSellers}
-          seeAllHref="/store"
-          ranked
-        />
-
-        {/* 好評な作品 strip(MMMM): listTopRatedProducts が「評価ありが
-            1 件以上」のときだけ items を返すので、0 件のときは strip ごと
-            消える。「すべて見る」は /store?sort=rating に飛ばす。 */}
-        {topRated.length > 0 && (
-          <ProductStrip
-            title="好評な作品"
-            description="購入者の評価が高い順"
-            products={topRated}
-            seeAllHref="/store?sort=rating"
-          />
-        )}
-
-        {filteredRecent.length > 0 && (
-          <ProductStrip
-            title="新着"
-            description="最近公開された作品"
-            products={filteredRecent}
-            seeAllHref="/store"
-          />
-        )}
-
-        {/* 人気クリエイター TOP 3。実購入がないうちはセクションごと
-            非表示(α 初期はゼロ)。4 位以下は /creators から。 */}
-        <TopCreatorsSection entries={topCreators} />
-
-        {/* ジャンル別おすすめ(AAAAA): 各カテゴリ 6 件ずつ。0 件カテゴリは
-            セクションごと非表示。表示順は STORE_CATEGORIES の並びを尊重。 */}
-        {RECOMMENDATION_CATEGORIES.map((cat, i) => {
-          const items = categoryRecommendations[i];
-          if (items.length === 0) return null;
-          return (
-            <ProductStrip
-              key={cat}
-              title={`${categoryLabel(cat)} のおすすめ`}
-              description="このジャンルで注目の作品(好評順)"
-              products={items}
-              seeAllHref={`/store?category=${cat}`}
-            />
-          );
-        })}
-
-        <CategoryGrid />
-
-        {/* 「クリエイターを探す」入口カード(EEEE)。CategoryGrid と並ぶ
-            「人軸」の発見入口。 */}
-        <CreatorEntryCard />
-
-        {/* 自分が出品側に回るための「クリエイター申請」カード。既に
-            creator/admin の人には出さない。 */}
-        {showCreatorApply && (
-          <CreatorApplyCta isLoggedIn={!!currentUser} />
-        )}
       </PageContainer>
     </>
   );

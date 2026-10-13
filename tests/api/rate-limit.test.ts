@@ -23,13 +23,11 @@ describe("RATE_LIMITS config", () => {
     expect(Object.keys(RATE_LIMITS).sort()).toEqual(
       [
         "ai",
-        "checkout",
         "feedback",
         "goldCheckout",
         "planCheckout",
-        "purchaseGold",
         "redeem",
-        "tips",
+        "sheetImport",
       ].sort(),
     );
   });

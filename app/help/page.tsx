@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { HelpCircle, MessageCircle, ShoppingBag, Upload, User } from "lucide-react";
+import {
+  CreditCard,
+  Dices,
+  FolderOpen,
+  HelpCircle,
+  MessageCircle,
+  User,
+} from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
@@ -9,35 +16,59 @@ import { FaqGroup, type FaqEntry } from "@/components/help/faq-accordion";
 export const metadata = {
   title: "ヘルプ・よくある質問",
   description:
-    "Re-dice TRPGサイトの使い方、購入・販売・アカウントに関するよくある質問。",
+    "Re-dice の使い方、PLAY・ライブラリ・プラン・アカウントに関するよくある質問。",
 };
 
 const DISCORD_URL = "https://discord.gg/HMXx3pbAEz";
 
-const BUYER_FAQ: FaqEntry[] = [
+const PLAY_FAQ: FaqEntry[] = [
   {
-    question: "作品を購入するにはどうすればいいですか?",
+    question: "卓を立てるにはどうすればいいですか?",
     answer: [
-      "作品ページの「購入する」ボタンから、クレジットカード決済(Stripe)で購入できます。決済完了後すぐにライブラリからダウンロードできます。",
+      "ヘッダーの「PLAY」で卓のタイトルを入れて「作る」を押すと、盤面が開きます。駒・背景・BGM などを用意して、そのまま一人で準備・保存できます。",
+      "仲間と遊ぶときは、卓の右上の「みんなで遊ぶ」で参加コードを発行して共有します(卓の公開はプレイプラン以上)。",
     ],
   },
   {
-    question: "購入した作品はどこから見られますか?",
+    question: "参加するにはどうすればいいですか?",
     answer: [
-      "ヘッダーの「ライブラリ」から、購入済みの全作品を確認・ダウンロードできます。",
+      "Re-dice にログインして「PLAY」の「卓に参加する」に、GM から共有された参加コードを入力してください。アプリのインストールは不要です。",
     ],
   },
   {
-    question: "購入した作品を返金してもらえますか?",
+    question: "デスクトップアプリの卓とブラウザの卓は一緒に遊べますか?",
     answer: [
-      "デジタル作品の性質上、原則として返品・返金はお受けできません。",
-      "ただし、作品が説明と著しく異なる場合や、ダウンロードできない不具合がある場合は、Discord にてご相談ください。",
+      "はい。同じ仕組みで同期しているので、アプリで立てた卓にブラウザから参加すること(その逆も)ができます。",
     ],
   },
   {
-    question: "レビューはどうやって投稿しますか?",
+    question: "BGM や効果音が鳴りません。",
     answer: [
-      "作品を購入すると、作品ページのレビュー欄に「高評価 / 低評価」とコメントを投稿できるようになります。",
+      "ブラウザは画面を操作するまで音を止める仕様です。入室後に画面のどこかを一度クリックすると鳴り始めます。",
+    ],
+  },
+];
+
+const LIBRARY_FAQ: FaqEntry[] = [
+  {
+    question: "ライブラリには何が保存されますか?",
+    answer: [
+      "立てた卓(自動で保存されます)と、背景・駒・BGM などの素材です。卓でアップロードした画像・音声も自動でライブラリの「素材」に並びます。",
+    ],
+  },
+  {
+    question: "素材をライブラリから外すと、卓の画像や音も消えますか?",
+    answer: [
+      "消えません。ライブラリから外すのは一覧からだけで、すでに卓で使っている画像・音はそのまま残ります。",
+    ],
+  },
+];
+
+const BILLING_FAQ: FaqEntry[] = [
+  {
+    question: "無料でどこまで使えますか?",
+    answer: [
+      "卓の作成・保存、ライブラリ、キャラクター作成(保存は 10 体まで)、フレンドの卓へのゲスト参加、日程調整は無料です。自分の卓を公開して仲間を招く(ホスト)にはプレイプラン以上、キャラの保存数を無制限にするには Pro プランが必要です。詳しくは料金プランをご覧ください。",
     ],
   },
   {
@@ -45,40 +76,6 @@ const BUYER_FAQ: FaqEntry[] = [
     answer: [
       "α 期間中は Stripe の Test mode で動作しています。実際の請求は発生しません。テスト用カード番号(4242 4242 4242 4242)をご利用ください。",
       "実物の本人確認書類や個人情報は登録しないでください。",
-    ],
-  },
-];
-
-const CREATOR_FAQ: FaqEntry[] = [
-  {
-    question: "作品を販売するにはどうすればいいですか?",
-    answer: [
-      "ヘッダーの「投稿する」から作品を登録し、「公開して保存」でストアに掲載されます。α 期間中は登録すると自動でクリエイター権限が付与されます。",
-    ],
-  },
-  {
-    question: "有料で販売するには何が必要ですか?",
-    answer: [
-      "有料販売には Stripe 接続(受取口座の設定)が必要です。クリエイターメニューの「Stripe 接続」から手続きしてください。",
-      "価格 ¥0(無料)の作品は、Stripe 接続が未完了でも公開できます。",
-    ],
-  },
-  {
-    question: "売上はどのように受け取れますか?",
-    answer: [
-      "販売代金からプラットフォーム手数料(30%)を差し引いた 70% が、Stripe を通じてあなたの銀行口座に入金されます。",
-    ],
-  },
-  {
-    question: "スクリーンショットは登録できますか?",
-    answer: [
-      "作品編集ページの「スクリーンショット」から、最大 4 枚まで登録できます。商品詳細ページのギャラリーに表示されます。",
-    ],
-  },
-  {
-    question: "活動を休止したいときは?",
-    answer: [
-      "作品管理ページの「すべて非公開にする」で、公開中の全作品を一括で下書きに戻せます。作品データは残るので、再開時に再公開できます。",
     ],
   },
 ];
@@ -100,13 +97,6 @@ const ACCOUNT_FAQ: FaqEntry[] = [
     question: "退会(アカウント削除)したい。",
     answer: [
       "アカウント設定ページの最下部「退会する」から手続きできます。",
-      "作品を公開・登録中のクリエイターは、先に全作品を削除するか Discord にてご相談ください。",
-    ],
-  },
-  {
-    question: "お気に入りや閲覧履歴はどこに保存されますか?",
-    answer: [
-      "お気に入りと閲覧履歴は、お使いの端末のブラウザ内にのみ保存されます。サーバーには送信されず、別の端末やシークレットウィンドウには引き継がれません。",
     ],
   },
 ];
@@ -131,7 +121,7 @@ export default function HelpPage() {
                   ヘルプ・よくある質問
                 </h1>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  購入・販売・アカウントに関するよくある質問をまとめています。
+                  PLAY・ライブラリ・プラン・アカウントに関するよくある質問をまとめています。
                   解決しない場合は Discord でお気軽にお問い合わせください。
                 </p>
               </div>
@@ -142,16 +132,22 @@ export default function HelpPage() {
         {/* FAQ グループ */}
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <ShoppingBag className="h-3.5 w-3.5" aria-hidden />
-            購入について
+            <Dices className="h-3.5 w-3.5" aria-hidden />
+            PLAY について
           </div>
-          <FaqGroup title="" items={BUYER_FAQ} />
+          <FaqGroup title="" items={PLAY_FAQ} />
 
           <div className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <Upload className="h-3.5 w-3.5" aria-hidden />
-            販売・クリエイターについて
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+            ライブラリについて
           </div>
-          <FaqGroup title="" items={CREATOR_FAQ} />
+          <FaqGroup title="" items={LIBRARY_FAQ} />
+
+          <div className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <CreditCard className="h-3.5 w-3.5" aria-hidden />
+            プラン・お支払いについて
+          </div>
+          <FaqGroup title="" items={BILLING_FAQ} />
 
           <div className="flex items-center gap-2 pt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             <User className="h-3.5 w-3.5" aria-hidden />

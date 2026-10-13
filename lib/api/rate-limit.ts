@@ -20,18 +20,14 @@ export const RATE_LIMITS = {
   redeem: { limit: 10, windowSeconds: 60 },
   /** 運営 AI 呼び出し(Anthropic 実費のコスト攻撃抑止)。 */
   ai: { limit: 20, windowSeconds: 60 },
-  /** スーパーサンクス送信(スパム抑止)。 */
-  tips: { limit: 20, windowSeconds: 60 },
   /** 不具合報告 → Discord webhook(フラッド抑止)。 */
   feedback: { limit: 5, windowSeconds: 3600 },
-  /** 作品のゴールド購入。 */
-  purchaseGold: { limit: 30, windowSeconds: 60 },
   /** ゴールドパックの Checkout 作成。 */
   goldCheckout: { limit: 20, windowSeconds: 60 },
-  /** 作品購入(JPY)の Checkout 作成。クレジットマスター/有効性確認対策。 */
-  checkout: { limit: 20, windowSeconds: 60 },
   /** 月額プラン(play/pro)の Checkout 作成。 */
   planCheckout: { limit: 20, windowSeconds: 60 },
+  /** キャラクター保管所の取り込み(サーバーが外部サイトを代理取得するので乱用を抑止)。 */
+  sheetImport: { limit: 20, windowSeconds: 60 },
 } as const satisfies Record<string, RateRule>;
 
 /**

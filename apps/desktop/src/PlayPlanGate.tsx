@@ -53,7 +53,7 @@ const PLANS: GatePlan[] = [
     label: "Pro",
     price: "¥980 / 月",
     accent: "indigo",
-    perks: ["プレイの全部", "出品手数料 20% に優遇", "クラウド保存ほか（予定）"],
+    perks: ["プレイの全部", "キャラシ保存数 無制限（Web）", "日程調整の強化（予定）"],
   },
 ];
 

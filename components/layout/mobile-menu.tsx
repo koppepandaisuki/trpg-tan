@@ -9,14 +9,11 @@ import {
   UserPlus,
   LogOut,
   MessageCircle,
-  AlertCircle,
   Settings,
-  LayoutDashboard,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { BrandMark } from "@/components/brand/brand-mark";
-import { SearchBar } from "@/components/layout/search-bar";
 import { NAV_ITEMS } from "./nav-items";
 import { cn } from "@/lib/utils";
 
@@ -32,23 +29,19 @@ import { cn } from "@/lib/utils";
  *
  * 表示要素(上から):
  *  - ヘッダー: ロゴ + 閉じるボタン
- *  - Stripe 未接続アラート(creator のみ)
  *  - ナビゲーション項目(NAV_ITEMS、TopHeader と共有)
  *  - Discord 招待リンク(env 設定時のみ)
  *  - ユーザー情報 + ログアウト(認証済)/ ログイン+新規登録(未認証)
  *
  * 設計判断:
- *  - 検索バーはモバイルメニューには含めない(α 期間中は機能停止中で、
- *    モバイルでもメニュー外の「準備中」表示で十分認知される)
+ *  - 2026-09 のストア廃止で、作品検索とクリエイター導線は撤去した
  *  - md:hidden を外側の <div> に適用、デスクトップでは完全に DOM から消える
  */
 
 interface MobileMenuUser {
   displayName: string;
   email: string;
-  isCreator: boolean;
   isAdmin: boolean;
-  stripeChargesEnabled: boolean;
 }
 
 interface MobileMenuProps {
@@ -132,23 +125,6 @@ export function MobileMenu({ user, discordUrl }: MobileMenuProps) {
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-4">
-              {/* 検索バー(IIIII): submit でメニューを閉じて /store?q= へ */}
-              <div className="mb-4">
-                <SearchBar onSubmitted={close} />
-              </div>
-
-              {/* Stripe 未接続アラート(creator かつ未接続のみ)*/}
-              {user?.isCreator && !user.stripeChargesEnabled && (
-                <Link
-                  href="/creator/onboarding"
-                  onClick={close}
-                  className="mb-4 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900"
-                >
-                  <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
-                  <span>Stripe 接続が未完了 — 設定に進む</span>
-                </Link>
-              )}
-
               {/* Navigation */}
               <nav className="space-y-1">
                 {NAV_ITEMS.map((item) => {
@@ -169,24 +145,6 @@ export function MobileMenu({ user, discordUrl }: MobileMenuProps) {
                   );
                 })}
               </nav>
-
-              {/* creator ダッシュボード(DDDDDD): creator のみ表示。
-                  通常 nav とは別に区切って「管理画面」感を出す。 */}
-              {user?.isCreator && (
-                <div className="mt-3 border-t border-border pt-3">
-                  <Link
-                    href="/creator/dashboard"
-                    onClick={close}
-                    className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
-                  >
-                    <LayoutDashboard
-                      className="h-5 w-5 text-muted-foreground"
-                      aria-hidden
-                    />
-                    <span>クリエイターダッシュボード</span>
-                  </Link>
-                </div>
-              )}
 
               {/* Discord 招待(env 設定時のみ)*/}
               {discordUrl && (
@@ -221,11 +179,6 @@ export function MobileMenu({ user, discordUrl }: MobileMenuProps) {
                       {user.isAdmin && (
                         <Badge variant="category" className="text-[10px]">
                           admin
-                        </Badge>
-                      )}
-                      {user.isCreator && (
-                        <Badge variant="muted" className="text-[10px]">
-                          creator
                         </Badge>
                       )}
                       <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground">

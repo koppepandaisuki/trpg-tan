@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  grantCreatorAction,
-  revokeCreatorAction,
   grantAdminAction,
   revokeAdminAction,
   adjustGoldAction,
@@ -76,7 +74,6 @@ export function UserRow({ user, isSelf }: UserRowProps) {
               {user.displayName || "(名称未設定)"}
             </p>
             {user.isAdmin && <Badge variant="category">admin</Badge>}
-            {user.isCreator && <Badge variant="muted">creator</Badge>}
             {isSelf && <Badge variant="default">あなた</Badge>}
           </div>
           <p className="text-xs text-muted-foreground">
@@ -97,33 +94,6 @@ export function UserRow({ user, isSelf }: UserRowProps) {
             <span className="text-xs text-muted-foreground">操作不可</span>
           ) : (
             <>
-              {user.isCreator ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => handle(() => revokeCreatorAction(user.id))}
-                >
-                  {pending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : null}
-                  creator 剥奪
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => handle(() => grantCreatorAction(user.id))}
-                >
-                  {pending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : null}
-                  creator 付与
-                </Button>
-              )}
               {user.isAdmin ? (
                 <Button
                   type="button"
@@ -154,7 +124,7 @@ export function UserRow({ user, isSelf }: UserRowProps) {
                   onClick={() => {
                     if (
                       !window.confirm(
-                        `「${user.displayName || "このユーザー"}」に admin 権限を付与しますか？\n（ストア審査・全権操作・全商品の無料 DL ができるようになります）`,
+                        `「${user.displayName || "このユーザー"}」に admin 権限を付与しますか？\n（管理画面での全権操作ができるようになります）`,
                       )
                     )
                       return;

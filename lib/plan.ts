@@ -1,10 +1,10 @@
 /**
  * 料金プラン(3 段階)の共通定義。
  *
- *   - basic : 無料。ストア閲覧 / 購入 / ライブラリ / キャラシ / レビュー。
+ *   - basic : 無料。ライブラリ / キャラシ / PLAY へのゲスト参加。
  *   - play  : ¥500/月。PLAY(卓のホスト・全機能)を解放。
- *   - pro   : ¥980/月。play の全部 + 出品手数料の優遇(30%→20%)や
- *             日程調整の強化などクリエイター/上級者向け特典。
+ *   - pro   : ¥980/月。play の全部 + 日程調整の強化など上級者向け特典。
+ *             (2026-09 のストア廃止で「出品手数料の優遇」は無くなった)
  *
  * 課金(Stripe Billing)は別実装。本ファイルは判定とラベルだけの純粋ロジックで、
  * server-only は付けない(クライアントからも参照可能)。
@@ -36,7 +36,3 @@ export function planUnlocksPlay(plan: string | null | undefined): boolean {
   return p === "play" || p === "pro";
 }
 
-/** 出品手数料の優遇(Pro のみ)対象か。 */
-export function planHasFeeDiscount(plan: string | null | undefined): boolean {
-  return normalizePlan(plan) === "pro";
-}

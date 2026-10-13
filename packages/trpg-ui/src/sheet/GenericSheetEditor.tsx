@@ -1,0 +1,406 @@
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import {
+  newGenericSheet,
+  renderPaletteTemplate,
+  type GenericSheet,
+  type SystemDef,
+} from "@trpg/core";
+import type { SheetIO } from "./io";
+import { NumStepper } from "./NumStepper";
+
+/**
+ * 汎用キャラクターシート・エディタ(カスタムシステム用)。
+ * SystemDef(能力値・技能・リソース)に沿ったフォームを自動生成する。
+ * 保存形式は CoC と同じ .ccsheet(JSON / kind:"generic")。保存先は io で注入する
+ * (デスクトップ=ファイル / Web=クラウド)。
+ */
+export function GenericSheetEditor({
+  io,
+  def,
+  initial,
+  initialRef,
+  onSaved,
+  onBack,
+}: {
+  /** 保存・読込の実装。 */
+  io: SheetIO;
+  /** 由来システム(再生成ボタン等で参照。開けないときは null)。 */
+  def: SystemDef | null;
+  /** 既存シート(null なら def から新規作成)。 */
+  initial: GenericSheet | null;
+  /** 既存キャラの保存先(ファイルパス / 行 id)。上書き保存に使う。 */
+  initialRef?: string | null;
+  onSaved: (sheet: GenericSheet, ref: string) => void;
+  /** 「← システム選択」に戻る。*/
+  onBack?: () => void;
+}) {
+  const [sheet, setSheet] = useState<GenericSheet>(() => {
+    if (initial) return initial;
+    if (def) return newGenericSheet(def, crypto.randomUUID());
+    throw new Error("システム定義かシートのどちらかが必要です");
+  });
+  // 現在の保存先。あれば「保存」で上書き、無ければ新規保存(デスクトップはダイアログ)。
+  const [currentRef, setCurrentRef] = useState<string | null>(
+    initialRef ?? null,
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [savedFlash, setSavedFlash] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function patch(p: Partial<GenericSheet>) {
+    setSheet((s) => ({ ...s, ...p }));
+  }
+
+  function pickPortrait(file: File | undefined) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => patch({ image: String(reader.result) });
+    reader.readAsDataURL(file);
+  }
+
+  /** 保存結果を反映(保存先を覚え、複製なら新しい id に切り替える)。 */
+  function afterSave(r: { ref: string; sheetId?: string }, msg: string) {
+    setCurrentRef(r.ref);
+    const saved = r.sheetId ? { ...sheet, id: r.sheetId } : sheet;
+    if (r.sheetId) patch({ id: r.sheetId });
+    onSaved(saved, r.ref);
+    setSavedFlash(true);
+    window.setTimeout(() => setSavedFlash(false), 1600);
+    io.notify?.(msg);
+  }
+
+  /** 上書き保存。保存先が未確定(新規)なら新規保存にフォールバック。 */
+  async function save() {
+    setError(null);
+    try {
+      const r = await io.save(sheet, currentRef);
+      if (!r) return; // キャンセル
+      afterSave(r, currentRef ? "✓ 上書き保存しました" : "✓ キャラを保存しました");
+    } catch (e) {
+      setError(`保存に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  /** 別名で保存(デスクトップ=別ファイル / Web=複製)。以後はその新しい保存先へ上書き。 */
+  async function saveAs() {
+    setError(null);
+    try {
+      const r = await io.saveAs(sheet);
+      if (!r) return;
+      afterSave(r, "✓ 別名で保存しました");
+    } catch (e) {
+      setError(`保存に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  /** パレットをシステム雛形 + 現在の値から作り直す。 */
+  function regeneratePalette() {
+    if (!def) return;
+    patch({ palette: renderPaletteTemplate(def.palette ?? [], sheet) });
+  }
+
+  // パレットが「雛形どおり(手編集していない)」の間は、能力値/技能の変更に
+  // 自動追従して作り直す。値を変えたのにパレットの数字が古いまま、を防ぐ。
+  // 一度でも手編集する(=直前の雛形描画と一致しなくなる)と自動追従は止まる。
+  const prevRenderRef = useRef<string | null>(
+    def ? renderPaletteTemplate(def.palette ?? [], sheet) : null,
+  );
+  useEffect(() => {
+    if (!def) return;
+    const next = renderPaletteTemplate(def.palette ?? [], sheet);
+    const prev = prevRenderRef.current;
+    prevRenderRef.current = next;
+    if (prev !== null && next !== prev && (sheet.palette ?? "") === prev) {
+      patch({ palette: next });
+    }
+    // attributes / skills の値変更にだけ反応させる。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheet.attributes, sheet.skills]);
+
+  /** 判定コマンドを 1 行組み立ててパレット末尾に足す(能力値/技能セレクタ)。 */
+  function appendCheckLine(pick: string) {
+    const [kind, idxStr] = pick.split(":");
+    const i = Number(idxStr);
+    const item =
+      kind === "a" ? sheet.attributes[i] : sheet.skills[i];
+    if (!item || !item.label.trim()) return;
+    const tpl = sheet.checkTemplate?.trim();
+    const line = tpl
+      ? `${tpl.replace(/\{value\}/g, String(item.value))} ${item.label}`
+      : `${item.label} ${item.value}`;
+    const cur = (sheet.palette ?? "").trim();
+    patch({ palette: cur ? `${cur}\n${line}` : line });
+  }
+
+  // Ctrl+S / Cmd+S で保存。依存なしで毎レンダー貼り直し(常に最新の save)。
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void save();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  return (
+    <div className="gse">
+      <div className="gse-head sheet-topbar">
+        {onBack && (
+          <button
+            className="btn mini sheet-back"
+            onClick={onBack}
+            title="システム選択に戻る"
+          >
+            <ArrowLeft size={14} /> システム選択
+          </button>
+        )}
+        <span className="gse-sys">
+          {def?.icon ?? "🎲"} {sheet.systemName}
+        </span>
+        <input
+          className="input gse-name"
+          value={sheet.name}
+          onChange={(e) => patch({ name: e.target.value })}
+          placeholder="キャラクター名"
+        />
+        <button
+          className="btn"
+          onClick={() => void saveAs()}
+          title={io.target === "file" ? "別の名前/場所に保存" : "複製して別のキャラとして保存"}
+        >
+          別名で保存
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={() => void save()}
+          title={
+            currentRef
+              ? io.target === "file"
+                ? "同じファイルに上書き保存（ダイアログを出しません）"
+                : "上書き保存"
+              : io.target === "file"
+                ? "保存先を選んで保存"
+                : "保存"
+          }
+        >
+          {savedFlash
+            ? "✓ 保存しました"
+            : currentRef
+              ? "上書き保存"
+              : io.target === "file"
+                ? "保存 (.ccsheet)"
+                : "保存"}
+        </button>
+      </div>
+
+      {error && <p className="tag fail">{error}</p>}
+      {def?.note && <p className="sysb-note">📌 {def.note}</p>}
+
+      <div className="gse-cols">
+        {/* 左: ポートレート + リソース + メモ */}
+        <section className="gse-sec">
+          <h3>🖼 ポートレート</h3>
+          <div
+            className="gse-portrait"
+            onClick={() => fileRef.current?.click()}
+            title="クリックで画像を選択"
+          >
+            {sheet.image ? <img src={sheet.image} alt="" /> : <span>＋ 画像</span>}
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => pickPortrait(e.target.files?.[0])}
+          />
+
+          <h3>❤️ リソース</h3>
+          {sheet.resources.map((r, i) => (
+            <div key={i} className="sysb-row">
+              <span className="gse-rlabel">{r.label}</span>
+              <NumStepper
+                value={r.current}
+                min={-999}
+                max={9999}
+                onChange={(v) => {
+                  const resources = [...sheet.resources];
+                  resources[i] = { ...r, current: v };
+                  patch({ resources });
+                }}
+                title="現在値"
+                ariaLabel={`${r.label}の現在値`}
+              />
+              <span className="muted">/</span>
+              <NumStepper
+                value={r.max}
+                min={-999}
+                max={9999}
+                onChange={(v) => {
+                  const resources = [...sheet.resources];
+                  resources[i] = { ...r, max: v };
+                  patch({ resources });
+                }}
+                title="最大値"
+                ariaLabel={`${r.label}の最大値`}
+              />
+            </div>
+          ))}
+
+          <h3>📝 メモ</h3>
+          <textarea
+            className="input sysb-ta gse-memo"
+            value={sheet.memo ?? ""}
+            onChange={(e) => patch({ memo: e.target.value })}
+            placeholder="設定・特技表・マニューバなど自由に"
+          />
+        </section>
+
+        {/* 中: 能力値 + 技能 */}
+        <section className="gse-sec">
+          <h3>💪 能力値</h3>
+          {sheet.attributes.length === 0 && (
+            <p className="muted" style={{ fontSize: 12 }}>
+              （このシステムに能力値はありません）
+            </p>
+          )}
+          {sheet.attributes.map((a, i) => (
+            <div key={i} className="sysb-row">
+              <span className="gse-rlabel">{a.label}</span>
+              <NumStepper
+                value={a.value}
+                min={-999}
+                max={9999}
+                onChange={(v) => {
+                  const attributes = [...sheet.attributes];
+                  attributes[i] = { ...a, value: v };
+                  patch({ attributes });
+                }}
+                ariaLabel={`${a.label}の値`}
+              />
+            </div>
+          ))}
+
+          <h3>🎯 技能</h3>
+          {sheet.skills.map((s, i) => (
+            <div key={i} className="sysb-row">
+              <input
+                className="input"
+                value={s.label}
+                onChange={(e) => {
+                  const skills = [...sheet.skills];
+                  skills[i] = { ...s, label: e.target.value };
+                  patch({ skills });
+                }}
+                placeholder="技能名"
+              />
+              <NumStepper
+                value={s.value}
+                min={-999}
+                max={9999}
+                onChange={(v) => {
+                  const skills = [...sheet.skills];
+                  skills[i] = { ...s, value: v };
+                  patch({ skills });
+                }}
+                ariaLabel={`${s.label || "技能"}の値`}
+              />
+              <button
+                className="rqa-book-del"
+                onClick={() =>
+                  patch({ skills: sheet.skills.filter((_, j) => j !== i) })
+                }
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button
+            className="btn mini"
+            onClick={() =>
+              patch({ skills: [...sheet.skills, { label: "", value: 0 }] })
+            }
+          >
+            ＋ 技能を追加
+          </button>
+
+          <h3>🎲 判定コマンド雛形</h3>
+          <input
+            className="input"
+            value={sheet.checkTemplate ?? ""}
+            onChange={(e) => patch({ checkTemplate: e.target.value })}
+            placeholder="例: 2d6+{value}>=?"
+          />
+          <p className="sysb-help muted">
+            卓で能力値/技能をクリックしたときのコマンド。{"{value}"}{" "}
+            が値に置き換わります。
+          </p>
+        </section>
+
+        {/* 右: チャットパレット */}
+        <section className="gse-sec">
+          <h3>
+            💬 チャットパレット
+            {def && (
+              <button
+                className="btn mini"
+                style={{ marginLeft: 8 }}
+                onClick={regeneratePalette}
+                title="システム雛形と現在の値からパレットを作り直す"
+              >
+                雛形から再生成
+              </button>
+            )}
+          </h3>
+          <textarea
+            className="input sysb-ta gse-palette"
+            value={sheet.palette ?? ""}
+            onChange={(e) => patch({ palette: e.target.value })}
+            placeholder={"2d6+4>=? 回避判定\n1d6 ダメージ\n# 見出し"}
+          />
+          {(sheet.attributes.length > 0 ||
+            sheet.skills.some((s) => s.label.trim())) && (
+            <select
+              className="input gse-pal-add"
+              value=""
+              onChange={(e) => {
+                if (e.target.value) appendCheckLine(e.target.value);
+              }}
+              title="選んだ能力値/技能の判定コマンドをパレット末尾に追加"
+            >
+              <option value="">＋ 判定コマンドを追加…</option>
+              {sheet.attributes.length > 0 && (
+                <optgroup label="能力値">
+                  {sheet.attributes.map((a, i) => (
+                    <option key={`a${i}`} value={`a:${i}`}>
+                      {a.label}（{a.value}）
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {sheet.skills.some((s) => s.label.trim()) && (
+                <optgroup label="技能">
+                  {sheet.skills.map((s, i) =>
+                    s.label.trim() ? (
+                      <option key={`s${i}`} value={`s:${i}`}>
+                        {s.label}（{s.value}）
+                      </option>
+                    ) : null,
+                  )}
+                </optgroup>
+              )}
+            </select>
+          )}
+          <p className="sysb-help muted">
+            1 行 1 コマンド。卓に出すとこのままチャットパレットになります
+            （クリックで入力欄へ、ダブルクリックで即ロール）。
+            手を入れていないパレットは、能力値・技能の変更に自動で追従します。
+          </p>
+        </section>
+      </div>
+    </div>
+  );
+}

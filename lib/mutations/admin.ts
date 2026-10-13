@@ -1,6 +1,5 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { ProductStatus } from "@/lib/format/status";
 
 /**
  * Admin mutations.
@@ -15,22 +14,6 @@ import type { ProductStatus } from "@/lib/format/status";
  * We use the regular auth client (not service_role). The RPCs are
  * SECURITY DEFINER and re-check is_admin internally via auth.uid().
  */
-
-export async function grantCreator(targetUserId: string): Promise<void> {
-  const supabase = createClient();
-  const { error } = await supabase.rpc("admin_grant_creator", {
-    target_id: targetUserId,
-  });
-  if (error) throw classifyRpcError("grant_creator", error);
-}
-
-export async function revokeCreator(targetUserId: string): Promise<void> {
-  const supabase = createClient();
-  const { error } = await supabase.rpc("admin_revoke_creator", {
-    target_id: targetUserId,
-  });
-  if (error) throw classifyRpcError("revoke_creator", error);
-}
 
 export async function grantAdmin(targetUserId: string): Promise<void> {
   const supabase = createClient();
@@ -65,49 +48,6 @@ export async function adjustGold(
   });
   if (error) throw classifyRpcError("adjust_gold", error);
   return typeof data === "number" ? data : 0;
-}
-
-export async function setProductStatus(
-  productId: string,
-  newStatus: ProductStatus,
-): Promise<void> {
-  const supabase = createClient();
-  const { error } = await supabase.rpc("admin_set_product_status", {
-    product_id: productId,
-    new_status: newStatus,
-  });
-  if (error) throw classifyRpcError("set_product_status", error);
-}
-
-/**
- * 通報されたレビューを削除(モデレーション)。admin_delete_review RPC は
- * security definer + is_admin 検証 + 監査ログ。cascade で当該レビューの
- * review_reports / replies / votes も消える。
- */
-export async function deleteReview(reviewId: string): Promise<void> {
-  const supabase = createClient();
-  const { error } = await supabase.rpc("admin_delete_review", {
-    target_review_id: reviewId,
-  });
-  if (error) throw classifyRpcError("delete_review", error);
-}
-
-/**
- * 審査キューの判定。approve=true で公開(published)、false で却下(draft に
- * 戻し、note を作者向けの理由として記録)。admin_review_product RPC を呼ぶ。
- */
-export async function reviewProduct(
-  productId: string,
-  approve: boolean,
-  note?: string,
-): Promise<void> {
-  const supabase = createClient();
-  const { error } = await supabase.rpc("admin_review_product", {
-    product_id: productId,
-    approve,
-    note: note ?? null,
-  });
-  if (error) throw classifyRpcError("review_product", error);
 }
 
 // ---------------------------------------------------------------------

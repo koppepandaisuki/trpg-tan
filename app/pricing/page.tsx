@@ -2,7 +2,6 @@ import { Check, Gamepad2, Sparkles, Star, Crown } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { getCurrentUser } from "@/lib/session/get-user";
-import { PLATFORM_FEE_RATE, PRO_PLATFORM_FEE_RATE } from "@/lib/stripe/fees";
 import { PLAN_LABEL, PLAN_PRICE_JPY, type UserPlan } from "@/lib/plan";
 import { PlanSelectButton } from "@/components/plan/plan-select-button";
 import { isPlanBillingConfigured } from "@/lib/stripe/subscription";
@@ -10,11 +9,8 @@ import { isPlanBillingConfigured } from "@/lib/stripe/subscription";
 export const metadata = {
   title: "料金プラン",
   description:
-    "Re-dice の料金プラン。基本（無料）/ プレイ（PLAY解放）/ Pro（手数料優遇など）の3段階。",
+    "Re-dice の料金プラン。基本（無料）/ プレイ（PLAY解放）/ Pro の3段階。",
 };
-
-const BASIC_PCT = Math.round(PLATFORM_FEE_RATE * 100);
-const PRO_PCT = Math.round(PRO_PLATFORM_FEE_RATE * 100);
 
 type Perk = { label: string; soon?: boolean; star?: boolean };
 
@@ -58,11 +54,10 @@ const PLANS: {
     icon: Sparkles,
     tagline: "まずは無料で",
     perks: [
-      { label: "ストア閲覧・購入・ライブラリ" },
-      { label: "キャラクター作成・レビュー投稿" },
+      { label: "ライブラリ（卓・素材の保管）" },
+      { label: "キャラシ作成(保存 10 体まで)" },
       { label: "PLAY：フレンドの卓にゲスト参加" },
       { label: "日程調整（基本）" },
-      { label: `作品の出品（手数料 ${BASIC_PCT}%）` },
     ],
   },
   {
@@ -83,13 +78,8 @@ const PLANS: {
     tagline: "作る人・上級者へ",
     perks: [
       { label: "プレイのすべて" },
-      {
-        label: `出品手数料を ${PRO_PCT}% に優遇（${BASIC_PCT - PRO_PCT}%お得）`,
-        star: true,
-      },
+      { label: "キャラシの保存数 無制限", star: true },
       { label: "日程調整 強化（無制限＋空き時間レコメンド）", soon: true },
-      { label: "卓・キャラシのクラウド保存", soon: true },
-      { label: "ストア優先表示・詳細アナリティクス", soon: true },
       { label: "Pro バッジ", soon: true },
     ],
   },
@@ -177,8 +167,7 @@ export default async function PricingPage() {
         </div>
 
         <p className="mx-auto mt-8 max-w-4xl text-center text-[11px] leading-relaxed text-muted-foreground">
-          手数料の優遇は先行して有効です（運営が Pro を付与）。「プレイ」の PLAY
-          解放や「予定」の特典、月額の自動決済は順次提供します。価格・特典は変更される場合があります。
+          「予定」の特典は順次提供します。価格・特典は変更される場合があります。
         </p>
       </div>
     </>

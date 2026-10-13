@@ -20,6 +20,9 @@ importers:
       '@trpg/core':
         specifier: workspace:*
         version: link:packages/trpg-core
+      '@trpg/ui':
+        specifier: workspace:*
+        version: link:packages/trpg-ui
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.1
@@ -129,6 +132,9 @@ importers:
       '@trpg/core':
         specifier: workspace:*
         version: link:../../packages/trpg-core
+      '@trpg/ui':
+        specifier: workspace:*
+        version: link:../../packages/trpg-ui
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
@@ -169,6 +175,25 @@ importers:
       vitest:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.41)
+
+  packages/trpg-ui:
+    dependencies:
+      '@trpg/core':
+        specifier: workspace:*
+        version: link:../trpg-core
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.28
+      lucide-react:
+        specifier: ^0.424.0
+        version: 0.424.0(react@18.3.1)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      typescript:
+        specifier: ^5.5.3
+        version: 5.9.3
 
 packages:
 

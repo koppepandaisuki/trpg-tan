@@ -44,7 +44,6 @@ import {
   startGoldCheckout,
   useGoldBalance,
   type GoldTx,
-  type GoldEarnings,
 } from "./gold-remote";
 import { useMyProfile } from "./useMyProfile";
 import {
@@ -282,17 +281,17 @@ function AccountTab({ planSig = 0 }: { planSig?: number }) {
         </div>
       </Section>
 
-      <StoreLinkSection planSig={planSig} />
+      <AccountLinkSection planSig={planSig} />
     </>
   );
 }
 
 /**
- * ストア連携(ログイン)。購入物のライブラリ取込に必要だが、本名 / メールは
+ * アカウント連携(ログイン)。素材のクラウド保管や卓の公開に必要だが、本名 / メールは
  * 一切表示しない。メール / パスワード / 退会だけは認証レベルの操作なので web に
  * 委譲する(小さなリンク)。
  */
-function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
+function AccountLinkSection({ planSig = 0 }: { planSig?: number }) {
   const { ready, loggedIn } = useMyProfile();
   const [busy, setBusy] = useState(false);
   // コード引き換え(テスター権限付与など)の直後に PlanSection を再取得させる。
@@ -301,8 +300,8 @@ function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
   if (!supabaseConfigured) {
     return (
       <Section
-        title="ストア連携"
-        desc="ストア / ライブラリを使うにはログインが必要です。"
+        title="アカウント連携"
+        desc="素材の保管・マルチプレイ・フレンドを使うにはログインが必要です。"
       >
         <p className="muted">ログイン未設定です(VITE_SUPABASE_URL / ANON_KEY)。</p>
       </Section>
@@ -310,7 +309,7 @@ function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
   }
   if (!ready) {
     return (
-      <Section title="ストア連携">
+      <Section title="アカウント連携">
         <p className="muted">…</p>
       </Section>
     );
@@ -318,8 +317,8 @@ function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
   if (!loggedIn) {
     return (
       <Section
-        title="ストア連携"
-        desc="ログインするとストアの購入物をライブラリに取り込めます。ブラウザでログイン(メール / Google)すると自動でアプリに戻り、web とアプリの両方がログイン済みになります。本名・メールはアプリ内に表示されません。"
+        title="アカウント連携"
+        desc="ログインすると、素材のクラウド保管(Web 版と共有)・卓の公開・フレンドが使えます。ブラウザでログイン(メール / Google)すると自動でアプリに戻り、web とアプリの両方がログイン済みになります。本名・メールはアプリ内に表示されません。"
       >
         <button
           className="btn btn-primary"
@@ -337,8 +336,8 @@ function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
   return (
     <>
       <Section
-        title="ストア連携"
-        desc="連携済みです。購入物をライブラリに取り込めます。本名・メールはアプリ内に表示・共有されません。"
+        title="アカウント連携"
+        desc="連携済みです。ライブラリの素材は Web 版と共有されます。本名・メールはアプリ内に表示・共有されません。"
       />
 
       <PlanSection planSig={planSig + redeemSig} />
@@ -357,9 +356,9 @@ function StoreLinkSection({ planSig = 0 }: { planSig?: number }) {
 }
 
 const PLAN_OPTIONS: { key: UserPlan; label: string; price: string; desc: string }[] = [
-  { key: "basic", label: "基本", price: "無料", desc: "購入・ライブラリ・卓に参加" },
+  { key: "basic", label: "基本", price: "無料", desc: "ライブラリ・キャラシ・卓に参加" },
   { key: "play", label: "プレイ", price: "¥500/月", desc: "PLAY 解放(卓を立てる・全機能)" },
-  { key: "pro", label: "Pro", price: "¥980/月", desc: "全部 + 出品手数料 20% など" },
+  { key: "pro", label: "Pro", price: "¥980/月", desc: "プレイの全部 + キャラシ保存数 無制限(Web)" },
 ];
 
 function PlanSection({ planSig = 0 }: { planSig?: number }) {
@@ -671,7 +670,6 @@ const GOLD_PACKS: { id: "p300" | "p1000" | "p3000"; gold: number; jpy: number }[
 function GoldTab() {
   const balance = useGoldBalance();
   const [tx, setTx] = useState<GoldTx[]>([]);
-  const [earnings, setEarnings] = useState<GoldEarnings | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -679,10 +677,7 @@ function GoldTab() {
     let alive = true;
     void fetchGold()
       .then((r) => {
-        if (alive) {
-          setTx(r.transactions);
-          setEarnings(r.earnings);
-        }
+        if (alive) setTx(r.transactions);
       })
       .catch(() => {})
       .finally(() => alive && setLoading(false));
@@ -690,10 +685,6 @@ function GoldTab() {
       alive = false;
     };
   }, []);
-
-  const hasEarnings =
-    earnings !== null &&
-    (earnings.sales > 0 || earnings.tips > 0 || earnings.supporters > 0);
 
   async function buy(pack: "p300" | "p1000" | "p3000") {
     setBusy(pack);
@@ -716,7 +707,7 @@ function GoldTab() {
     <>
       <Section
         title="ゴールド残高"
-        desc="アプリ内通貨。AI 利用・作品購入・スーパーサンクスに使えます。現金化はできません。"
+        desc="アプリ内通貨。AI 機能に使えます。現金化はできません。"
       >
         <div className="gold-balance">
           <Coins size={22} />
@@ -749,35 +740,6 @@ function GoldTab() {
           ))}
         </div>
       </Section>
-
-      {hasEarnings && earnings && (
-        <Section
-          title="クリエイター収益"
-          desc="あなたの作品・応援で受け取ったゴールドの累計です(現金化はできません)。"
-        >
-          <div className="gold-earn">
-            <div className="gold-earn-cell">
-              <span className="gold-earn-label">作品売上</span>
-              <strong>{earnings.sales.toLocaleString()}</strong>
-              <span className="muted">ゴールド</span>
-            </div>
-            <div className="gold-earn-cell">
-              <span className="gold-earn-label">スーパーサンクス</span>
-              <strong>{earnings.tips.toLocaleString()}</strong>
-              <span className="muted">ゴールド</span>
-            </div>
-            <div className="gold-earn-cell">
-              <span className="gold-earn-label">応援</span>
-              <strong>{earnings.supporters.toLocaleString()}</strong>
-              <span className="muted">回</span>
-            </div>
-          </div>
-          <p className="muted" style={{ fontSize: 11.5 }}>
-            受け取ったゴールドは、AI 利用・作品購入・他のクリエイターへの
-            スーパーサンクスに使えます。
-          </p>
-        </Section>
-      )}
 
       <Section title="履歴" desc="直近のゴールドの増減。">
         {loading ? (
@@ -1148,9 +1110,9 @@ function StorageTab() {
     <>
       <Section title="ライブラリの場所">
         <p className="set2-note" style={{ marginTop: 0 }}>
-          ストアでダウンロードした作品、取り込んだパッケージ、卓 (.play)、
-          キャラシ (.ccsheet) はこのフォルダの下にまとまります。
-          切り替えると新しい保存・ダウンロードがその場所に行きます
+          取り込んだパッケージ、卓 (.play)、キャラシ (.ccsheet) は
+          このフォルダの下にまとまります。
+          切り替えると新しい保存がその場所に行きます
           （既存のファイルは移動されません）。
         </p>
         <div
@@ -1210,9 +1172,6 @@ function StorageTab() {
               color: "var(--muted, #888)",
             }}
           >
-            <li>
-              <code>downloads/</code> — ストア購入物の生ファイル
-            </li>
             <li>
               <code>packs/</code> — 取り込んだ .paradice の展開先
             </li>
@@ -1442,7 +1401,7 @@ function FeedbackTab() {
 function AboutTab() {
   const links: { label: string; path: string }[] = [
     { label: "利用規約", path: "/terms" },
-    { label: "出品ガイドライン", path: "/guidelines" },
+    { label: "特定商取引法に基づく表記", path: "/legal/tokushoho" },
     { label: "プライバシーポリシー", path: "/privacy" },
     { label: "ヘルプ・よくある質問", path: "/help" },
   ];
@@ -1456,8 +1415,8 @@ function AboutTab() {
     <>
       <Section title="Re-dice デスクトップ版" desc="TRPG の卓・キャラ・素材をひとつに。">
         <p className="muted" style={{ fontSize: 12 }}>
-          作った卓やキャラはこの端末に保存されます。購入物はストアからダウンロードして
-          ライブラリに取り込めます。
+          作った卓やキャラはこの端末に保存されます。ライブラリの素材はクラウドに
+          保管され、Web 版と共有されます。
         </p>
         {version && (
           <p className="muted" style={{ fontSize: 10.5, marginTop: 6, opacity: 0.6 }}>

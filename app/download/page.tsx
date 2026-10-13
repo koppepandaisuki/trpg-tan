@@ -3,8 +3,8 @@ import type { Route } from "next";
 import {
   Download,
   Dices,
-  PackageOpen,
-  Users,
+  ScrollText,
+  Hammer,
   RefreshCw,
   ShieldCheck,
   Monitor,
@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 export const metadata = {
   title: "アプリをダウンロード",
   description:
-    "Re-dice デスクトップアプリ（Windows）のダウンロード。買った作品をそのまま卓へ。オンラインセッション・シナリオ作成・キャラクターシートが使えます。",
+    "Re-dice デスクトップアプリ（Windows）のダウンロード。オンラインセッション・キャラクターシート・シナリオ/システムビルダーが使えます。",
 };
 
 /** 最新版の setup.exe を直接ダウンロードさせる自前の中継ルート(GitHub Releases ページを経由しない)。 */
@@ -32,14 +32,14 @@ const FEATURES = [
     desc: "盤面・コマ・ダイス・BGM・カットインでセッションを進行。参加コードで仲間を招待。",
   },
   {
-    icon: PackageOpen,
-    title: "買った作品をそのまま遊ぶ",
-    desc: "ストアで買ったシナリオ・システムをワンクリックで取り込み、すぐ卓へ。",
+    icon: ScrollText,
+    title: "キャラシを作る",
+    desc: "13 システム対応。能力値からチャットパレットまで自動で組み上がり、そのまま卓の駒に。",
   },
   {
-    icon: Users,
-    title: "作って出品まで",
-    desc: "ノーコードのビルダーでシステム・シナリオを作成し、アプリから出品できます。",
+    icon: Hammer,
+    title: "シナリオ・システムを作る",
+    desc: "ノーコードのビルダーで自作シナリオ(HO・NPC・シーン)や独自システムを組み立て、すぐ卓で遊べます。",
   },
 ];
 

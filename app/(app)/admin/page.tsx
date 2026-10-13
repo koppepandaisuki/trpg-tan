@@ -1,19 +1,8 @@
 import Link from "next/link";
 import type { Route } from "next";
-import {
-  Users,
-  Package,
-  Receipt,
-  Flag,
-  type LucideIcon,
-} from "lucide-react";
+import { Users, type LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/session/require";
-import {
-  countPendingProducts,
-  countOpenReports,
-  countOpenReviewReports,
-} from "@/lib/queries/admin";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,50 +11,20 @@ import { cn } from "@/lib/utils";
  * 見た目はサイト全体の視覚言語(グラデ + アイコン)に統一しつつ、
  * 各 admin 機能ごとに違うトーンを当てて識別性を高める:
  *   - ユーザー → slate(中立)
- *   - 作品 → indigo(商品関連。審査待ち件数バッジ付き)
- *   - 通報 → rose(モデレーション。未対応件数バッジ付き)
- *   - 取引 → emerald(金銭関連、success と同系)
+ *
+ * 2026-09 のストア廃止で「作品(審査)」「通報」「取引」は撤去した。
  */
 export default async function AdminTopPage() {
   await requireAdmin();
-  const [pendingCount, productReports, reviewReports] = await Promise.all([
-    countPendingProducts(),
-    countOpenReports(),
-    countOpenReviewReports(),
-  ]);
-  const openReports = productReports + reviewReports;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <NavCard
         href="/admin/users"
         title="ユーザー"
-        description="creator 権限の付与・剥奪を管理"
+        description="ユーザーの確認・管理者権限・ゴールド調整"
         icon={Users}
         tone="slate"
-      />
-      <NavCard
-        href="/admin/products"
-        title="作品"
-        description="審査待ちの承認・却下、停止・公開復帰"
-        icon={Package}
-        tone="indigo"
-        badge={pendingCount > 0 ? `審査待ち ${pendingCount}` : undefined}
-      />
-      <NavCard
-        href={"/admin/reports" as Route}
-        title="通報"
-        description="利用者からの通報の確認・対応"
-        icon={Flag}
-        tone="rose"
-        badge={openReports > 0 ? `未対応 ${openReports}` : undefined}
-      />
-      <NavCard
-        href="/admin/orders"
-        title="取引"
-        description="購入履歴の確認 / Stripe Dashboard 連携での返金"
-        icon={Receipt}
-        tone="emerald"
       />
     </div>
   );
