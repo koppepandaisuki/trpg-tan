@@ -115,3 +115,13 @@ export {
   type NameResolver,
   type SecretGuard,
 } from "./replay.js";
+export {
+  readKoboManifest,
+  koboScenarioToPlay,
+  guessSystemId,
+  parseMinutes,
+  KoboImportError,
+  KOBO_BACKUP_FORMAT,
+  KOBO_BACKUP_MAX_VERSION,
+  type KoboScenarioRef,
+} from "./kobo.js";

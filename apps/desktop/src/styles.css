@@ -10331,3 +10331,19 @@ button:disabled {
   align-items: center;
   gap: 6px;
 }
+
+/* ===== ロビー: シナリオ工房から卓を作る ===== */
+.lobby-kobo-btn {
+  margin-top: 8px;
+  align-self: flex-start;
+  cursor: pointer;
+}
+.lobby-kobo-pick {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}

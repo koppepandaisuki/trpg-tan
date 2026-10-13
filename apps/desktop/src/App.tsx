@@ -25,6 +25,7 @@ import {
   Coins,
 } from "lucide-react";
 import { openExternalUrl as openUrl, WEB_BASE } from "./platform";
+import { readKoboBackup, type KoboBackup } from "./kobo-import";
 import { AuthControl } from "./AuthControl";
 import { AccountMenu } from "./AccountMenu";
 import { AmbientBg } from "./AmbientBg";
@@ -312,6 +313,23 @@ export function App() {
     setPlayMinimized(false);
     setDrawerOpen(false);
     setError(null);
+  }
+
+  /** 「TRPGシナリオ工房」のバックアップ zip から卓を作る。 */
+  const [kobo, setKobo] = useState<KoboBackup | null>(null);
+  async function importKoboFile(file: File | undefined) {
+    if (!file) return;
+    try {
+      const backup = await readKoboBackup(file);
+      if (backup.scenarios.length === 1) {
+        openSessionFromScene(backup.toPlay(backup.scenarios[0]), null);
+        toast("📘 シナリオ工房のシナリオから卓を作りました。保存すると一覧に並びます。");
+      } else {
+        setKobo(backup);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   /** シナリオ作成の「卓ごと編集」から、同じシナリオ(卓)を卓エディタで開く。 */
@@ -918,6 +936,42 @@ export function App() {
                     >
                       <Plus size={16} /> 新しい卓を作る（GM）
                     </button>
+                    <label
+                      className="btn mini lobby-kobo-btn"
+                      title="「TRPGシナリオ工房」の設定 →「バックアップ」で書き出した .zip から、シーン・読み上げ文・NPC・ハンドアウト入りの卓を作ります"
+                    >
+                      シナリオ工房から作る…
+                      <input
+                        type="file"
+                        accept=".zip,application/zip"
+                        hidden
+                        onChange={(e) => {
+                          void importKoboFile(e.target.files?.[0]);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {kobo && (
+                      <div className="lobby-kobo-pick">
+                        <span>どのシナリオで卓を作りますか?</span>
+                        {kobo.scenarios.map((ref) => (
+                          <button
+                            key={ref.dir}
+                            className="btn mini"
+                            onClick={() => {
+                              const scene = kobo.toPlay(ref);
+                              setKobo(null);
+                              openSessionFromScene(scene, null);
+                            }}
+                          >
+                            {ref.title || "(無題)"}
+                          </button>
+                        ))}
+                        <button className="btn mini" onClick={() => setKobo(null)}>
+                          やめる
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </section>
 

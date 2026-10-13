@@ -65,6 +65,7 @@ import {
   type LinkStatus,
 } from "@/lib/play/net";
 import { PlayLinkBadge } from "./play-link-badge";
+import { PlayScenarioPanel } from "./play-scenario-panel";
 
 /**
  * 卓本体(GM ビュー・Web 版)。
@@ -644,8 +645,24 @@ export function PlayTable({
           </div>
         </div>
 
-        {/* 右: 演出 + 共有メモ + 駒一覧 */}
+        {/* 右: シナリオ(GM のみ)+ 演出 + 共有メモ + 駒一覧 */}
         <aside className="space-y-2">
+          <PlayScenarioPanel
+            scene={scene}
+            onSay={(text) => {
+              const ev = resolveInputToEvent({
+                ctx: newEventCtx(),
+                scene,
+                speakerId: "GM",
+                as: "GM",
+                raw: text,
+                secret: false,
+                visibleTo: [],
+              });
+              if (ev) dispatch(ev);
+            }}
+          />
+
           <PlayFxBar
             bgmTracks={scene.bgm?.tracks ?? []}
             seTracks={scene.se?.tracks ?? []}

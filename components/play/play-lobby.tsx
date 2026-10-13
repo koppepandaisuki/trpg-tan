@@ -3,14 +3,16 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Dices, Plus, LogIn } from "lucide-react";
+import { useRef, useState } from "react";
+import { Dices, Plus, LogIn, BookOpenText } from "lucide-react";
 import { createScene } from "@trpg/core";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { savePlayScene, deletePlaySession } from "@/lib/play/store";
 import type { PlaySessionSummary } from "@/lib/queries/play-sessions";
 import { TableGrid } from "./table-grid";
+import { readKoboBackup, type KoboBackup } from "@/lib/play/kobo-import";
+import type { KoboScenarioRef } from "@trpg/core";
 
 /** ロビーに出す「最近の卓」の件数。すべてはライブラリで見る。 */
 const RECENT_LIMIT = 6;
@@ -31,6 +33,43 @@ export function PlayLobby({ sessions }: { sessions: PlaySessionSummary[] }) {
   const [creating, setCreating] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // シナリオ工房のバックアップ(複数シナリオ入りなら選んでもらう)。
+  const koboInput = useRef<HTMLInputElement>(null);
+  const [kobo, setKobo] = useState<KoboBackup | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  async function pickKobo(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setImporting(true);
+    try {
+      const backup = await readKoboBackup(file);
+      if (backup.scenarios.length === 1) {
+        await importKobo(backup, backup.scenarios[0]);
+      } else {
+        setKobo(backup);
+        setImporting(false);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setImporting(false);
+    } finally {
+      if (koboInput.current) koboInput.current.value = "";
+    }
+  }
+
+  async function importKobo(backup: KoboBackup, ref: KoboScenarioRef) {
+    setImporting(true);
+    setError(null);
+    try {
+      const scene = backup.toPlay(ref);
+      await savePlayScene(scene);
+      router.push(`/play/${scene.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setImporting(false);
+    }
+  }
 
   async function createTable() {
     setCreating(true);
@@ -137,6 +176,60 @@ export function PlayLobby({ sessions }: { sessions: PlaySessionSummary[] }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* 姉妹アプリ「TRPGシナリオ工房」から */}
+      <Card className="border-border">
+        <CardContent className="flex flex-wrap items-center gap-3 py-4">
+          <BookOpenText className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold tracking-tight">
+              シナリオ工房から卓を作る
+            </h2>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              「TRPGシナリオ工房」の設定 →「バックアップ」で書き出した .zip を選ぶと、
+              シーン・読み上げ文・NPC・ハンドアウト・判定メモ入りの卓ができます
+              (秘密の情報は GM だけに表示)。
+            </p>
+          </div>
+          <input
+            ref={koboInput}
+            type="file"
+            accept=".zip,application/zip"
+            className="hidden"
+            onChange={(e) => void pickKobo(e.target.files?.[0])}
+          />
+          <Button
+            variant="outline"
+            onClick={() => koboInput.current?.click()}
+            disabled={importing}
+          >
+            {importing ? "読み込み中…" : "バックアップを選ぶ"}
+          </Button>
+          {kobo && (
+            <div className="w-full space-y-2 rounded-md border border-border bg-muted/40 p-3">
+              <p className="text-xs font-semibold">
+                どのシナリオで卓を作りますか?({kobo.scenarios.length} 本)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {kobo.scenarios.map((ref) => (
+                  <Button
+                    key={ref.dir}
+                    size="sm"
+                    variant="outline"
+                    disabled={importing}
+                    onClick={() => void importKobo(kobo, ref)}
+                  >
+                    {ref.title || "(無題)"}
+                  </Button>
+                ))}
+                <Button size="sm" variant="ghost" onClick={() => setKobo(null)}>
+                  やめる
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* 最近の卓 */}
       <div>
