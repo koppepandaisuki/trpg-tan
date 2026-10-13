@@ -30,7 +30,26 @@ const CHUNK = 60_000; // UTF-16 文字数。Realtime の上限(~256KB)に対し�
 export const SYNC_PROTOCOL = 2;
 
 export type NetMsg =
-  | { type: "hello"; from: string; name: string; proto?: number }
+  | {
+      type: "hello";
+      from: string;
+      name: string;
+      proto?: number;
+      /** 参加者の公開鍵(ECDH。個別の秘密を暗号化して受け取るため。seal.ts)。 */
+      pub?: string;
+    }
+  /** GM の公開鍵(ECDH)。参加者はこれで GM からの暗号文を開く。 */
+  | { type: "key"; pub: string }
+  /**
+   * 宛先(to = 参加者 id)だけが開ける暗号文。中身は NetMsg(主に reveal)。
+   * 全員に届いても宛先以外には読めない。
+   */
+  | { type: "sealed"; to: string; iv: string; data: string }
+  /**
+   * 個別に見せる出来事(シークレットダイスの出目・個別チャット)。sealed の中身として
+   * 宛先にだけ届く。参加者は同じ id の印(redacted)を置き換える / ログに足す。
+   */
+  | { type: "reveal"; evs: PlayEvent[] }
   /**
    * 権威スナップショット(状態置換)。GM の現在状態(秘匿駒を除いた scene)を丸ごと
    * 配信し、参加者は rev が進んだときだけ scene を置き換える。取りこぼしても次の

@@ -147,3 +147,11 @@ export {
   resetTimer,
   formatTimer,
 } from "./timer.js";
+export {
+  isPrivateChannel,
+  publicEventFor,
+  redactRoll,
+  privateRecipients,
+  privateBacklog,
+} from "./secrets.js";
+export { createSecretBox, sendPrivateEvents, type SecretBox } from "./seal.js";

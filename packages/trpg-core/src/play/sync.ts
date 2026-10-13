@@ -1,10 +1,10 @@
 import { SYNC_PROTOCOL, type NetMsg } from "./net.js";
 import { reduce } from "./reduce.js";
+import { publicEventFor } from "./secrets.js";
 import type {
   Panel,
   PlayEvent,
   PlayScene,
-  RollEvent,
   ScenarioInfo,
   SceneInfo,
 } from "./types.js";
@@ -48,7 +48,6 @@ export interface ProjectOptions {
 const sceneListCache = new WeakMap<SceneInfo[], SceneInfo[]>();
 const sceneInfoCache = new WeakMap<SceneInfo, SceneInfo>();
 const scenarioCache = new WeakMap<ScenarioInfo, ScenarioInfo>();
-const redactCache = new WeakMap<RollEvent, RollEvent>();
 /** 投影したログが上限で切れているか(切れていなければ先頭の欠けは「削除」と分かる)。 */
 const truncatedLogs = new WeakSet<PlayEvent[]>();
 
@@ -60,7 +59,8 @@ const truncatedLogs = new WeakSet<PlayEvent[]>();
  *   - シーンの GM メモ・手がかり・読み上げ台本(先のシーンのネタバレになる)
  *   - シナリオ情報のうち、あらすじ・人数・時間以外(GM メモ / HO の秘密 / NPC)
  *   - テキストストック(GM の定型文)、BGM/SE の一覧、素材庫、タグ
- *   - 「GM だけ」のシークレットダイスの出目(出目を抜いた印だけ送る)
+ *   - シークレットダイスの出目(印だけ送る。見せる相手には個別に暗号化して送る)
+ *   - 個別チャット(宛先にだけ個別に暗号化して送る)
  */
 export function projectForPlayers(
   scene: PlayScene,
@@ -79,7 +79,10 @@ export function projectForPlayers(
     const ev = scene.log[i];
     if (!DISPLAY_KINDS.has(ev.kind)) continue;
     if (hiddenNames.has(ev.actor)) continue;
-    log.push(ev.kind === "roll" ? redactRoll(ev) : ev);
+    // シークレットダイスは印だけ、個別チャットは載せない(中身は宛先にだけ
+    // 暗号化して個別に送る。secrets.ts / seal.ts)。
+    const pub = publicEventFor(ev);
+    if (pub) log.push(pub);
   }
   log.reverse();
   if (i >= 0) truncatedLogs.add(log);
@@ -103,31 +106,6 @@ export function projectForPlayers(
     if (s) out.scenario = s;
   }
   return out;
-}
-
-function redactRoll(ev: RollEvent): RollEvent {
-  // 見せる相手が指定されたシークレットダイスは、相手の画面で出目を出すために
-  // そのまま送る(表示側で伏せる)。GM だけのものは出目自体を送らない。
-  if (!ev.secret || (ev.visibleTo && ev.visibleTo.length > 0)) return ev;
-  let r = redactCache.get(ev);
-  if (!r) {
-    r = {
-      id: ev.id,
-      ts: ev.ts,
-      actor: ev.actor,
-      kind: "roll",
-      label: "シークレットダイス",
-      dice: [],
-      total: 0,
-      secret: true,
-      visibleTo: [],
-      redacted: true,
-      ...(ev.channel ? { channel: ev.channel } : {}),
-      ...(ev.color ? { color: ev.color } : {}),
-    };
-    redactCache.set(ev, r);
-  }
-  return r;
 }
 
 function projectScenes(scenes: SceneInfo[]): SceneInfo[] {
@@ -501,6 +479,31 @@ export function createSceneMirror(opts?: {
   let rev = -1;
   let epoch: string | undefined;
   let lastResync = -Infinity;
+  // 自分宛てに個別に届いた出来事(id → 中身)。全員向けの印(redacted)を置き換え、
+  // 全員向けに無いもの(個別チャット)はログに足す。全量の受信でログが入れ替わっても保つ。
+  const reveals = new Map<string, PlayEvent>();
+
+  function withReveals(s: PlayScene): PlayScene {
+    if (reveals.size === 0) return s;
+    let changed = false;
+    const present = new Set<string>();
+    const log = s.log.map((e) => {
+      present.add(e.id);
+      const r = reveals.get(e.id);
+      if (r && r !== e) {
+        changed = true;
+        return r;
+      }
+      return e;
+    });
+    const missing = [...reveals.values()].filter((e) => !present.has(e.id));
+    if (missing.length === 0) return changed ? { ...s, log } : s;
+    // 時刻順に差し込む(全員向けのログは時刻順)。
+    const merged = [...log, ...missing].sort((a, b) =>
+      a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0,
+    );
+    return { ...s, log: capLog(merged, cap) };
+  }
 
   const none: MirrorResult = { changed: false, resync: false };
   function askResync(): MirrorResult {
@@ -524,10 +527,10 @@ export function createSceneMirror(opts?: {
           if (!newEpoch && scene && msg.rev <= rev) return none;
           epoch = msg.epoch;
           rev = msg.rev;
-          scene = {
+          scene = withReveals({
             ...msg.scene,
             log: scene ? mergeSnapshotLog(scene.log, msg.scene.log, cap) : msg.scene.log,
-          };
+          });
           return { changed: true, resync: false };
         }
         case "patch": {
@@ -536,7 +539,7 @@ export function createSceneMirror(opts?: {
           }
           if (msg.rev <= rev) return none; // 重複・古いもの
           if (msg.base !== rev) return askResync();
-          scene = applyPatch(scene, msg.patch, cap);
+          scene = withReveals(applyPatch(scene, msg.patch, cap));
           rev = msg.rev;
           return { changed: true, resync: false };
         }
@@ -551,7 +554,15 @@ export function createSceneMirror(opts?: {
           const id = msg.ev.id;
           if (scene.log.slice(-64).some((e) => e.id === id)) return none;
           const next = reduce(scene, msg.ev);
-          scene = { ...next, log: capLog(next.log, cap) };
+          scene = withReveals({ ...next, log: capLog(next.log, cap) });
+          return { changed: true, resync: false };
+        }
+        case "reveal": {
+          for (const ev of msg.evs) reveals.set(ev.id, ev);
+          // 古いものから捨てる(長時間卓でも無制限に溜めない)。
+          while (reveals.size > cap) reveals.delete(reveals.keys().next().value!);
+          if (!scene) return none;
+          scene = withReveals(scene);
           return { changed: true, resync: false };
         }
         case "memo": {

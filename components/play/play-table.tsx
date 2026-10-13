@@ -34,7 +34,12 @@ import {
   turnSetEvent,
   parseCcfoliaCharacter,
   createSceneBroadcaster,
+  createSecretBox,
+  publicEventFor,
+  privateBacklog,
+  sendPrivateEvents,
   type SceneBroadcaster,
+  type SecretBox,
   type BgmTrack,
   type CutIn,
   type Panel,
@@ -142,6 +147,8 @@ export function PlayTable({
   const memberNames = useRef(new Map<string, string>());
   // 退室させた participant id(以後の hello / 操作を無視する)。
   const kicked = useRef(new Set<string>());
+  // 参加者ごとの暗号鍵(シークレットダイスの出目・個別チャットを宛先にだけ送る)。
+  const boxRef = useRef<SecretBox | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   /* ===== オートセーブ(変更が落ち着いたら保存) ===== */
@@ -173,9 +180,24 @@ export function PlayTable({
   /** イベントを確定 → 状態更新 + 参加者へ即時通知(ログ/演出用)。 */
   const dispatch = useCallback(
     (ev: PlayEvent) => {
+      const cur = sceneRef.current;
       setScene((s) => reduce(s, ev));
-      if (ev.kind === "chat" || ev.kind === "roll") {
-        void room?.send({ type: "event", ev });
+      if (!room || (ev.kind !== "chat" && ev.kind !== "roll")) return;
+      // 秘匿の駒の発言・ダイスは参加者へ出さない。
+      if (cur.panels.some((p) => p.hidden && p.name === ev.actor)) return;
+      // 全員へは「見せてよい形」だけ(シークレットダイスは印、個別チャットは送らない)。
+      const pub = publicEventFor(ev);
+      if (pub) void room.send({ type: "event", ev: pub });
+      // 中身を見せる相手には、その人の鍵で暗号化して個別に送る。
+      const box = boxRef.current;
+      if (box && pub !== ev) {
+        void sendPrivateEvents({
+          box,
+          send: (m) => room.send(m),
+          members: memberNames.current,
+          scene: cur,
+          evs: [ev],
+        });
       }
     },
     [room],
@@ -281,6 +303,8 @@ export function PlayTable({
       const b = createSceneBroadcaster({ send: (m) => r.send(m) });
       broadcasterRef.current = b;
       b.update(sceneRef.current);
+      const box = await createSecretBox();
+      boxRef.current = box;
       r.onMessage((msg) => {
         if (msg.type === "intent") handleIntent(msg.from, msg.intent);
         // hello(入室 / 再同期の要求)を受けたら全量を送って追いつかせる。
@@ -288,6 +312,22 @@ export function PlayTable({
           if (kicked.current.has(msg.from)) return;
           memberNames.current.set(msg.from, msg.name);
           b.join(msg.proto);
+          // 鍵を交わし、この人宛ての過去の個別の出来事(シークレットダイスの出目・
+          // 個別チャット)を暗号化して渡す。
+          if (msg.pub) {
+            const { from, name, pub } = msg;
+            void (async () => {
+              if (!(await box.addPeer(from, pub))) return;
+              await r.send({ type: "key", pub: box.publicKey });
+              await sendPrivateEvents({
+                box,
+                send: (m) => r.send(m),
+                members: [[from, name]],
+                scene: sceneRef.current,
+                evs: privateBacklog(sceneRef.current, name),
+              });
+            })();
+          }
           // 途中入室でも今かかっている曲が揃うように BGM を配り直す。
           if (curBgmRef.current) {
             void r.send({
@@ -323,6 +363,7 @@ export function PlayTable({
   function closeRoom() {
     broadcasterRef.current?.stop();
     broadcasterRef.current = null;
+    boxRef.current = null;
     void room?.send({ type: "closed" });
     room?.close();
     setRoom(null);
@@ -455,6 +496,7 @@ export function PlayTable({
               onKick={(peer) => {
                 kicked.current.add(peer.id);
                 memberNames.current.delete(peer.id);
+                boxRef.current?.removePeer(peer.id);
                 void room?.send({ type: "kick", to: peer.id });
               }}
             />

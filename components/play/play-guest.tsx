@@ -15,6 +15,7 @@ import {
 import {
   parseCcfoliaCharacter,
   createSceneMirror,
+  createSecretBox,
   SYNC_PROTOCOL,
   type CutIn,
   type Panel,
@@ -106,13 +107,18 @@ export function PlayGuest({
       myName.current = nm;
       const r = await connectRoom(code, nm, { onLinkStatus: setLink });
       const mirror = createSceneMirror();
+      // 自分宛ての秘密(シークレットダイスの出目・個別チャット)を開く鍵。
+      const box = await createSecretBox();
       const hello = () =>
         void r.send({
           type: "hello",
           from: r.selfId,
           name: nm,
           proto: SYNC_PROTOCOL,
+          pub: box.publicKey,
         });
+      // 鍵の登録 → 暗号文を開く、の順序を守るため、この 2 種類は 1 本の列で処理する。
+      let secretQueue: Promise<void> = Promise.resolve();
       // 卓データが届くまで hello を送り直す(GM が後から公開した / 最初の hello を
       // 取りこぼした場合に「卓データ待ち」で固まらないため)。
       window.clearInterval(helloTimer.current);
@@ -125,7 +131,18 @@ export function PlayGuest({
         const res = mirror.receive(msg);
         if (res.changed) setScene(mirror.scene);
         if (res.resync) hello();
-        if (msg.type === "cutin") {
+        if (msg.type === "key") {
+          const pub = msg.pub;
+          secretQueue = secretQueue.then(async () => {
+            await box.addPeer("GM", pub);
+          });
+        } else if (msg.type === "sealed" && msg.to === r.selfId) {
+          const sealed = msg;
+          secretQueue = secretQueue.then(async () => {
+            const inner = await box.open("GM", sealed);
+            if (inner && mirror.receive(inner).changed) setScene(mirror.scene);
+          });
+        } else if (msg.type === "cutin") {
           // id だけ届くので、自分が持っている scene から画像を引く。
           // ハンドラは接続時の closure なので最新 scene は ref から読む。
           const c = sceneRef.current?.cutins?.find((x) => x.id === msg.cutinId);

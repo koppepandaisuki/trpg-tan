@@ -91,7 +91,7 @@ describe("projectForPlayers", () => {
     expect(p.scenes![0].name).toBe("シーン1");
   });
 
-  it("GM だけのシークレットダイスは出目を抜き、見せる相手付きはそのまま送る", () => {
+  it("シークレットダイスは見せる相手付きでも出目を抜く(中身は宛先にだけ個別に送る)", () => {
     let s = baseScene();
     const gmOnly: RollEvent = { ...freeRollEvent(ctx(), "GM", "1d100", "目星"), secret: true, visibleTo: [] };
     const shared: RollEvent = { ...freeRollEvent(ctx(), "GM", "1d100", "聞き耳"), secret: true, visibleTo: ["a"] };
@@ -102,7 +102,8 @@ describe("projectForPlayers", () => {
     expect(r1.dice).toEqual([]);
     expect(r1.label).toBe("シークレットダイス");
     expect(JSON.stringify(r1)).not.toContain("目星");
-    expect(r2).toBe(shared);
+    expect(r2.redacted).toBe(true);
+    expect(JSON.stringify(r2)).not.toContain("聞き耳");
     // 同じイベントは毎回同じ参照(差分で「変わった」と誤検出しない)。
     expect(projectForPlayers(s).log.find((e) => e.id === r1.id)).toBe(r1);
   });

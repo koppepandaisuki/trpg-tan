@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   reduce,
   createSceneBroadcaster,
+  createSecretBox,
+  publicEventFor,
+  privateBacklog,
+  sendPrivateEvents,
   type SceneBroadcaster,
+  type SecretBox,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
@@ -226,6 +231,8 @@ export function PlayTable({
   const memberNames = useRef<Map<string, string>>(new Map());
   // 退室させた participant id(以後の hello / 操作を無視する)。
   const kickedRef = useRef<Set<string>>(new Set());
+  // 参加者ごとの暗号鍵(シークレットダイスの出目・個別チャットを宛先にだけ送る)。
+  const boxRef = useRef<SecretBox | null>(null);
   // 現在配信中の BGM。途中入室した参加者は再生中の BGM メッセージを取りこぼす
   // ため、hello を受けたら同じ BGM を再配信して late-joiner にも鳴らす。
   const curBgmRef = useRef<{ path: string | null; loop: boolean }>({
@@ -440,7 +447,22 @@ export function PlayTable({
       const actorHidden = scene.panels.some(
         (p) => p.name === event.actor && p.hidden,
       );
-      if (!actorHidden) void r.send({ type: "event", ev: event });
+      if (!actorHidden) {
+        // 全員へは「見せてよい形」だけ(シークレットダイスは印、個別チャットは送らない)。
+        const pub = publicEventFor(event);
+        if (pub) void r.send({ type: "event", ev: pub });
+        // 中身を見せる相手には、その人の鍵で暗号化して個別に送る。
+        const box = boxRef.current;
+        if (box && pub !== event) {
+          void sendPrivateEvents({
+            box,
+            send: (m) => r.send(m),
+            members: memberNames.current,
+            scene,
+            evs: [event],
+          });
+        }
+      }
     }
   }
 
@@ -1258,6 +1280,23 @@ export function PlayTable({
         // 新規参加者へ現在の卓全体を送る(集約。hello 連投でも 1 本ずつ)。
         // proto を申告しない旧版のアプリが居れば、以後は全量配信に戻る。
         broadcasterRef.current?.join(msg.proto);
+        // 鍵を交わし、この人宛ての過去の個別の出来事を暗号化して渡す。
+        const box = boxRef.current;
+        const r = roomRef.current;
+        if (box && r && msg.pub) {
+          const { from, name, pub } = msg;
+          void (async () => {
+            if (!(await box.addPeer(from, pub))) return;
+            await r.send({ type: "key", pub: box.publicKey });
+            await sendPrivateEvents({
+              box,
+              send: (m) => r.send(m),
+              members: [[from, name]],
+              scene: sceneRef.current,
+              evs: privateBacklog(sceneRef.current, name),
+            });
+          })();
+        }
         // 既に BGM を流しているなら再配信して、途中入室でも鳴るようにする
         // (broadcast で全員に届くが、参加者側は同じ曲なら鳴らし直さない)。
         if (curBgmRef.current.path) {
@@ -1316,6 +1355,7 @@ export function PlayTable({
       });
       broadcasterRef.current = b;
       b.update(sceneRef.current);
+      boxRef.current = await createSecretBox();
       r.onMessage((m) => netMsgRef.current(m));
       r.onPresence(setMembers);
       setRoom(r);
@@ -1331,6 +1371,7 @@ export function PlayTable({
   function stopShare() {
     broadcasterRef.current?.stop();
     broadcasterRef.current = null;
+    boxRef.current = null;
     setLink(null);
     roomRef.current?.send({ type: "closed" });
     roomRef.current?.close();
@@ -1627,6 +1668,7 @@ export function PlayTable({
             onKick={(peer) => {
               kickedRef.current.add(peer.id);
               memberNames.current.delete(peer.id);
+              boxRef.current?.removePeer(peer.id);
               void roomRef.current?.send({ type: "kick", to: peer.id });
               toast(`🚪 ${peer.name || "参加者"} を退室させました`);
             }}

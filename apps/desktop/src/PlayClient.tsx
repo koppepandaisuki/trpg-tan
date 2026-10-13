@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import {
   createSceneMirror,
+  createSecretBox,
   SYNC_PROTOCOL,
   panelFromSheet,
   panelFromGeneric,
@@ -227,13 +228,18 @@ export function PlayClient({
         r.onProgress((p) => alive && setProgress(p));
         // GM の卓の写し(全量 / 差分 / チャット・ダイス / 共有メモを適用)。
         const mirror = createSceneMirror();
+        // 自分宛ての秘密(シークレットダイスの出目・個別チャット)を開く鍵。
+        const box = await createSecretBox();
         const hello = () =>
           roomRef.current?.send({
             type: "hello",
             from: r!.selfId,
             name,
             proto: SYNC_PROTOCOL,
+            pub: box.publicKey,
           });
+        // 鍵の登録 → 暗号文を開く、の順序を守るため 1 本の列で処理する。
+        let secretQueue: Promise<void> = Promise.resolve();
         const show = () => {
           if (!mirror.scene) return;
           // 軽量な卓の "cas:<key>" 参照を、受信済みの画像実体へ復元してから
@@ -259,6 +265,17 @@ export function PlayClient({
           if (msg.type === "tick") {
             // 心拍: 楽観反映の期限切れを掃除して GM の状態へ戻す(楽観が無ければ何もしない)。
             if (optimistic.current.size > 0) show();
+          } else if (msg.type === "key") {
+            const pub = msg.pub;
+            secretQueue = secretQueue.then(async () => {
+              await box.addPeer("GM", pub);
+            });
+          } else if (msg.type === "sealed" && msg.to === r?.selfId) {
+            const sealed = msg;
+            secretQueue = secretQueue.then(async () => {
+              const inner = await box.open("GM", sealed);
+              if (alive && inner && mirror.receive(inner).changed) show();
+            });
           } else if (msg.type === "media") {
             // 画像束を受け取りキャッシュ。表示中 scene に残る未解決参照を埋める
             // (解決済み URL や通常のログ文字列には触れないのでログは保持される)。
