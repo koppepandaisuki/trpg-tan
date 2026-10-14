@@ -100,7 +100,7 @@ const STEPS: Step[] = [
 ];
 
 const ICON_TONE_CLASSES: Record<Step["iconTone"], string> = {
-  indigo: "border-red-200 bg-red-50 text-red-700",
+  indigo: "border-primary/20 bg-primary-soft text-primary",
   emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
   amber: "border-amber-200 bg-amber-50 text-amber-700",
   violet: "border-orange-200 bg-orange-50 text-orange-700",

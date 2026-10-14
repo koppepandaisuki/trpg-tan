@@ -19,26 +19,27 @@ const THEME: Record<
   UserPlan,
   { code: string; text: string; border: string; check: string; btn: string }
 > = {
+  // 無料 = 無彩色、PLAY(おすすめ)= 紅、PRO = 墨(ブランドの 3 色)。
   basic: {
     code: "BASIC",
-    text: "text-amber-600",
-    border: "border-amber-300",
-    check: "bg-amber-500",
-    btn: "bg-amber-500 hover:bg-amber-600",
+    text: "text-foreground",
+    border: "border-border",
+    check: "bg-muted-foreground",
+    btn: "bg-ink hover:bg-ink/85",
   },
   play: {
     code: "PLAY",
-    text: "text-red-600",
-    border: "border-red-400",
-    check: "bg-red-500",
-    btn: "bg-red-600 hover:bg-red-700",
+    text: "text-primary",
+    border: "border-primary",
+    check: "bg-primary",
+    btn: "bg-primary hover:bg-primary-hover",
   },
   pro: {
     code: "PRO",
-    text: "text-orange-600",
-    border: "border-orange-300",
-    check: "bg-orange-500",
-    btn: "bg-orange-600 hover:bg-orange-700",
+    text: "text-foreground",
+    border: "border-ink",
+    check: "bg-ink",
+    btn: "bg-ink hover:bg-ink/85",
   },
 };
 
@@ -96,35 +97,16 @@ export default async function PricingPage() {
     <>
       <TopHeader />
 
-      {/* ヒーロー: ブランドのスカイ→シアンを背景に、ハイライト付きの大見出し。 */}
-      <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-red-50 to-background">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-amber-200/40 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-24 top-10 h-72 w-72 rounded-full bg-red-200/40 blur-3xl"
-        />
+      {/* ヒーロー: 白地に大見出し。◆ はロゴの菱形。 */}
+      <section className="relative overflow-hidden border-b border-border bg-white">
         <div className="mx-auto w-full max-w-screen-2xl px-4 pb-10 pt-6 sm:px-6">
           <Breadcrumb items={[{ label: "料金プラン" }]} />
           <div className="relative mt-6 text-center">
-            <Sparkles
-              className="absolute left-[18%] top-0 hidden h-7 w-7 text-amber-400 sm:block"
-              aria-hidden
-            />
-            <Sparkles
-              className="absolute right-[18%] top-2 hidden h-5 w-5 text-red-400 sm:block"
-              aria-hidden
-            />
-            <p className="text-sm font-bold tracking-widest text-red-600">
-              Re-dice
+            <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.25em] text-muted-foreground">
+              <span aria-hidden className="h-1.5 w-1.5 rotate-45 bg-primary" />
+              PRICING
             </p>
-            <h1 className="relative mt-1 inline-block text-4xl font-black tracking-tight sm:text-5xl">
-              <span
-                aria-hidden
-                className="absolute inset-x-0 bottom-1.5 -z-10 h-3.5 rounded bg-red-200/70"
-              />
+            <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">
               料金プラン
             </h1>
             <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
@@ -203,11 +185,11 @@ function PlanCard({
       className={[
         "relative flex flex-col rounded-2xl border-2 bg-card p-6 shadow-sm transition",
         t.border,
-        featured ? "shadow-lg ring-2 ring-red-200 sm:-translate-y-1" : "",
+        featured ? "shadow-lg ring-4 ring-primary/10 sm:-translate-y-1" : "",
       ].join(" ")}
     >
       {featured && (
-        <span className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-[10px] font-bold text-white shadow">
+        <span className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-primary px-3 py-1 text-[10px] font-bold text-white shadow-brand">
           <Crown className="h-3 w-3" aria-hidden /> おすすめ
         </span>
       )}
@@ -254,7 +236,7 @@ function PlanCard({
           <li key={perk.label} className="flex items-start gap-2.5 text-sm">
             <span
               className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white ${
-                perk.star ? "bg-amber-500" : t.check
+                perk.star ? "bg-gold" : t.check
               }`}
             >
               <Check className="h-3 w-3" aria-hidden strokeWidth={3} />

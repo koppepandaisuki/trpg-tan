@@ -13,7 +13,7 @@ export function NavLinks() {
   const pathname = usePathname();
 
   return (
-    <nav className="hidden items-center gap-1 md:flex">
+    <nav className="hidden h-full items-stretch gap-5 md:flex">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
         const active =
@@ -26,10 +26,12 @@ export function NavLinks() {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm transition",
+              // 下線のタブ(components/ui/tabs.tsx の underline と同じ見た目)。
+              // 現在地は墨の太字 + 紅の下線。
+              "flex items-center gap-1.5 border-b-2 px-0.5 text-sm transition-colors",
               active
-                ? "bg-primary-soft font-semibold text-primary"
-                : "text-muted-foreground hover:bg-primary-soft hover:text-primary",
+                ? "border-primary font-semibold text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             <Icon className="h-4 w-4" aria-hidden />

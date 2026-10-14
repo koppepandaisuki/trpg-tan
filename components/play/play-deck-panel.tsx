@@ -13,6 +13,7 @@ import {
   type DeckOp,
   type DeckPreset,
 } from "@trpg/core";
+import { buttonVariants, toolButton } from "@/components/ui/button";
 
 /**
  * カード・山札の欄(Web)。GM と参加者で同じ部品を使う。
@@ -67,7 +68,7 @@ export function PlayDeckPanel(
   if (props.mode === "player" && decks.length === 0 && props.hands.length === 0) return null;
 
   return (
-    <section className="rounded-lg border border-border bg-background">
+    <section className="rounded-xl border border-border bg-card">
       <header className="flex items-center gap-1.5 border-b border-border px-3 py-2">
         <Layers className="h-3.5 w-3.5 text-primary" aria-hidden />
         <h2 className="flex-1 text-xs font-semibold">カード</h2>
@@ -75,7 +76,7 @@ export function PlayDeckPanel(
           <button
             type="button"
             onClick={() => setCreating((v) => !v)}
-            className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+            className={buttonVariants({ variant: "ghost", size: "xs" })}
           >
             <Plus className="h-3 w-3" aria-hidden />
             山札を作る
@@ -193,7 +194,7 @@ export function PlayDeckPanel(
                         `🃏 「${d.name}」から 1 枚を場に出しました`,
                       )
                     }
-                    className="rounded border border-border px-1.5 py-0.5 hover:bg-muted disabled:opacity-40"
+                    className={toolButton}
                   >
                     場に出す
                   </button>
@@ -208,7 +209,7 @@ export function PlayDeckPanel(
                           `🃏 ${m} に「${d.name}」から 1 枚配りました`,
                         )
                       }
-                      className="rounded border border-border px-1.5 py-0.5 hover:bg-muted disabled:opacity-40"
+                      className={toolButton}
                       title={`${m} の手札に 1 枚(本人にだけ見えます)`}
                     >
                       {m}に配る
@@ -223,7 +224,7 @@ export function PlayDeckPanel(
                         `🃏 「${d.name}」の場のカードを流しました`,
                       )
                     }
-                    className="rounded border border-border px-1.5 py-0.5 hover:bg-muted disabled:opacity-40"
+                    className={toolButton}
                   >
                     場を流す
                   </button>
@@ -232,7 +233,7 @@ export function PlayDeckPanel(
                     onClick={() =>
                       props.onOp(shuffleDeckOp(d, false, rng), `🃏 「${d.name}」の山札を混ぜました`)
                     }
-                    className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 hover:bg-muted"
+                    className={toolButton}
                   >
                     <Shuffle className="h-3 w-3" aria-hidden />
                     混ぜる
@@ -246,7 +247,7 @@ export function PlayDeckPanel(
                         `🃏 「${d.name}」を全部戻して混ぜました`,
                       );
                     }}
-                    className="rounded border border-border px-1.5 py-0.5 hover:bg-muted"
+                    className={toolButton}
                   >
                     全部戻す
                   </button>
@@ -255,7 +256,8 @@ export function PlayDeckPanel(
                     onClick={() =>
                       props.onOp({ op: "selfDraw", deckId: d.id, allow: !d.selfDraw }, "")
                     }
-                    className={`rounded border px-1.5 py-0.5 ${d.selfDraw ? "border-primary bg-primary/10" : "border-border hover:bg-muted"}`}
+                    aria-pressed={!!d.selfDraw}
+                    className={toolButton}
                     title="参加者が自分で 1 枚ずつ引けるか"
                   >
                     自分で引ける: {d.selfDraw ? "ON" : "OFF"}
@@ -269,7 +271,7 @@ export function PlayDeckPanel(
                         `🃏 山札「${d.name}」を片付けました`,
                       );
                     }}
-                    className="rounded p-1 text-muted-foreground hover:text-red-600"
+                    className="rounded-full p-1 text-muted-foreground hover:text-red-600"
                     title="削除"
                   >
                     <Trash2 className="h-3 w-3" aria-hidden />
@@ -282,7 +284,7 @@ export function PlayDeckPanel(
                   type="button"
                   disabled={pileCount(d) === 0}
                   onClick={() => props.onDraw(d.id)}
-                  className="rounded border border-border px-1.5 py-0.5 hover:bg-muted disabled:opacity-40"
+                  className={toolButton}
                 >
                   1 枚引く
                 </button>

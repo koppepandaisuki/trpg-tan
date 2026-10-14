@@ -22,11 +22,8 @@ export default function NotFound() {
     <>
       <TopHeader />
       <PageContainer className="py-16">
-        <Card className="mx-auto max-w-md overflow-hidden border-border bg-gradient-to-br from-slate-500/10 via-transparent to-slate-500/5 shadow-sm">
+        <Card className="mx-auto max-w-md overflow-hidden border-border shadow-sm">
           <CardContent className="relative flex flex-col items-center gap-5 py-12 text-center">
-            {/* 装飾ブラー */}
-            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-slate-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-slate-500/10 blur-3xl" />
 
             <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-slate-700">
               <Compass className="h-8 w-8" aria-hidden />

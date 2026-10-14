@@ -1,47 +1,50 @@
 /*
- * Re-dice ブランド(2026-07 リブランド: 深紅のダイス / 白磁 / 金のヘアライン)。
- * エレガントで公式感のある配色。Web 側のトークンと揃える。
+ * Re-dice ブランド(2026-10 リブランド「白・黒・紅」)。Web(app/globals.css)と揃える。
+ * 無彩色の面と文字 + アイコンのダイスと同じ紅 #A51A1D。赤は「押すもの」と
+ * 現在地の印だけに使い、選択中の状態は墨で示す。
  */
 :root {
-  --bg: #fdfaf5;
+  --bg: #fafafa;
   --surface: #ffffff;
-  --surface-2: #faf5ec;
-  --border: rgba(164, 120, 44, 0.18);
-  --border-strong: rgba(164, 120, 44, 0.34);
+  --surface-2: #f5f5f5;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.2);
 
-  --text: #2a1c14;
-  --text-muted: #77644f;
-  --text-faint: #8b7862; /* 白地でのコントラスト確保のため一段濃く */
+  --text: #121212;
+  --text-muted: #616161;
+  --text-faint: #7a7a7a; /* 白地でのコントラスト確保のため一段濃く */
 
-  --primary: #b02832;
-  --primary-hover: #93202a;
-  --primary-soft: #fceceb;
-  --primary-deep: #8a1d26;
+  --primary: #a51a1d;
+  --primary-hover: #861316;
+  --primary-soft: #f9ecec;
+  --primary-deep: #861316;
 
-  --mint: #d9b45c;
-  --mint-soft: #f9f0da;
-  --mint-deep: #8f6f1a;
-  --gold: #c9a227;
-  --gold-soft: #f8f0d6;
-  --gold-deep: #8f6f1a;
-  --coral: #f0876b;
+  /* 墨(選択中のタブ・チップ) */
+  --ink: #121212;
+  --ink-text: #ffffff;
 
-  --surface-3: #f3ead9;
+  /* 旧トークン(互換のため残す。無彩色寄りに寄せた。金は「プレミアム」表示だけ) */
+  --mint: #9e9e9e;
+  --mint-soft: #f2f2f2;
+  --mint-deep: #3d3d3d;
+  --gold: #a67f30;
+  --gold-soft: #f6f0e3;
+  --gold-deep: #8a6a24;
+  --coral: #e5484d;
 
-  /* 多層シャドウ(環境光 + キーライト)で本物の奥行きを出す */
-  --shadow-xs: 0 1px 2px rgba(94, 52, 24, 0.06);
-  --shadow-sm:
-    0 1px 2px rgba(94, 52, 24, 0.05), 0 3px 10px rgba(94, 52, 24, 0.07);
-  --shadow-md:
-    0 6px 14px rgba(94, 52, 24, 0.09), 0 18px 38px rgba(94, 52, 24, 0.12);
-  --shadow-lg:
-    0 12px 28px rgba(94, 52, 24, 0.12), 0 34px 64px rgba(94, 52, 24, 0.18);
-  --ring: 0 0 0 3px rgba(176, 40, 50, 0.22);
-  /* カード上端のガラス質ハイライト(光を受けた縁)。テーマで明るさを変える。 */
+  --surface-3: #ededed;
+
+  /* 無彩色の薄い影(面は影より境界線で分ける) */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 6px 14px rgba(0, 0, 0, 0.07), 0 16px 34px rgba(0, 0, 0, 0.09);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.1), 0 30px 60px rgba(0, 0, 0, 0.14);
+  --ring: 0 0 0 3px rgba(165, 26, 29, 0.2);
+  /* カード上端のハイライト(光を受けた縁)。テーマで明るさを変える。 */
   --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 
-  --grad-primary: linear-gradient(135deg, #c8434c 0%, #93202a 100%);
-  --grad-accent: linear-gradient(120deg, var(--primary) 0%, var(--mint) 100%);
+  --grad-primary: linear-gradient(135deg, #b8262a 0%, #861316 100%);
+  --grad-accent: linear-gradient(120deg, var(--primary) 0%, var(--primary-deep) 100%);
 
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -85,42 +88,27 @@ body {
      なり、ダークモードで黒文字が見えなくなる(button は color を継承しないので
      下の button ルールで明示的に inherit させる)。 */
   color: var(--text);
-  /* ドット・テクスチャ + 金/深紅のメッシュ光で上質な奥行きを出す。
-     最上層のドットは極薄。カードが上に乗るので内容には干渉しない。 */
-  background:
-    radial-gradient(circle, rgba(164, 120, 44, 0.05) 1px, transparent 1.6px) 0 0 /
-      22px 22px,
-    radial-gradient(
-      1000px 540px at 92% -8%,
-      rgba(207, 165, 74, 0.14),
-      transparent 60%
-    ),
-    radial-gradient(
-      820px 560px at -8% 110%,
-      rgba(176, 40, 50, 0.07),
-      transparent 55%
-    ),
-    linear-gradient(180deg, #fffdf9 0%, #f6efe3 100%);
-  background-attachment: fixed;
+  /* 無彩色の面(Web と同じ)。色の光・テクスチャは敷かない。 */
+  background: var(--bg);
 }
 
 /* デスクトップらしい繊細なスクロールバー */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(164, 120, 44, 0.35) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: rgba(164, 120, 44, 0.3);
+  background: rgba(0, 0, 0, 0.3);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(164, 120, 44, 0.5);
+  background: rgba(0, 0, 0, 0.5);
   background-clip: padding-box;
 }
 
@@ -290,15 +278,14 @@ body {
 }
 
 /* サイドバーのタブ切替(キャラ / 購入) */
+/* Web の components/ui/tabs.tsx(segmented)と同じ: グレーの溝 + 丸いタブ、選択中は墨 */
 .tabs {
   display: flex;
-  gap: 3px;
-  padding: 3px;
+  gap: 2px;
+  padding: 4px;
   margin-bottom: 14px;
-  background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: inset 0 1px 2px rgba(94, 52, 24, 0.05);
+  background: var(--surface-3);
+  border-radius: 999px;
 }
 
 .tab {
@@ -308,8 +295,8 @@ body {
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 8px;
-  border-radius: 9px;
+  padding: 7px 10px;
+  border-radius: 999px;
   cursor: pointer;
   transition:
     color var(--dur-2) var(--ease-out),
@@ -319,18 +306,12 @@ body {
 
 .tab:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.5);
 }
 
-.tab.active {
-  background: linear-gradient(180deg, var(--surface), var(--surface-2));
-  color: var(--primary-deep);
-  box-shadow:
-    0 1px 2px rgba(94, 52, 24, 0.08),
-    0 2px 6px rgba(94, 52, 24, 0.06);
-}
+.tab.active,
 .tab.active:hover {
-  background: linear-gradient(180deg, var(--surface), var(--surface-2));
+  background: var(--ink);
+  color: var(--ink-text);
 }
 
 /* 購入ライブラリの各種状態 */
@@ -413,7 +394,8 @@ body {
   justify-content: center;
   overflow: hidden;
   border-radius: var(--radius-md);
-  background: #0d2438;
+  /* Web の盤面(play-board.tsx)と同じ墨。 */
+  background: #0f0f0f;
 }
 .board-viewport.drop-active {
   outline: 3px dashed var(--primary);
@@ -432,7 +414,7 @@ body {
   min-height: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background-color: #cfe6f6;
+  background-color: #1a1a1a;
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -528,8 +510,8 @@ body {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(22, 50, 74, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(22, 50, 74, 0.12) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -545,6 +527,10 @@ body {
      書く(13px だと 1024px 幅の画面で 5px 程度まで縮んで読めなかった)。 */
   font-size: 32px;
   line-height: 1.7;
+}
+.board-empty,
+.board-empty.muted {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .token {
@@ -585,7 +571,7 @@ body {
   justify-content: center;
   color: #fff;
   font-size: 16px;
-  box-shadow: 0 3px 9px rgba(16, 49, 74, 0.35);
+  box-shadow: 0 3px 9px rgba(10, 10, 10, 0.35);
   background-clip: padding-box;
 }
 .token-img img {
@@ -599,7 +585,7 @@ body {
   font-size: 11px;
   font-weight: 700;
   color: #fff;
-  background: rgba(16, 49, 74, 0.72);
+  background: rgba(10, 10, 10, 0.72);
   padding: 1px 7px;
   border-radius: 7px;
   white-space: nowrap;
@@ -618,7 +604,7 @@ body {
   top: -4px;
   right: -4px;
   font-size: 11px;
-  background: rgba(16, 49, 74, 0.85);
+  background: rgba(10, 10, 10, 0.85);
   border-radius: 50%;
   width: 18px;
   height: 18px;
@@ -671,7 +657,7 @@ body {
   height: auto;
   max-width: none;
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(16, 49, 74, 0.35);
+  box-shadow: 0 4px 12px rgba(10, 10, 10, 0.35);
   pointer-events: none;
   user-select: none;
 }
@@ -686,7 +672,7 @@ body {
   border-radius: 4px;
   background: var(--primary);
   border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(16, 49, 74, 0.4);
+  box-shadow: 0 1px 3px rgba(10, 10, 10, 0.4);
   cursor: nwse-resize;
   opacity: 0;
   transition: opacity 0.12s;
@@ -967,9 +953,9 @@ body {
   border-color: var(--primary);
 }
 .snd-bgm.on {
-  background: var(--grad-primary);
+  background: var(--ink);
   border-color: transparent;
-  color: #fff;
+  color: var(--ink-text);
 }
 .snd-se {
   color: var(--text-muted);
@@ -1507,7 +1493,7 @@ body {
 }
 .scene-dd-opt.active {
   background: var(--primary-soft);
-  color: var(--primary-deep);
+  color: var(--text);
 }
 .scene-dd-opt-name {
   flex: 1;
@@ -1544,9 +1530,9 @@ body {
   transform: translateY(-1px);
 }
 .scene-tab.active {
-  background: var(--grad-primary);
+  background: var(--ink);
   border-color: transparent;
-  color: #fff;
+  color: var(--ink-text);
   box-shadow: var(--shadow-sm);
 }
 .scene-dot {
@@ -2421,7 +2407,7 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  filter: drop-shadow(0 10px 14px rgba(94, 52, 24, 0.28));
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.28));
   will-change: transform;
 }
 .dm-svg {
@@ -2443,12 +2429,12 @@ body {
 }
 /* ダイス本体は常に白(#ffffff)なので、出目はテーマ非依存の暗インクで描く。 */
 .dm-pip {
-  fill: #16324a;
+  fill: #121212;
 }
 .dm-num {
   font-size: 34px;
   font-weight: 900;
-  fill: #16324a;
+  fill: #121212;
   text-anchor: middle;
   dominant-baseline: central;
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
@@ -2612,7 +2598,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(16, 49, 74, 0.32);
+  background: rgba(10, 10, 10, 0.32);
   backdrop-filter: blur(3px);
 }
 
@@ -2841,11 +2827,12 @@ body {
   align-items: center;
 }
 
+/* Web の components/ui/button.tsx と同じ: すべて丸。紅は btn-primary だけ。 */
 .btn {
   border: 1px solid var(--border-strong);
   background: var(--surface);
   color: var(--text);
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   padding: 9px 16px;
   font-size: 15px;
   font-family: inherit;
@@ -2861,8 +2848,7 @@ body {
 }
 
 .btn:hover {
-  border-color: var(--primary);
-  color: var(--primary-deep);
+  border-color: var(--text-faint);
   background: var(--surface-2);
 }
 .btn:active {
@@ -2871,51 +2857,22 @@ body {
 }
 
 .btn-primary {
-  position: relative;
-  overflow: hidden;
-  background: var(--grad-primary);
+  background: var(--primary);
   border-color: transparent;
   color: #fff;
   font-weight: 600;
   box-shadow:
-    0 2px 6px rgba(33, 152, 214, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-
-/* プレミアムな光沢スイープ。ホバーで斜めの光が一度だけ走る。
-   全 CTA(btn-primary)に一括で高級感を与える(pointer-events:none で
-   ボタン本来のクリックは阻害しない)。 */
-.btn-primary::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.4) 48%,
-    rgba(255, 255, 255, 0.4) 52%,
-    transparent 70%
-  );
-  transform: translateX(-130%);
-  transition: transform 0.62s var(--ease-out);
-  pointer-events: none;
-}
-.btn-primary:hover::after {
-  transform: translateX(130%);
+    0 1px 2px rgba(165, 26, 29, 0.25),
+    0 4px 12px rgba(165, 26, 29, 0.18);
 }
 
 .btn-primary:hover {
   color: #fff;
-  background: var(--grad-primary);
-  filter: brightness(1.06) saturate(1.05);
-  transform: translateY(-1px);
-  box-shadow:
-    0 8px 20px rgba(33, 152, 214, 0.46),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  background: var(--primary-hover);
+  border-color: transparent;
 }
 .btn-primary:active {
-  filter: brightness(0.98);
-  transform: translateY(0);
+  transform: translateY(1px);
 }
 
 .grid {
@@ -2968,9 +2925,9 @@ body {
 }
 
 .tag.ok {
-  background: var(--mint-soft);
-  border-color: var(--mint);
-  color: #0f766e;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
 }
 
 .tag.fail {
@@ -3017,19 +2974,18 @@ body {
 }
 
 .btn.mini {
-  padding: 5px 11px;
+  padding: 5px 12px;
   font-size: 13px;
-  border-radius: 9px;
+  border-radius: 999px;
 }
 
 .chip {
   display: inline-block;
   font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: var(--primary-soft);
-  border: 1px solid var(--border);
-  color: var(--primary-deep);
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text);
 }
 
 .skills {
@@ -3077,7 +3033,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(22, 50, 74, 0.32);
+  background: rgba(10, 10, 10, 0.32);
   backdrop-filter: blur(3px);
   animation: overlay-in var(--dur-2) var(--ease-out);
   cursor: pointer;
@@ -3472,9 +3428,9 @@ body {
   border-color: var(--border-strong);
 }
 .plog-tab.active {
-  background: var(--grad-primary);
+  background: var(--ink);
   border-color: transparent;
-  color: #fff;
+  color: var(--ink-text);
 }
 .plog-sort {
   margin-left: auto;
@@ -3736,9 +3692,9 @@ body {
   gap: 7px;
   /* 盤面の上に浮く白ピル。テーマに依らず読めるよう文字色を固定ダークに。 */
   background: rgba(255, 255, 255, 0.92);
-  color: #16324a;
+  color: #121212;
   backdrop-filter: blur(3px);
-  border: 1px solid rgba(164, 120, 44, 0.25);
+  border: 1px solid rgba(0, 0, 0, 0.25);
   border-radius: 999px;
   padding: 3px 12px 3px 5px;
   box-shadow: var(--shadow-xs);
@@ -3794,7 +3750,7 @@ body {
   width: 34px;
   height: 6px;
   border-radius: 999px;
-  background: rgba(94, 52, 24, 0.14);
+  background: rgba(0, 0, 0, 0.14);
   overflow: hidden;
 }
 .bstatus-fill {
@@ -3883,10 +3839,10 @@ body {
   height: 46%;
   background: linear-gradient(
     100deg,
-    rgba(16, 49, 74, 0) 0%,
-    rgba(16, 49, 74, 0.78) 18%,
-    rgba(16, 49, 74, 0.78) 82%,
-    rgba(16, 49, 74, 0) 100%
+    rgba(10, 10, 10, 0) 0%,
+    rgba(10, 10, 10, 0.78) 18%,
+    rgba(10, 10, 10, 0.78) 82%,
+    rgba(10, 10, 10, 0) 100%
   );
   transform: skewY(-3deg);
   animation: cutin-band 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -4048,7 +4004,7 @@ body {
   padding: 9px 12px;
   font-size: 13.5px;
   font-weight: 700;
-  color: var(--primary-deep);
+  color: var(--text);
   cursor: pointer;
   user-select: none;
   background: var(--surface-2);
@@ -4149,9 +4105,9 @@ body {
   border-color: var(--border-strong);
 }
 .chan-tab.active {
-  background: var(--primary-deep);
+  background: var(--ink);
   border-color: transparent;
-  color: #fff;
+  color: var(--ink-text);
 }
 .chan-note {
   margin: 6px 10px 0;
@@ -4441,10 +4397,10 @@ body {
   height: 38%;
   background: linear-gradient(
     100deg,
-    rgba(16, 49, 74, 0) 0%,
-    rgba(16, 49, 74, 0.82) 16%,
-    rgba(16, 49, 74, 0.82) 84%,
-    rgba(16, 49, 74, 0) 100%
+    rgba(10, 10, 10, 0) 0%,
+    rgba(10, 10, 10, 0.82) 16%,
+    rgba(10, 10, 10, 0.82) 84%,
+    rgba(10, 10, 10, 0) 100%
   );
   transform: skewY(-2deg);
   /* duration はコンポーネントが本文の長さから inline で指定する */
@@ -4850,7 +4806,7 @@ select.cutin-snd {
 }
 .bgm-scene.on {
   opacity: 1;
-  filter: drop-shadow(0 0 3px rgba(176, 40, 50, 0.8));
+  filter: drop-shadow(0 0 3px rgba(165, 26, 29, 0.8));
 }
 .bgm-btn.bgm-repeat {
   width: auto;
@@ -5134,7 +5090,7 @@ select.cutin-snd {
   padding: 10px 14px;
   font-size: 13.5px;
   font-weight: 700;
-  color: var(--primary-deep);
+  color: var(--text);
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
 }
@@ -5165,8 +5121,8 @@ select.cutin-snd {
   justify-content: center;
 }
 .pdrawer-tab:hover {
-  color: var(--primary-deep);
-  background: var(--primary-soft);
+  color: var(--text);
+  background: var(--surface-2);
 }
 .pdrawer.left .pdrawer-tab {
   right: -27px;
@@ -5184,7 +5140,7 @@ select.cutin-snd {
   position: fixed;
   inset: 0;
   z-index: var(--z-drawer);
-  background: rgba(16, 49, 74, 0.35);
+  background: rgba(10, 10, 10, 0.35);
   backdrop-filter: blur(2px);
 }
 .drawer {
@@ -5340,7 +5296,7 @@ select.cutin-snd {
 
 /* テキスト選択色: ブランドブルー。 */
 ::selection {
-  background: rgba(176, 40, 50, 0.3);
+  background: rgba(165, 26, 29, 0.3);
 }
 
 /* スクロールバー: 細く・丸く・ブランド色(全画面共通)。 */
@@ -5352,13 +5308,13 @@ select.cutin-snd {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(176, 40, 50, 0.28);
+  background: rgba(165, 26, 29, 0.28);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(176, 40, 50, 0.5);
+  background: rgba(165, 26, 29, 0.5);
   background-clip: content-box;
   border: 2px solid transparent;
 }
@@ -5450,7 +5406,7 @@ button:disabled {
 }
 /* マウスを乗せた立ち絵だけ枠を出して操作可能と分かるように。 */
 .stage-portrait:hover {
-  outline: 2px dashed rgba(176, 40, 50, 0.6);
+  outline: 2px dashed rgba(165, 26, 29, 0.6);
   outline-offset: 2px;
   opacity: 1;
 }
@@ -5550,7 +5506,7 @@ button:disabled {
 .friends-head {
   font-size: 13.5px;
   font-weight: 800;
-  color: var(--primary-deep);
+  color: var(--text);
 }
 .friends-note {
   margin: 0;
@@ -5654,7 +5610,7 @@ button:disabled {
   background: var(--surface-2);
 }
 .friends-tab.on {
-  color: var(--primary-deep);
+  color: var(--text);
   background: var(--surface-2);
 }
 .friends-tab-badge {
@@ -5803,10 +5759,10 @@ button:disabled {
   height: 104px;
   color: var(--primary);
   opacity: 0.92;
-  filter: drop-shadow(0 6px 16px rgba(33, 152, 214, 0.28));
+  filter: drop-shadow(0 6px 16px rgba(165, 26, 29, 0.28));
   background: radial-gradient(
     circle at 50% 46%,
-    rgba(176, 40, 50, 0.16),
+    rgba(165, 26, 29, 0.16),
     transparent 62%
   );
   animation: empty-float 4.5s var(--ease-out) infinite;
@@ -5922,26 +5878,29 @@ button:disabled {
  * 変数の差し替えが基本。白系のグラデーションを使う部品だけ個別に上書き。
  */
 [data-theme="dark"] {
-  --bg: #171210;
-  --surface: #221a17;
-  --surface-2: #1c1512;
-  --surface-3: #2c211c;
-  --border: rgba(214, 178, 106, 0.16);
-  --border-strong: rgba(214, 178, 106, 0.34);
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface-2: #141414;
+  --surface-3: #242424;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.22);
 
-  --text: #f7f1e8;
-  --text-muted: #cdbba6;
-  --text-faint: #9c8b76;
+  --text: #f2f2f2;
+  --text-muted: #ababab;
+  --text-faint: #858585;
 
-  --primary: #d6454f;
-  --primary-hover: #e05e66;
-  --primary-soft: rgba(214, 69, 79, 0.16);
-  --primary-deep: #eb8288;
+  --primary: #d42f36;
+  --primary-hover: #e5484d;
+  --primary-soft: rgba(212, 47, 54, 0.16);
+  --primary-deep: #f08a8d;
 
-  --mint-soft: rgba(207, 165, 74, 0.14);
-  --mint-deep: #d9b45c;
-  --gold-soft: rgba(227, 192, 92, 0.14);
-  --gold-deep: #e3c05c;
+  --ink: #f2f2f2;
+  --ink-text: #121212;
+
+  --mint-soft: rgba(255, 255, 255, 0.08);
+  --mint-deep: #d6d6d6;
+  --gold-soft: rgba(214, 178, 106, 0.14);
+  --gold-deep: #d6b26a;
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 3px 10px rgba(0, 0, 0, 0.35);
@@ -5952,16 +5911,16 @@ button:disabled {
 }
 [data-theme="dark"] .topbar,
 [data-theme="dark"] .bottombar {
-  background: linear-gradient(180deg, rgba(34, 26, 23, 0.96), rgba(23, 18, 16, 0.96));
+  background: linear-gradient(180deg, rgba(26, 26, 26, 0.96), rgba(18, 18, 18, 0.96));
 }
 [data-theme="dark"] .sidebar,
 [data-theme="dark"] .chars-list,
 [data-theme="dark"] .sysb-side {
-  background: linear-gradient(180deg, rgba(34, 26, 23, 0.92), rgba(23, 18, 16, 0.95));
+  background: linear-gradient(180deg, rgba(26, 26, 26, 0.92), rgba(18, 18, 18, 0.95));
 }
 [data-theme="dark"] .asset-act,
 [data-theme="dark"] .board-zoom-badge {
-  background: rgba(34, 26, 23, 0.92);
+  background: rgba(26, 26, 26, 0.92);
   color: var(--text);
 }
 [data-theme="dark"] .catcard.tone-blue {
@@ -6065,8 +6024,8 @@ button:disabled {
   letter-spacing: 0.01em;
   color: #fff;
   cursor: pointer;
-  background: linear-gradient(135deg, #c8434c, #e3c05c);
-  box-shadow: 0 3px 12px rgba(200, 67, 76, 0.4);
+  background: linear-gradient(135deg, #b8262a, #861316);
+  box-shadow: 0 3px 12px rgba(165, 26, 29, 0.4);
   transition:
     transform 0.12s ease,
     box-shadow 0.12s ease,
@@ -6074,7 +6033,7 @@ button:disabled {
 }
 .play-share-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(200, 67, 76, 0.5);
+  box-shadow: 0 6px 18px rgba(165, 26, 29, 0.5);
   filter: brightness(1.05);
 }
 .play-share-btn:disabled {
@@ -6147,7 +6106,7 @@ button:disabled {
 }
 .plan-gate-spark {
   display: inline-flex;
-  color: #c8434c;
+  color: #b8262a;
 }
 .plan-gate-head h2 {
   margin: 4px 0 6px;
@@ -6177,7 +6136,7 @@ button:disabled {
   background: var(--surface);
 }
 .plan-gate-card.featured {
-  box-shadow: 0 8px 22px rgba(200, 67, 76, 0.18);
+  box-shadow: 0 8px 22px rgba(165, 26, 29, 0.18);
 }
 .plan-gate-badge {
   position: absolute;
@@ -6189,7 +6148,7 @@ button:disabled {
   gap: 4px;
   padding: 3px 11px;
   border-radius: 999px;
-  background: #93202a;
+  background: #861316;
   color: #fff;
   font-size: 10px;
   font-weight: 800;
@@ -6264,13 +6223,13 @@ button:disabled {
 }
 .pg-sky .pg-code,
 .pg-sky .pg-price {
-  color: #93202a;
+  color: #861316;
 }
 .pg-sky .pg-perks svg {
-  color: #c8434c;
+  color: #b8262a;
 }
 .pg-sky .pg-btn {
-  background: #93202a;
+  background: #861316;
 }
 .pg-indigo {
   border-color: #a5b4fc;
@@ -6394,14 +6353,12 @@ button:disabled {
 }
 .net-join-title {
   font-size: 12.5px;
-  color: var(--primary-deep);
+  color: var(--text);
 }
 
 /* ===== アプリシェル(Steam ライク: 上部ナビ + 全幅ページ + 下部バー) ===== */
 .app-shell {
   position: relative;
-  /* isolate でスタッキングコンテキストを作る。これが無いと .ambient-bg の
-     z-index:-1 が root まで抜けてシェル背景の裏に隠れ、装飾が見えない。 */
   isolation: isolate;
   height: 100vh;
   display: flex;
@@ -6410,61 +6367,6 @@ button:disabled {
   background: var(--bg);
 }
 
-/* 背景の控えめな装飾(サイコロ・キラキラ)。z-index:-1 でシェル背景の上・
-   本文の下に敷く(本文側の z は触らない)。PLAY レイヤは前面を覆うので卓には出ない。 */
-.ambient-bg {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  overflow: hidden;
-}
-.ambient-item {
-  position: absolute;
-  opacity: 0.14;
-  transform: rotate(var(--rot, 0deg));
-  animation: ambient-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite;
-  will-change: transform;
-}
-.ai-dice {
-  color: #c8434c;
-}
-.ai-spark {
-  color: #e3c05c;
-}
-.ai-star {
-  color: #6366f1;
-}
-/* キラキラ系は薄く明滅(サイコロは浮遊のみ)。 */
-.ai-spark,
-.ai-star {
-  animation:
-    ambient-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite,
-    ambient-twinkle calc(var(--d, 14s) / 2) ease-in-out var(--delay, 0s) infinite;
-}
-@keyframes ambient-float {
-  0%,
-  100% {
-    transform: translateY(0) rotate(var(--rot, 0deg));
-  }
-  50% {
-    transform: translateY(-14px) rotate(calc(var(--rot, 0deg) + 6deg));
-  }
-}
-@keyframes ambient-twinkle {
-  0%,
-  100% {
-    opacity: 0.1;
-  }
-  50% {
-    opacity: 0.22;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ambient-item {
-    animation: none;
-  }
-}
 .app-shell .ptable {
   height: 100%;
 }
@@ -6510,7 +6412,7 @@ button:disabled {
   width: 30px;
   object-fit: contain;
   flex-shrink: 0;
-  filter: drop-shadow(0 2px 5px rgba(33, 152, 214, 0.3));
+  filter: drop-shadow(0 2px 5px rgba(165, 26, 29, 0.3));
 }
 .topbar-brand:hover .brand-dice {
   transform: rotate(-8deg) scale(1.05);
@@ -6563,7 +6465,7 @@ button:disabled {
   color: var(--text);
 }
 .topnav-link.active {
-  color: var(--primary-deep);
+  color: var(--text);
 }
 .topnav-link.active::after {
   content: "";
@@ -6585,16 +6487,16 @@ button:disabled {
   height: auto;
   margin: 0 12px;
   padding: 8px 24px;
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 14.5px;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-indent: 0;
   color: #fff;
-  background: linear-gradient(120deg, #b02832, #8a1d26);
+  background: var(--primary);
   box-shadow:
-    0 8px 20px rgba(176, 40, 50, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    0 1px 2px rgba(165, 26, 29, 0.25),
+    0 4px 12px rgba(165, 26, 29, 0.2);
   transition:
     transform var(--dur-2) var(--ease-out),
     box-shadow var(--dur-2) var(--ease-out),
@@ -6602,17 +6504,12 @@ button:disabled {
 }
 .topnav-link.play:hover {
   color: #fff;
-  transform: translateY(-2px);
-  filter: brightness(1.05);
-  box-shadow:
-    0 12px 26px rgba(176, 40, 50, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  background: var(--primary-hover);
 }
 .topnav-link.play.active {
   box-shadow:
     0 0 0 3px var(--primary-soft),
-    0 10px 24px rgba(176, 40, 50, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    0 4px 12px rgba(165, 26, 29, 0.2);
 }
 /* PLAY ボタン内の白ダイス(5 の目)。 */
 .play-die {
@@ -6641,9 +6538,8 @@ button:disabled {
   width: 7px;
   height: 7px;
   transform: translateX(-50%) rotate(45deg);
-  background: var(--mint);
+  background: var(--primary);
   border-radius: 1px;
-  box-shadow: 0 0 7px rgba(207, 165, 74, 0.8);
   opacity: 0;
   transition: opacity var(--dur-2) var(--ease-out);
 }
@@ -6718,7 +6614,7 @@ button:disabled {
 .page-title {
   margin: 0 0 16px;
   font-size: 20px;
-  color: var(--primary-deep);
+  color: var(--text);
 }
 .page-sub {
   margin: 22px 0 10px;
@@ -6765,7 +6661,7 @@ button:disabled {
   font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.5px;
-  color: var(--primary-deep);
+  color: var(--text);
 }
 .lobby-title-en,
 .lobby-en {
@@ -6812,7 +6708,7 @@ button:disabled {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 1px rgba(176, 40, 50, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(165, 26, 29, 0.12);
   pointer-events: none;
 }
 .lobby-panel-title {
@@ -6968,7 +6864,7 @@ button:disabled {
 }
 .lobby-vbtn.on {
   background: var(--primary-soft);
-  color: var(--primary-deep);
+  color: var(--text);
 }
 
 .lobby-grid {
@@ -7223,7 +7119,7 @@ button:disabled {
 .bhub-tab.on {
   color: #fff;
   background: var(--grad-accent);
-  box-shadow: 0 2px 8px rgba(33, 152, 214, 0.3);
+  box-shadow: 0 2px 8px rgba(165, 26, 29, 0.3);
 }
 .bhub-content {
   flex: 1;
@@ -7251,8 +7147,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(176, 40, 50, 0.14);
-  border: 1px solid rgba(176, 40, 50, 0.32);
+  background: rgba(165, 26, 29, 0.14);
+  border: 1px solid rgba(165, 26, 29, 0.32);
   color: var(--primary-deep);
 }
 .scb-title {
@@ -7316,7 +7212,7 @@ button:disabled {
   height: 22px;
   border-radius: 50%;
   border: 0;
-  background: rgba(23, 18, 16, 0.55);
+  background: rgba(18, 18, 18, 0.55);
   color: #fff;
   cursor: pointer;
   font-size: 14px;
@@ -7468,7 +7364,7 @@ button:disabled {
 }
 .sysb-item.active {
   background: var(--primary-soft);
-  color: var(--primary-deep);
+  color: var(--text);
   border-color: var(--border);
 }
 .sysb-item-icon {
@@ -7484,7 +7380,7 @@ button:disabled {
   padding: 0 24px;
 }
 .sysb-welcome h2 {
-  color: var(--primary-deep);
+  color: var(--text);
 }
 .sysb-steps {
   font-size: 13px;
@@ -7545,7 +7441,7 @@ button:disabled {
 .sysb-sec h3 {
   margin: 0 0 4px;
   font-size: 14px;
-  color: var(--primary-deep);
+  color: var(--text);
 }
 .sysb-sec-wide {
   grid-column: 1 / -1;
@@ -7936,7 +7832,7 @@ button:disabled {
   background: var(--border-strong);
 }
 .feat-dot.active {
-  background: var(--primary);
+  background: var(--ink);
 }
 .hero-overlay {
   position: absolute;
@@ -8304,7 +8200,7 @@ button:disabled {
 .srank-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
-  border-color: rgba(176, 40, 50, 0.35);
+  border-color: rgba(165, 26, 29, 0.35);
 }
 .srank-cover img {
   transition: transform var(--dur-3, 0.35s) var(--ease-out);
@@ -8325,7 +8221,7 @@ button:disabled {
   border-radius: 999px;
   font-weight: 800;
   font-size: 16px;
-  box-shadow: 0 4px 12px rgba(94, 52, 24, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 .srank-badge.r1 {
   background: #c9a227;
@@ -8368,7 +8264,7 @@ button:disabled {
   padding: 2px 7px;
   border-radius: 6px;
   background: rgba(138, 29, 38, 0.09);
-  color: var(--accent, #8a1d26);
+  color: var(--accent, #861316);
   font-size: 10.5px;
   font-weight: 700;
 }
@@ -8429,7 +8325,7 @@ button:disabled {
   }
 }
 .ssale-card:hover {
-  background: rgba(176, 40, 50, 0.04);
+  background: rgba(165, 26, 29, 0.04);
 }
 .ssale-cover {
   position: relative;
@@ -8550,8 +8446,8 @@ button:disabled {
 }
 /* tone: アイコンチップの色味(rgba を重ねて両テーマで成立) */
 .sec-ic.tone-sky {
-  background: rgba(176, 40, 50, 0.14);
-  border: 1px solid rgba(176, 40, 50, 0.34);
+  background: rgba(165, 26, 29, 0.14);
+  border: 1px solid rgba(165, 26, 29, 0.34);
   color: var(--primary-deep);
 }
 .sec-ic.tone-mint {
@@ -8591,14 +8487,14 @@ button:disabled {
   align-items: center;
   gap: 16px;
   width: 100%;
-  border: 1px solid rgba(176, 40, 50, 0.34);
+  border: 1px solid rgba(165, 26, 29, 0.34);
   border-radius: var(--radius-md);
   /* rgba を surface に重ねて両テーマ対応の淡いスカイ→ミントのグラデ */
   background:
     linear-gradient(
       135deg,
-      rgba(176, 40, 50, 0.16),
-      rgba(207, 165, 74, 0.1)
+      rgba(165, 26, 29, 0.16),
+      rgba(0, 0, 0, 0.1)
     ),
     var(--surface);
   padding: 16px 18px;
@@ -8613,7 +8509,7 @@ button:disabled {
 }
 .catfeat:hover {
   transform: translateY(-2px);
-  border-color: rgba(176, 40, 50, 0.6);
+  border-color: rgba(165, 26, 29, 0.6);
   box-shadow: var(--shadow-md);
 }
 .catfeat-ic {
@@ -8624,8 +8520,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(176, 40, 50, 0.16);
-  border: 1px solid rgba(176, 40, 50, 0.36);
+  background: rgba(165, 26, 29, 0.16);
+  border: 1px solid rgba(165, 26, 29, 0.36);
   color: var(--primary-deep);
   transition: transform var(--dur-3) var(--ease-out);
 }
@@ -9022,7 +8918,7 @@ button:disabled {
   font-weight: 700;
   color: #fff;
   cursor: pointer;
-  background: linear-gradient(135deg, #c8434c, #e3c05c);
+  background: linear-gradient(135deg, #b8262a, #861316);
 }
 .join-promo-upsell:hover {
   filter: brightness(1.05);
@@ -9195,7 +9091,7 @@ button:disabled {
   --glass-bg: rgba(255, 255, 255, 0.5);
   --glass-bg-strong: rgba(255, 255, 255, 0.68);
   --glass-border: rgba(255, 255, 255, 0.62);
-  --glass-shadow: 0 10px 34px rgba(94, 52, 24, 0.12);
+  --glass-shadow: 0 10px 34px rgba(0, 0, 0, 0.12);
   --glass-blur: blur(14px) saturate(135%);
 }
 [data-theme="dark"] {
@@ -9207,7 +9103,7 @@ button:disabled {
 
 /* 背景: ごく淡い青白グレーのグラデーション(その上に薄いサイコロ ::before) */
 .store {
-  background: linear-gradient(180deg, #fffdf9 0%, #f8f1e6 55%, #f3ead9 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f7f7f7 55%, #f0f0f0 100%);
 }
 [data-theme="dark"] .store {
   background: linear-gradient(180deg, #1a1412 0%, #171210 60%, #140f0d 100%);
@@ -9286,7 +9182,7 @@ button:disabled {
 }
 .acct-chip:hover {
   border-color: var(--primary);
-  box-shadow: 0 4px 14px rgba(176, 40, 50, 0.18);
+  box-shadow: 0 4px 14px rgba(165, 26, 29, 0.18);
 }
 .acct-av {
   display: inline-flex;
@@ -9547,7 +9443,7 @@ button:disabled {
 .set2-navbtn.on {
   background: var(--primary-soft);
   border-color: var(--primary);
-  color: var(--primary-deep);
+  color: var(--text);
 }
 .set2-content {
   min-height: 0;
@@ -9808,7 +9704,7 @@ button:disabled {
   cursor: pointer;
 }
 .set2-segbtn.on {
-  color: var(--primary-deep);
+  color: var(--text);
   background: var(--primary-soft);
   font-weight: 700;
 }
@@ -10182,8 +10078,8 @@ button:disabled {
   color: var(--text);
 }
 .asset-filter button.on {
-  background: var(--primary);
-  color: #fff;
+  background: var(--ink);
+  color: var(--ink-text);
 }
 .asset-grid {
   display: grid;
@@ -10218,7 +10114,7 @@ button:disabled {
   border: 0;
   cursor: pointer;
   color: var(--text-muted);
-  background: linear-gradient(135deg, rgba(201, 162, 39, 0.14), rgba(176, 40, 50, 0.12));
+  background: linear-gradient(135deg, rgba(201, 162, 39, 0.14), rgba(165, 26, 29, 0.12));
   transition: color var(--dur-2) var(--ease-out);
 }
 .asset-thumb.audio:hover {

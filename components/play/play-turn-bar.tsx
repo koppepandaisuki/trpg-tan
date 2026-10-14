@@ -2,6 +2,7 @@
 
 import { SkipForward, Timer, X } from "lucide-react";
 import type { Panel } from "@trpg/core";
+import { buttonVariants, toolButton } from "@/components/ui/button";
 
 /**
  * ターン(ラウンド / 手番)管理。GM だけが操作でき、結果は state 配信で全員に届く。
@@ -72,7 +73,7 @@ export function PlayTurnBar({
           <button
             onClick={next}
             disabled={disabled}
-            className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs transition hover:bg-muted disabled:opacity-50"
+            className={`${toolButton} ml-auto`}
           >
             <SkipForward className="h-3 w-3" aria-hidden />
             {running ? "次の手番" : "開始"}
@@ -82,7 +83,7 @@ export function PlayTurnBar({
               onClick={onReset}
               disabled={disabled}
               title="ターン管理をリセット"
-              className="rounded-md border border-border px-1.5 py-1 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+              className={buttonVariants({ variant: "outline", size: "icon-sm" })}
             >
               <X className="h-3 w-3" aria-hidden />
             </button>

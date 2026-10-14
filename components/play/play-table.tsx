@@ -60,7 +60,7 @@ import {
   type PlayEvent,
   type PlayScene,
 } from "@trpg/core";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants, toolButton } from "@/components/ui/button";
 import { PlayBoard } from "./play-board";
 import { PlayLog } from "./play-log";
 import { PlayPanelCard, quickActionsFor } from "./play-panel-card";
@@ -88,6 +88,7 @@ import { PlayDiceFlash } from "./play-dice-flash";
 import { useFocusShortcut } from "./use-focus-shortcut";
 import { ShortcutHelp } from "./shortcut-help";
 import { bcdiceIdOf, evalBcdice } from "@/lib/play/bcdice";
+import { Tab, TabList } from "@/components/ui/tabs";
 
 type ToolTab = "scenario" | "fx" | "cards" | "memo" | "chars";
 const TOOL_TABS: { id: ToolTab; label: string }[] = [
@@ -682,7 +683,7 @@ export function PlayTable({
                 window.setTimeout(() => setLinkCopied(false), 1600);
               }}
               title="招待リンクをコピー(開くだけで参加できます。ログイン不要)"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:border-primary/40"
+              className={toolButton}
             >
               {linkCopied ? (
                 <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
@@ -713,7 +714,7 @@ export function PlayTable({
           </p>
           <Link
             href={"/pricing" as Route}
-            className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+            className={buttonVariants({ variant: "primary", size: "sm" })}
           >
             プランを見る
           </Link>
@@ -737,7 +738,7 @@ export function PlayTable({
         </p>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* 左: 盤面 + 操作(盤面が主役。画面の高さに収める) */}
         <div className="flex min-h-0 min-w-0 flex-col gap-2 lg:overflow-y-auto">
           {/* シーン(場面ごとに盤面を持ち替える。駒は卓に属したまま) */}
@@ -771,7 +772,7 @@ export function PlayTable({
             />
             <label
               title="画像ファイルを盤面の背景にする"
-              className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={`${toolButton} cursor-pointer`}
             >
               <ImagePlus className="h-3.5 w-3.5" aria-hidden />
               背景
@@ -788,7 +789,7 @@ export function PlayTable({
             <button
               onClick={() => setBgPicker(true)}
               title="ライブラリの画像を背景にする"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <FolderOpen className="h-3.5 w-3.5" aria-hidden />
               素材から
@@ -802,7 +803,7 @@ export function PlayTable({
                   }),
                 )
               }
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <Grid3x3 className="h-3.5 w-3.5" aria-hidden />
               {board?.grid !== false ? "グリッド" : "グリッドなし"}
@@ -810,14 +811,14 @@ export function PlayTable({
             <button
               onClick={addToken}
               title="円形の駒を追加"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <Plus className="h-3.5 w-3.5" aria-hidden />駒
             </button>
             <button
               onClick={pasteCcfolia}
               title="ココフォリアの「コマをコピー」した内容から駒を作る"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
               コマ貼付
@@ -825,7 +826,7 @@ export function PlayTable({
             <button
               onClick={() => setCharPicker(true)}
               title="キャラシで保存したキャラを駒として出す"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <ScrollText className="h-3.5 w-3.5" aria-hidden />
               キャラ
@@ -851,7 +852,7 @@ export function PlayTable({
             <button
               onClick={() => downloadPlayFile(scene)}
               title="卓をファイル(.play)に書き出す。バックアップや、デスクトップ版・別の卓への持ち運びに"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <Download className="h-3.5 w-3.5" aria-hidden />
               書き出し
@@ -899,26 +900,24 @@ export function PlayTable({
           </div>
 
           {/* 道具(タブで切り替え。長い縦並びをやめて、どれも 1 クリックで出す) */}
-          <div className="flex min-h-0 flex-col rounded-lg border border-border bg-background lg:flex-[2]">
-            <div className="flex shrink-0 flex-wrap gap-0.5 border-b border-border p-1">
-              {TOOL_TABS.filter((t) => t.id !== "scenario" || hasScenario).map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setToolTab(t.id)}
-                  className={`rounded px-2 py-1 text-[11px] font-medium transition ${
-                    toolTab === t.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {t.label}
-                  {t.id === "chars" ? `(${scene.panels.length})` : ""}
-                  {t.id === "cards" && (scene.decks?.length ?? 0) > 0
-                    ? `(${scene.decks?.length ?? 0})`
-                    : ""}
-                </button>
-              ))}
+          <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-card shadow-sm lg:flex-[2]">
+            <div className="shrink-0 border-b border-border p-1.5">
+              <TabList className="w-full">
+                {TOOL_TABS.filter((t) => t.id !== "scenario" || hasScenario).map((t) => (
+                  <Tab
+                    key={t.id}
+                    selected={toolTab === t.id}
+                    onClick={() => setToolTab(t.id)}
+                    className="flex-1"
+                  >
+                    {t.label}
+                    {t.id === "chars" ? ` ${scene.panels.length}` : ""}
+                    {t.id === "cards" && (scene.decks?.length ?? 0) > 0
+                      ? ` ${scene.decks?.length ?? 0}`
+                      : ""}
+                  </Tab>
+                ))}
+              </TabList>
             </div>
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
               {toolTab === "scenario" && hasScenario && (

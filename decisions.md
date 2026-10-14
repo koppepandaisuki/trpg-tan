@@ -468,6 +468,21 @@
 - **採用**: 累計売上 + 累計DL の2数値のみ
 - **理由**: 月次集計やトレンドはBI領域、MVP対象外
 
+### D-105 配色は「白・黒・紅」、ボタン・タブは共通部品で統一(2026-10)
+- **採用**: YouTube / Netflix / Nintendo / Pinterest と同じ「無彩色 + 赤ひとつ」。
+  - 面と文字は無彩色(白 #FFFFFF / ページ #FAFAFA / 墨 #121212)。金・アイボリー・色付きの光や
+    浮遊する装飾は使わない。
+  - 紅はアイコンのダイスと同じ **#A51A1D**。「押すもの」(主ボタン・送信)と現在地の印
+    (ナビの下線・◆)だけに使い、面を赤で塗らない。
+  - **赤 = 行動、墨 = 状態**: 選択中のタブ・チップ・トグルは墨で塗る。
+  - ボタン・チップ・タブは丸(rounded-full)、面は 12〜16px の角丸。
+- **部品**: `components/ui/button.tsx`(primary / ink / secondary / outline / ghost / danger、
+  `toolButton`)、`components/ui/tabs.tsx`(`TabList` / `Tab` の segmented・underline、`chipVariants`)。
+  新しい画面で `rounded border px-2 ...` のような手書きのボタンを作らない。
+- **デスクトップ**: `apps/desktop/src/styles.css` の `:root` / `[data-theme="dark"]` を同じ値に揃える
+  (ダークは墨の面 + 明るめの紅 #D42F36)。
+- **例外**: エラー(赤系の注意書き)・成功(緑)・警告(黄)・ダイスの成否色は意味の色として残す。
+
 ---
 
 ## 3. 保留事項(未決定で後で決める)

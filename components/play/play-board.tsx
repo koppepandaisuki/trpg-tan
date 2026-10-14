@@ -103,7 +103,7 @@ export function PlayBoard({
   return (
     <div
       ref={wrapRef}
-      className="relative w-full overflow-hidden rounded-xl border border-border bg-[#0f1720]"
+      className="relative w-full overflow-hidden rounded-2xl border border-black/10 bg-[#141414]"
       style={{ aspectRatio: `${STAGE_W} / ${STAGE_H}` }}
       onPointerDown={(e) => {
         // 盤面の余白クリックで選択解除。

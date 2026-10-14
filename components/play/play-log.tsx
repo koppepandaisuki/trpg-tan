@@ -56,7 +56,7 @@ export function PlayLog({
         stickRef.current =
           el.scrollHeight - el.scrollTop - el.clientHeight < 48;
       }}
-      className="flex-1 space-y-1.5 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3"
+      className="flex-1 space-y-1.5 overflow-y-auto rounded-2xl border border-border bg-card p-3 shadow-sm"
     >
       {log.length === 0 && (
         <p className="py-6 text-center text-xs text-muted-foreground">

@@ -31,9 +31,8 @@ export function LegalLayout({
         <Breadcrumb items={[{ label: title, icon: Icon }]} />
 
         {/* Hero */}
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-slate-500/8 via-transparent to-slate-500/5 shadow-sm">
+        <Card className="overflow-hidden border-border shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-slate-500/10 blur-3xl" />
             <div className="relative z-10 flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-slate-50 text-slate-700">
                 <Icon className="h-5 w-5" aria-hidden />

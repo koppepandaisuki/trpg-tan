@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Keyboard, X } from "lucide-react";
+import { toolButton } from "@/components/ui/button";
 
 /** GM のキーボード操作の一覧(「?」キーかボタンで開く)。 */
 export const GM_SHORTCUTS: { keys: string; what: string }[] = [
@@ -31,7 +32,7 @@ export function ShortcutHelp() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="キーボード操作(?)"
-        className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs transition hover:bg-muted"
+        className={toolButton}
       >
         <Keyboard className="h-3.5 w-3.5" aria-hidden />
         <span className="hidden sm:inline">ショートカット</span>

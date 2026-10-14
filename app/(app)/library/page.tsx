@@ -36,12 +36,10 @@ export default async function LibraryPage({
     <>
       <TopHeader />
       <PageContainer className="space-y-6 py-8">
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-amber-500/8 shadow-sm">
+        <Card className="overflow-hidden border-border shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-red-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-amber-500/10 blur-3xl" />
             <div className="relative z-10 flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ink text-white">
                 <FolderOpen className="h-5 w-5" aria-hidden />
               </div>
               <div>

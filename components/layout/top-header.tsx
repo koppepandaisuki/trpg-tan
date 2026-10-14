@@ -31,13 +31,13 @@ export async function TopHeader({ className }: { className?: string }) {
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur",
+        "sticky top-0 z-40 border-b border-border bg-white/85 backdrop-blur-md",
         className,
       )}
     >
       {/* ログイン中は在席の心拍を打つ(描画なし) */}
       {user && <PresenceHeartbeat />}
-      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
+      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-stretch gap-3 px-4 sm:gap-8 sm:px-6">
         <Link
           href="/"
           className="flex shrink-0 items-center"
@@ -49,7 +49,7 @@ export async function TopHeader({ className }: { className?: string }) {
         {/* デスクトップ用 nav(現在地ハイライト付き。アプリのトップバーと同挙動) */}
         <NavLinks />
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 self-center">
           {/* デスクトップ用ユーザーメニュー */}
           <div className="hidden items-center gap-2 md:flex">
             {user ? <AuthedMenu user={user} /> : <UnauthedMenu />}
@@ -70,11 +70,6 @@ export async function TopHeader({ className }: { className?: string }) {
           />
         </div>
       </div>
-      {/* ブランドのスカイ→シアンを下端の細いアクセントに(アプリと同じトーン)。 */}
-      <div
-        aria-hidden
-        className="h-0.5 w-full bg-gradient-to-r from-red-500/70 via-amber-400/40 to-transparent"
-      />
     </header>
   );
 }
@@ -159,7 +154,7 @@ function DiscordOrBellButton() {
         aria-label="α テスター Discord に参加(別タブで開く)"
         className={cn(
           buttonVariants({ variant: "ghost", size: "sm" }),
-          "text-red-700 hover:text-red-800",
+          "text-primary",
         )}
       >
         <MessageCircle className="h-4 w-4" />

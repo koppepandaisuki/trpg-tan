@@ -154,7 +154,7 @@ export function MobileMenu({ user, discordUrl }: MobileMenuProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={close}
-                    className="flex items-center gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                    className="flex items-center gap-3 rounded-full bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-ink/85"
                   >
                     <MessageCircle className="h-5 w-5" aria-hidden />
                     <span>Discord で参加する</span>

@@ -240,7 +240,7 @@ export function CharactersView({
                         onClick={() => void remove(s)}
                         title="削除"
                         aria-label={`「${s.name || "(名前未設定)"}」を削除`}
-                        className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition hover:text-red-600 focus-visible:opacity-100 group-hover:opacity-100"
+                        className="shrink-0 rounded-full p-1 text-muted-foreground opacity-0 transition hover:text-red-600 focus-visible:opacity-100 group-hover:opacity-100"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden />
                       </button>

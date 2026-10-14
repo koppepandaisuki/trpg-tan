@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Dices, Plus, LogIn, BookOpenText } from "lucide-react";
 import { createScene } from "@trpg/core";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   savePlayScene,
@@ -166,7 +166,7 @@ export function PlayLobby({
             {!signedIn ? (
               <Link
                 href={`/login?next=${encodeURIComponent("/play")}` as Route}
-                className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover"
+                className={buttonVariants({ variant: "primary" })}
               >
                 ログインして卓を立てる(無料)
               </Link>

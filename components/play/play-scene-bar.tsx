@@ -2,6 +2,7 @@
 
 import { Layers, Plus, Pencil, Trash2 } from "lucide-react";
 import type { SceneInfo } from "@trpg/core";
+import { toolButton } from "@/components/ui/button";
 
 /**
  * シーンバー(GM 専用)。
@@ -38,10 +39,10 @@ export function PlaySceneBar({
           <span
             key={s.id}
             className={[
-              "group inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition",
+              "group inline-flex h-7 items-center gap-1 rounded-full border px-3 text-xs transition",
               active
-                ? "border-primary bg-primary/10 font-semibold text-foreground"
-                : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                ? "border-ink bg-ink font-semibold text-ink-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
             ].join(" ")}
           >
             <button
@@ -85,7 +86,7 @@ export function PlaySceneBar({
           if (name?.trim()) onAdd(name.trim());
         }}
         title="シーンを追加"
-        className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
+        className={`${toolButton} border-dashed text-muted-foreground`}
       >
         <Plus className="h-3 w-3" aria-hidden />
         追加

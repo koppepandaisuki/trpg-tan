@@ -110,11 +110,10 @@ export default function HelpPage() {
         <Breadcrumb items={[{ label: "ヘルプ", icon: HelpCircle }]} />
 
         {/* Hero */}
-        <Card className="overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-amber-500/8 shadow-sm">
+        <Card className="overflow-hidden border-border shadow-sm">
           <CardContent className="relative py-6 sm:py-8">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-amber-500/10 blur-3xl" />
             <div className="relative z-10 flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ink text-white">
                 <HelpCircle className="h-5 w-5" aria-hidden />
               </div>
               <div className="flex-1 space-y-1.5">
@@ -158,13 +157,13 @@ export default function HelpPage() {
         </div>
 
         {/* お問い合わせ CTA */}
-        <Card className="overflow-hidden border-red-200 bg-red-50/40 shadow-sm">
+        <Card className="overflow-hidden border-transparent bg-ink text-white shadow-sm">
           <CardContent className="flex flex-col items-start gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="text-sm font-semibold tracking-tight">
                 解決しませんでしたか?
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-white/65">
                 α 期間中のお問い合わせ・不具合報告は Discord で受け付けています。
               </p>
             </div>
@@ -172,7 +171,7 @@ export default function HelpPage() {
               href={DISCORD_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex shrink-0 items-center gap-2 rounded-md border border-red-300 bg-red-100 px-4 py-2 text-sm font-medium text-red-800 transition hover:bg-red-200"
+              className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white shadow-brand transition hover:bg-primary-hover"
             >
               <MessageCircle className="h-4 w-4" aria-hidden />
               Discord で質問する

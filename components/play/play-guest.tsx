@@ -25,7 +25,7 @@ import {
   type Panel,
   type PlayScene,
 } from "@trpg/core";
-import { Button } from "@/components/ui/button";
+import { Button, toolButton } from "@/components/ui/button";
 import { PlayBoard } from "./play-board";
 import { PlayLog } from "./play-log";
 import { PlayPanelCard, quickActionsFor } from "./play-panel-card";
@@ -320,7 +320,7 @@ export function PlayGuest({
         <FullscreenButton />
         <button
           onClick={addMyCharacter}
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+          className={toolButton}
         >
           <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
           コマ貼付
@@ -329,7 +329,7 @@ export function PlayGuest({
           <button
             onClick={() => setCharPicker(true)}
             title="キャラシで保存した自分のキャラを駒として出す"
-            className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+            className={toolButton}
           >
             <ScrollText className="h-3.5 w-3.5" aria-hidden />
             自分のキャラを出す
@@ -338,7 +338,7 @@ export function PlayGuest({
           <Link
             href={`/login?next=${encodeURIComponent(`/play/join/${code}`)}` as Route}
             title="ログインすると、キャラシで保存したキャラを駒として出せます"
-            className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-muted"
+            className={`${toolButton} border-dashed text-muted-foreground`}
           >
             <ScrollText className="h-3.5 w-3.5" aria-hidden />
             ログインして保存キャラを使う
@@ -383,7 +383,7 @@ export function PlayGuest({
         </p>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* 左: 盤面(主役) */}
         <div className="flex min-h-0 min-w-0 flex-col gap-2 lg:overflow-y-auto">
           <PlayTurnBar panels={scene.panels} turn={scene.turn} readOnly />

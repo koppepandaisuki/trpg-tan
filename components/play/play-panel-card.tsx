@@ -115,7 +115,7 @@ export function PlayPanelCard({
 
   return (
     <div
-      className="overflow-hidden rounded-lg border border-border bg-background"
+      className="overflow-hidden rounded-xl border border-border bg-card"
       style={{ borderTopColor: panel.color, borderTopWidth: 3 }}
     >
       {/* ヘッダー(クリックで展開) */}

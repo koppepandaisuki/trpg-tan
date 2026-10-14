@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { FolderOpen, Loader2, Music, Pause, Play, X } from "lucide-react";
 import { listMyAssets, type AssetKind, type PlayAsset } from "@/lib/play/assets";
+import { toolButton } from "@/components/ui/button";
 
 /**
  * ライブラリの素材を卓で使うためのピッカー(モーダル)。
@@ -91,7 +92,7 @@ export function AssetPicker({
           <button
             onClick={onClose}
             aria-label="閉じる"
-            className="ml-auto rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="ml-auto rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -169,7 +170,7 @@ export function AssetPicker({
                   <span className="min-w-0 flex-1 truncate text-sm">{a.name}</span>
                   <button
                     onClick={() => pick(a)}
-                    className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium transition hover:border-primary hover:bg-primary/5"
+                    className={toolButton}
                   >
                     使う
                   </button>

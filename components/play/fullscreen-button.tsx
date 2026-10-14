@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
+import { toolButton } from "@/components/ui/button";
 
 /**
  * 卓を全画面にする(ブラウザのタブやアドレスバーを消して卓だけを出す)。
@@ -28,7 +29,7 @@ export function FullscreenButton() {
         else void document.documentElement.requestFullscreen().catch(() => {});
       }}
       title={on ? "全画面を終える(Esc)" : "全画面にする(卓だけを表示)"}
-      className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs transition hover:bg-muted"
+      className={toolButton}
     >
       {on ? (
         <Minimize2 className="h-3.5 w-3.5" aria-hidden />

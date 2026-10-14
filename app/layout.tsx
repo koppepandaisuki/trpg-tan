@@ -3,7 +3,6 @@ import { Noto_Sans_JP, Noto_Serif_JP } from "next/font/google";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { AdsenseScript } from "@/components/ads/adsense-script";
 import { HideOnTable } from "@/components/layout/hide-on-table";
-import { AmbientBackground } from "@/components/layout/ambient-background";
 import { TestModeBanner } from "@/components/banner/test-mode-banner";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { WelcomeTour } from "@/components/onboarding/welcome-tour";
@@ -114,9 +113,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           コンテンツが短いページでもフッターを画面下に貼り付け、
           長いページではコンテンツの下に自然に流れる。 */}
       <body className="isolate flex min-h-screen flex-col bg-background">
-        {/* 背景の控えめな装飾(サイコロ・キラキラ)。body 背景の上・本文の下。 */}
-        <AmbientBackground />
-
         {/* α 期間 + Stripe Test mode のとき、画面最上部に告知バナーを表示。
             Live mode 切替時に自動で消える(STRIPE_SECRET_KEY のプレフィクス判定)。 */}
         <TestModeBanner />
