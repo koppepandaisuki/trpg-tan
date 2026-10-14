@@ -30,6 +30,8 @@ export const RATE_LIMITS = {
   sheetImport: { limit: 20, windowSeconds: 60 },
   /** 卓の TURN 資格情報の発行(Cloudflare API を叩くので乱用を抑止)。 */
   playIce: { limit: 30, windowSeconds: 600 },
+  /** 卓の素材アップロード先(R2 署名付き URL)の発行。 */
+  mediaUpload: { limit: 200, windowSeconds: 600 },
 } as const satisfies Record<string, RateRule>;
 
 /**

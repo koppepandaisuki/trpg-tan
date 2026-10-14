@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { extOfMime, sha256Hex } from "./play-media";
+import { uploadToR2 } from "./media-upload";
 
 /**
  * ライブラリの「素材」(画像・音声)— Web と共有のクラウド保管庫。
@@ -77,16 +78,26 @@ export async function uploadAsset(file: File): Promise<void> {
   if (!uid) throw new Error("素材の保管にはログインが必要です");
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const path = `${uid}/${await sha256Hex(bytes)}.${extOfMime(file.type)}`;
-  const { error: upErr } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  // 同じ内容が既にあるのは正常(内容アドレス指定)。upsert:true は play バケットに
-  // SELECT ポリシーが無いため RLS 違反になる(Web 版で踏んだ罠)。
-  if (upErr && !/exist|dupl|conflict|409/i.test(upErr.message)) {
-    throw new Error(`アップロードに失敗しました: ${upErr.message}`);
+  const hash = await sha256Hex(bytes);
+  const ext = extOfMime(file.type);
+  // R2 が設定されていればそちらへ(参加者のダウンロード転送量が無料)。
+  const r2 = await uploadToR2({ bytes, hash, ext, mime: file.type });
+  let path = `${uid}/${hash}.${ext}`;
+  let url: string;
+  if (r2) {
+    path = r2.path;
+    url = r2.url;
+  } else {
+    const { error: upErr } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    // 同じ内容が既にあるのは正常(内容アドレス指定)。upsert:true は play バケットに
+    // SELECT ポリシーが無いため RLS 違反になる(Web 版で踏んだ罠)。
+    if (upErr && !/exist|dupl|conflict|409/i.test(upErr.message)) {
+      throw new Error(`アップロードに失敗しました: ${upErr.message}`);
+    }
+    url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
   }
-  const url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 
   const name = (file.name.replace(/\.[^.]+$/, "").trim() || "無題").slice(0, 80);
   // 同じファイルは 1 行に集約。既にあれば名前を上書きしない(ユーザーの改名を守る)。

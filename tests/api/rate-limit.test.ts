@@ -25,6 +25,7 @@ describe("RATE_LIMITS config", () => {
         "ai",
         "feedback",
         "goldCheckout",
+        "mediaUpload",
         "planCheckout",
         "playIce",
         "redeem",
