@@ -34,6 +34,7 @@ export {
   type ScenarioNpc,
   type MemoPage,
   type PlayTimer,
+  type DeckEvent,
 } from "./types.js";
 export {
   createScene,
@@ -61,6 +62,7 @@ export {
   resourceEvent,
   turnSetEvent,
   logClearEvent,
+  deckEvent,
   externalRollEvent,
   totalFromResultText,
   type ExternalDiceResult,
@@ -167,3 +169,20 @@ export {
   type Signer,
   type MsgMeta,
 } from "./auth.js";
+export {
+  presetCards,
+  createDeckOp,
+  shuffleDeckOp,
+  applyDeckOp,
+  projectDecks,
+  handOf,
+  drawnBy,
+  cardLabel,
+  shuffled,
+  DECK_PRESETS,
+  TO_TABLE,
+  type Deck,
+  type DeckCard,
+  type DeckOp,
+  type DeckPreset,
+} from "./deck.js";

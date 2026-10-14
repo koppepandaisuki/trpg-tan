@@ -145,6 +145,7 @@ const GM_TYPES = new Set<NetMsg["type"]>([
   "key",
   "sealed",
   "reveal",
+  "hand",
 ]);
 
 /**

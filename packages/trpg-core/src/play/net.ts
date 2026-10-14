@@ -1,5 +1,6 @@
 import type { PlayEvent, PlayScene, Panel, MemoPage } from "./types.js";
 import type { ScenePatch } from "./sync.js";
+import type { DeckCard } from "./deck.js";
 import { verifySignature, type MsgMeta, type Signer } from "./auth.js";
 
 /**
@@ -51,6 +52,8 @@ export type NetMsg =
    * 宛先にだけ届く。参加者は同じ id の印(redacted)を置き換える / ログに足す。
    */
   | { type: "reveal"; evs: PlayEvent[] }
+  /** 自分の手札(sealed の中身として本人にだけ届く。deck.ts)。 */
+  | { type: "hand"; hands: { deckId: string; cards: DeckCard[] }[] }
   /**
    * 権威スナップショット(状態置換)。GM の現在状態(秘匿駒を除いた scene)を丸ごと
    * 配信し、参加者は rev が進んだときだけ scene を置き換える。取りこぼしても次の
@@ -118,6 +121,10 @@ export type NetIntent =
   | { kind: "remove-char"; panelId: string }
   /** 参加者が GM/他人のキャラ駒を「自分の駒にする」(GM が owner を送信者名で刻む)。 */
   | { kind: "claim-char"; panelId: string }
+  /** 山札から 1 枚、自分の手札に引く(山札が selfDraw のときだけ GM が受け付ける)。 */
+  | { kind: "deck-draw"; deckId: string }
+  /** 自分の手札から場に出す。 */
+  | { kind: "deck-play"; deckId: string; cardId: string }
   | {
       kind: "panel-update";
       panelId: string;

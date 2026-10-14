@@ -1,6 +1,7 @@
 import { SYNC_PROTOCOL, type NetMsg } from "./net.js";
 import { reduce } from "./reduce.js";
 import { publicEventFor } from "./secrets.js";
+import { projectDecks } from "./deck.js";
 import type {
   Panel,
   PlayEvent,
@@ -95,15 +96,28 @@ export function projectForPlayers(
     tags: _tags,
     scenario,
     scenes,
+    decks,
     log: _log,
     panels: _panels,
     ...rest
   } = scene;
   const out: PlayScene = { ...rest, panels, log };
+  // 山札は枚数と場のカードだけ(並び順・手札・未公開カードは送らない)。
+  if (decks && decks.length > 0) out.decks = projectDecksCached(decks);
   if (scenes) out.scenes = projectScenes(scenes);
   if (scenario) {
     const s = projectScenario(scenario);
     if (s) out.scenario = s;
+  }
+  return out;
+}
+
+const deckListCache = new WeakMap<object, ReturnType<typeof projectDecks>>();
+function projectDecksCached(decks: NonNullable<PlayScene["decks"]>) {
+  let out = deckListCache.get(decks);
+  if (!out) {
+    out = projectDecks(decks);
+    deckListCache.set(decks, out);
   }
   return out;
 }

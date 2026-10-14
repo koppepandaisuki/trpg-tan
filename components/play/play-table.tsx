@@ -40,6 +40,14 @@ import {
   createSigner,
   codeForKey,
   createMemberGate,
+  deckEvent,
+  systemEvent,
+  applyDeckOp,
+  handOf,
+  drawnBy,
+  cardLabel,
+  TO_TABLE,
+  type DeckOp,
   publicEventFor,
   privateBacklog,
   sendPrivateEvents,
@@ -79,6 +87,7 @@ import { PlayLinkBadge } from "./play-link-badge";
 import { PlayScenarioPanel } from "./play-scenario-panel";
 import { DiceBotPicker } from "./dicebot-picker";
 import { PlayTimer } from "./play-timer";
+import { PlayDeckPanel } from "./play-deck-panel";
 import { bcdiceIdOf, evalBcdice } from "@/lib/play/bcdice";
 
 /** 卓のダイスボットが BCDice のときだけ、GM 端末で読み込んだ BCDice で振る。 */
@@ -209,6 +218,50 @@ export function PlayTable({
     [room],
   );
 
+  /** その人(入室名)に今の手札を、本人だけが読める暗号文で送る。 */
+  const sendHand = useCallback(
+    (name: string, decks: NonNullable<PlayScene["decks"]>) => {
+      const box = boxRef.current;
+      if (!room || !box) return;
+      const hands = handOf(decks, name);
+      for (const [id, n] of memberNames.current) {
+        if (n !== name) continue;
+        void box.seal(id, { type: "hand", hands }).then((m) => m && room.send(m));
+      }
+    },
+    [room],
+  );
+
+  /**
+   * カードの操作: 状態を進め、全員へは「何が起きたか」(場に出たカード以外は枚数だけ)を
+   * ログに残し、手札が変わった人へは手札を個別に送る。
+   */
+  const deckOp = useCallback(
+    (op: DeckOp, note: string, actor = "GM") => {
+      const before = sceneRef.current.decks ?? [];
+      const deck = before.find((d) => "deckId" in op && d.id === op.deckId);
+      dispatch(deckEvent(newEventCtx(), actor, op));
+      let text = note;
+      if (op.op === "draw" && op.to === TO_TABLE && deck) {
+        text = `${note}: ${drawnBy(deck, op).map((id) => cardLabel(deck, id)).join("、")}`;
+      }
+      if (op.op === "play" && deck) {
+        text = `🃏 ${op.from} が「${cardLabel(deck, op.cardId)}」を場に出しました`;
+      }
+      if (text) dispatch(systemEvent(newEventCtx(), text));
+      // 手札が変わった人へ、新しい手札を送る。
+      const after = applyDeckOp(before, op);
+      const owners = new Set<string>();
+      if (op.op === "draw" && op.to !== TO_TABLE) owners.add(op.to);
+      if (op.op === "play") owners.add(op.from);
+      if ((op.op === "shuffle" && op.gather) || op.op === "remove") {
+        for (const k of Object.keys(deck?.hands ?? {})) owners.add(k);
+      }
+      for (const o of owners) if (o !== "GM") sendHand(o, after);
+    },
+    [dispatch, sendHand],
+  );
+
   /* ===== 参加者からの intent を処理(GM が権威) ===== */
   const handleIntent = useCallback(
     (fromId: string, intent: NetIntent) => {
@@ -278,6 +331,20 @@ export function PlayTable({
           dispatch(panelUpdateEvent(newEventCtx(), p.id, intent.patch));
           break;
         }
+        case "deck-draw": {
+          const d = cur.decks?.find((x) => x.id === intent.deckId);
+          if (!d || !d.selfDraw || d.pile.length === 0) break;
+          deckOp(
+            { op: "draw", deckId: d.id, count: 1, to: from },
+            `🃏 ${from} が「${d.name}」から 1 枚引きました`,
+            from,
+          );
+          break;
+        }
+        case "deck-play": {
+          deckOp({ op: "play", deckId: intent.deckId, from, cardId: intent.cardId }, "", from);
+          break;
+        }
         case "memo": {
           // 共有メモは卓の覚書なので全員が編集できる(駒のような所有者検証はしない)。
           // イベントソーシング対象外なので state を直接置き換える。
@@ -289,7 +356,7 @@ export function PlayTable({
           break;
       }
     },
-    [dispatch],
+    [dispatch, deckOp],
   );
 
   /** 参加募集を開始(参加コードを発行してルームを開く)。 */
@@ -338,6 +405,12 @@ export function PlayTable({
                 scene: sceneRef.current,
                 evs: privateBacklog(sceneRef.current, name),
               });
+              // 持っている手札も渡す(入り直したとき用)。
+              const hands = handOf(sceneRef.current.decks ?? [], name);
+              if (hands.length > 0) {
+                const m = await box.seal(from, { type: "hand", hands });
+                if (m) await r.send(m);
+              }
             })();
           }
           // 途中入室でも今かかっている曲が揃うように BGM を配り直す。
@@ -781,6 +854,13 @@ export function PlayTable({
             onTelop={fireTelop}
             volume={audio.volume}
             onVolumeChange={audio.setVolume}
+          />
+
+          <PlayDeckPanel
+            mode="gm"
+            decks={scene.decks ?? []}
+            members={participants}
+            onOp={(op, note) => deckOp(op, note)}
           />
 
           <PlayMemo

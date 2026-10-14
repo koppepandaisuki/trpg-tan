@@ -20,6 +20,7 @@ import {
   createGmGate,
   SYNC_PROTOCOL,
   type NetMsg,
+  type DeckCard,
   type CutIn,
   type Panel,
   type PlayScene,
@@ -38,6 +39,7 @@ import { usePlayAudio } from "./use-play-audio";
 import { connectRoom, type Room, type LinkStatus } from "@/lib/play/net";
 import { PlayLinkBadge } from "./play-link-badge";
 import { PlayTimer } from "./play-timer";
+import { PlayDeckPanel } from "./play-deck-panel";
 
 /**
  * 卓の参加者ビュー(Web 版)。
@@ -67,6 +69,8 @@ export function PlayGuest({
   } | null>(null);
   const [closed, setClosed] = useState(false);
   const [kicked, setKicked] = useState(false);
+  // 自分の手札(GM から本人宛ての暗号文で届く)。
+  const [myHands, setMyHands] = useState<{ deckId: string; cards: DeckCard[] }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
 
@@ -153,7 +157,8 @@ export function PlayGuest({
           const sealed = msg;
           secretQueue = secretQueue.then(async () => {
             const inner = await box.open("GM", sealed);
-            if (inner && mirror.receive(inner).changed) setScene(mirror.scene);
+            if (inner?.type === "hand") setMyHands(inner.hands);
+            else if (inner && mirror.receive(inner).changed) setScene(mirror.scene);
           });
         } else if (msg.type === "cutin") {
           // id だけ届くので、自分が持っている scene から画像を引く。
@@ -431,6 +436,25 @@ export function PlayGuest({
         </div>
 
         <aside className="space-y-2">
+          <PlayDeckPanel
+            mode="player"
+            decks={scene.decks ?? []}
+            hands={myHands}
+            onDraw={(deckId) =>
+              void room?.send({
+                type: "intent",
+                from: room.selfId,
+                intent: { kind: "deck-draw", deckId },
+              })
+            }
+            onPlay={(deckId, cardId) =>
+              void room?.send({
+                type: "intent",
+                from: room.selfId,
+                intent: { kind: "deck-play", deckId, cardId },
+              })
+            }
+          />
           <PlayMemo
             memos={scene.sharedMemos ?? []}
             disabled={closed}
