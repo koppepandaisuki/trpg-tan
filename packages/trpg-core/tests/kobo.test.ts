@@ -125,7 +125,7 @@ describe("koboScenarioToPlay", () => {
 
   it("NPC は秘匿の駒、HO の公開部分は共有メモ、秘密は GM 側だけ", () => {
     expect(scene.panels).toHaveLength(1);
-    expect(scene.panels[0]).toMatchObject({ name: "執事", hidden: true });
+    expect(scene.panels[0]).toMatchObject({ name: "執事", hidden: true, pos: { x: 0.1, y: 0.86 } });
     expect(scene.scenario!.handouts).toEqual([
       { id: "ho1", label: "HO1", title: "探偵", publicText: "依頼を受けた探偵。", secretText: "実は主人の息子" },
     ]);

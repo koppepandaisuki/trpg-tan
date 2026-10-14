@@ -396,6 +396,8 @@ body {
   margin-bottom: 6px;
   flex-wrap: wrap;
   flex-shrink: 0;
+  /* 右上の「立ち絵」切替ボタンと重ならないよう空けておく。 */
+  padding-right: 84px;
 }
 
 .board-file {
@@ -538,8 +540,10 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 24px;
-  font-size: 13px;
+  padding: 80px;
+  /* 盤面は固定サイズ(1280×720)のステージを縮小して描くので、ステージ基準の大きさで
+     書く(13px だと 1024px 幅の画面で 5px 程度まで縮んで読めなかった)。 */
+  font-size: 32px;
   line-height: 1.7;
 }
 
@@ -1045,7 +1049,8 @@ body {
   display: flex;
 }
 .pside {
-  width: 340px;
+  /* 小さい画面では盤面を優先して細く(1024px 幅で 260px)。 */
+  width: clamp(260px, 22vw, 340px);
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: var(--surface);
@@ -1056,7 +1061,7 @@ body {
 
 /* 右サイドバー(ログ / チャット)。 */
 .psider {
-  width: 340px;
+  width: clamp(260px, 22vw, 340px);
   flex-shrink: 0;
   border-left: 1px solid var(--border);
   background: var(--surface-2);
@@ -10574,4 +10579,46 @@ button.deckp-card {
   font-size: 12px;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+/* ===== GM ビュー: 左右サイドバーの折りたたみ(盤面を広く)。[ / ] キーでも開閉 ===== */
+.pside.collapsed,
+.psider.collapsed {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+}
+.pmain {
+  position: relative;
+}
+.pside-fold {
+  position: absolute;
+  top: 50%;
+  z-index: 20;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 56px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-faint);
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0.55;
+}
+.pside-fold:hover,
+.pside-fold.closed {
+  opacity: 1;
+  color: var(--primary-deep);
+}
+.pside-fold.left {
+  left: 0;
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+}
+.pside-fold.right {
+  right: 0;
+  border-right: 0;
+  border-radius: 6px 0 0 6px;
 }

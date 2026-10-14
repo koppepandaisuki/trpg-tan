@@ -284,6 +284,41 @@ export function PlayTable({
     return () => setDiagContext(null);
   }, []);
 
+  // GM ビューの左右サイドバーの折りたたみ(盤面を広く使う)。端末に保存。
+  const [gmSides, setGmSides] = useState<{ left: boolean; right: boolean }>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem("trpg.play.gm-sides.v1") ?? "null") as {
+        left?: boolean;
+        right?: boolean;
+      } | null;
+      return { left: v?.left ?? true, right: v?.right ?? true };
+    } catch {
+      return { left: true, right: true };
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("trpg.play.gm-sides.v1", JSON.stringify(gmSides));
+    } catch {
+      // 保存できなくても今回は効く
+    }
+  }, [gmSides]);
+
+  // GM ビューのキーボード操作: [ で左、] で右のサイドバーを開閉(参加者ビューと同じキー)。
+  useEffect(() => {
+    if (playerMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) {
+        return;
+      }
+      if (e.key === "[") setGmSides((s) => ({ ...s, left: !s.left }));
+      if (e.key === "]") setGmSides((s) => ({ ...s, right: !s.right }));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [playerMode]);
+
   // 参加者ビューのキーボード操作: [ で左(キャラ)、] で右(チャット)を開閉。
   useEffect(() => {
     if (!playerMode) return;
@@ -1922,8 +1957,8 @@ export function PlayTable({
 
       {!playerMode && (
       <div className="ptable-body2">
-        {/* 左サイドバー(固定): ブロックはドラッグで並べ替え・高さ変更可 */}
-        <aside className="pside">
+        {/* 左サイドバー(固定): ブロックはドラッグで並べ替え・高さ変更可。[ で折りたたみ */}
+        <aside className={`pside ${gmSides.left ? "" : "collapsed"}`}>
           <SideStack
             storageKey={`trpg.play.stack-left.v1::${scene.id}`}
             onDetach={(id) => void toggleDetach(id)}
@@ -2105,6 +2140,22 @@ export function PlayTable({
 
         {/* メイン: シーンバー + 盤面 */}
         <main className="pmain">
+          <button
+            className={`pside-fold left ${gmSides.left ? "" : "closed"}`}
+            onClick={() => setGmSides((s) => ({ ...s, left: !s.left }))}
+            title={gmSides.left ? "左のサイドバーをたたむ([ キー)" : "左のサイドバーを開く([ キー)"}
+            aria-label="左のサイドバーを開閉"
+          >
+            {gmSides.left ? "◀" : "▶"}
+          </button>
+          <button
+            className={`pside-fold right ${gmSides.right ? "" : "closed"}`}
+            onClick={() => setGmSides((s) => ({ ...s, right: !s.right }))}
+            title={gmSides.right ? "右のサイドバーをたたむ(] キー)" : "右のサイドバーを開く(] キー)"}
+            aria-label="右のサイドバーを開閉"
+          >
+            {gmSides.right ? "▶" : "◀"}
+          </button>
           <SceneBar
             scenes={scene.scenes ?? []}
             activeId={scene.activeSceneId}
@@ -2158,7 +2209,7 @@ export function PlayTable({
         </main>
 
         {/* 右サイドバー(固定): チャット / メモ / ルールQ&A(並べ替え・高さ変更可) */}
-        <aside className="psider">
+        <aside className={`psider ${gmSides.right ? "" : "collapsed"}`}>
           <SideStack
             storageKey={`trpg.play.stack-right.v1::${scene.id}`}
             onDetach={(id) => void toggleDetach(id)}
