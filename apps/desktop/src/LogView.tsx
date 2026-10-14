@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Ref } from "react";
-import { DICE_BOTS, getDiceBot } from "@trpg/core";
+import { DICE_BOTS, getDiceBot, directRecipient } from "@trpg/core";
 import {
   CircleHelp,
   MessageSquare,
@@ -25,7 +25,11 @@ type LogFilter = "all" | "chat" | "dice";
 
 /** イベントの所属チャンネル(chat / roll 以外は常にメイン)。 */
 function channelOf(ev: PlayEvent): string {
-  if (ev.kind === "chat" || ev.kind === "roll") return ev.channel ?? "main";
+  if (ev.kind === "chat" || ev.kind === "roll") {
+    // 入室名宛て(ハンドアウトの配布など)はメインに並べる(宛先にだけ届いている)。
+    if (directRecipient(ev.channel)) return "main";
+    return ev.channel ?? "main";
+  }
   return "main";
 }
 
@@ -441,6 +445,9 @@ export function LogRow({
     return (
       <p className="logrow" style={ev.color ? { color: ev.color } : undefined}>
         <b className="log-actor">{ev.actor}</b>
+        {directRecipient(ev.channel) && (
+          <span className="log-dm">📨 {directRecipient(ev.channel)} へ(個別)</span>
+        )}
         <span>{ev.text}</span>
       </p>
     );

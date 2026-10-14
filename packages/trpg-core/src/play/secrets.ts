@@ -17,6 +17,23 @@ import type {
  * 通っても、宛先以外の参加者には読めない。GM は常に全部を見ている(手元が正)。
  */
 
+/**
+ * 参加者 1 人宛て(入室名で指定)のチャンネル。駒を持っていない参加者にも、
+ * ハンドアウトの配布や GM からの個別メッセージを届けるために使う。
+ */
+export const DIRECT_PREFIX = "to:";
+
+export function directChannel(name: string): string {
+  return DIRECT_PREFIX + name;
+}
+
+/** 入室名宛てのチャンネルなら、その名前。 */
+export function directRecipient(channel: string | undefined): string | null {
+  return channel && channel.startsWith(DIRECT_PREFIX)
+    ? channel.slice(DIRECT_PREFIX.length)
+    : null;
+}
+
 /** 個別チャット(メイン以外のチャンネル)の発言・ダイスか。 */
 export function isPrivateChannel(ev: PlayEvent): boolean {
   return (
@@ -85,8 +102,13 @@ export function privateRecipients(ev: PlayEvent, scene: PlayScene): string[] {
     }
   } else if (isPrivateChannel(ev)) {
     const channel = (ev as ChatEvent | RollEvent).channel;
-    const o = ownerName(scene.panels.find((x) => x.id === channel));
-    if (o) out.add(o);
+    const direct = directRecipient(channel);
+    if (direct) {
+      out.add(direct);
+    } else {
+      const o = ownerName(scene.panels.find((x) => x.id === channel));
+      if (o) out.add(o);
+    }
   }
   return [...out];
 }

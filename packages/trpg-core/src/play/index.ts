@@ -153,5 +153,8 @@ export {
   redactRoll,
   privateRecipients,
   privateBacklog,
+  directChannel,
+  directRecipient,
+  DIRECT_PREFIX,
 } from "./secrets.js";
 export { createSecretBox, sendPrivateEvents, type SecretBox } from "./seal.js";

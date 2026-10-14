@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { BookOpenText, Lock, Send } from "lucide-react";
-import type { PlayScene } from "@trpg/core";
+import type { Handout, PlayScene } from "@trpg/core";
 
 /**
  * GM 専用のシナリオパネル(Web 版)。
@@ -17,10 +17,16 @@ import type { PlayScene } from "@trpg/core";
 export function PlayScenarioPanel({
   scene,
   onSay,
+  members = [],
+  onDistribute,
 }: {
   scene: PlayScene;
   /** GM(地の声)としてチャットへ流す。 */
   onSay: (text: string) => void;
+  /** 卓に参加中の人(入室名)。ハンドアウトの配布先。 */
+  members?: string[];
+  /** ハンドアウトをその人だけに配る(宛先だけが読める暗号文で届く)。 */
+  onDistribute?: (handout: Handout, to: string) => void;
 }) {
   const active = scene.scenes?.find((s) => s.id === scene.activeSceneId);
   const info = scene.scenario;
@@ -159,6 +165,29 @@ export function PlayScenarioPanel({
                       <p className="mt-1 whitespace-pre-wrap text-red-700">
                         秘匿: {h.secretText}
                       </p>
+                    )}
+                    {onDistribute && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        <span className="text-[10px] text-muted-foreground">配る:</span>
+                        {members.length === 0 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            (卓を公開して参加者が入ると選べます)
+                          </span>
+                        )}
+                        {members.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`${h.label} を「${m}」さんだけに配りますか？`)) onDistribute(h, m);
+                            }}
+                            className="rounded border border-border px-1.5 py-0.5 text-[10px] hover:bg-muted"
+                            title="この人だけに届きます(他の参加者には見えません)"
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 ))}

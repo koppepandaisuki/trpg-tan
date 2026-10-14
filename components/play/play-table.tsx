@@ -32,6 +32,8 @@ import {
   sceneRenameEvent,
   sceneRemoveEvent,
   turnSetEvent,
+  chatEvent,
+  directChannel,
   parseCcfoliaCharacter,
   createSceneBroadcaster,
   createSecretBox,
@@ -729,6 +731,17 @@ export function PlayTable({
         <aside className="space-y-2">
           <PlayScenarioPanel
             scene={scene}
+            members={participants}
+            onDistribute={(h, to) => {
+              const body = [
+                `【${h.label} ${h.title}】`,
+                h.publicText?.trim(),
+                h.secretText?.trim() ? `(あなただけの情報)\n${h.secretText.trim()}` : "",
+              ]
+                .filter(Boolean)
+                .join("\n");
+              dispatch(chatEvent(newEventCtx(), "GM", body, directChannel(to)));
+            }}
             onSay={(text) => {
               const ev = resolveInputToEvent({
                 external: bcdiceExternal,

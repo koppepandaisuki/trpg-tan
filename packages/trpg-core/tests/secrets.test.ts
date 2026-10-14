@@ -147,3 +147,13 @@ describe("sendPrivateEvents", () => {
     expect(opened).toEqual({ type: "reveal", evs: [dm1] });
   });
 });
+
+describe("入室名宛て(ハンドアウトの配布など)", () => {
+  it("駒が無くても、入室名宛てなら届く。全員向けには送らない", async () => {
+    const { directChannel, directRecipient } = await import("../src/play/index.js");
+    const ho = chatEvent(ctx(), "GM", "【HO1 探偵】依頼を受けた", directChannel("PL3"));
+    expect(directRecipient(ho.channel)).toBe("PL3");
+    expect(privateRecipients(ho, table())).toEqual(["PL3"]);
+    expect(publicEventFor(ho)).toBeNull();
+  });
+});
