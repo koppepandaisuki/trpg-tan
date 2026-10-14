@@ -783,17 +783,21 @@ export function PlayClient({
     }
   }
 
-  // 発言者は「自分(入室名)」か自分のキャラのみ。駒が消えるなど無効になったら
-  // 自分(地の声)へ戻す。"self" は常に有効。
+  // 発言者は「自分(入室名)」か自分のキャラのみ。既定は自分のキャラ(TRPG ではキャラとして
+  // 話すのが基本。Web の参加者画面と同じ)。自分で選び直したらそれを尊重し、選んでいた駒が
+  // 消えたら次の自分の駒(無ければ自分)へ戻す。
   const myIds = myCards.map((p) => p.id).join(",");
+  const speakerTouched = useRef(false);
   useEffect(() => {
-    const valid =
-      compose.speakerId === "self" ||
-      myCards.some((p) => p.id === compose.speakerId);
-    if (!valid) setCompose((c) => ({ ...c, speakerId: "self" }));
-    // myIds で myCards の変化を検知(配列参照は毎回変わるため)。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myIds, compose.speakerId]);
+    const ids = myIds ? myIds.split(",") : [];
+    setCompose((c) => {
+      if (c.speakerId !== "self" && !ids.includes(c.speakerId))
+        return { ...c, speakerId: ids[0] ?? "self" };
+      if (c.speakerId === "self" && !speakerTouched.current && ids.length > 0)
+        return { ...c, speakerId: ids[0] };
+      return c;
+    });
+  }, [myIds]);
 
   /* ===== 操作 → intent ===== */
 
@@ -1298,9 +1302,10 @@ export function PlayClient({
                         onChannelChange={setChannel}
                         color={chatColor}
                         onColorChange={changeChatColor}
-                        onSpeakerChange={(id) =>
-                          setCompose((c) => ({ ...c, speakerId: id }))
-                        }
+                        onSpeakerChange={(id) => {
+                          speakerTouched.current = true;
+                          setCompose((c) => ({ ...c, speakerId: id }));
+                        }}
                         onTextChange={(t) =>
                           setCompose((c) => ({ ...c, text: t }))
                         }

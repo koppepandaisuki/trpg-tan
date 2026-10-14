@@ -1,5 +1,20 @@
-import { Check, Gamepad2, Sparkles, Star, Crown } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import {
+  Check,
+  Crown,
+  Dices,
+  Gamepad2,
+  Map as MapIcon,
+  Music,
+  Smartphone,
+  Sparkles,
+  Star,
+} from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
+import { ProductShots } from "@/components/home/product-shots";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { PLAN_LABEL, PLAN_PRICE_JPY, type UserPlan } from "@/lib/plan";
@@ -8,13 +23,12 @@ import { isPlanBillingConfigured } from "@/lib/stripe/subscription";
 
 export const metadata = {
   title: "料金プラン",
-  description:
-    "Re-dice の料金プラン。卓のホスト・参加は無料。基本（無料）/ プレイ / Pro の3段階。",
+  description: "Re-dice の料金プラン。卓のホスト・参加は無料。基本（無料）/ プレイ / Pro の3段階。",
 };
 
 type Perk = { label: string; soon?: boolean; star?: boolean };
 
-/** プランごとのブランドカラー(赤・白・金の暖色ランプ: 金→赤→橙)。 */
+/** プランごとのブランドカラー(無料 = 無彩色 / PLAY = 紅 / PRO = 墨。decisions.md D-105)。 */
 const THEME: Record<
   UserPlan,
   { code: string; text: string; border: string; check: string; btn: string }
@@ -71,7 +85,11 @@ const PLANS: {
     perks: [
       { label: "基本のすべて" },
       { label: "広告なし", soon: true },
-      { label: "確実接続の中継(TURN):直結できない回線でも速く、IP を相手に出さない", star: true, soon: true },
+      {
+        label: "確実接続の中継(TURN):直結できない回線でも速く、IP を相手に出さない",
+        star: true,
+        soon: true,
+      },
       { label: "フレンド無制限" },
     ],
   },
@@ -86,6 +104,14 @@ const PLANS: {
       { label: "Pro バッジ", soon: true },
     ],
   },
+];
+
+/** 無料プランの見どころ(画面の横に並べる)。 */
+const FREE_HIGHLIGHTS = [
+  { icon: MapIcon, title: "盤面とコマ", body: "背景・駒・前景、シーンの切り替え" },
+  { icon: Dices, title: "BCDice 280+ システム", body: "クトゥルフ・ソード・ワールドほか" },
+  { icon: Music, title: "BGM・カットイン", body: "演出は参加者の画面にもそのまま" },
+  { icon: Smartphone, title: "スマホで参加", body: "参加者はログインもインストールも不要" },
 ];
 
 export default async function PricingPage() {
@@ -106,9 +132,7 @@ export default async function PricingPage() {
               <span aria-hidden className="h-1.5 w-1.5 rotate-45 bg-primary" />
               PRICING
             </p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">
-              料金プラン
-            </h1>
+            <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">料金プラン</h1>
             <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
               卓のホストも参加も無料。もっと快適にするなら「プレイ」、作る・もっと使うなら「Pro」。
             </p>
@@ -153,6 +177,54 @@ export default async function PricingPage() {
         <p className="mx-auto mt-8 max-w-4xl text-center text-[11px] leading-relaxed text-muted-foreground">
           「予定」の特典は順次提供します。価格・特典は変更される場合があります。
         </p>
+
+        {/* 無料プランで使えるものを、実際の画面で(墨の面 + 紅の光。トップのヒーローと同じ) */}
+        <section className="relative isolate mx-auto mt-14 max-w-5xl overflow-hidden rounded-2xl bg-ink px-6 py-10 text-white shadow-lg sm:px-10 sm:py-12">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-24 -top-32 -z-10 h-[26rem] w-[26rem] rounded-full bg-primary/60 blur-[120px]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:22px_22px]"
+          />
+          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <div className="space-y-5">
+              <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.25em] text-white/60">
+                <span aria-hidden className="h-1.5 w-1.5 rotate-45 bg-primary" />
+                FREE PLAN
+              </p>
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                無料プランで、<span className="whitespace-nowrap">ここまで全部。</span>
+              </h2>
+              <p className="text-sm leading-relaxed text-white/70">
+                卓を立てて遊ぶための機能は、すべて無料プランに入っています。
+                有料プランは「もっと快適に」「もっと作る」ための上乗せです。
+              </p>
+              <ul className="grid gap-4 sm:grid-cols-2">
+                {FREE_HIGHLIGHTS.map((f) => (
+                  <li key={f.title} className="flex gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
+                      <f.icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold">{f.title}</span>
+                      <span className="block text-xs leading-relaxed text-white/60">{f.body}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href={"/play" as Route}
+                className={cn(buttonVariants({ variant: "primary", size: "lg" }))}
+              >
+                <Dices aria-hidden />
+                無料で卓を立てる
+              </Link>
+            </div>
+            <ProductShots />
+          </div>
+        </section>
       </div>
     </>
   );
@@ -219,12 +291,8 @@ function PlanCard({
         ) : (
           <span className="inline-flex items-baseline gap-0.5">
             <span className="text-2xl font-bold text-muted-foreground">¥</span>
-            <span className={`text-5xl font-black ${t.text}`}>
-              {price.toLocaleString("ja-JP")}
-            </span>
-            <span className="text-sm font-semibold text-muted-foreground">
-              /月
-            </span>
+            <span className={`text-5xl font-black ${t.text}`}>{price.toLocaleString("ja-JP")}</span>
+            <span className="text-sm font-semibold text-muted-foreground">/月</span>
           </span>
         )}
         <p className="mt-1 text-[11px] text-muted-foreground">{tagline}</p>
@@ -241,11 +309,7 @@ function PlanCard({
             >
               <Check className="h-3 w-3" aria-hidden strokeWidth={3} />
             </span>
-            <span
-              className={
-                perk.star ? "font-semibold text-foreground" : "text-foreground/90"
-              }
-            >
+            <span className={perk.star ? "font-semibold text-foreground" : "text-foreground/90"}>
               {perk.label}
               {perk.soon && (
                 <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">

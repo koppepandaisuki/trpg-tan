@@ -214,6 +214,26 @@ export function PlayGuest({
   /** 自分の駒か(GM が owner に自分の入室名を刻む)。 */
   const isMine = useCallback((p: Panel) => p.owner === myName.current, []);
 
+  // 発言者の既定は自分のキャラ(TRPG ではキャラとして話すのが基本)。自分で選び直したら
+  // それを尊重し、選んでいた駒が消えたら次の自分の駒(無ければ自分の名前)へ戻す。
+  const speakerTouched = useRef(false);
+  const myPanelIds = (scene?.panels ?? [])
+    .filter(isMine)
+    .map((p) => p.id)
+    .join(",");
+  useEffect(() => {
+    const ids = myPanelIds ? myPanelIds.split(",") : [];
+    setSpeakerId((cur) => {
+      if (cur !== "GM" && !ids.includes(cur)) return ids[0] ?? "GM";
+      if (cur === "GM" && !speakerTouched.current && ids.length > 0) return ids[0];
+      return cur;
+    });
+  }, [myPanelIds]);
+  const chooseSpeaker = useCallback((id: string) => {
+    speakerTouched.current = true;
+    setSpeakerId(id);
+  }, []);
+
   function send(text: string, as: string = speakerId) {
     room?.send({
       type: "intent",
@@ -420,7 +440,7 @@ export function PlayGuest({
               onSend={send}
               speakers={myPanels}
               speakerId={speakerId}
-              onSpeakerChange={setSpeakerId}
+              onSpeakerChange={chooseSpeaker}
               selfLabel={`${myName.current}(自分)`}
               secret={false}
               onSecretChange={() => {}}
@@ -478,7 +498,7 @@ export function PlayGuest({
                     inputRef.current?.focus();
                   }}
                   onSend={(t) => {
-                    setSpeakerId(p.id);
+                    chooseSpeaker(p.id);
                     room?.send({
                       type: "intent",
                       from: room.selfId,
