@@ -1,13 +1,18 @@
 import Link from "next/link";
 import type { Route } from "next";
 import {
+  BookOpenText,
   CalendarDays,
   Dices,
   FolderOpen,
+  Gift,
   Hammer,
+  Link2,
+  Lock,
   ScrollText,
   Sparkles,
   Users,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
@@ -44,7 +49,7 @@ const FEATURES: Feature[] = [
     href: "/play" as Route,
     icon: Dices,
     title: "PLAY",
-    body: "ブラウザで卓を立てて、参加コードを渡すだけでセッション開始。盤面・ダイス・BGM・カットインまで。",
+    body: "ブラウザで卓を立てて、招待リンクを渡すだけでセッション開始。盤面・ダイス・BGM・カットイン・タイマーまで。",
   },
   {
     href: "/library" as Route,
@@ -79,6 +84,40 @@ const FEATURES: Feature[] = [
   },
 ];
 
+/** Re-dice の強み(他のセッションツールと比べたときの違い)。 */
+const STRENGTHS: { icon: LucideIcon; title: string; body: string }[] = [
+  {
+    icon: Gift,
+    title: "卓を立てるのも無料",
+    body: "ホストも参加も無料。卓の複製・書き出し・タイマーも追加料金なしで使えます。",
+  },
+  {
+    icon: Link2,
+    title: "参加はリンクを開くだけ",
+    body: "参加者はログインもインストールも不要。招待リンクを開いて名前を入れるだけ。",
+  },
+  {
+    icon: Dices,
+    title: "280 以上のシステムのダイス",
+    body: "定番のダイスボット BCDice に対応。CoC・ソード・ワールド・ネクロニカ…そのまま振れます。",
+  },
+  {
+    icon: Zap,
+    title: "GM と直結で軽快",
+    body: "GM と参加者の端末を直接つなぐので、駒の移動もチャットもすぐ届きます。",
+  },
+  {
+    icon: Lock,
+    title: "秘密はちゃんと秘密に",
+    body: "シークレットダイスの出目・個別チャット・ハンドアウトは、宛先の人だけが読める形で届きます。",
+  },
+  {
+    icon: BookOpenText,
+    title: "シナリオから卓まで一続き",
+    body: "キャラシ作成・日程調整・「TRPGシナリオ工房」で書いたシナリオの取り込みまで、ここ 1 つで。",
+  },
+];
+
 export default async function HomePage() {
   const user = await getCurrentUser();
   const recent = user ? (await listMyPlaySessions(user.id)).slice(0, 3) : [];
@@ -109,8 +148,8 @@ export default async function HomePage() {
               卓を立てて、すぐ遊ぶ。
             </h1>
             <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-              盤面・ダイス・キャラシ・BGM が 1 つに。ブラウザならインストール不要。
-              参加者はログインして、GM から届いた参加コードを入れるだけです。
+              盤面・ダイス・キャラシ・BGM が 1 つに。卓を立てるのも参加するのも無料。
+              参加者はログインもインストールも不要で、GM から届いたリンクを開くだけです。
             </p>
             <div className="flex flex-wrap gap-2 pt-2">
               <Link
@@ -169,6 +208,31 @@ export default async function HomePage() {
             </ul>
           </section>
         )}
+
+        {/* ===== Re-dice の強み ===== */}
+        <section className="space-y-3">
+          <h2 className="font-serif text-lg font-semibold tracking-tight">
+            Re-dice が選ばれる理由
+          </h2>
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {STRENGTHS.map((s) => (
+              <li
+                key={s.title}
+                className="flex gap-3 rounded-lg border border-border bg-card p-4 shadow-sm"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
+                  <s.icon className="h-4 w-4" aria-hidden />
+                </span>
+                <span className="min-w-0 space-y-1">
+                  <span className="block font-semibold">{s.title}</span>
+                  <span className="block text-xs leading-relaxed text-muted-foreground">
+                    {s.body}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
 
         {/* ===== できること ===== */}
         <section className="space-y-3">

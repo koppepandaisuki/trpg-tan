@@ -42,7 +42,7 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://re-dice.net";
 
 const DESCRIPTION =
-  "ブラウザで卓を立ててすぐ遊べる TRPG オンラインセッションツール。盤面・ダイス・キャラシ・BGM が 1 つに。参加者はインストール不要。";
+  "ブラウザで卓を立ててすぐ遊べる無料の TRPG オンラインセッションツール。BCDice 対応のダイス・盤面・キャラシ・BGM が 1 つに。参加者はログイン・インストール不要。";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -63,6 +63,12 @@ export const metadata: Metadata = {
     "Re-dice",
     "クトゥルフ",
     "創作",
+    "BCDice",
+    "ダイスボット",
+    "オンセ",
+    "ボイセ",
+    "テキセ",
+    "無料",
   ],
   authors: [{ name: "Re-dice" }],
   creator: "Re-dice",
