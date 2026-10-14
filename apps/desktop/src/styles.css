@@ -10500,3 +10500,78 @@ button:disabled {
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* ===== カード・山札(DeckPanel.tsx) ===== */
+.deckp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.deckp-create {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.deckp-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.deckp-deck {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.deckp-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.deckp-head span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.deckp-cards,
+.deckp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.deckp-card {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  cursor: default;
+}
+button.deckp-card {
+  cursor: pointer;
+}
+.deckp-actions .btn.mini.on {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+/* 参加者の左ドロワー内の小見出しブロック(カード等)。 */
+.pside-block {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pside-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}

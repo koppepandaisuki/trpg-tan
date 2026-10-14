@@ -16,6 +16,7 @@ import {
   createGmGate,
   SYNC_PROTOCOL,
   type NetMsg,
+  type DeckCard,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
@@ -41,6 +42,7 @@ import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
 import { BoardStatusBar } from "./BoardStatusBar";
 import { TableTimer } from "./TableTimer";
+import { DeckPanel } from "./DeckPanel";
 import { PortraitLayer } from "./PortraitLayer";
 import { MemoPanel } from "./MemoPanel";
 import { SideStack } from "./SideStack";
@@ -114,6 +116,8 @@ export function PlayClient({
   const [phase, setPhase] = useState<Phase>("connecting");
   // GM により退室させられた(closed の表示文言を変える)。
   const [kickedOut, setKickedOut] = useState(false);
+  // 自分の手札(GM から本人宛ての暗号文で届く)。
+  const [myHands, setMyHands] = useState<{ deckId: string; cards: DeckCard[] }[]>([]);
   const [netError, setNetError] = useState<string | null>(null);
   // 無料(basic / 未ログイン)参加者か。卓DL中のハウス広告(JoinPromo)の表示判定に使う。
   // 課金(play/pro)・管理者には広告を出さない。
@@ -288,7 +292,9 @@ export function PlayClient({
             const sealed = msg;
             secretQueue = secretQueue.then(async () => {
               const inner = await box.open("GM", sealed);
-              if (alive && inner && mirror.receive(inner).changed) show();
+              if (!alive || !inner) return;
+              if (inner.type === "hand") setMyHands(inner.hands);
+              else if (mirror.receive(inner).changed) show();
             });
           } else if (msg.type === "media") {
             // 画像束を受け取りキャッシュ。表示中 scene に残る未解決参照を埋める
@@ -1216,6 +1222,32 @@ export function PlayClient({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* カード(場のカード・残り枚数・自分の手札)。 */}
+            {((scene?.decks?.length ?? 0) > 0 || myHands.length > 0) && (
+              <div className="pside-block">
+                <div className="pside-title">カード</div>
+                <DeckPanel
+                  mode="player"
+                  decks={scene?.decks ?? []}
+                  hands={myHands}
+                  onDraw={(deckId) =>
+                    roomRef.current?.send({
+                      type: "intent",
+                      from: roomRef.current.selfId,
+                      intent: { kind: "deck-draw", deckId },
+                    })
+                  }
+                  onPlay={(deckId, cardId) =>
+                    roomRef.current?.send({
+                      type: "intent",
+                      from: roomRef.current.selfId,
+                      intent: { kind: "deck-play", deckId, cardId },
+                    })
+                  }
+                />
               </div>
             )}
 

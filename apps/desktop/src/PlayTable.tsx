@@ -6,6 +6,14 @@ import {
   createSigner,
   codeForKey,
   createMemberGate,
+  deckEvent,
+  applyDeckOp,
+  handOf,
+  drawnBy,
+  cardLabel,
+  TO_TABLE,
+  type DeckOp,
+  systemEvent,
   publicEventFor,
   privateBacklog,
   sendPrivateEvents,
@@ -71,6 +79,7 @@ import {
   StickyNote,
   BookMarked,
   ClipboardPaste,
+  Layers,
 } from "lucide-react";
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -105,6 +114,7 @@ import {
 import { LinkBadge } from "./LinkBadge";
 import { TableTimer } from "./TableTimer";
 import { ScenarioInfoPanel } from "./ScenarioInfoPanel";
+import { DeckPanel } from "./DeckPanel";
 import { bcdiceIdOf, evalBcdice, loadBcdiceSystem } from "./bcdice";
 import { useLiveDrag } from "./use-live-drag";
 import { WEB_BASE } from "./platform";
@@ -1230,7 +1240,57 @@ export function PlayTable({
     return !!owner && owner === memberNames.current.get(from);
   }
 
+  /** その人(入室名)に今の手札を、本人だけが読める暗号文で送る。 */
+  function sendHand(name: string, decks: NonNullable<PlayScene["decks"]>) {
+    const box = boxRef.current;
+    const r = roomRef.current;
+    if (!box || !r) return;
+    const hands = handOf(decks, name);
+    for (const [id, n] of memberNames.current) {
+      if (n !== name) continue;
+      void box.seal(id, { type: "hand", hands }).then((m) => m && r.send(m));
+    }
+  }
+
+  /**
+   * カードの操作: 状態を進め、全員へは何が起きたか(場に出たカード以外は枚数だけ)を
+   * ログに残し、手札が変わった人へは手札を個別に送る(Web 版 play-table と同じ)。
+   */
+  function deckOp(op: DeckOp, note: string, actor = "GM") {
+    const before = sceneRef.current.decks ?? [];
+    const deck = before.find((d) => "deckId" in op && d.id === op.deckId);
+    dispatch(deckEvent(newCtx(), actor, op));
+    let text = note;
+    if (op.op === "draw" && op.to === TO_TABLE && deck) {
+      text = `${note}: ${drawnBy(deck, op).map((id) => cardLabel(deck, id)).join("、")}`;
+    }
+    if (op.op === "play" && deck) {
+      text = `🃏 ${op.from} が「${cardLabel(deck, op.cardId)}」を場に出しました`;
+    }
+    if (text) dispatch(systemEvent(newCtx(), text));
+    const after = applyDeckOp(before, op);
+    const owners = new Set<string>();
+    if (op.op === "draw" && op.to !== TO_TABLE) owners.add(op.to);
+    if (op.op === "play") owners.add(op.from);
+    if ((op.op === "shuffle" && op.gather) || op.op === "remove") {
+      for (const k of Object.keys(deck?.hands ?? {})) owners.add(k);
+    }
+    for (const o of owners) if (o !== "GM") sendHand(o, after);
+  }
+
   function applyIntent(intent: NetIntent, from: string) {
+    if (intent.kind === "deck-draw" || intent.kind === "deck-play") {
+      const who = memberNames.current.get(from);
+      if (!who) return;
+      if (intent.kind === "deck-draw") {
+        const d = sceneRef.current.decks?.find((x) => x.id === intent.deckId);
+        if (!d || !d.selfDraw || d.pile.length === 0) return;
+        deckOp({ op: "draw", deckId: d.id, count: 1, to: who }, `🃏 ${who} が「${d.name}」から 1 枚引きました`, who);
+      } else {
+        deckOp({ op: "play", deckId: intent.deckId, from: who, cardId: intent.cardId }, "", who);
+      }
+      return;
+    }
     if (intent.kind === "send") {
       // GM 発言は不可(参加者がなりすませない)。
       if (intent.speakerId === "GM") return;
@@ -1325,6 +1385,12 @@ export function PlayTable({
               scene: sceneRef.current,
               evs: privateBacklog(sceneRef.current, name),
             });
+            // 持っている手札も渡す(入り直したとき用)。
+            const hands = handOf(sceneRef.current.decks ?? [], name);
+            if (hands.length > 0) {
+              const m = await box.seal(from, { type: "hand", hands });
+              if (m) await r.send(m);
+            }
           })();
         }
         // 既に BGM を流しているなら再配信して、途中入室でも鳴るようにする
@@ -1943,6 +2009,20 @@ export function PlayTable({
                       fireTelop(text);
                     }}
                     onEdit={setTextStock}
+                  />
+                ),
+              },
+              {
+                id: "cards",
+                title: "カード",
+                icon: <Layers size={14} />,
+                defaultOpen: (scene.decks?.length ?? 0) > 0,
+                body: (
+                  <DeckPanel
+                    mode="gm"
+                    decks={scene.decks ?? []}
+                    members={members.filter((n) => n !== "GM")}
+                    onOp={(op, note) => deckOp(op, note)}
                   />
                 ),
               },
