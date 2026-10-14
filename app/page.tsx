@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import {
@@ -137,36 +138,71 @@ export default async function HomePage() {
             className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:22px_22px]"
           />
 
-          <div className="relative max-w-2xl space-y-5">
-            <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.25em] text-white/60">
-              <span aria-hidden className="h-1.5 w-1.5 rotate-45 bg-primary" />
-              TRPG ONLINE SESSION
-            </p>
-            <h1 className="font-serif text-3xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
-              卓を立てて、すぐ遊ぶ。
-            </h1>
-            <p className="max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
-              盤面・ダイス・キャラシ・BGM が 1 つに。卓を立てるのも参加するのも無料。
-              参加者はログインもインストールも不要で、GM から届いたリンクを開くだけです。
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Link
-                href={"/play" as Route}
-                className={cn(buttonVariants({ variant: "primary", size: "lg" }))}
-              >
-                <Dices aria-hidden />
-                卓を立てる
-              </Link>
-              <Link
-                href={"/download" as Route}
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  "border-white/25 bg-transparent text-white hover:border-white/50 hover:bg-white/10",
-                )}
-              >
-                アプリをダウンロード
-              </Link>
+          <div className="relative grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <div className="max-w-2xl space-y-5">
+              <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.25em] text-white/60">
+                <span aria-hidden className="h-1.5 w-1.5 rotate-45 bg-primary" />
+                TRPG ONLINE SESSION
+              </p>
+              <h1 className="font-serif text-3xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
+                卓を立てて、<span className="whitespace-nowrap">すぐ遊ぶ。</span>
+              </h1>
+              <p className="max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
+                盤面・ダイス・キャラシ・BGM が 1 つに。卓を立てるのも参加するのも無料。
+                参加者はログインもインストールも不要で、GM から届いたリンクを開くだけです。
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Link
+                  href={"/play" as Route}
+                  className={cn(buttonVariants({ variant: "primary", size: "lg" }))}
+                >
+                  <Dices aria-hidden />
+                  卓を立てる
+                </Link>
+                <Link
+                  href={"/download" as Route}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "lg" }),
+                    "border-white/25 bg-transparent text-white hover:border-white/50 hover:bg-white/10",
+                  )}
+                >
+                  アプリをダウンロード
+                </Link>
+              </div>
             </div>
+
+            {/* 実際の画面: GM の卓(ウィンドウ枠)+ 参加者のスマホ */}
+            <figure className="relative pb-6 sm:pl-10">
+              <div className="overflow-hidden rounded-xl bg-[#1c1c1c] shadow-2xl ring-1 ring-white/10">
+                <div aria-hidden className="flex h-6 items-center gap-1.5 px-3">
+                  <span className="h-2 w-2 rounded-full bg-white/20" />
+                  <span className="h-2 w-2 rounded-full bg-white/20" />
+                  <span className="h-2 w-2 rounded-full bg-white/20" />
+                </div>
+                <Image
+                  src="/screens/play-gm.png"
+                  alt="GM の卓の画面。盤面の上にキャラクターの駒、右にチャットとダイスの結果"
+                  width={800}
+                  height={500}
+                  priority
+                  sizes="(min-width: 1024px) 560px, 100vw"
+                  className="block h-auto w-full"
+                />
+              </div>
+              <div className="absolute bottom-0 left-0 hidden w-[27%] overflow-hidden rounded-[22px] border-[5px] border-[#1d1d1d] bg-black shadow-2xl ring-1 ring-white/10 sm:block">
+                <Image
+                  src="/screens/play-guest.png"
+                  alt="参加者のスマホの画面。盤面・チャット・タップで振れる判定"
+                  width={750}
+                  height={1624}
+                  sizes="180px"
+                  className="block aspect-[9/17] w-full object-cover object-top"
+                />
+              </div>
+              <figcaption className="sr-only">
+                Re-dice の卓の画面(PC の GM とスマホの参加者)
+              </figcaption>
+            </figure>
           </div>
         </section>
 
@@ -174,9 +210,7 @@ export default async function HomePage() {
         {recent.length > 0 && (
           <section className="space-y-3">
             <div className="flex items-baseline justify-between">
-              <h2 className="text-lg font-bold tracking-tight">
-                最近の卓
-              </h2>
+              <h2 className="text-lg font-bold tracking-tight">最近の卓</h2>
               <Link
                 href={"/library" as Route}
                 className="text-xs text-muted-foreground transition hover:text-foreground"
@@ -213,9 +247,7 @@ export default async function HomePage() {
 
         {/* ===== Re-dice の強み ===== */}
         <section className="space-y-3">
-          <h2 className="text-lg font-bold tracking-tight">
-            Re-dice が選ばれる理由
-          </h2>
+          <h2 className="text-lg font-bold tracking-tight">Re-dice が選ばれる理由</h2>
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {STRENGTHS.map((s) => (
               <li
@@ -238,9 +270,7 @@ export default async function HomePage() {
 
         {/* ===== できること ===== */}
         <section className="space-y-3">
-          <h2 className="text-lg font-bold tracking-tight">
-            できること
-          </h2>
+          <h2 className="text-lg font-bold tracking-tight">できること</h2>
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
               <li key={f.title}>
