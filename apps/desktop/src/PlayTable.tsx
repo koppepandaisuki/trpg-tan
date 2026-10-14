@@ -16,6 +16,7 @@ import {
   compareRollEvent,
   diceBotRollEvent,
   externalRollEvent,
+  directChannel,
   chatEvent,
   parseDiceCommand,
   resourceEvent,
@@ -100,6 +101,7 @@ import {
 } from "./net";
 import { LinkBadge } from "./LinkBadge";
 import { TableTimer } from "./TableTimer";
+import { ScenarioInfoPanel } from "./ScenarioInfoPanel";
 import { bcdiceIdOf, evalBcdice, loadBcdiceSystem } from "./bcdice";
 import { useLiveDrag } from "./use-live-drag";
 import { WEB_BASE } from "./platform";
@@ -1929,6 +1931,30 @@ export function PlayTable({
                       fireTelop(text);
                     }}
                     onEdit={setTextStock}
+                  />
+                ),
+              },
+              {
+                id: "scinfo",
+                title: "シナリオ情報(GM)",
+                icon: <ScrollText size={14} />,
+                defaultOpen: !!(scene.scenario || scene.scenes?.some((s) => s.script || s.gmNote)),
+                body: (
+                  <ScenarioInfoPanel
+                    scene={scene}
+                    members={members.filter((n) => n !== "GM")}
+                    onSay={(text) => dispatch(chatEvent(newCtx(), "GM", text))}
+                    onDistribute={(h, to) => {
+                      const body = [
+                        `【${h.label} ${h.title}】`,
+                        h.publicText?.trim(),
+                        h.secretText?.trim() ? `(あなただけの情報)\n${h.secretText.trim()}` : "",
+                      ]
+                        .filter(Boolean)
+                        .join("\n");
+                      dispatch(chatEvent(newCtx(), "GM", body, directChannel(to)));
+                      toast(`📨 ${h.label} を ${to} さんに配りました`);
+                    }}
                   />
                 ),
               },

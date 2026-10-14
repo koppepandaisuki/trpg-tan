@@ -10423,3 +10423,80 @@ button:disabled {
 .ttimer .btn.mini {
   white-space: nowrap;
 }
+
+/* ===== シナリオ情報(ScenarioInfoPanel.tsx・GM 専用) ===== */
+.scinfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.scinfo-tabs {
+  display: flex;
+  gap: 4px;
+}
+.scinfo-tabs .btn.mini.on {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+.scinfo-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.scinfo-label {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.scinfo-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.scinfo-secret {
+  color: #b91c1c;
+}
+.scinfo-para {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  line-height: 1.6;
+}
+.scinfo-para span {
+  flex: 1;
+}
+.scinfo-say {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+}
+.scinfo-say:hover {
+  background: var(--surface-2);
+}
+.scinfo-list {
+  margin: 0;
+  padding-left: 16px;
+}
+.scinfo-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.scinfo-dist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
