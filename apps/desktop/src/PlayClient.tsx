@@ -37,6 +37,7 @@ import { PlayBoard } from "./PlayBoard";
 import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
 import { BoardStatusBar } from "./BoardStatusBar";
+import { TableTimer } from "./TableTimer";
 import { PortraitLayer } from "./PortraitLayer";
 import { MemoPanel } from "./MemoPanel";
 import { SideStack } from "./SideStack";
@@ -1063,6 +1064,7 @@ export function PlayClient({
             />
             <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />
             <BoardStatusBar cards={playerCards} turn={scene.turn} />
+            <TableTimer timer={scene.timer} />
           </div>
         </main>
 

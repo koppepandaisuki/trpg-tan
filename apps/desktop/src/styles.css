@@ -10361,3 +10361,65 @@ button:disabled {
   color: #5b21b6;
   background: #ede9fe;
 }
+
+/* ===== 卓のタイマー(TableTimer.tsx)。盤面の下部中央に浮かぶ
+   (上部は盤面のツールボタン、左上はステータス一覧と重なるため)。 ===== */
+.ttimer {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  font-size: 12px;
+}
+.ttimer-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.ttimer.run .ttimer-time {
+  color: #0369a1;
+}
+.ttimer.done {
+  border-color: #e0796b;
+  animation: ttimer-pulse 1s ease-in-out infinite;
+}
+.ttimer.done .ttimer-time {
+  color: #b91c1c;
+}
+@keyframes ttimer-pulse {
+  50% {
+    opacity: 0.6;
+  }
+}
+.ttimer-btn {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.ttimer-btn:hover {
+  background: var(--surface-2);
+}
+.ttimer-presets {
+  display: inline-flex;
+  gap: 4px;
+}
+.ttimer .btn.mini {
+  white-space: nowrap;
+}

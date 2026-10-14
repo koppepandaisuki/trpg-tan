@@ -99,6 +99,7 @@ import {
   type LinkStatus,
 } from "./net";
 import { LinkBadge } from "./LinkBadge";
+import { TableTimer } from "./TableTimer";
 import { bcdiceIdOf, evalBcdice, loadBcdiceSystem } from "./bcdice";
 import { useLiveDrag } from "./use-live-drag";
 import { WEB_BASE } from "./platform";
@@ -2023,6 +2024,18 @@ export function PlayTable({
               onNextTurn={nextTurn}
               onResetTurn={resetTurn}
             />
+            <TableTimer
+              timer={scene.timer}
+              onChange={(t) => {
+                setScene((s) => {
+                  const next = { ...s };
+                  if (t) next.timer = t;
+                  else delete next.timer;
+                  return next;
+                });
+                setDirty(true);
+              }}
+            />
           </div>
         </main>
 
@@ -2132,6 +2145,7 @@ export function PlayTable({
               />
               <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />
               <BoardStatusBar cards={playerCards} turn={scene.turn} />
+              <TableTimer timer={scene.timer} />
             </div>
           </main>
 
