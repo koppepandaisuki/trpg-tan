@@ -15,10 +15,10 @@
 
 | # | やること | どこで | 状態 |
 |---|---|---|---|
-| 1 | **お問い合わせ用メールアドレスを決めて env に入れる**(`CONTACT_EMAIL`)。シナリオ工房と同じ `monosense25@gmail.com` を使うか、Re-dice 用に新しく作る | Vercel の Environment Variables | 未 |
-| 2 | **特商法・プライバシーポリシーの事業者情報を決める**(`OPERATOR_NAME` / `OPERATOR_REPRESENTATIVE` / `OPERATOR_ADDRESS` / `OPERATOR_PHONE`)。公開したくない項目は空のままで「請求があれば遅滞なく開示」と表示される | Vercel の env | 未 |
-| 3 | **電気通信事業の届出**を出すか決める(下の §1)。チャットで利用者どうしの通信を媒介するので、**届出が必要と考えるのが安全** | 総務省 総合通信局(オンライン申請可・手数料なし) | 未 |
-| 4 | **KADOKAWA(CoC の権利者)へ問い合わせ**: 広告・サブスクのあるサービスで CoC のキャラシ・判定機能を提供してよいか(下の §3) | `kad-trpg-rights@ml.kadokawa.jp` | 未 |
+| 1 | お問い合わせ用メールアドレス: シナリオ工房と同じ `monosense25@gmail.com` に決定(コードの既定値。env `CONTACT_EMAIL` で変更可) | `lib/legal/operator.ts` | **済** |
+| 2 | **特商法・プライバシーポリシーの事業者情報を決める**(`OPERATOR_NAME` / `OPERATOR_REPRESENTATIVE` / `OPERATOR_ADDRESS` / `OPERATOR_PHONE`)。公開したくない項目は空のままで「請求があれば遅滞なく開示」と表示される | Vercel の env | 最後に対応(予定) |
+| 3 | **電気通信事業の届出**(下の §1)。チャットで利用者どうしの通信を媒介するので、届出が必要と考えるのが安全 | 総務省 総合通信局(オンライン申請可・手数料なし) | 手続き中 |
+| 4 | KADOKAWA(CoC の権利者)へ問い合わせ: 広告・サブスクのあるサービスで CoC のキャラシ・判定機能を提供してよいか(下の §3) | `kad-trpg-rights@ml.kadokawa.jp` | **済(問題なしの回答)** |
 | 5 | **「Re-dice」の商標を J-PlatPat で検索**し、問題なければ出願を検討(第 9 類・第 41 類・第 42 類) | https://www.j-platpat.inpit.go.jp/ | 未 |
 | 6 | Supabase の `play` / `avatars` バケットの容量・公開設定を確認(公開 URL は推測困難な内容ハッシュ) | Supabase ダッシュボード | 確認のみ |
 | 7 | 規約を変えたら `lib/legal/operator.ts` の `LEGAL_UPDATED_AT` を更新し、**効力発生日の前に**サイトで告知(利用規約 第 18 条) | コード | 運用ルール |
@@ -80,8 +80,8 @@
 
 ### 3-2. クトゥルフ神話TRPG(KADOKAWA / アークライト / Chaosium)
 - KADOKAWA の二次創作ガイドラインは**個人向け**で、法人は窓口へ連絡とある。キャラシ作成ツールについての
-  明示的な規定は無い。広告・サブスクのあるサービスは「収益化」に当たりうるので、**リリース前に
-  `kad-trpg-rights@ml.kadokawa.jp` へ問い合わせて回答を記録**しておくのが安全(チェックリスト #4)。
+  明示的な規定は無い。広告・サブスクのあるサービスは「収益化」に当たりうるため問い合わせ、
+  **2026-10 に「問題なし」の回答を得た**(チェックリスト #4)。回答メールは保管しておくこと。
 - 権利表記は KADOKAWA 指定の文言を `/legal/rights` に掲載済み(2024-05-01 改定版)。
 - 参考: https://product.kadokawa.co.jp/cthulhu/guideline.html
 

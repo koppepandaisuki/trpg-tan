@@ -12,7 +12,11 @@
  *   OPERATOR_ADDRESS         所在地
  *   OPERATOR_PHONE           電話番号
  *   CONTACT_EMAIL            お問い合わせ・開示請求・権利侵害の申告を受けるメール
+ *                            (未設定なら DEFAULT_CONTACT_EMAIL。姉妹アプリ「TRPGシナリオ工房」と共通)
  */
+
+/** お問い合わせ先の既定値(env CONTACT_EMAIL で上書きできる)。 */
+export const DEFAULT_CONTACT_EMAIL = "monosense25@gmail.com";
 
 export const SERVICE_NAME = "Re-dice";
 export const SERVICE_FULL_NAME = "Re-dice(リダイス)";
@@ -39,7 +43,7 @@ export function getOperator(): OperatorInfo {
     representative: env("OPERATOR_REPRESENTATIVE"),
     address: env("OPERATOR_ADDRESS"),
     phone: env("OPERATOR_PHONE"),
-    email: env("CONTACT_EMAIL"),
+    email: env("CONTACT_EMAIL") ?? DEFAULT_CONTACT_EMAIL,
   };
 }
 
