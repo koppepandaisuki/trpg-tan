@@ -29,6 +29,10 @@ export const PlayComposer = forwardRef<
     /** シークレットは GM だけが使う(参加者には出さない)。 */
     canSecret: boolean;
     disabled?: boolean;
+    /** 発言者のよく使う判定(タップ 1 回で振る。スマホ向け)。 */
+    actions?: { label: string; text: string }[];
+    /** actions を振るとき(既定は onSend。駒として振るなど発言者を変えたいとき)。 */
+    onAction?: (text: string) => void;
   }
 >(function PlayComposer(
   {
@@ -43,6 +47,8 @@ export const PlayComposer = forwardRef<
     onSecretChange,
     canSecret,
     disabled,
+    actions,
+    onAction,
   },
   ref,
 ) {
@@ -57,9 +63,7 @@ export const PlayComposer = forwardRef<
     <div className="space-y-2 rounded-lg border border-border bg-background p-2">
       {/* 発言者 + シークレット */}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[10px] font-semibold text-muted-foreground">
-          発言者
-        </label>
+        <label className="text-[10px] font-semibold text-muted-foreground">発言者</label>
         <select
           value={speakerId}
           onChange={(e) => onSpeakerChange(e.target.value)}
@@ -103,6 +107,23 @@ export const PlayComposer = forwardRef<
           </button>
         ))}
       </div>
+
+      {/* 発言者のよく使う判定(横にスクロール。タップで振る) */}
+      {actions && actions.length > 0 && (
+        <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5">
+          {actions.map((a, i) => (
+            <button
+              key={`${i}-${a.text}`}
+              onClick={() => (onAction ?? onSend)(a.text)}
+              disabled={disabled}
+              title={a.text}
+              className="shrink-0 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-[11px] font-medium text-primary transition hover:bg-primary/10 disabled:opacity-50"
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 入力 */}
       <div className="flex gap-2">

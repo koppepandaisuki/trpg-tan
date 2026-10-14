@@ -23,15 +23,38 @@ function resourceIcon(key: string) {
 
 /** CoC 駒か(能力値ラベルの流儀を分ける)。 */
 function isCoCPanel(panel: Panel): boolean {
-  return (
-    panel.systemId === "coc6" || panel.systemId === "coc7" || !!panel.edition
-  );
+  return panel.systemId === "coc6" || panel.systemId === "coc7" || !!panel.edition;
 }
 
 /** 能力値は CoC のみ英語キー(STR 等)、他システムは自前のラベル。 */
 function statLabel(s: PanelStat, panel: Panel): string {
   if (s.kind === "characteristic" && isCoCPanel(panel)) return s.key;
   return s.label || s.key;
+}
+
+/**
+ * スマホでもタップ 1 回で振れる「よく使う判定」(入力欄の上に並べる)。
+ * チャットパレットがあればその行を、無ければ技能値の高い順に並べる。
+ * 駒にシステムが無いときは卓のシステム(systemId)で判定コマンドを作る。
+ */
+export function quickActionsFor(
+  panel: Panel,
+  systemId?: string,
+  limit = 16,
+): { label: string; text: string }[] {
+  const palette = parsePalette(panel.palette ?? "").filter((l) => !l.comment);
+  if (palette.length > 0) {
+    return palette.slice(0, limit).map((l) => ({
+      label: l.text.replace(/^[^\s]+\s+/, "").slice(0, 14) || l.text.slice(0, 14),
+      text: l.text,
+    }));
+  }
+  const p = panel.systemId || !systemId ? panel : { ...panel, systemId };
+  return p.stats
+    .filter((s) => s.kind === "skill" && s.target > 0)
+    .sort((a, b) => b.target - a.target)
+    .slice(0, limit)
+    .map((s) => ({ label: `${statLabel(s, p)} ${s.target}`, text: cmdFor(s, p) }));
 }
 
 /** 能力値/技能をクリックしたときのダイスコマンド。 */
@@ -53,7 +76,7 @@ export function cmdFor(s: PanelStat, panel: Panel): string {
   return `${label} ${s.target}`;
 }
 
-function parsePalette(text: string): { text: string; comment: boolean }[] {
+export function parsePalette(text: string): { text: string; comment: boolean }[] {
   return text
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -102,20 +125,14 @@ export function PlayPanelCard({
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
           title={open ? "折りたたむ" : "展開する"}
         >
-          <span className="text-[10px] text-muted-foreground">
-            {open ? "▾" : "▸"}
-          </span>
+          <span className="text-[10px] text-muted-foreground">{open ? "▾" : "▸"}</span>
           <span
             className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] text-white"
             style={{ background: panel.color }}
           >
             {panel.portrait ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={panel.portrait}
-                alt=""
-                className="h-full w-full object-cover"
-              />
+              <img src={panel.portrait} alt="" className="h-full w-full object-cover" />
             ) : (
               "👤"
             )}
@@ -123,9 +140,7 @@ export function PlayPanelCard({
           <span className="min-w-0 flex-1">
             <span className="line-clamp-1 text-xs font-bold">{panel.name}</span>
             <span className="line-clamp-1 text-[10px] text-muted-foreground">
-              {panel.source === "token"
-                ? "トークン"
-                : (panel.systemName ?? "キャラクター")}
+              {panel.source === "token" ? "トークン" : (panel.systemName ?? "キャラクター")}
             </span>
           </span>
         </button>
@@ -173,9 +188,7 @@ export function PlayPanelCard({
               )}
               <span className="min-w-[46px] text-center text-xs font-bold tabular-nums">
                 {r.current}
-                <span className="text-[10px] font-normal text-muted-foreground">
-                  /{r.max}
-                </span>
+                <span className="text-[10px] font-normal text-muted-foreground">/{r.max}</span>
               </span>
               {canControl && (
                 <button
@@ -207,9 +220,7 @@ export function PlayPanelCard({
                   <span className="block text-[9px] text-muted-foreground">
                     {statLabel(s, panel)}
                   </span>
-                  <span className="block text-xs font-bold tabular-nums">
-                    {s.target}
-                  </span>
+                  <span className="block text-xs font-bold tabular-nums">{s.target}</span>
                 </button>
               ))}
             </div>
@@ -235,15 +246,10 @@ export function PlayPanelCard({
           {/* チャットパレット */}
           {palette.length > 0 && (
             <div className="space-y-0.5">
-              <p className="text-[10px] font-semibold text-muted-foreground">
-                チャパレ
-              </p>
+              <p className="text-[10px] font-semibold text-muted-foreground">チャパレ</p>
               {palette.map((ln, i) =>
                 ln.comment ? (
-                  <p
-                    key={i}
-                    className="px-1 pt-1 text-[10px] font-bold text-muted-foreground"
-                  >
+                  <p key={i} className="px-1 pt-1 text-[10px] font-bold text-muted-foreground">
                     {ln.text}
                   </p>
                 ) : (

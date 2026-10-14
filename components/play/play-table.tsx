@@ -63,7 +63,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PlayBoard } from "./play-board";
 import { PlayLog } from "./play-log";
-import { PlayPanelCard } from "./play-panel-card";
+import { PlayPanelCard, quickActionsFor } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
 import { PlaySceneBar } from "./play-scene-bar";
 import { PlayTurnBar } from "./play-turn-bar";
@@ -86,6 +86,7 @@ import { PlayDeckPanel } from "./play-deck-panel";
 import { FullscreenButton } from "./fullscreen-button";
 import { PlayDiceFlash } from "./play-dice-flash";
 import { useFocusShortcut } from "./use-focus-shortcut";
+import { ShortcutHelp } from "./shortcut-help";
 import { bcdiceIdOf, evalBcdice } from "@/lib/play/bcdice";
 
 type ToolTab = "scenario" | "fx" | "cards" | "memo" | "chars";
@@ -508,6 +509,57 @@ export function PlayTable({
     void room?.send({ type: "telop", text });
   }
 
+  /* ===== GM のキーボード操作(一覧は shortcut-help.tsx) ===== */
+  // ハンドラは毎レンダーで最新の state を掴み直す(登録は 1 回だけ)。
+  const shortcutRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  shortcutRef.current = (e: KeyboardEvent) => {
+    if (!e.altKey || e.ctrlKey || e.metaKey) return;
+    const scenes = scene.scenes ?? [];
+    const at = scenes.findIndex((x) => x.id === scene.activeSceneId);
+    const digit = /^Digit([1-9])$/.exec(e.code)?.[1];
+    if (digit) {
+      const n = Number(digit) - 1;
+      if (e.shiftKey) {
+        const c = scene.cutins?.[n];
+        if (c) {
+          e.preventDefault();
+          fireCutin(c);
+        }
+      } else if (scenes[n]) {
+        e.preventDefault();
+        dispatch(sceneSelectEvent(newEventCtx(), scenes[n].id));
+      }
+      return;
+    }
+    // 入力中の Option/Alt + ←→ は単語単位のカーソル移動なので奪わない。
+    const typing =
+      e.target instanceof HTMLElement &&
+      (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName));
+    if ((e.code === "ArrowRight" || e.code === "ArrowLeft") && scenes.length > 1 && !typing) {
+      e.preventDefault();
+      const next =
+        e.code === "ArrowRight" ? Math.min(scenes.length - 1, at + 1) : Math.max(0, at - 1);
+      if (next !== at && scenes[next]) dispatch(sceneSelectEvent(newEventCtx(), scenes[next].id));
+      return;
+    }
+    if (e.code === "KeyB") {
+      e.preventDefault();
+      if (playingBgm) {
+        setBgm(null);
+        return;
+      }
+      const tracks = scene.bgm?.tracks ?? [];
+      const sceneTrack = tracks.find((t) => t.id === scenes[at]?.bgmId);
+      const track = sceneTrack ?? tracks[0];
+      if (track) setBgm(track);
+    }
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => shortcutRef.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   /* ===== GM の操作 ===== */
 
   function send(text: string) {
@@ -588,6 +640,7 @@ export function PlayTable({
             保存中
           </span>
         )}
+        <ShortcutHelp />
         <FullscreenButton />
         {roomCode ? (
           <div className="flex items-center gap-2">
@@ -838,6 +891,10 @@ export function PlayTable({
               secret={secret}
               onSecretChange={setSecret}
               canSecret
+              actions={(() => {
+                const sp = scene.panels.find((p) => p.id === speakerId);
+                return sp ? quickActionsFor(sp, scene.systemId) : [];
+              })()}
             />
           </div>
 

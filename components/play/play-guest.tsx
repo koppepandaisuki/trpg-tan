@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PlayBoard } from "./play-board";
 import { PlayLog } from "./play-log";
-import { PlayPanelCard } from "./play-panel-card";
+import { PlayPanelCard, quickActionsFor } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
 import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
@@ -214,13 +214,13 @@ export function PlayGuest({
   /** 自分の駒か(GM が owner に自分の入室名を刻む)。 */
   const isMine = useCallback((p: Panel) => p.owner === myName.current, []);
 
-  function send(text: string) {
+  function send(text: string, as: string = speakerId) {
     room?.send({
       type: "intent",
       from: room.selfId,
       intent: {
         kind: "send",
-        speakerId,
+        speakerId: as,
         raw: text,
         channel: "main",
         secret: false,
@@ -301,6 +301,9 @@ export function PlayGuest({
   }
 
   const myPanels = scene.panels.filter(isMine);
+  // 入力欄の上に並べる「よく使う判定」: 発言者に選んだ自分の駒(無ければ最初の自分の駒)。
+  const actionPanel = myPanels.find((p) => p.id === speakerId) ?? myPanels[0];
+  const quickActions = actionPanel ? quickActionsFor(actionPanel, scene.systemId) : [];
 
   return (
     <div className="flex flex-col gap-2 p-2 sm:p-3 lg:h-dvh lg:overflow-hidden">
@@ -423,6 +426,8 @@ export function PlayGuest({
               onSecretChange={() => {}}
               canSecret={false}
               disabled={closed}
+              actions={quickActions}
+              onAction={(t) => send(t, actionPanel?.id ?? speakerId)}
             />
           </div>
           <div className="min-h-0 space-y-2 overflow-y-auto lg:flex-[2]">
