@@ -1,5 +1,6 @@
 import type { PlayEvent, PlayScene, Panel, MemoPage } from "./types.js";
 import type { ScenePatch } from "./sync.js";
+import { verifySignature, type MsgMeta, type Signer } from "./auth.js";
 
 /**
  * ネットワーク同期(卓のリアルタイム配信)の共有プロトコル。
@@ -145,6 +146,10 @@ interface ChunkPayload {
   i: number;
   n: number;
   data: string;
+  /** 送り主の署名(メッセージ全体の JSON に対して。先頭チャンクだけに付く)。 */
+  s?: string;
+  /** 送り主の公開鍵(先頭チャンクだけに付く)。 */
+  pk?: string;
 }
 
 /**
@@ -179,7 +184,8 @@ export interface Room {
   send: (msg: NetMsg) => Promise<void>;
   /** ライブ(ephemeral)送信。投げっぱなし(ack 待ち/チャンク/逐次化なし)。 */
   sendLive: (msg: LiveMsg) => void;
-  onMessage: (cb: (msg: NetMsg) => void) => void;
+  /** meta.signer は署名を確かめられた送り主の公開鍵(auth.ts)。 */
+  onMessage: (cb: (msg: NetMsg, meta: MsgMeta) => void) => void;
   /** ライブ(ephemeral)受信。ドラッグ中の駒座標など。 */
   onLive: (cb: (msg: LiveMsg) => void) => void;
   onPresence: (cb: (names: string[]) => void) => void;
@@ -237,19 +243,23 @@ export function createRoom(
     /** 計測ログの出力先。既定は無出力(呼び出し側で console を渡せる)。 */
     log?: (line: string) => void;
     makeId?: () => string;
+    /** 送るメッセージに署名する鍵(なりすまし対策。auth.ts)。 */
+    signer?: Signer;
   },
 ): Room {
   const { code, selfId, transform } = params;
   const log = params.log ?? (() => {});
   const makeId = params.makeId ?? (() => globalThis.crypto.randomUUID());
 
-  let onMsg: (msg: NetMsg) => void = () => {};
+  let onMsg: (msg: NetMsg, meta: MsgMeta) => void = () => {};
+  // 署名の確認は非同期なので、届いた順に 1 本の列で渡す(順序を崩さない)。
+  let deliverQueue: Promise<void> = Promise.resolve();
   let onLiveCb: (msg: LiveMsg) => void = () => {};
   let onPres: (names: string[]) => void = () => {};
   let onProg: (p: { received: number; total: number } | null) => void = () => {};
   const buffers = new Map<
     string,
-    { parts: string[]; got: number; n: number; t0: number }
+    { parts: string[]; got: number; n: number; t0: number; s?: string; pk?: string }
   >();
   // 組み立て済みの mid。P2P と中継の両方から同じメッセージが届くことがある
   // (中継へ切り替わった瞬間など)ので、二重に onMessage しないよう覚えておく。
@@ -278,6 +288,10 @@ export function createRoom(
       buf.parts[c.i] = c.data;
       buf.got += 1;
     }
+    if (c.i === 0 && typeof c.s === "string" && typeof c.pk === "string") {
+      buf.s = c.s;
+      buf.pk = c.pk;
+    }
     // 複数チャンクの大きい受信(スナップショット等)は進捗を通知する。
     if (buf.n > 1) onProg({ received: buf.got, total: buf.n });
     if (buf.got === buf.n) {
@@ -295,11 +309,22 @@ export function createRoom(
           )}KB/s`,
         );
       }
+      let parsed: NetMsg;
       try {
-        onMsg(JSON.parse(text) as NetMsg);
+        parsed = JSON.parse(text) as NetMsg;
       } catch {
-        // 壊れたメッセージは無視
+        return; // 壊れたメッセージは無視
       }
+      const { s, pk } = buf;
+      deliverQueue = deliverQueue.then(async () => {
+        const meta: MsgMeta = {};
+        if (s && pk && (await verifySignature(pk, text, s))) meta.signer = pk;
+        try {
+          onMsg(parsed, meta);
+        } catch {
+          // 受け手の例外で列を止めない
+        }
+      });
     }
   });
 
@@ -323,6 +348,7 @@ export function createRoom(
       const m = transform ? await transform(msg) : msg;
       const tPrepped = now();
       const json = JSON.stringify(m);
+      const sig = params.signer ? await params.signer.sign(json) : undefined;
       const n = Math.max(1, Math.ceil(json.length / CHUNK));
       for (let i = 0; i < n; i++) {
         const payload: ChunkPayload = {
@@ -330,6 +356,9 @@ export function createRoom(
           i,
           n,
           data: json.slice(i * CHUNK, (i + 1) * CHUNK),
+          ...(i === 0 && sig && params.signer
+            ? { s: sig, pk: params.signer.publicKey }
+            : {}),
         };
         // 取りこぼし対策で数回まで再送。
         let ok = false;

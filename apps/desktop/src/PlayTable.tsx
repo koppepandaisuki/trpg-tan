@@ -3,11 +3,15 @@ import {
   reduce,
   createSceneBroadcaster,
   createSecretBox,
+  createSigner,
+  codeForKey,
+  createMemberGate,
   publicEventFor,
   privateBacklog,
   sendPrivateEvents,
   type SceneBroadcaster,
   type SecretBox,
+  type MsgMeta,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
@@ -93,7 +97,6 @@ import { uploadAudioPath, sanitizeForNet, splitSceneMedia } from "./play-media";
 import { probeImageWidth } from "./play-thumb";
 import {
   connectRoom,
-  makeRoomCode,
   type NetIntent,
   type NetMsg,
   type Room,
@@ -219,7 +222,9 @@ export function PlayTable({
   const roomRef = useRef<Room | null>(null);
   roomRef.current = room;
   // 受信処理は毎レンダー最新のクロージャに差し替える(古い scene を見ない)。
-  const netMsgRef = useRef<(msg: NetMsg) => void>(() => {});
+  const netMsgRef = useRef<(msg: NetMsg, meta: MsgMeta) => void>(() => {});
+  // 参加者 id → hello に署名した鍵(以後の操作はこの鍵の署名があるものだけ受け付ける)。
+  const memberGateRef = useRef(createMemberGate());
   // 最新の scene を常に参照できるように(集約スナップショット送信が読む)。
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
@@ -1291,7 +1296,10 @@ export function PlayTable({
 
   // 受信ハンドラは毎レンダー最新化(古い scene を掴んだままにしない)。
   useEffect(() => {
-    netMsgRef.current = (msg: NetMsg) => {
+    netMsgRef.current = (msg: NetMsg, meta: MsgMeta) => {
+      // なりすまし対策: この参加者 id で最初に署名した鍵以外の hello / 操作は無視
+      // (署名の無い旧版の参加者は従来どおり受け付ける)。
+      if (!memberGateRef.current.accept(msg, meta)) return;
       if (msg.type === "hello") {
         if (kickedRef.current.has(msg.from)) return;
         // 参加者名を記録(intent の所有権判定に使う)。
@@ -1354,11 +1362,15 @@ export function PlayTable({
         return;
       }
       // transform: 送信直前にメディアを Storage の URL へ逃がす(Realtime を軽く)。
-      const r = await connectRoom(makeRoomCode(), "GM", {
+      // 参加コードは GM の署名鍵から作る(参加者が本物の GM を見分けられる)。
+      const signer = await createSigner();
+      const r = await connectRoom(await codeForKey(signer.publicKey), "GM", {
         transform: sanitizeForNet,
         role: "host",
         onLinkStatus: setLink,
+        signer,
       });
+      memberGateRef.current.clear();
       sentMediaRef.current.clear();
       const b = createSceneBroadcaster({
         send: (m) => r.send(m),
@@ -1378,7 +1390,7 @@ export function PlayTable({
       broadcasterRef.current = b;
       b.update(sceneRef.current);
       boxRef.current = await createSecretBox();
-      r.onMessage((m) => netMsgRef.current(m));
+      r.onMessage((m, meta) => netMsgRef.current(m, meta));
       r.onPresence(setMembers);
       setRoom(r);
       setSharePop(true);

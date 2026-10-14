@@ -11,6 +11,7 @@ import {
   type RtcPeerConnectionLike,
   type SignalingTransport,
   type NetMsg,
+  type Signer,
 } from "@trpg/core";
 import { createClient } from "@/lib/supabase/client";
 
@@ -79,6 +80,8 @@ export interface ConnectOptions {
   role?: "host" | "guest";
   /** 直結の状態(誰と直結 / 中継か)。接続状況の表示に使う。 */
   onLinkStatus?: (s: LinkStatus) => void;
+  /** 送るメッセージに署名する鍵(なりすまし対策。@trpg/core auth.ts)。 */
+  signer?: Signer;
 }
 
 /** ルームに接続する(GM/参加者 共通)。subscribe 完了で resolve。 */
@@ -161,6 +164,7 @@ export async function connectRoom(
     code,
     selfId,
     transform: opts?.transform,
+    signer: opts?.signer,
   });
 
   return new Promise<Room>((resolve, reject) => {

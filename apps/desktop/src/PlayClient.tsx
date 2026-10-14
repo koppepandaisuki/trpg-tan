@@ -12,7 +12,10 @@ import {
 import {
   createSceneMirror,
   createSecretBox,
+  createSigner,
+  createGmGate,
   SYNC_PROTOCOL,
+  type NetMsg,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
@@ -211,7 +214,12 @@ export function PlayClient({
     let helloTimer: number | undefined;
     void (async () => {
       try {
-        r = await connectRoom(code, name, { onLinkStatus: setLink });
+        // 自分の操作に署名する鍵(GM が「この参加者本人の操作か」を確かめる)。
+        const signer = await createSigner();
+        r = await connectRoom(code, name, { onLinkStatus: setLink, signer });
+        // 参加コードの鍵で署名された配信だけを GM のものとして受け入れる(なりすまし対策)。
+        const gate = createGmGate(code);
+        let gateQueue: Promise<void> = Promise.resolve();
         if (!alive) {
           r.close();
           return;
@@ -249,7 +257,12 @@ export function PlayClient({
             overlayOptimistic(resolveSceneMedia(mirror.scene, mediaMapRef.current)),
           );
         };
-        r.onMessage((msg) => {
+        r.onMessage((msg, meta) => {
+          gateQueue = gateQueue.then(async () => {
+            if (alive && (await gate.accept(msg, meta))) handleMsg(msg);
+          });
+        });
+        const handleMsg = (msg: NetMsg) => {
           if (!alive) return;
           const res = mirror.receive(msg);
           if (res.resync) hello();
@@ -299,7 +312,7 @@ export function PlayClient({
             setPhase("closed");
             roomRef.current?.close();
           }
-        });
+        };
         hello();
         setPhase("waiting");
         // snapshot が来るまで hello を再送する。GM が後から共有を開始した場合や、

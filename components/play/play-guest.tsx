@@ -16,7 +16,10 @@ import {
   parseCcfoliaCharacter,
   createSceneMirror,
   createSecretBox,
+  createSigner,
+  createGmGate,
   SYNC_PROTOCOL,
+  type NetMsg,
   type CutIn,
   type Panel,
   type PlayScene,
@@ -105,7 +108,12 @@ export function PlayGuest({
     try {
       localStorage.setItem("redice.play.name", nm);
       myName.current = nm;
-      const r = await connectRoom(code, nm, { onLinkStatus: setLink });
+      // 自分の操作に署名する鍵(GM が「この参加者本人の操作か」を確かめる)。
+      const signer = await createSigner();
+      const r = await connectRoom(code, nm, { onLinkStatus: setLink, signer });
+      // 参加コードの鍵で署名された配信だけを GM のものとして受け入れる(なりすまし対策)。
+      const gate = createGmGate(code);
+      let gateQueue: Promise<void> = Promise.resolve();
       const mirror = createSceneMirror();
       // 自分宛ての秘密(シークレットダイスの出目・個別チャット)を開く鍵。
       const box = await createSecretBox();
@@ -126,7 +134,12 @@ export function PlayGuest({
         if (mirror.scene) window.clearInterval(helloTimer.current);
         else hello();
       }, 4000);
-      r.onMessage((msg) => {
+      r.onMessage((msg, meta) => {
+        gateQueue = gateQueue.then(async () => {
+          if (await gate.accept(msg, meta)) handleMsg(msg);
+        });
+      });
+      const handleMsg = (msg: NetMsg) => {
         // 状態(全量 / 差分 / チャット・ダイス / 共有メモ)は mirror が担当。
         const res = mirror.receive(msg);
         if (res.changed) setScene(mirror.scene);
@@ -158,7 +171,7 @@ export function PlayGuest({
           setClosed(true);
           r.close();
         }
-      });
+      };
       r.onLive((live) => {
         if (live.kind === "drag") {
           setScene((s) =>

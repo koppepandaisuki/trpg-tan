@@ -10,6 +10,7 @@ import {
   type Room,
   type RtcPeerConnectionLike,
   type SignalingTransport,
+  type Signer,
 } from "@trpg/core";
 import { supabase } from "./supabase";
 import { appFetch, WEB_BASE } from "./platform";
@@ -88,6 +89,8 @@ export async function connectRoom(
     role?: "host" | "guest";
     /** 直結の状態(誰と直結 / 中継か)。 */
     onLinkStatus?: (s: LinkStatus) => void;
+    /** 送るメッセージに署名する鍵(なりすまし対策。@trpg/core auth.ts)。 */
+    signer?: Signer;
   },
 ): Promise<Room> {
   const topic = roomTopic(code);
@@ -169,6 +172,7 @@ export async function connectRoom(
     code,
     selfId,
     transform: opts?.transform,
+    signer: opts?.signer,
     log: (line) => console.info(line),
   });
 

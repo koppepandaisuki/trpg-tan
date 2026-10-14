@@ -37,6 +37,9 @@ import {
   parseCcfoliaCharacter,
   createSceneBroadcaster,
   createSecretBox,
+  createSigner,
+  codeForKey,
+  createMemberGate,
   publicEventFor,
   privateBacklog,
   sendPrivateEvents,
@@ -68,7 +71,6 @@ import { uploadPlayImage } from "@/lib/play/media";
 import { resolveInputToEvent, newEventCtx } from "@/lib/play/roll";
 import {
   connectRoom,
-  makeRoomCode,
   type Room,
   type NetIntent,
   type LinkStatus,
@@ -151,6 +153,8 @@ export function PlayTable({
   const kicked = useRef(new Set<string>());
   // 参加者ごとの暗号鍵(シークレットダイスの出目・個別チャットを宛先にだけ送る)。
   const boxRef = useRef<SecretBox | null>(null);
+  // 参加者 id → hello に署名した鍵(以後の操作はこの鍵の署名があるものだけ受け付ける)。
+  const memberGate = useRef(createMemberGate());
   const inputRef = useRef<HTMLInputElement>(null);
 
   /* ===== オートセーブ(変更が落ち着いたら保存) ===== */
@@ -297,17 +301,23 @@ export function PlayTable({
     setBusy("卓を公開しています…");
     setError(null);
     try {
-      const code = makeRoomCode();
+      // 参加コードは GM の署名鍵から作る(参加者が本物の GM を見分けられる)。
+      const signer = await createSigner();
+      const code = await codeForKey(signer.publicKey);
       const r = await connectRoom(code, "GM", {
         role: "host",
         onLinkStatus: setLink,
+        signer,
       });
       const b = createSceneBroadcaster({ send: (m) => r.send(m) });
       broadcasterRef.current = b;
       b.update(sceneRef.current);
       const box = await createSecretBox();
       boxRef.current = box;
-      r.onMessage((msg) => {
+      r.onMessage((msg, meta) => {
+        // なりすまし対策: この参加者 id で最初に署名した鍵以外の hello / 操作は無視
+        // (署名の無い旧版の参加者は従来どおり受け付ける)。
+        if (!memberGate.current.accept(msg, meta)) return;
         if (msg.type === "intent") handleIntent(msg.from, msg.intent);
         // hello(入室 / 再同期の要求)を受けたら全量を送って追いつかせる。
         if (msg.type === "hello") {
@@ -373,6 +383,7 @@ export function PlayTable({
     setParticipants([]);
     setLink(null);
     memberNames.current.clear();
+    memberGate.current.clear();
   }
 
   /* ===== 演出(GM が発火 → 自分の画面 + 参加者へ) ===== */

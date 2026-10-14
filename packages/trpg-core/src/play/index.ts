@@ -158,3 +158,12 @@ export {
   DIRECT_PREFIX,
 } from "./secrets.js";
 export { createSecretBox, sendPrivateEvents, type SecretBox } from "./seal.js";
+export {
+  createSigner,
+  verifySignature,
+  codeForKey,
+  createGmGate,
+  createMemberGate,
+  type Signer,
+  type MsgMeta,
+} from "./auth.js";
