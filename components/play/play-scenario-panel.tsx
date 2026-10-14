@@ -83,7 +83,7 @@ export function PlayScenarioPanel({
         {tabBtn("stock", `テキスト(${stock.length})`, stock.length > 0)}
         {tabBtn("info", "シナリオ情報", hasInfo)}
       </div>
-      <div className="max-h-[360px] space-y-3 overflow-y-auto px-3 py-2.5 text-xs leading-relaxed">
+      <div className="space-y-3 px-3 py-2.5 text-xs leading-relaxed">
         {tab === "scene" && (
           <>
             {!hasScene && (

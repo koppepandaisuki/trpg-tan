@@ -77,18 +77,23 @@ import { usePlayAudio } from "./use-play-audio";
 import { savePlayScene, downloadPlayFile } from "@/lib/play/store";
 import { uploadPlayImage } from "@/lib/play/media";
 import { resolveInputToEvent, newEventCtx } from "@/lib/play/roll";
-import {
-  connectRoom,
-  type Room,
-  type NetIntent,
-  type LinkStatus,
-} from "@/lib/play/net";
+import { connectRoom, type Room, type NetIntent, type LinkStatus } from "@/lib/play/net";
 import { PlayLinkBadge } from "./play-link-badge";
 import { PlayScenarioPanel } from "./play-scenario-panel";
 import { DiceBotPicker } from "./dicebot-picker";
 import { PlayTimer } from "./play-timer";
 import { PlayDeckPanel } from "./play-deck-panel";
+import { FullscreenButton } from "./fullscreen-button";
 import { bcdiceIdOf, evalBcdice } from "@/lib/play/bcdice";
+
+type ToolTab = "scenario" | "fx" | "cards" | "memo" | "chars";
+const TOOL_TABS: { id: ToolTab; label: string }[] = [
+  { id: "scenario", label: "シナリオ" },
+  { id: "fx", label: "演出" },
+  { id: "cards", label: "カード" },
+  { id: "memo", label: "メモ" },
+  { id: "chars", label: "キャラ" },
+];
 
 /** 卓のダイスボットが BCDice のときだけ、GM 端末で読み込んだ BCDice で振る。 */
 function bcdiceExternal(bot: string, raw: string) {
@@ -162,6 +167,13 @@ export function PlayTable({
   const kicked = useRef(new Set<string>());
   // 参加者ごとの暗号鍵(シークレットダイスの出目・個別チャットを宛先にだけ送る)。
   const boxRef = useRef<SecretBox | null>(null);
+  // 右下の道具のタブ。シナリオ情報がある卓ではシナリオから開く。
+  const hasScenario = !!(
+    scene.scenario ||
+    scene.textStock ||
+    scene.scenes?.some((x) => x.script || x.gmNote || x.clues?.length)
+  );
+  const [toolTab, setToolTab] = useState<ToolTab>(hasScenario ? "scenario" : "chars");
   // 参加者 id → hello に署名した鍵(以後の操作はこの鍵の署名があるものだけ受け付ける)。
   const memberGate = useRef(createMemberGate());
   const inputRef = useRef<HTMLInputElement>(null);
@@ -243,7 +255,9 @@ export function PlayTable({
       dispatch(deckEvent(newEventCtx(), actor, op));
       let text = note;
       if (op.op === "draw" && op.to === TO_TABLE && deck) {
-        text = `${note}: ${drawnBy(deck, op).map((id) => cardLabel(deck, id)).join("、")}`;
+        text = `${note}: ${drawnBy(deck, op)
+          .map((id) => cardLabel(deck, id))
+          .join("、")}`;
       }
       if (op.op === "play" && deck) {
         text = `🃏 ${op.from} が「${cardLabel(deck, op.cardId)}」を場に出しました`;
@@ -552,7 +566,7 @@ export function PlayTable({
   const board = scene.scenes?.find((s) => s.id === scene.activeSceneId)?.board ?? scene.board;
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-2 p-2 sm:p-3 lg:h-dvh lg:overflow-hidden">
       {/* ヘッダー行 */}
       <div className="flex flex-wrap items-center gap-2">
         <Link
@@ -562,7 +576,7 @@ export function PlayTable({
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           ロビー
         </Link>
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
+        <h1 className="min-w-0 flex-1 basis-full truncate text-lg font-semibold tracking-tight sm:basis-auto">
           {scene.title}
         </h1>
         {saving && (
@@ -571,6 +585,7 @@ export function PlayTable({
             保存中
           </span>
         )}
+        <FullscreenButton />
         {roomCode ? (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-800">
@@ -666,9 +681,9 @@ export function PlayTable({
         </p>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
-        {/* 左: 盤面 + 操作 */}
-        <div className="min-w-0 space-y-2">
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {/* 左: 盤面 + 操作(盤面が主役。画面の高さに収める) */}
+        <div className="flex min-h-0 min-w-0 flex-col gap-2 lg:overflow-y-auto">
           {/* シーン(場面ごとに盤面を持ち替える。駒は卓に属したまま) */}
           <PlayTurnBar
             panels={scene.panels}
@@ -791,9 +806,12 @@ export function PlayTable({
             liveDrag={(panelId, x, y) => room?.sendLive({ kind: "drag", panelId, x, y })}
             onMove={(panelId, x, y) => dispatch(panelMoveEvent(newEventCtx(), panelId, x, y))}
           />
+        </div>
 
-          {/* ログ + 入力 */}
-          <div className="flex h-[320px] flex-col gap-2">
+        {/* 右: チャット + 道具(シナリオ / 演出 / カード / メモ / キャラ) */}
+        <aside className="flex min-h-0 flex-col gap-2">
+          {/* チャット(入力欄が常に見える位置に固定。GM が一番使う) */}
+          <div className="flex h-[50vh] min-h-[260px] flex-col gap-2 lg:h-auto lg:min-h-0 lg:flex-[3]">
             <PlayLog log={scene.log} isGm />
             <PlayComposer
               ref={inputRef}
@@ -809,116 +827,144 @@ export function PlayTable({
               canSecret
             />
           </div>
-        </div>
 
-        {/* 右: シナリオ(GM のみ)+ 演出 + 共有メモ + 駒一覧 */}
-        <aside className="space-y-2">
-          <PlayScenarioPanel
-            scene={scene}
-            members={participants}
-            onDistribute={(h, to) => {
-              const body = [
-                `【${h.label} ${h.title}】`,
-                h.publicText?.trim(),
-                h.secretText?.trim() ? `(あなただけの情報)\n${h.secretText.trim()}` : "",
-              ]
-                .filter(Boolean)
-                .join("\n");
-              dispatch(chatEvent(newEventCtx(), "GM", body, directChannel(to)));
-            }}
-            onSay={(text) => {
-              const ev = resolveInputToEvent({
-                external: bcdiceExternal,
-                ctx: newEventCtx(),
-                scene,
-                speakerId: "GM",
-                as: "GM",
-                raw: text,
-                secret: false,
-                visibleTo: [],
-              });
-              if (ev) dispatch(ev);
-            }}
-          />
-
-          <PlayFxBar
-            bgmTracks={scene.bgm?.tracks ?? []}
-            seTracks={scene.se?.tracks ?? []}
-            onTracksChange={(kind, tracks) => setScene((s) => ({ ...s, [kind]: { tracks } }))}
-            cutins={scene.cutins ?? []}
-            onCutinsChange={(cutins) => setScene((s) => ({ ...s, cutins }))}
-            playingBgm={playingBgm}
-            onBgm={setBgm}
-            onSe={fireSe}
-            onFireCutin={fireCutin}
-            onTelop={fireTelop}
-            volume={audio.volume}
-            onVolumeChange={audio.setVolume}
-          />
-
-          <PlayDeckPanel
-            mode="gm"
-            decks={scene.decks ?? []}
-            members={participants}
-            onOp={(op, note) => deckOp(op, note)}
-          />
-
-          <PlayMemo
-            memos={scene.sharedMemos ?? []}
-            onChange={(memos) =>
-              // イベントではなく state に直接持つ(desktop 版と同じ扱い)。
-              // 参加者へは scene 変更に反応する state 配信で届く。
-              setScene((s) => ({ ...s, sharedMemos: memos }))
-            }
-          />
-
-          <h2 className="text-xs font-semibold tracking-tight text-muted-foreground">
-            キャラクター({scene.panels.length})
-          </h2>
-          {scene.panels.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-              「駒を追加」または「コマ貼付」で
-              <br />
-              キャラクターを登場させましょう。
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {scene.panels.map((p) => (
-                <PlayPanelCard
-                  key={p.id}
-                  panel={p}
-                  canControl
-                  onFill={fill}
-                  onSend={(t) => {
-                    setSpeakerId(p.id);
+          {/* 道具(タブで切り替え。長い縦並びをやめて、どれも 1 クリックで出す) */}
+          <div className="flex min-h-0 flex-col rounded-lg border border-border bg-background lg:flex-[2]">
+            <div className="flex shrink-0 flex-wrap gap-0.5 border-b border-border p-1">
+              {TOOL_TABS.filter((t) => t.id !== "scenario" || hasScenario).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setToolTab(t.id)}
+                  className={`rounded px-2 py-1 text-[11px] font-medium transition ${
+                    toolTab === t.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {t.label}
+                  {t.id === "chars" ? `(${scene.panels.length})` : ""}
+                  {t.id === "cards" && (scene.decks?.length ?? 0) > 0
+                    ? `(${scene.decks?.length ?? 0})`
+                    : ""}
+                </button>
+              ))}
+            </div>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+              {toolTab === "scenario" && hasScenario && (
+                <PlayScenarioPanel
+                  scene={scene}
+                  members={participants}
+                  onDistribute={(h, to) => {
+                    const body = [
+                      `【${h.label} ${h.title}】`,
+                      h.publicText?.trim(),
+                      h.secretText?.trim() ? `(あなただけの情報)\n${h.secretText.trim()}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join("\n");
+                    dispatch(chatEvent(newEventCtx(), "GM", body, directChannel(to)));
+                  }}
+                  onSay={(text) => {
                     const ev = resolveInputToEvent({
                       external: bcdiceExternal,
                       ctx: newEventCtx(),
                       scene,
-                      speakerId: p.id,
-                      raw: t,
-                      secret,
+                      speakerId: "GM",
+                      as: "GM",
+                      raw: text,
+                      secret: false,
+                      visibleTo: [],
                     });
                     if (ev) dispatch(ev);
                   }}
-                  onResource={(panel, r, delta) =>
-                    dispatch(resourceEvent(newEventCtx(), panel.name, panel, r, delta))
-                  }
-                  onToggleHidden={(panel) =>
-                    dispatch(
-                      panelUpdateEvent(newEventCtx(), panel.id, {
-                        hidden: !panel.hidden,
-                      }),
-                    )
-                  }
-                  onRemove={(panel) => {
-                    if (!confirm(`「${panel.name}」を卓から外しますか？`)) return;
-                    dispatch(panelRemoveEvent(newEventCtx(), panel.id));
-                  }}
                 />
-              ))}
+              )}
+
+              {toolTab === "fx" && (
+                <PlayFxBar
+                  bgmTracks={scene.bgm?.tracks ?? []}
+                  seTracks={scene.se?.tracks ?? []}
+                  onTracksChange={(kind, tracks) => setScene((s) => ({ ...s, [kind]: { tracks } }))}
+                  cutins={scene.cutins ?? []}
+                  onCutinsChange={(cutins) => setScene((s) => ({ ...s, cutins }))}
+                  playingBgm={playingBgm}
+                  onBgm={setBgm}
+                  onSe={fireSe}
+                  onFireCutin={fireCutin}
+                  onTelop={fireTelop}
+                  volume={audio.volume}
+                  onVolumeChange={audio.setVolume}
+                />
+              )}
+
+              {toolTab === "cards" && (
+                <PlayDeckPanel
+                  mode="gm"
+                  decks={scene.decks ?? []}
+                  members={participants}
+                  onOp={(op, note) => deckOp(op, note)}
+                />
+              )}
+
+              {toolTab === "memo" && (
+                <PlayMemo
+                  memos={scene.sharedMemos ?? []}
+                  onChange={(memos) =>
+                    // イベントではなく state に直接持つ(desktop 版と同じ扱い)。
+                    // 参加者へは scene 変更に反応する state 配信で届く。
+                    setScene((s) => ({ ...s, sharedMemos: memos }))
+                  }
+                />
+              )}
+
+              {toolTab === "chars" &&
+                (scene.panels.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
+                    「駒を追加」または「コマ貼付」で
+                    <br />
+                    キャラクターを登場させましょう。
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {scene.panels.map((p) => (
+                      <PlayPanelCard
+                        key={p.id}
+                        panel={p}
+                        canControl
+                        onFill={fill}
+                        onSend={(t) => {
+                          setSpeakerId(p.id);
+                          const ev = resolveInputToEvent({
+                            external: bcdiceExternal,
+                            ctx: newEventCtx(),
+                            scene,
+                            speakerId: p.id,
+                            raw: t,
+                            secret,
+                          });
+                          if (ev) dispatch(ev);
+                        }}
+                        onResource={(panel, r, delta) =>
+                          dispatch(resourceEvent(newEventCtx(), panel.name, panel, r, delta))
+                        }
+                        onToggleHidden={(panel) =>
+                          dispatch(
+                            panelUpdateEvent(newEventCtx(), panel.id, {
+                              hidden: !panel.hidden,
+                            }),
+                          )
+                        }
+                        onRemove={(panel) => {
+                          if (!confirm(`「${panel.name}」を卓から外しますか？`)) return;
+                          dispatch(panelRemoveEvent(newEventCtx(), panel.id));
+                        }}
+                      />
+                    ))}
+                  </div>
+                ))}
             </div>
-          )}
+          </div>
         </aside>
       </div>
 
