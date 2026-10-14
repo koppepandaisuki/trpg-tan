@@ -84,6 +84,8 @@ import { DiceBotPicker } from "./dicebot-picker";
 import { PlayTimer } from "./play-timer";
 import { PlayDeckPanel } from "./play-deck-panel";
 import { FullscreenButton } from "./fullscreen-button";
+import { PlayDiceFlash } from "./play-dice-flash";
+import { useFocusShortcut } from "./use-focus-shortcut";
 import { bcdiceIdOf, evalBcdice } from "@/lib/play/bcdice";
 
 type ToolTab = "scenario" | "fx" | "cards" | "memo" | "chars";
@@ -177,6 +179,7 @@ export function PlayTable({
   // 参加者 id → hello に署名した鍵(以後の操作はこの鍵の署名があるものだけ受け付ける)。
   const memberGate = useRef(createMemberGate());
   const inputRef = useRef<HTMLInputElement>(null);
+  useFocusShortcut(inputRef);
 
   /* ===== オートセーブ(変更が落ち着いたら保存) ===== */
   const saveTimer = useRef<number | undefined>(undefined);
@@ -685,14 +688,6 @@ export function PlayTable({
         {/* 左: 盤面 + 操作(盤面が主役。画面の高さに収める) */}
         <div className="flex min-h-0 min-w-0 flex-col gap-2 lg:overflow-y-auto">
           {/* シーン(場面ごとに盤面を持ち替える。駒は卓に属したまま) */}
-          <PlayTurnBar
-            panels={scene.panels}
-            turn={scene.turn}
-            onNext={(round, panel, label) =>
-              dispatch(turnSetEvent(newEventCtx(), round, panel.id, label))
-            }
-            onReset={() => dispatch(turnSetEvent(newEventCtx(), 0, null, "⏱ ターン管理をリセット"))}
-          />
 
           <PlaySceneBar
             scenes={scene.scenes ?? []}
@@ -711,9 +706,22 @@ export function PlayTable({
           />
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted">
+            <PlayTurnBar
+              panels={scene.panels}
+              turn={scene.turn}
+              onNext={(round, panel, label) =>
+                dispatch(turnSetEvent(newEventCtx(), round, panel.id, label))
+              }
+              onReset={() =>
+                dispatch(turnSetEvent(newEventCtx(), 0, null, "⏱ ターン管理をリセット"))
+              }
+            />
+            <label
+              title="画像ファイルを盤面の背景にする"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+            >
               <ImagePlus className="h-3.5 w-3.5" aria-hidden />
-              背景を設定
+              背景
               <input
                 type="file"
                 accept="image/*"
@@ -730,9 +738,10 @@ export function PlayTable({
               className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
             >
               <FolderOpen className="h-3.5 w-3.5" aria-hidden />
-              ライブラリから
+              素材から
             </button>
             <button
+              title="盤面のマス目の表示を切り替える"
               onClick={() =>
                 dispatch(
                   boardSetEvent(newEventCtx(), {
@@ -743,14 +752,14 @@ export function PlayTable({
               className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
             >
               <Grid3x3 className="h-3.5 w-3.5" aria-hidden />
-              グリッド: {board?.grid !== false ? "ON" : "OFF"}
+              {board?.grid !== false ? "グリッド" : "グリッドなし"}
             </button>
             <button
               onClick={addToken}
+              title="円形の駒を追加"
               className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
             >
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              駒を追加
+              <Plus className="h-3.5 w-3.5" aria-hidden />駒
             </button>
             <button
               onClick={pasteCcfolia}
@@ -766,7 +775,7 @@ export function PlayTable({
               className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
             >
               <ScrollText className="h-3.5 w-3.5" aria-hidden />
-              キャラを出す
+              キャラ
             </button>
             <PlayTimer
               timer={scene.timer}
@@ -792,20 +801,24 @@ export function PlayTable({
               className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
             >
               <Download className="h-3.5 w-3.5" aria-hidden />
-              卓を書き出す
+              書き出し
             </button>
           </div>
 
-          <PlayBoard
-            board={board}
-            panels={scene.panels}
-            canDrag={() => true}
-            selectedId={selectedId}
-            activeTurnId={scene.turn?.activePanelId ?? null}
-            onSelect={setSelectedId}
-            liveDrag={(panelId, x, y) => room?.sendLive({ kind: "drag", panelId, x, y })}
-            onMove={(panelId, x, y) => dispatch(panelMoveEvent(newEventCtx(), panelId, x, y))}
-          />
+          {/* 盤面 + ダイスの結果(盤面の上に一瞬大きく。GM は秘匿も自分の画面だけに出す) */}
+          <div className="relative">
+            <PlayBoard
+              board={board}
+              panels={scene.panels}
+              canDrag={() => true}
+              selectedId={selectedId}
+              activeTurnId={scene.turn?.activePanelId ?? null}
+              onSelect={setSelectedId}
+              liveDrag={(panelId, x, y) => room?.sendLive({ kind: "drag", panelId, x, y })}
+              onMove={(panelId, x, y) => dispatch(panelMoveEvent(newEventCtx(), panelId, x, y))}
+            />
+            <PlayDiceFlash log={scene.log} showSecret />
+          </div>
         </div>
 
         {/* 右: チャット + 道具(シナリオ / 演出 / カード / メモ / キャラ) */}

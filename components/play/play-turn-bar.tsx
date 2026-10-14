@@ -50,7 +50,7 @@ export function PlayTurnBar({
   if (readOnly && !running) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
+    <div className="inline-flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
       <Timer className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
       {running ? (
         <span className="text-xs">

@@ -41,6 +41,8 @@ import { PlayLinkBadge } from "./play-link-badge";
 import { PlayTimer } from "./play-timer";
 import { PlayDeckPanel } from "./play-deck-panel";
 import { FullscreenButton } from "./fullscreen-button";
+import { PlayDiceFlash } from "./play-dice-flash";
+import { useFocusShortcut } from "./use-focus-shortcut";
 
 /**
  * 卓の参加者ビュー(Web 版)。
@@ -81,6 +83,7 @@ export function PlayGuest({
   const [input, setInput] = useState("");
   const [speakerId, setSpeakerId] = useState("GM");
   const inputRef = useRef<HTMLInputElement>(null);
+  useFocusShortcut(inputRef);
   const myName = useRef("");
   const [link, setLink] = useState<LinkStatus | null>(null);
 
@@ -382,20 +385,24 @@ export function PlayGuest({
         <div className="flex min-h-0 min-w-0 flex-col gap-2 lg:overflow-y-auto">
           <PlayTurnBar panels={scene.panels} turn={scene.turn} readOnly />
 
-          <PlayBoard
-            board={scene.scenes?.find((s) => s.id === scene.activeSceneId)?.board ?? scene.board}
-            panels={scene.panels}
-            canDrag={isMine}
-            activeTurnId={scene.turn?.activePanelId ?? null}
-            liveDrag={(panelId, x, y) => room?.sendLive({ kind: "drag", panelId, x, y })}
-            onMove={(panelId, x, y) =>
-              room?.send({
-                type: "intent",
-                from: room.selfId,
-                intent: { kind: "move", panelId, x, y },
-              })
-            }
-          />
+          {/* 盤面 + ダイスの結果(盤面の上に一瞬大きく。シークレットは出さない) */}
+          <div className="relative">
+            <PlayBoard
+              board={scene.scenes?.find((s) => s.id === scene.activeSceneId)?.board ?? scene.board}
+              panels={scene.panels}
+              canDrag={isMine}
+              activeTurnId={scene.turn?.activePanelId ?? null}
+              liveDrag={(panelId, x, y) => room?.sendLive({ kind: "drag", panelId, x, y })}
+              onMove={(panelId, x, y) =>
+                room?.send({
+                  type: "intent",
+                  from: room.selfId,
+                  intent: { kind: "move", panelId, x, y },
+                })
+              }
+            />
+            <PlayDiceFlash log={scene.log} />
+          </div>
         </div>
 
         {/* 右: チャット + カード・メモ・キャラ */}
