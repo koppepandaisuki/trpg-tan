@@ -38,7 +38,7 @@ export async function TopHeader({ className }: { className?: string }) {
     >
       {/* ログイン中は在席の心拍を打つ(描画なし) */}
       {user && <PresenceHeartbeat />}
-      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-stretch gap-3 px-4 sm:gap-8 sm:px-6">
+      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-stretch gap-3 px-4 sm:gap-6 sm:px-6 lg:gap-8">
         <Link
           href="/"
           className="flex shrink-0 items-center"
