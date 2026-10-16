@@ -33,6 +33,8 @@ export {
   type Handout,
   type ScenarioNpc,
   type MemoPage,
+  type PlayTimer,
+  type DeckEvent,
 } from "./types.js";
 export {
   createScene,
@@ -60,6 +62,10 @@ export {
   resourceEvent,
   turnSetEvent,
   logClearEvent,
+  deckEvent,
+  externalRollEvent,
+  totalFromResultText,
+  type ExternalDiceResult,
 } from "./actions.js";
 export {
   panelColor,
@@ -72,15 +78,111 @@ export {
   createRoom,
   makeRoomCode,
   roomTopic,
+  SYNC_PROTOCOL,
   type Room,
   type RoomTransport,
+  type PeerInfo,
   type NetMsg,
   type NetIntent,
   type LiveMsg,
 } from "./net.js";
+export {
+  projectForPlayers,
+  diffScenes,
+  applyPatch,
+  mergeSnapshotLog,
+  createSceneBroadcaster,
+  createSceneMirror,
+  PLAYER_LOG_LIMIT,
+  MIRROR_LOG_CAP,
+  type ScenePatch,
+  type SceneBroadcaster,
+  type BroadcasterParams,
+  type SceneMirror,
+  type MirrorResult,
+} from "./sync.js";
+export {
+  createHybridTransport,
+  DEFAULT_ICE_SERVERS,
+  utf8Length,
+  type IceServerConfig,
+  type RtcPeerConnectionLike,
+  type RtcDataChannelLike,
+  type RtcSessionDescriptionLike,
+  type PeerConnectionConfig,
+  type SignalingTransport,
+  type LinkKind,
+  type LinkStatus,
+  type HybridOptions,
+} from "./p2p.js";
 export {
   replayToText,
   replayToHtml,
   type NameResolver,
   type SecretGuard,
 } from "./replay.js";
+export {
+  readKoboManifest,
+  koboScenarioToPlay,
+  guessSystemId,
+  parseMinutes,
+  KoboImportError,
+  KOBO_BACKUP_FORMAT,
+  KOBO_BACKUP_MAX_VERSION,
+  type KoboScenarioRef,
+} from "./kobo.js";
+export {
+  parsePlayFile,
+  serializePlayFile,
+  clonePlayScene,
+  migratePlayScene,
+  playFileName,
+  PlayFileError,
+  MAX_PLAY_FILE_CHARS,
+} from "./file.js";
+export {
+  timerRemaining,
+  timerRunning,
+  startTimer,
+  pauseTimer,
+  resumeTimer,
+  resetTimer,
+  formatTimer,
+} from "./timer.js";
+export {
+  isPrivateChannel,
+  publicEventFor,
+  redactRoll,
+  privateRecipients,
+  privateBacklog,
+  directChannel,
+  directRecipient,
+  DIRECT_PREFIX,
+} from "./secrets.js";
+export { createSecretBox, sendPrivateEvents, type SecretBox } from "./seal.js";
+export {
+  createSigner,
+  verifySignature,
+  codeForKey,
+  createGmGate,
+  createMemberGate,
+  type Signer,
+  type MsgMeta,
+} from "./auth.js";
+export {
+  presetCards,
+  createDeckOp,
+  shuffleDeckOp,
+  applyDeckOp,
+  projectDecks,
+  handOf,
+  drawnBy,
+  cardLabel,
+  shuffled,
+  DECK_PRESETS,
+  TO_TABLE,
+  type Deck,
+  type DeckCard,
+  type DeckOp,
+  type DeckPreset,
+} from "./deck.js";

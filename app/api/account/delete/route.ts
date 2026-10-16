@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/session/get-user";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSameOriginRequest } from "@/lib/api/origin";
+import { purgeUserStorage } from "@/lib/mutations/purge-user-storage";
 
 /**
  * POST /api/account/delete — 自分のアカウントを削除(退会)。
@@ -149,6 +150,9 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+
+  // アップロードしたファイル(卓の画像・音声、アバター)も消す(ベストエフォート)。
+  await purgeUserStorage(admin, userId);
 
   return NextResponse.json(
     { ok: true },

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2, LogIn } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { buildAppHandoffFragment } from "@/lib/auth/app-handoff";
 
 /**
  * ブラウザ/PWA 版アプリ(/app/)へセッションを受け渡す中継ページ。
@@ -11,10 +11,10 @@ import { createClient } from "@/lib/supabase/client";
  *
  * フロー(apps/desktop/src/auth.ts の initBrowserHandoffAuth と対):
  *  1. PWA が `/login?next=/auth/app-handoff` へ遷移してログイン。
- *  2. ここに着地したら、現在のセッションの access/refresh トークンを
- *     `/app/#access_token=…&refresh_token=…&type=app-handoff` に載せて
- *     リダイレクト。
- *  3. PWA が起動時にフラグメントを読んで setSession → URL から即消す。
+ *  2. ここに着地したら、1 回限りのログイン用コード(token_hash)を発行してもらい
+ *     `/app/#token_hash=…&type=app-handoff` に載せてリダイレクト
+ *     (lib/auth/app-handoff.ts。Web と refresh トークンを共有しないため)。
+ *  3. PWA が起動時にフラグメントを読んで verifyOtp → URL から即消す。
  *
  * トークンはフラグメント(#)に載るためサーバーへは送られない。
  * 同一オリジンなのでネットワークも跨がない。
@@ -27,20 +27,13 @@ export default function AppHandoffPage() {
   React.useEffect(() => {
     let alive = true;
     (async () => {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
+      const frag = await buildAppHandoffFragment("app-handoff");
       if (!alive) return;
-      if (!session?.access_token || !session?.refresh_token) {
+      if (!frag) {
         setPhase("no-session");
         return;
       }
-      const frag = new URLSearchParams({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-        type: "app-handoff",
-      });
-      window.location.replace(`/app/#${frag.toString()}`);
+      window.location.replace(`/app/#${frag}`);
     })();
     return () => {
       alive = false;
@@ -49,7 +42,7 @@ export default function AppHandoffPage() {
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center gap-5 px-6 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-ink text-white">
         {phase === "checking" ? (
           <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
         ) : (

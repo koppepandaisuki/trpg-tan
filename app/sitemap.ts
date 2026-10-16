@@ -41,5 +41,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     route("/terms", "yearly", 0.2),
     route("/privacy", "yearly", 0.2),
     route("/legal/tokushoho", "yearly", 0.2),
+    route("/legal/rights", "yearly", 0.2),
+    route("/legal/guidelines", "yearly", 0.3),
   ];
 }

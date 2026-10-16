@@ -157,11 +157,13 @@ export function PlayBoard({
   const fgLayer = board?.fgLayer ?? 0;
   // このシーンに出すオブジェクト(未帰属=全シーン共通)。layer 昇順 = 後勝ちで前面。
   // 非表示(hidden): キャラ駒は GM・参加者とも盤面から消す(単純な表示/非表示。
-  // GM はキャラ一覧の目アイコンで戻せる)。画像オブジェクトは一覧に無いので、GM
-  // だけ薄く盤面に残して戻せるようにする(参加者には出さない)。
+  // GM はキャラ一覧の目アイコンで戻せる)。キャラ一覧に出ない駒(画像オブジェクト・
+  // 能力値の無いマーカー = シナリオ工房から取り込んだ NPC 等)は、GM だけ薄く盤面に
+  // 残して戻せるようにする(参加者には出さない)。
+  const inCharList = (p: Panel) => p.stats.length > 0 || p.resources.length > 0;
   const visible = panels
     .filter((p) => !p.sceneId || p.sceneId === activeSceneId)
-    .filter((p) => !p.hidden || (!playerMode && isImageObject(p)))
+    .filter((p) => !p.hidden || (!playerMode && (isImageObject(p) || !inCharList(p))))
     .sort((a, b) => (a.layer ?? 0) - (b.layer ?? 0));
   const ref = useRef<HTMLDivElement>(null);
   // 仮想ステージのスケール(利用可能領域にフィット)。

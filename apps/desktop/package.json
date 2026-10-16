@@ -25,6 +25,7 @@
     "@tauri-apps/plugin-updater": "^2",
     "@trpg/core": "workspace:*",
     "@trpg/ui": "workspace:*",
+    "bcdice": "4.10.0",
     "fflate": "^0.8.3",
     "lucide-react": "^0.424.0",
     "react": "^18.3.1",

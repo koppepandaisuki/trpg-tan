@@ -3,6 +3,7 @@ import type { PlayScene, PlayEvent, Panel } from "@trpg/core";
 import { supabase } from "./supabase";
 import { audioDataUrl } from "./audio-url";
 import type { NetMsg } from "./net";
+import { uploadToR2 } from "./media-upload";
 
 /**
  * PLAY のメディア(画像/音声)を Supabase Storage に逃がすためのユーティリティ。
@@ -112,6 +113,9 @@ async function uploadBytes(
   const uid = await userId();
   if (!uid) return null; // 未ログイン: アップロード不可
   const hash = await sha256Hex(bytes);
+  // R2 が設定されていればそちらへ(参加者のダウンロード転送量が無料)。
+  const r2 = await uploadToR2({ bytes, hash, ext, mime });
+  if (r2) return r2.url;
   const path = `${uid}/${hash}.${ext}`;
   const { error } = await supabase.storage
     .from(BUCKET)

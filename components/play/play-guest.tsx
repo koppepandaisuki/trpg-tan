@@ -13,16 +13,22 @@ import {
   WifiOff,
 } from "lucide-react";
 import {
-  reduce,
   parseCcfoliaCharacter,
+  createSceneMirror,
+  createSecretBox,
+  createSigner,
+  createGmGate,
+  SYNC_PROTOCOL,
+  type NetMsg,
+  type DeckCard,
   type CutIn,
   type Panel,
   type PlayScene,
 } from "@trpg/core";
-import { Button } from "@/components/ui/button";
+import { Button, toolButton } from "@/components/ui/button";
 import { PlayBoard } from "./play-board";
 import { PlayLog } from "./play-log";
-import { PlayPanelCard } from "./play-panel-card";
+import { PlayPanelCard, quickActionsFor } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
 import { PlayMemo } from "./play-memo";
 import { PlayReplayButton } from "./play-replay-button";
@@ -30,20 +36,37 @@ import { PlayTurnBar } from "./play-turn-bar";
 import { CharacterPicker } from "./character-picker";
 import { CutInOverlay, TelopOverlay } from "./play-fx";
 import { usePlayAudio } from "./use-play-audio";
-import { connectRoom, type Room } from "@/lib/play/net";
+import { connectRoom, type Room, type LinkStatus } from "@/lib/play/net";
+import { PlayLinkBadge } from "./play-link-badge";
+import { PlayTimer } from "./play-timer";
+import { PlayDeckPanel } from "./play-deck-panel";
+import { FullscreenButton } from "./fullscreen-button";
+import { PlayDiceFlash } from "./play-dice-flash";
+import { useFocusShortcut } from "./use-focus-shortcut";
 
 /**
  * 卓の参加者ビュー(Web 版)。
  *
  * GM が権威なので、ここでは自分で状態を作らない:
- *   - `state`(スナップショット)を受けたら丸ごと置き換える(rev が進んだ時のみ)
- *   - `event`(チャット/ダイス)はログ即時表示のためだけに reduce する
- *   - 自分の操作は intent として GM へ送り、返ってきた state で確定する
+ *   - `state`(全量)/ `patch`(差分)/ `event`(チャット・ダイス)を
+ *     @trpg/core の SceneMirror に通して GM と同じ卓を保つ
+ *   - 差分を取りこぼしたら hello を送り直して全量をもらう(自動で追いつく)
+ *   - 自分の操作は intent として GM へ送り、返ってきた差分で確定する
  */
-export function PlayGuest({ code }: { code: string }) {
+export function PlayGuest({
+  code,
+  signedIn = true,
+  previewScene,
+}: {
+  code: string;
+  /** ログイン中か(未ログインでも参加できる。保存キャラの呼び出しだけ要ログイン)。 */
+  signedIn?: boolean;
+  /** 画面の確認用: 接続せずにこの卓を参加者ビューで表示する(本番では使わない)。 */
+  previewScene?: PlayScene;
+}) {
   const [name, setName] = useState("");
-  const [joined, setJoined] = useState(false);
-  const [scene, setScene] = useState<PlayScene | null>(null);
+  const [joined, setJoined] = useState(!!previewScene);
+  const [scene, setScene] = useState<PlayScene | null>(previewScene ?? null);
   const [room, setRoom] = useState<Room | null>(null);
   const [participants, setParticipants] = useState<string[]>([]);
   const [progress, setProgress] = useState<{
@@ -51,14 +74,18 @@ export function PlayGuest({ code }: { code: string }) {
     total: number;
   } | null>(null);
   const [closed, setClosed] = useState(false);
+  const [kicked, setKicked] = useState(false);
+  // 自分の手札(GM から本人宛ての暗号文で届く)。
+  const [myHands, setMyHands] = useState<{ deckId: string; cards: DeckCard[] }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
 
   const [input, setInput] = useState("");
   const [speakerId, setSpeakerId] = useState("GM");
   const inputRef = useRef<HTMLInputElement>(null);
-  const revRef = useRef(-1);
+  useFocusShortcut(inputRef);
   const myName = useRef("");
+  const [link, setLink] = useState<LinkStatus | null>(null);
 
   // 演出(GM から配信される)。
   const [cutin, setCutin] = useState<CutIn | null>(null);
@@ -76,8 +103,10 @@ export function PlayGuest({ code }: { code: string }) {
     setName(localStorage.getItem("redice.play.name") ?? "");
   }, []);
 
+  const helloTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     return () => {
+      window.clearInterval(helloTimer.current);
       room?.close();
     };
   }, [room]);
@@ -90,19 +119,54 @@ export function PlayGuest({ code }: { code: string }) {
     try {
       localStorage.setItem("redice.play.name", nm);
       myName.current = nm;
-      const r = await connectRoom(code, nm);
-      r.onMessage((msg) => {
-        if (msg.type === "state") {
-          // 順序逆転で古い state が新しいものを潰さないよう rev で守る。
-          if (msg.rev <= revRef.current) return;
-          revRef.current = msg.rev;
-          setScene(msg.scene);
-        } else if (msg.type === "event") {
-          // ログの即時表示(状態の正は次の state)。
-          setScene((s) => (s ? reduce(s, msg.ev) : s));
-        } else if (msg.type === "memo") {
-          // デスクトップ版 GM は共有メモを memo で単独配信する。
-          setScene((s) => (s ? { ...s, sharedMemos: msg.memos } : s));
+      // 自分の操作に署名する鍵(GM が「この参加者本人の操作か」を確かめる)。
+      const signer = await createSigner();
+      const r = await connectRoom(code, nm, { onLinkStatus: setLink, signer });
+      // 参加コードの鍵で署名された配信だけを GM のものとして受け入れる(なりすまし対策)。
+      const gate = createGmGate(code);
+      let gateQueue: Promise<void> = Promise.resolve();
+      const mirror = createSceneMirror();
+      // 自分宛ての秘密(シークレットダイスの出目・個別チャット)を開く鍵。
+      const box = await createSecretBox();
+      const hello = () =>
+        void r.send({
+          type: "hello",
+          from: r.selfId,
+          name: nm,
+          proto: SYNC_PROTOCOL,
+          pub: box.publicKey,
+        });
+      // 鍵の登録 → 暗号文を開く、の順序を守るため、この 2 種類は 1 本の列で処理する。
+      let secretQueue: Promise<void> = Promise.resolve();
+      // 卓データが届くまで hello を送り直す(GM が後から公開した / 最初の hello を
+      // 取りこぼした場合に「卓データ待ち」で固まらないため)。
+      window.clearInterval(helloTimer.current);
+      helloTimer.current = window.setInterval(() => {
+        if (mirror.scene) window.clearInterval(helloTimer.current);
+        else hello();
+      }, 4000);
+      r.onMessage((msg, meta) => {
+        gateQueue = gateQueue.then(async () => {
+          if (await gate.accept(msg, meta)) handleMsg(msg);
+        });
+      });
+      const handleMsg = (msg: NetMsg) => {
+        // 状態(全量 / 差分 / チャット・ダイス / 共有メモ)は mirror が担当。
+        const res = mirror.receive(msg);
+        if (res.changed) setScene(mirror.scene);
+        if (res.resync) hello();
+        if (msg.type === "key") {
+          const pub = msg.pub;
+          secretQueue = secretQueue.then(async () => {
+            await box.addPeer("GM", pub);
+          });
+        } else if (msg.type === "sealed" && msg.to === r.selfId) {
+          const sealed = msg;
+          secretQueue = secretQueue.then(async () => {
+            const inner = await box.open("GM", sealed);
+            if (inner?.type === "hand") setMyHands(inner.hands);
+            else if (inner && mirror.receive(inner).changed) setScene(mirror.scene);
+          });
         } else if (msg.type === "cutin") {
           // id だけ届くので、自分が持っている scene から画像を引く。
           // ハンドラは接続時の closure なので最新 scene は ref から読む。
@@ -114,8 +178,12 @@ export function PlayGuest({ code }: { code: string }) {
           audio.handleAudio(msg.channel, msg.src);
         } else if (msg.type === "closed") {
           setClosed(true);
+        } else if (msg.type === "kick" && msg.to === r.selfId) {
+          setKicked(true);
+          setClosed(true);
+          r.close();
         }
-      });
+      };
       r.onLive((live) => {
         if (live.kind === "drag") {
           setScene((s) =>
@@ -123,9 +191,7 @@ export function PlayGuest({ code }: { code: string }) {
               ? {
                   ...s,
                   panels: s.panels.map((p) =>
-                    p.id === live.panelId
-                      ? { ...p, pos: { x: live.x, y: live.y } }
-                      : p,
+                    p.id === live.panelId ? { ...p, pos: { x: live.x, y: live.y } } : p,
                   ),
                 }
               : s,
@@ -137,7 +203,7 @@ export function PlayGuest({ code }: { code: string }) {
       setRoom(r);
       setJoined(true);
       // 参加を知らせる → GM が現在状態を送り返してくれる。
-      await r.send({ type: "hello", from: r.selfId, name: nm });
+      hello();
     } catch (e) {
       setError(e instanceof Error ? e.message : "参加できませんでした");
     } finally {
@@ -146,18 +212,35 @@ export function PlayGuest({ code }: { code: string }) {
   }
 
   /** 自分の駒か(GM が owner に自分の入室名を刻む)。 */
-  const isMine = useCallback(
-    (p: Panel) => p.owner === myName.current,
-    [],
-  );
+  const isMine = useCallback((p: Panel) => p.owner === myName.current, []);
 
-  function send(text: string) {
+  // 発言者の既定は自分のキャラ(TRPG ではキャラとして話すのが基本)。自分で選び直したら
+  // それを尊重し、選んでいた駒が消えたら次の自分の駒(無ければ自分の名前)へ戻す。
+  const speakerTouched = useRef(false);
+  const myPanelIds = (scene?.panels ?? [])
+    .filter(isMine)
+    .map((p) => p.id)
+    .join(",");
+  useEffect(() => {
+    const ids = myPanelIds ? myPanelIds.split(",") : [];
+    setSpeakerId((cur) => {
+      if (cur !== "GM" && !ids.includes(cur)) return ids[0] ?? "GM";
+      if (cur === "GM" && !speakerTouched.current && ids.length > 0) return ids[0];
+      return cur;
+    });
+  }, [myPanelIds]);
+  const chooseSpeaker = useCallback((id: string) => {
+    speakerTouched.current = true;
+    setSpeakerId(id);
+  }, []);
+
+  function send(text: string, as: string = speakerId) {
     room?.send({
       type: "intent",
       from: room.selfId,
       intent: {
         kind: "send",
-        speakerId,
+        speakerId: as,
         raw: text,
         channel: "main",
         secret: false,
@@ -167,9 +250,7 @@ export function PlayGuest({ code }: { code: string }) {
   }
 
   function addMyCharacter() {
-    const text = prompt(
-      "ココフォリアの「コマをコピー」した内容を貼り付けてください",
-    );
+    const text = prompt("ココフォリアの「コマをコピー」した内容を貼り付けてください");
     if (!text?.trim() || !room) return;
     const panel = parseCcfoliaCharacter(text, () => crypto.randomUUID());
     if (!panel) {
@@ -189,7 +270,7 @@ export function PlayGuest({ code }: { code: string }) {
   /* ===== 入室前 ===== */
   if (!joined) {
     return (
-      <div className="mx-auto max-w-md space-y-4 py-10">
+      <div className="mx-auto max-w-md space-y-4 px-4 py-10">
         <Link
           href={"/play" as Route}
           className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
@@ -201,9 +282,7 @@ export function PlayGuest({ code }: { code: string }) {
           <h1 className="text-lg font-semibold tracking-tight">卓に参加する</h1>
           <p className="mt-1 text-xs text-muted-foreground">
             参加コード{" "}
-            <span className="font-mono font-bold tracking-[0.2em] text-foreground">
-              {code}
-            </span>{" "}
+            <span className="font-mono font-bold tracking-[0.2em] text-foreground">{code}</span>{" "}
             の卓に入ります。表示名を入れてください。
           </p>
           <div className="mt-4 flex gap-2">
@@ -216,10 +295,7 @@ export function PlayGuest({ code }: { code: string }) {
               placeholder="あなたの表示名"
               className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
-            <Button
-              onClick={() => void join()}
-              disabled={!name.trim() || connecting}
-            >
+            <Button onClick={() => void join()} disabled={!name.trim() || connecting}>
               {connecting ? "接続中…" : "参加"}
             </Button>
           </div>
@@ -245,37 +321,50 @@ export function PlayGuest({ code }: { code: string }) {
   }
 
   const myPanels = scene.panels.filter(isMine);
+  // 入力欄の上に並べる「よく使う判定」: 発言者に選んだ自分の駒(無ければ最初の自分の駒)。
+  const actionPanel = myPanels.find((p) => p.id === speakerId) ?? myPanels[0];
+  const quickActions = actionPanel ? quickActionsFor(actionPanel, scene.systemId) : [];
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-2 p-2 sm:p-3 lg:h-dvh lg:overflow-hidden">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
+        <h1 className="min-w-0 flex-1 basis-full truncate text-lg font-semibold tracking-tight sm:basis-auto">
           {scene.title}
         </h1>
         <span className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground">
           <Users className="h-3 w-3" aria-hidden />
           {participants.length} 人
         </span>
+        <PlayLinkBadge status={link} />
+        <PlayTimer timer={scene.timer} canControl={false} />
+        <FullscreenButton />
         <button
           onClick={addMyCharacter}
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+          className={toolButton}
         >
           <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
           コマ貼付
         </button>
-        <button
-          onClick={() => setCharPicker(true)}
-          title="キャラシで保存した自分のキャラを駒として出す"
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
-        >
-          <ScrollText className="h-3.5 w-3.5" aria-hidden />
-          自分のキャラを出す
-        </button>
-        <PlayReplayButton
-          scene={scene}
-          isGm={false}
-          myPanelIds={myPanels.map((p) => p.id)}
-        />
+        {signedIn ? (
+          <button
+            onClick={() => setCharPicker(true)}
+            title="キャラシで保存した自分のキャラを駒として出す"
+            className={toolButton}
+          >
+            <ScrollText className="h-3.5 w-3.5" aria-hidden />
+            自分のキャラを出す
+          </button>
+        ) : (
+          <Link
+            href={`/login?next=${encodeURIComponent(`/play/join/${code}`)}` as Route}
+            title="ログインすると、キャラシで保存したキャラを駒として出せます"
+            className={`${toolButton} border-dashed text-muted-foreground`}
+          >
+            <ScrollText className="h-3.5 w-3.5" aria-hidden />
+            ログインして保存キャラを使う
+          </Link>
+        )}
+        <PlayReplayButton scene={scene} isGm={false} myPanelIds={myPanels.map((p) => p.id)} />
         <label
           className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1"
           title="自分に聞こえる音量(この端末だけ)"
@@ -305,7 +394,7 @@ export function PlayGuest({ code }: { code: string }) {
       {closed && (
         <p className="inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           <WifiOff className="h-4 w-4" aria-hidden />
-          GM が卓を閉じました。
+          {kicked ? "GM により卓から退室しました。" : "GM が卓を閉じました。"}
         </p>
       )}
       {error && (
@@ -314,36 +403,36 @@ export function PlayGuest({ code }: { code: string }) {
         </p>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="min-w-0 space-y-2">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {/* 左: 盤面(主役) */}
+        <div className="flex min-h-0 min-w-0 flex-col gap-2 lg:overflow-y-auto">
           <PlayTurnBar panels={scene.panels} turn={scene.turn} readOnly />
 
-          <PlayBoard
-            board={
-              scene.scenes?.find((s) => s.id === scene.activeSceneId)?.board ??
-              scene.board
-            }
-            panels={scene.panels}
-            canDrag={isMine}
-            activeTurnId={scene.turn?.activePanelId ?? null}
-            liveDrag={(panelId, x, y) =>
-              room?.sendLive({ kind: "drag", panelId, x, y })
-            }
-            onMove={(panelId, x, y) =>
-              room?.send({
-                type: "intent",
-                from: room.selfId,
-                intent: { kind: "move", panelId, x, y },
-              })
-            }
-          />
-
-          <div className="flex h-[320px] flex-col gap-2">
-            <PlayLog
-              log={scene.log}
-              isGm={false}
-              myPanelIds={myPanels.map((p) => p.id)}
+          {/* 盤面 + ダイスの結果(盤面の上に一瞬大きく。シークレットは出さない) */}
+          <div className="relative">
+            <PlayBoard
+              board={scene.scenes?.find((s) => s.id === scene.activeSceneId)?.board ?? scene.board}
+              panels={scene.panels}
+              canDrag={isMine}
+              activeTurnId={scene.turn?.activePanelId ?? null}
+              liveDrag={(panelId, x, y) => room?.sendLive({ kind: "drag", panelId, x, y })}
+              onMove={(panelId, x, y) =>
+                room?.send({
+                  type: "intent",
+                  from: room.selfId,
+                  intent: { kind: "move", panelId, x, y },
+                })
+              }
             />
+            <PlayDiceFlash log={scene.log} />
+          </div>
+        </div>
+
+        {/* 右: チャット + カード・メモ・キャラ */}
+        <aside className="flex min-h-0 flex-col gap-2">
+          {/* チャット(入力欄が常に見える位置に固定) */}
+          <div className="flex h-[50vh] min-h-[260px] flex-col gap-2 lg:h-auto lg:min-h-0 lg:flex-[3]">
+            <PlayLog log={scene.log} isGm={false} myPanelIds={myPanels.map((p) => p.id)} />
             <PlayComposer
               ref={inputRef}
               value={input}
@@ -351,85 +440,105 @@ export function PlayGuest({ code }: { code: string }) {
               onSend={send}
               speakers={myPanels}
               speakerId={speakerId}
-              onSpeakerChange={setSpeakerId}
+              onSpeakerChange={chooseSpeaker}
               selfLabel={`${myName.current}(自分)`}
               secret={false}
               onSecretChange={() => {}}
               canSecret={false}
               disabled={closed}
+              actions={quickActions}
+              onAction={(t) => send(t, actionPanel?.id ?? speakerId)}
             />
           </div>
-        </div>
+          <div className="min-h-0 space-y-2 overflow-y-auto lg:flex-[2]">
+            <PlayDeckPanel
+              mode="player"
+              decks={scene.decks ?? []}
+              hands={myHands}
+              onDraw={(deckId) =>
+                void room?.send({
+                  type: "intent",
+                  from: room.selfId,
+                  intent: { kind: "deck-draw", deckId },
+                })
+              }
+              onPlay={(deckId, cardId) =>
+                void room?.send({
+                  type: "intent",
+                  from: room.selfId,
+                  intent: { kind: "deck-play", deckId, cardId },
+                })
+              }
+            />
+            <PlayMemo
+              memos={scene.sharedMemos ?? []}
+              disabled={closed}
+              onChange={(memos) => {
+                // 自分の画面には即反映(相手の確定を待たない)。正は GM の state。
+                setScene((s) => (s ? { ...s, sharedMemos: memos } : s));
+                room?.send({
+                  type: "intent",
+                  from: room.selfId,
+                  intent: { kind: "memo", memos },
+                });
+              }}
+            />
 
-        <aside className="space-y-2">
-          <PlayMemo
-            memos={scene.sharedMemos ?? []}
-            disabled={closed}
-            onChange={(memos) => {
-              // 自分の画面には即反映(相手の確定を待たない)。正は GM の state。
-              setScene((s) => (s ? { ...s, sharedMemos: memos } : s));
-              room?.send({
-                type: "intent",
-                from: room.selfId,
-                intent: { kind: "memo", memos },
-              });
-            }}
-          />
-
-          <h2 className="text-xs font-semibold tracking-tight text-muted-foreground">
-            キャラクター({scene.panels.length})
-          </h2>
-          <div className="space-y-2">
-            {scene.panels.map((p) => (
-              <PlayPanelCard
-                key={p.id}
-                panel={p}
-                canControl={isMine(p)}
-                onFill={(t) => {
-                  setInput(t);
-                  inputRef.current?.focus();
-                }}
-                onSend={(t) => {
-                  setSpeakerId(p.id);
-                  room?.send({
-                    type: "intent",
-                    from: room.selfId,
-                    intent: {
-                      kind: "send",
-                      speakerId: p.id,
-                      raw: t,
-                      channel: "main",
-                      secret: false,
-                      visibleTo: [],
-                    },
-                  });
-                }}
-                onResource={(panel, r, delta) =>
-                  room?.send({
-                    type: "intent",
-                    from: room.selfId,
-                    intent: {
-                      kind: "resource",
-                      panelId: panel.id,
-                      resourceKey: r.key,
-                      delta,
-                    },
-                  })
-                }
-                onRemove={
-                  isMine(p)
-                    ? (panel) => {
-                        if (!confirm(`「${panel.name}」を片付けますか？`)) return;
-                        room?.send({
-                          type: "intent",
-                          from: room.selfId,
-                          intent: { kind: "remove-char", panelId: panel.id },
-                        });
-                      }
-                    : undefined
-                }
-              />
-            ))}
+            <h2 className="text-xs font-semibold tracking-tight text-muted-foreground">
+              キャラクター({scene.panels.length})
+            </h2>
+            <div className="space-y-2">
+              {scene.panels.map((p) => (
+                <PlayPanelCard
+                  key={p.id}
+                  panel={p}
+                  canControl={isMine(p)}
+                  onFill={(t) => {
+                    setInput(t);
+                    inputRef.current?.focus();
+                  }}
+                  onSend={(t) => {
+                    chooseSpeaker(p.id);
+                    room?.send({
+                      type: "intent",
+                      from: room.selfId,
+                      intent: {
+                        kind: "send",
+                        speakerId: p.id,
+                        raw: t,
+                        channel: "main",
+                        secret: false,
+                        visibleTo: [],
+                      },
+                    });
+                  }}
+                  onResource={(panel, r, delta) =>
+                    room?.send({
+                      type: "intent",
+                      from: room.selfId,
+                      intent: {
+                        kind: "resource",
+                        panelId: panel.id,
+                        resourceKey: r.key,
+                        delta,
+                      },
+                    })
+                  }
+                  onRemove={
+                    isMine(p)
+                      ? (panel) => {
+                          if (!confirm(`「${panel.name}」を片付けますか？`)) return;
+                          room?.send({
+                            type: "intent",
+                            from: room.selfId,
+                            intent: { kind: "remove-char", panelId: panel.id },
+                          });
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
           </div>
         </aside>
       </div>

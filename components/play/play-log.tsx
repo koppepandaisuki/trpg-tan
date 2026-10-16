@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { EyeOff } from "lucide-react";
+import { directRecipient } from "@trpg/core";
 import type { CoCSuccessLevel, PlayEvent, RollEvent } from "@trpg/core";
 
 /** CoC 判定の成功度ラベル(デスクトップ版 LogView と同じ文言)。 */
@@ -55,7 +56,7 @@ export function PlayLog({
         stickRef.current =
           el.scrollHeight - el.scrollTop - el.clientHeight < 48;
       }}
-      className="flex-1 space-y-1.5 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3"
+      className="flex-1 space-y-1.5 overflow-y-auto rounded-2xl border border-border bg-card p-3 shadow-sm"
     >
       {log.length === 0 && (
         <p className="py-6 text-center text-xs text-muted-foreground">
@@ -93,6 +94,7 @@ function LogRow({ ev, canSeeSecret }: { ev: PlayEvent; canSeeSecret: boolean }) 
     );
   }
   if (ev.kind === "chat") {
+    const dm = directRecipient(ev.channel);
     return (
       <p className="text-sm leading-relaxed">
         <span
@@ -101,6 +103,11 @@ function LogRow({ ev, canSeeSecret }: { ev: PlayEvent; canSeeSecret: boolean }) 
         >
           {ev.actor}
         </span>
+        {dm && (
+          <span className="mr-1.5 rounded-full bg-ink px-2 py-0.5 text-[10px] text-ink-foreground">
+            📨 {dm} へ(個別)
+          </span>
+        )}
         <span className="whitespace-pre-wrap break-words">{ev.text}</span>
       </p>
     );

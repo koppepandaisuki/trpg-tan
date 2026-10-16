@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signupSchema, type SignupInput } from "@/lib/validators/auth";
@@ -11,6 +12,7 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { GOOGLE_OAUTH_ENABLED } from "@/lib/auth/google-config";
 
 export function SignupForm() {
+  const searchParams = useSearchParams();
   const {
     register,
     handleSubmit,
@@ -27,7 +29,7 @@ export function SignupForm() {
   });
 
   async function onSubmit(values: SignupInput) {
-    const result = await signupAction(values);
+    const result = await signupAction(values, searchParams.get("next"));
     if (result?.error) {
       setError("root", { message: result.error });
     }

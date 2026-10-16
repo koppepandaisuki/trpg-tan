@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
-import { TopHeader } from "@/components/layout/top-header";
-import { PageContainer } from "@/components/layout/page-container";
 import { PlayTable } from "@/components/play/play-table";
 import { requireUser } from "@/lib/session/require";
 import { getMyPlayScene } from "@/lib/queries/play-sessions";
-import { planUnlocksPlay } from "@/lib/plan";
+import { canHostTable } from "@/lib/plan";
 
 export const metadata = { title: "卓 | PLAY" };
 
@@ -22,15 +20,12 @@ export default async function PlayTablePage({
   const scene = await getMyPlayScene(user.id, params.id);
   if (!scene) notFound();
 
+  // 卓は画面いっぱいのアプリとして出す(サイトのヘッダー・フッターは出さない。
+  // ロビーへは卓の左上の「← ロビー」で戻る)。
   return (
-    <>
-      <TopHeader />
-      <PageContainer className="py-4">
-        <PlayTable
-          initialScene={scene}
-          canHost={user.isAdmin || planUnlocksPlay(user.plan)}
-        />
-      </PageContainer>
-    </>
+    <PlayTable
+      initialScene={scene}
+      canHost={canHostTable(user.plan, user.isAdmin)}
+    />
   );
 }

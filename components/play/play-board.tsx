@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ImageOff, Loader2 } from "lucide-react";
 import type { Panel, PlayBoard as BoardState } from "@trpg/core";
 
 /**
@@ -102,22 +103,36 @@ export function PlayBoard({
   return (
     <div
       ref={wrapRef}
-      className="relative w-full overflow-hidden rounded-xl border border-border bg-[#0f1720]"
+      className="relative w-full overflow-hidden rounded-2xl border border-black/10 bg-[#141414]"
       style={{ aspectRatio: `${STAGE_W} / ${STAGE_H}` }}
       onPointerDown={(e) => {
         // 盤面の余白クリックで選択解除。
         if (e.target === e.currentTarget) onSelect?.(null);
       }}
     >
-      {/* 背景マップ */}
+      {/* 背景マップ(読み込み中・失敗を表示し、読み込めたらふわっと出す) */}
       {board?.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <LoadingImage
+          key={board.image}
           src={board.image}
           alt=""
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
           style={{ transform: `scale(${board.bgScale ?? 1})` }}
-          draggable={false}
+          renderPending={(state) => (
+            <span className="pointer-events-none absolute bottom-2 left-2 z-[1] inline-flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1 text-[11px] text-white/80">
+              {state === "loading" ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                  背景を読み込み中…
+                </>
+              ) : (
+                <>
+                  <ImageOff className="h-3 w-3" aria-hidden />
+                  背景を読み込めませんでした
+                </>
+              )}
+            </span>
+          )}
         />
       )}
 
@@ -136,8 +151,7 @@ export function PlayBoard({
 
       {/* 駒 */}
       {ordered.map((p) => {
-        const pos =
-          dragId === p.id && dragPos ? dragPos : (p.pos ?? { x: 0.5, y: 0.5 });
+        const pos = dragId === p.id && dragPos ? dragPos : (p.pos ?? { x: 0.5, y: 0.5 });
         const draggable = canDrag(p);
         const img = isImageObject(p);
         const size = (p.size ?? (img ? 140 : 56)) * scale;
@@ -174,12 +188,22 @@ export function PlayBoard({
             }}
           >
             {img ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <LoadingImage
+                key={p.portrait as string}
                 src={p.portrait as string}
                 alt={p.name}
                 className="h-full w-full object-contain drop-shadow-lg"
-                draggable={false}
+                renderPending={(state) => (
+                  <span
+                    className={`flex aspect-square w-full items-center justify-center rounded-lg text-[10px] text-white/70 ${
+                      state === "loading"
+                        ? "animate-pulse bg-white/15"
+                        : "border border-dashed border-white/40 bg-black/30"
+                    }`}
+                  >
+                    {state === "error" ? <ImageOff className="h-4 w-4" aria-hidden /> : null}
+                  </span>
+                )}
               />
             ) : (
               <div
@@ -203,13 +227,12 @@ export function PlayBoard({
 
       {/* 前景 */}
       {board?.foreground && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <LoadingImage
+          key={board.foreground}
           src={board.foreground}
           alt=""
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
           style={{ transform: `scale(${board.fgScale ?? 1})` }}
-          draggable={false}
         />
       )}
     </div>
@@ -218,4 +241,47 @@ export function PlayBoard({
 
 function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v));
+}
+
+/**
+ * 読み込み中・失敗を見せる画像。読み込めたらふわっと出す(背景が急に切り替わって
+ * 目に刺さらないように)。src が変わったら key で作り直すこと。
+ */
+function LoadingImage({
+  src,
+  alt,
+  className,
+  style,
+  renderPending,
+}: {
+  src: string;
+  alt: string;
+  className: string;
+  style?: React.CSSProperties;
+  renderPending?: (state: "loading" | "error") => React.ReactNode;
+}) {
+  const ref = useRef<HTMLImageElement>(null);
+  const [state, setState] = useState<"loading" | "ok" | "error">("loading");
+  // キャッシュ済みの画像や、画面の表示前に読み込み(失敗)が終わった画像は
+  // onLoad / onError が来ないことがある。complete で結果を拾う。
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el?.complete) setState(el.naturalWidth > 0 ? "ok" : "error");
+  }, []);
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={ref}
+        src={src}
+        alt={alt}
+        draggable={false}
+        onLoad={() => setState("ok")}
+        onError={() => setState("error")}
+        className={`${className} transition-opacity duration-300 ${state === "ok" ? "opacity-100" : "opacity-0"}`}
+        style={style}
+      />
+      {state !== "ok" && renderPending?.(state)}
+    </>
+  );
 }

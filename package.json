@@ -15,7 +15,8 @@
     "test:run": "vitest run",
     "check:server-only": "node scripts/check-server-only.mjs",
     "check:env": "node scripts/check-env.mjs",
-    "check:secrets": "node scripts/check-no-secrets.mjs"
+    "check:secrets": "node scripts/check-no-secrets.mjs",
+    "licenses:gen": "node scripts/gen-oss-licenses.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -23,8 +24,10 @@
     "@supabase/supabase-js": "^2.45.0",
     "@trpg/core": "workspace:*",
     "@trpg/ui": "workspace:*",
+    "bcdice": "4.10.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "fflate": "^0.8.3",
     "lucide-react": "^0.424.0",
     "next": "^14.2.5",
     "react": "^18.3.1",

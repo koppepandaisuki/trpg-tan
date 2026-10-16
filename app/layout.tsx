@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP, Noto_Serif_JP } from "next/font/google";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
-import { AmbientBackground } from "@/components/layout/ambient-background";
+import { AdsenseScript } from "@/components/ads/adsense-script";
+import { HideOnTable } from "@/components/layout/hide-on-table";
 import { TestModeBanner } from "@/components/banner/test-mode-banner";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { WelcomeTour } from "@/components/onboarding/welcome-tour";
@@ -41,7 +42,7 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://re-dice.net";
 
 const DESCRIPTION =
-  "ブラウザで卓を立ててすぐ遊べる TRPG オンラインセッションツール。盤面・ダイス・キャラシ・BGM が 1 つに。参加者はインストール不要。";
+  "ブラウザで卓を立ててすぐ遊べる無料の TRPG オンラインセッションツール。BCDice 対応のダイス・盤面・キャラシ・BGM が 1 つに。参加者はログイン・インストール不要。";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -62,6 +63,12 @@ export const metadata: Metadata = {
     "Re-dice",
     "クトゥルフ",
     "創作",
+    "BCDice",
+    "ダイスボット",
+    "オンセ",
+    "ボイセ",
+    "テキセ",
+    "無料",
   ],
   authors: [{ name: "Re-dice" }],
   creator: "Re-dice",
@@ -106,9 +113,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           コンテンツが短いページでもフッターを画面下に貼り付け、
           長いページではコンテンツの下に自然に流れる。 */}
       <body className="isolate flex min-h-screen flex-col bg-background">
-        {/* 背景の控えめな装飾(サイコロ・キラキラ)。body 背景の上・本文の下。 */}
-        <AmbientBackground />
-
         {/* α 期間 + Stripe Test mode のとき、画面最上部に告知バナーを表示。
             Live mode 切替時に自動で消える(STRIPE_SECRET_KEY のプレフィクス判定)。 */}
         <TestModeBanner />
@@ -116,11 +120,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* flex-1 で残り高を占有、フッターを下に押し下げる */}
         <div className="flex-1">{children}</div>
 
-        <SiteFooter />
+        <HideOnTable>
+          <SiteFooter />
+        </HideOnTable>
 
         {/* α 期間中のフィードバック収集インフラ。Server Component が
             認証状態を確認、ログイン済の時だけ floating button を出す。 */}
-        <FeedbackLauncher />
+        <HideOnTable>
+          <FeedbackLauncher />
+        </HideOnTable>
+        <AdsenseScript />
 
         {/* 初回訪問時に表示されるオンボーディング tour。
             localStorage で初回判定、別所(フッター)から再表示も可能。 */}

@@ -356,7 +356,7 @@ const paranoiaBot: DiceBot = {
 
 const d20Bot: DiceBot = {
   id: "d20",
-  name: "d20 システム (D&D 等)",
+  name: "d20 システム",
   help: "1d20+5>=15（出目20=クリティカル / 出目1=ファンブル）",
   run(command, rng) {
     const m = command.match(

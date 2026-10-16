@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { purgeUserStorage } from "@/lib/mutations/purge-user-storage";
 import { requireUser } from "@/lib/session/require";
 import {
   profileEditSchema,
@@ -321,6 +322,9 @@ export async function deleteAccountAction(
         "退会処理に失敗しました。時間をおいて再度お試しいただくか、Discord にてご相談ください。",
     };
   }
+
+  // アップロードしたファイル(卓の画像・音声、アバター)も消す(ベストエフォート)。
+  await purgeUserStorage(createAdminClient(), user.id);
 
   return { ok: true };
 }

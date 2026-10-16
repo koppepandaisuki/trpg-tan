@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/client";
-import type { PlayScene } from "@trpg/core";
+import {
+  clonePlayScene,
+  parsePlayFile,
+  serializePlayFile,
+  playFileName,
+  type PlayScene,
+} from "@trpg/core";
 
 /**
  * Web 版 PLAY の卓の保存(クライアント側)。
@@ -70,4 +76,50 @@ export async function loadPlayScene(id: string): Promise<PlayScene | null> {
     .maybeSingle();
   if (error || !data) return null;
   return (data as { scene: PlayScene }).scene;
+}
+
+/**
+ * 卓を複製する(ログ・ターンは消して「同じ準備の新しい卓」にする)。
+ * ココフォリアでは有料(PRO)の機能だが、Re-dice では無料。新しい卓の id を返す。
+ */
+export async function duplicatePlaySession(id: string): Promise<string> {
+  const src = await loadPlayScene(id);
+  if (!src) throw new Error("複製元の卓が見つかりませんでした");
+  const copy = clonePlayScene(src, {
+    id: crypto.randomUUID(),
+    now: new Date().toISOString(),
+  });
+  await savePlayScene(copy);
+  return copy.id;
+}
+
+/**
+ * 卓ファイル(.play。デスクトップ版と共通の形式)を読み込んで新しい卓として保存する。
+ * 既存の卓を上書きしないよう、常に新しい id を振る。新しい卓の id を返す。
+ */
+export async function importPlayFile(file: File): Promise<string> {
+  const scene = parsePlayFile(await file.text());
+  const copy = clonePlayScene(scene, {
+    id: crypto.randomUUID(),
+    now: new Date().toISOString(),
+    title: scene.title,
+    keepLog: true,
+  });
+  await savePlayScene(copy);
+  return copy.id;
+}
+
+/** 卓を .play ファイルとしてダウンロードさせる(ブラウザ)。 */
+export function downloadPlayFile(scene: PlayScene): void {
+  const blob = new Blob([serializePlayFile(scene)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = playFileName(scene);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

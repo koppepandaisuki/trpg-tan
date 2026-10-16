@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { LogIn, AlertCircle } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
@@ -47,14 +48,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <>
       <TopHeader />
       <PageContainer className="py-12">
-        <Card className="mx-auto max-w-sm overflow-hidden border-border bg-gradient-to-br from-red-500/8 via-transparent to-amber-500/8 shadow-sm">
+        <Card className="mx-auto max-w-sm overflow-hidden border-border shadow-sm">
           <CardContent className="relative space-y-5 py-8">
-            {/* 装飾ブラー(控えめ) */}
-            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-red-500/10 blur-3xl" />
 
             <div className="relative z-10 flex flex-col items-center gap-2 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-700">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-white">
                 <LogIn className="h-5 w-5" aria-hidden />
               </div>
               <h1 className="text-xl font-semibold tracking-tight">ログイン</h1>
@@ -92,7 +90,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <p>
                 アカウントをお持ちでない方は{" "}
                 <Link
-                  href="/signup"
+                  href={
+                    (searchParams.next
+                      ? `/signup?next=${encodeURIComponent(safeNext(searchParams.next))}`
+                      : "/signup") as Route
+                  }
                   className="text-accent underline-offset-4 hover:underline"
                 >
                   新規登録

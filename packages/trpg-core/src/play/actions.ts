@@ -23,8 +23,10 @@ import type {
   SceneRemoveEvent,
   TurnSetEvent,
   LogClearEvent,
+  DeckEvent,
 } from "./types.js";
 import { clampResource } from "./reduce.js";
+import type { DeckOp } from "./deck.js";
 
 /**
  * イベント生成ヘルパ(権威=GM 側で呼ぶ)。乱数を *ここで* 消費し、結果を
@@ -325,6 +327,11 @@ export function turnSetEvent(
 }
 
 /** チャット/ログ履歴の全消去イベント。 */
+/** カード・山札の操作。 */
+export function deckEvent(ctx: EventCtx, actor: string, op: DeckOp): DeckEvent {
+  return { id: ctx.id, ts: ctx.ts, actor, kind: "deck", op };
+}
+
 export function logClearEvent(ctx: EventCtx): LogClearEvent {
   return { id: ctx.id, ts: ctx.ts, actor: "GM", kind: "log-clear" };
 }
@@ -351,5 +358,62 @@ export function resourceEvent(
     label: resource.label,
     delta: current - resource.current,
     current,
+  };
+}
+
+/**
+ * 外部のダイスエンジン(BCDice 等)の結果。呼び出し側(Web / デスクトップ)が
+ * エンジンを実行し、その結果だけを渡す(@trpg/core はエンジンに依存しない)。
+ */
+export interface ExternalDiceResult {
+  /** 入力したコマンド("K20+5" 等)。 */
+  command: string;
+  /** エンジンが整形した結果文("(2D6+3>=10) ＞ 6[5,1]+3 ＞ 9 ＞ 失敗")。 */
+  text: string;
+  /** 振った出目([出目, 面数] の列)。 */
+  rands: [number, number][];
+  success: boolean;
+  failure: boolean;
+  critical: boolean;
+  fumble: boolean;
+  /** シークレットダイス("S2D6" 等)。 */
+  secret: boolean;
+}
+
+/** 結果文の最後の「＞ 数値」を合計として取り出す(無ければ出目の和)。 */
+export function totalFromResultText(text: string, rands: [number, number][]): number {
+  const parts = text.split(/＞|>/).map((p) => p.trim());
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const m = parts[i].match(/^-?\d+(?:\.\d+)?$/);
+    if (m) return Number(m[0]);
+  }
+  return rands.reduce((a, [v]) => a + v, 0);
+}
+
+/** 外部ダイスエンジンの結果をロールイベントにする。 */
+export function externalRollEvent(
+  ctx: EventCtx,
+  actor: string,
+  r: ExternalDiceResult,
+): RollEvent {
+  // 表示用の詳細: コマンドの繰り返し部分("(2D6+3>=10) ＞ ")は省いて読みやすく。
+  const detail = r.text.replace(/^\([^)]*\)\s*＞\s*/, "");
+  const outcome = r.critical
+    ? "クリティカル"
+    : r.fumble
+      ? "ファンブル"
+      : undefined;
+  return {
+    id: ctx.id,
+    ts: ctx.ts,
+    actor,
+    kind: "roll",
+    label: r.command,
+    notation: r.command,
+    dice: r.rands.map(([v]) => v),
+    total: totalFromResultText(r.text, r.rands),
+    ...(r.success ? { success: true } : r.failure ? { success: false } : {}),
+    detail: outcome && !detail.includes(outcome) ? `${detail}(${outcome})` : detail,
+    ...(r.secret ? { secret: true, visibleTo: [] } : {}),
   };
 }

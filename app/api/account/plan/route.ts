@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { setUserPlanTester } from "@/lib/mutations/plan";
-import { normalizePlan } from "@/lib/plan";
+import { canHostTable, normalizePlan } from "@/lib/plan";
 import { isAlphaAdminEmail } from "@/lib/access/alpha-whitelist";
 import { isPlanBillingConfigured } from "@/lib/stripe/subscription";
 
@@ -49,7 +49,14 @@ export async function GET(request: NextRequest) {
   // テスター権限(リデームコード「TESTER」で付与)。Stripe を介さずプラン切替可。
   const tester = Boolean(data?.is_tester);
   return NextResponse.json(
-    { ok: true, plan: normalizePlan(data?.plan), admin, tester },
+    {
+      ok: true,
+      plan: normalizePlan(data?.plan),
+      admin,
+      tester,
+      // 卓のホスト可否はサーバーで決める(既定は無料で可。lib/plan.ts)。
+      canHost: canHostTable(data?.plan, admin),
+    },
     { status: 200, headers: { "Cache-Control": "no-store" } },
   );
 }

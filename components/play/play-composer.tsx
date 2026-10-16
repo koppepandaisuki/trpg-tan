@@ -4,6 +4,7 @@ import { forwardRef } from "react";
 import { Send, EyeOff } from "lucide-react";
 import type { Panel } from "@trpg/core";
 import { Button } from "@/components/ui/button";
+import { chipVariants } from "@/components/ui/tabs";
 
 /** よく使うダイス(ワンクリックで振れる)。 */
 const QUICK_DICE = ["1d100", "2d6", "1d6", "1d20", "1d10", "1d4"];
@@ -29,6 +30,10 @@ export const PlayComposer = forwardRef<
     /** シークレットは GM だけが使う(参加者には出さない)。 */
     canSecret: boolean;
     disabled?: boolean;
+    /** 発言者のよく使う判定(タップ 1 回で振る。スマホ向け)。 */
+    actions?: { label: string; text: string }[];
+    /** actions を振るとき(既定は onSend。駒として振るなど発言者を変えたいとき)。 */
+    onAction?: (text: string) => void;
   }
 >(function PlayComposer(
   {
@@ -43,6 +48,8 @@ export const PlayComposer = forwardRef<
     onSecretChange,
     canSecret,
     disabled,
+    actions,
+    onAction,
   },
   ref,
 ) {
@@ -54,16 +61,14 @@ export const PlayComposer = forwardRef<
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-background p-2">
+    <div className="space-y-2 rounded-2xl border border-border bg-card p-2.5 shadow-sm">
       {/* 発言者 + シークレット */}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[10px] font-semibold text-muted-foreground">
-          発言者
-        </label>
+        <label className="text-[10px] font-semibold text-muted-foreground">発言者</label>
         <select
           value={speakerId}
           onChange={(e) => onSpeakerChange(e.target.value)}
-          className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+          className="h-7 min-w-0 flex-1 rounded-full border border-border bg-card px-3 text-xs focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
         >
           <option value="GM">{selfLabel}</option>
           {speakers.map((p) => (
@@ -77,14 +82,9 @@ export const PlayComposer = forwardRef<
             onClick={() => onSecretChange(!secret)}
             aria-pressed={secret}
             title="シークレットダイス(出目を伏せる)"
-            className={[
-              "inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-semibold transition",
-              secret
-                ? "border-foreground bg-foreground text-background"
-                : "border-border text-muted-foreground hover:text-foreground",
-            ].join(" ")}
+            className={chipVariants()}
           >
-            <EyeOff className="h-3 w-3" aria-hidden />
+            <EyeOff aria-hidden />
             秘匿
           </button>
         )}
@@ -97,12 +97,29 @@ export const PlayComposer = forwardRef<
             key={d}
             onClick={() => onSend(d)}
             disabled={disabled}
-            className="rounded border border-border px-2 py-0.5 font-mono text-[11px] transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
+            className={chipVariants({ variant: "mono" })}
           >
             {d}
           </button>
         ))}
       </div>
+
+      {/* 発言者のよく使う判定(横にスクロール。タップで振る) */}
+      {actions && actions.length > 0 && (
+        <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5">
+          {actions.map((a, i) => (
+            <button
+              key={`${i}-${a.text}`}
+              onClick={() => (onAction ?? onSend)(a.text)}
+              disabled={disabled}
+              title={a.text}
+              className={chipVariants({ variant: "action" })}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 入力 */}
       <div className="flex gap-2">
@@ -118,10 +135,10 @@ export const PlayComposer = forwardRef<
           }}
           disabled={disabled}
           placeholder="発言 / CC<=70 目星 / 2d6+1 …"
-          className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          className="h-10 min-w-0 flex-1 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/25 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 disabled:opacity-50"
         />
-        <Button onClick={submit} disabled={disabled || !value.trim()} size="sm">
-          <Send className="h-3.5 w-3.5" aria-hidden />
+        <Button onClick={submit} disabled={disabled || !value.trim()}>
+          <Send aria-hidden />
           送信
         </Button>
       </div>

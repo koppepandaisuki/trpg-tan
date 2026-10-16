@@ -23,6 +23,7 @@ const CATEGORIES: { value: FeedbackCategory; label: string }[] = [
   { value: "bug", label: "🐛 バグ" },
   { value: "feature_request", label: "✨ 機能要望" },
   { value: "question", label: "❓ 質問" },
+  { value: "report", label: "🚩 権利侵害・違反の申告" },
   { value: "other", label: "📝 その他" },
 ];
 
@@ -141,9 +142,9 @@ export function FeedbackButton() {
                     type="button"
                     onClick={() => setCategory(c.value)}
                     className={cn(
-                      "rounded-md border px-3 py-1.5 text-sm transition",
+                      "rounded-full border px-3.5 py-1.5 text-sm transition",
                       category === c.value
-                        ? "border-primary bg-primary/10 text-foreground"
+                        ? "border-ink bg-ink text-ink-foreground"
                         : "border-border bg-card text-muted-foreground hover:bg-muted",
                     )}
                   >

@@ -10,7 +10,13 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import {
-  reduce,
+  createSceneMirror,
+  createSecretBox,
+  createSigner,
+  createGmGate,
+  SYNC_PROTOCOL,
+  type NetMsg,
+  type DeckCard,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
@@ -35,12 +41,14 @@ import { PlayBoard } from "./PlayBoard";
 import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
 import { BoardStatusBar } from "./BoardStatusBar";
+import { TableTimer } from "./TableTimer";
+import { DeckPanel } from "./DeckPanel";
 import { PortraitLayer } from "./PortraitLayer";
 import { MemoPanel } from "./MemoPanel";
 import { SideStack } from "./SideStack";
 import { CutInOverlay } from "./CutIn";
 import { TelopOverlay } from "./TextStock";
-import { connectRoom, type NetIntent, type Room } from "./net";
+import { connectRoom, type NetIntent, type Room, type LinkStatus } from "./net";
 import { resolveSceneMedia } from "./play-media";
 import { useLiveDrag } from "./use-live-drag";
 import {
@@ -106,6 +114,10 @@ export function PlayClient({
   onMenu?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("connecting");
+  // GM により退室させられた(closed の表示文言を変える)。
+  const [kickedOut, setKickedOut] = useState(false);
+  // 自分の手札(GM から本人宛ての暗号文で届く)。
+  const [myHands, setMyHands] = useState<{ deckId: string; cards: DeckCard[] }[]>([]);
   const [netError, setNetError] = useState<string | null>(null);
   // 無料(basic / 未ログイン)参加者か。卓DL中のハウス広告(JoinPromo)の表示判定に使う。
   // 課金(play/pro)・管理者には広告を出さない。
@@ -186,9 +198,8 @@ export function PlayClient({
   // 画像束(key→URL/dataURL)。GM は state を "cas:<key>" 参照の軽量版で流し、画像実体は
   // 別 media メッセージで送ってくる。ここに溜めて state の参照を実体へ復元する。
   const mediaMapRef = useRef<Map<string, string>>(new Map());
-  // 適用済み state の版。rev が進んだときだけ置き換える(broadcast の順序逆転で
-  // 古い state が新しいのを潰すのを防ぐ)。
-  const lastRevRef = useRef(-1);
+  // 直結(P2P)/ 中継 の状態(診断・表示用)。
+  const [link, setLink] = useState<LinkStatus | null>(null);
   // 楽観反映した自分の駒(panelId → 予測した駒 + 失効時刻)。権威 state が追いつく/
   // 猶予が切れる/権威から消えるまで、権威の上に被せて自分の操作を即時に見せる。
   const optimistic = useRef<Map<string, { panel: Panel; until: number }>>(
@@ -207,7 +218,12 @@ export function PlayClient({
     let helloTimer: number | undefined;
     void (async () => {
       try {
-        r = await connectRoom(code, name);
+        // 自分の操作に署名する鍵(GM が「この参加者本人の操作か」を確かめる)。
+        const signer = await createSigner();
+        r = await connectRoom(code, name, { onLinkStatus: setLink, signer });
+        // 参加コードの鍵で署名された配信だけを GM のものとして受け入れる(なりすまし対策)。
+        const gate = createGmGate(code);
+        let gateQueue: Promise<void> = Promise.resolve();
         if (!alive) {
           r.close();
           return;
@@ -223,23 +239,63 @@ export function PlayClient({
           else if (gmSeen) setPhase("closed");
         });
         r.onProgress((p) => alive && setProgress(p));
-        r.onMessage((msg) => {
+        // GM の卓の写し(全量 / 差分 / チャット・ダイス / 共有メモを適用)。
+        const mirror = createSceneMirror();
+        // 自分宛ての秘密(シークレットダイスの出目・個別チャット)を開く鍵。
+        const box = await createSecretBox();
+        const hello = () =>
+          roomRef.current?.send({
+            type: "hello",
+            from: r!.selfId,
+            name,
+            proto: SYNC_PROTOCOL,
+            pub: box.publicKey,
+          });
+        // 鍵の登録 → 暗号文を開く、の順序を守るため 1 本の列で処理する。
+        let secretQueue: Promise<void> = Promise.resolve();
+        const show = () => {
+          if (!mirror.scene) return;
+          // 軽量な卓の "cas:<key>" 参照を、受信済みの画像実体へ復元してから
+          // 楽観反映を被せる(まだ届いていない画像は参照のまま=後続 media で埋まる)。
+          setScene(
+            overlayOptimistic(resolveSceneMedia(mirror.scene, mediaMapRef.current)),
+          );
+        };
+        r.onMessage((msg, meta) => {
+          gateQueue = gateQueue.then(async () => {
+            if (alive && (await gate.accept(msg, meta))) handleMsg(msg);
+          });
+        });
+        const handleMsg = (msg: NetMsg) => {
           if (!alive) return;
-          if (msg.type === "state") {
-            // 古い state(順序逆転)は無視。同 rev(heartbeat)は、楽観反映の期限切れを
-            // 掃除して権威へ戻すときだけ再適用する(楽観が無ければ何もしない=再描画なし)。
-            if (msg.rev < lastRevRef.current) return;
-            if (msg.rev === lastRevRef.current && optimistic.current.size === 0)
-              return;
-            lastRevRef.current = msg.rev;
-            got = true;
-            if (helloTimer) window.clearInterval(helloTimer);
-            // 軽量 state の "cas:<key>" 参照を、受信済みの画像実体へ復元してから
-            // 楽観反映を被せる(まだ届いていない画像は参照のまま=後続 media で埋まる)。
-            setScene(
-              overlayOptimistic(resolveSceneMedia(msg.scene, mediaMapRef.current)),
-            );
-            setPhase("ready");
+          const res = mirror.receive(msg);
+          if (res.resync) hello();
+          if (res.changed) {
+            if (!got) {
+              got = true;
+              if (helloTimer) window.clearInterval(helloTimer);
+              setPhase("ready");
+            }
+            show();
+            if (msg.type === "event" && msg.ev.kind === "roll") setMotion(msg.ev);
+            return;
+          }
+          if (msg.type === "tick") {
+            // 心拍: 楽観反映の期限切れを掃除して GM の状態へ戻す(楽観が無ければ何もしない)。
+            if (optimistic.current.size > 0) show();
+          } else if (msg.type === "key") {
+            const pub = msg.pub;
+            secretQueue = secretQueue.then(async () => {
+              await box.addPeer("GM", pub);
+            });
+          } else if (msg.type === "sealed" && msg.to === r?.selfId) {
+            const sealed = msg;
+            secretQueue = secretQueue.then(async () => {
+              const inner = await box.open("GM", sealed);
+              if (!alive || !inner) return;
+              if (inner.type === "hand") setMyHands(inner.hands);
+              else if (mirror.receive(inner).changed) show();
+            });
           } else if (msg.type === "media") {
             // 画像束を受け取りキャッシュ。表示中 scene に残る未解決参照を埋める
             // (解決済み URL や通常のログ文字列には触れないのでログは保持される)。
@@ -247,25 +303,23 @@ export function PlayClient({
               mediaMapRef.current.set(k, v);
             }
             setScene((s) => (s ? resolveSceneMedia(s, mediaMapRef.current) : s));
-          } else if (msg.type === "event") {
-            // チャット/ダイスのみ即時(ログ即時表示＋ダイス演出)。状態は state が権威。
-            setScene((s) => (s ? reduce(s, msg.ev) : s));
-            if (msg.ev.kind === "roll") setMotion(msg.ev);
           } else if (msg.type === "cutin") {
             // id だけ届くので参加者の scene から画像を引く。
             const c = sceneRef.current?.cutins?.find((x) => x.id === msg.cutinId);
             if (c) setCutin(c);
           } else if (msg.type === "telop") {
             setTelop(msg.text);
-          } else if (msg.type === "memo") {
-            setScene((s) => (s ? { ...s, sharedMemos: msg.memos } : s));
           } else if (msg.type === "audio") {
             handleAudio(msg.channel, msg.src);
           } else if (msg.type === "closed") {
             setPhase("closed");
+          } else if (msg.type === "kick" && msg.to === r?.selfId) {
+            setKickedOut(true);
+            setPhase("closed");
+            roomRef.current?.close();
           }
-        });
-        r.send({ type: "hello", from: r.selfId, name });
+        };
+        hello();
         setPhase("waiting");
         // snapshot が来るまで hello を再送する。GM が後から共有を開始した場合や、
         // 最初の hello が取りこぼされた場合に「卓データ待ち」で固まらないため。
@@ -277,7 +331,7 @@ export function PlayClient({
             return;
           }
           tries += 1;
-          roomRef.current?.send({ type: "hello", from: r!.selfId, name });
+          hello();
         }, 2500);
       } catch (e) {
         if (alive) {
@@ -306,10 +360,17 @@ export function PlayClient({
         `name: ${name}`,
         `room: ${code}`,
         `play: ${scene?.id ?? "?"} / ${scene?.systemId ?? "?"}`,
+        `link: ${
+          link
+            ? link.relayOnly
+              ? "中継のみ"
+              : link.peers.map((p) => `${p.name || "?"}=${p.link}`).join(",") || "-"
+            : "-"
+        }`,
       ].join("\n"),
     );
     return () => setDiagContext(null);
-  }, [code, name, scene?.id, scene?.systemId]);
+  }, [code, name, scene?.id, scene?.systemId, link]);
 
   // [ / ] でドロワー開閉(入力中は無効)。
   useEffect(() => {
@@ -722,17 +783,21 @@ export function PlayClient({
     }
   }
 
-  // 発言者は「自分(入室名)」か自分のキャラのみ。駒が消えるなど無効になったら
-  // 自分(地の声)へ戻す。"self" は常に有効。
+  // 発言者は「自分(入室名)」か自分のキャラのみ。既定は自分のキャラ(TRPG ではキャラとして
+  // 話すのが基本。Web の参加者画面と同じ)。自分で選び直したらそれを尊重し、選んでいた駒が
+  // 消えたら次の自分の駒(無ければ自分)へ戻す。
   const myIds = myCards.map((p) => p.id).join(",");
+  const speakerTouched = useRef(false);
   useEffect(() => {
-    const valid =
-      compose.speakerId === "self" ||
-      myCards.some((p) => p.id === compose.speakerId);
-    if (!valid) setCompose((c) => ({ ...c, speakerId: "self" }));
-    // myIds で myCards の変化を検知(配列参照は毎回変わるため)。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myIds, compose.speakerId]);
+    const ids = myIds ? myIds.split(",") : [];
+    setCompose((c) => {
+      if (c.speakerId !== "self" && !ids.includes(c.speakerId))
+        return { ...c, speakerId: ids[0] ?? "self" };
+      if (c.speakerId === "self" && !speakerTouched.current && ids.length > 0)
+        return { ...c, speakerId: ids[0] };
+      return c;
+    });
+  }, [myIds]);
 
   /* ===== 操作 → intent ===== */
 
@@ -912,7 +977,9 @@ export function PlayClient({
                 </p>
               </div>
             ))}
-          {phase === "closed" && <p>👋 GM が共有を終了しました。</p>}
+          {phase === "closed" && (
+            <p>{kickedOut ? "🚪 GM により卓から退室しました。" : "👋 GM が共有を終了しました。"}</p>
+          )}
           {phase === "error" && (
             <p className="tag fail">接続できませんでした: {netError}</p>
           )}
@@ -1020,6 +1087,7 @@ export function PlayClient({
             />
             <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />
             <BoardStatusBar cards={playerCards} turn={scene.turn} />
+            <TableTimer timer={scene.timer} />
           </div>
         </main>
 
@@ -1161,6 +1229,32 @@ export function PlayClient({
               </div>
             )}
 
+            {/* カード(場のカード・残り枚数・自分の手札)。 */}
+            {((scene?.decks?.length ?? 0) > 0 || myHands.length > 0) && (
+              <div className="pside-block">
+                <div className="pside-title">カード</div>
+                <DeckPanel
+                  mode="player"
+                  decks={scene?.decks ?? []}
+                  hands={myHands}
+                  onDraw={(deckId) =>
+                    roomRef.current?.send({
+                      type: "intent",
+                      from: roomRef.current.selfId,
+                      intent: { kind: "deck-draw", deckId },
+                    })
+                  }
+                  onPlay={(deckId, cardId) =>
+                    roomRef.current?.send({
+                      type: "intent",
+                      from: roomRef.current.selfId,
+                      intent: { kind: "deck-play", deckId, cardId },
+                    })
+                  }
+                />
+              </div>
+            )}
+
             {/* 画像 D&D の案内(参加者も盤面にオブジェクトを置ける)。 */}
             <p className="pside-empty muted" style={{ fontSize: 11 }}>
               画像ファイルを画面にドラッグ＆ドロップすると、盤面にオブジェクトとして
@@ -1208,9 +1302,10 @@ export function PlayClient({
                         onChannelChange={setChannel}
                         color={chatColor}
                         onColorChange={changeChatColor}
-                        onSpeakerChange={(id) =>
-                          setCompose((c) => ({ ...c, speakerId: id }))
-                        }
+                        onSpeakerChange={(id) => {
+                          speakerTouched.current = true;
+                          setCompose((c) => ({ ...c, speakerId: id }));
+                        }}
                         onTextChange={(t) =>
                           setCompose((c) => ({ ...c, text: t }))
                         }

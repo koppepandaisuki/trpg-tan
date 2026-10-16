@@ -1,4 +1,7 @@
 import type { PlayEvent, PlayScene, Panel, MemoPage } from "./types.js";
+import type { ScenePatch } from "./sync.js";
+import type { DeckCard } from "./deck.js";
+import { verifySignature, type MsgMeta, type Signer } from "./auth.js";
 
 /**
  * ネットワーク同期(卓のリアルタイム配信)の共有プロトコル。
@@ -20,15 +23,54 @@ import type { PlayEvent, PlayScene, Panel, MemoPage } from "./types.js";
 
 const CHUNK = 60_000; // UTF-16 文字数。Realtime の上限(~256KB)に対して安全側。
 
+/**
+ * 同期プロトコルの版。hello に載せて GM へ申告する。
+ *   - 1(未申告): state(全量)だけを理解する旧クライアント
+ *   - 2: patch(差分)/ tick(rev の心拍)を理解する
+ * GM は参加者に 1 人でも旧版がいれば全量配信に戻す(sync.ts の broadcaster)。
+ */
+export const SYNC_PROTOCOL = 2;
+
 export type NetMsg =
-  | { type: "hello"; from: string; name: string }
+  | {
+      type: "hello";
+      from: string;
+      name: string;
+      proto?: number;
+      /** 参加者の公開鍵(ECDH。個別の秘密を暗号化して受け取るため。seal.ts)。 */
+      pub?: string;
+    }
+  /** GM の公開鍵(ECDH)。参加者はこれで GM からの暗号文を開く。 */
+  | { type: "key"; pub: string }
+  /**
+   * 宛先(to = 参加者 id)だけが開ける暗号文。中身は NetMsg(主に reveal)。
+   * 全員に届いても宛先以外には読めない。
+   */
+  | { type: "sealed"; to: string; iv: string; data: string }
+  /**
+   * 個別に見せる出来事(シークレットダイスの出目・個別チャット)。sealed の中身として
+   * 宛先にだけ届く。参加者は同じ id の印(redacted)を置き換える / ログに足す。
+   */
+  | { type: "reveal"; evs: PlayEvent[] }
+  /** 自分の手札(sealed の中身として本人にだけ届く。deck.ts)。 */
+  | { type: "hand"; hands: { deckId: string; cards: DeckCard[] }[] }
   /**
    * 権威スナップショット(状態置換)。GM の現在状態(秘匿駒を除いた scene)を丸ごと
    * 配信し、参加者は rev が進んだときだけ scene を置き換える。取りこぼしても次の
    * 配信で必ず収束する(イベント再生のような恒久ズレが起きない)。rev は単調増加で、
    * broadcast の順序逆転(古い state が新しい state を潰す)を防ぐ。
+   * epoch は GM の配信の世代(GM がページを開き直すと rev が 1 から振り直しになる
+   * ため、世代が変わったら rev に関係なく受け入れる)。
    */
-  | { type: "state"; rev: number; scene: PlayScene }
+  | { type: "state"; rev: number; scene: PlayScene; epoch?: string }
+  /**
+   * 差分(proto 2)。参加者は自分の rev が base と一致するときだけ適用し、
+   * ずれていれば hello を送り直して全量(state)をもらう。駒を 1 つ動かすたびに
+   * 卓全体(数十〜数百 KB)を送らずに済むので、体感の遅延と通信量が桁で減る。
+   */
+  | { type: "patch"; rev: number; base: number; patch: ScenePatch; epoch?: string }
+  /** GM の現在 rev の心拍(proto 2)。最後の差分を取りこぼした参加者が自力で追いつく。 */
+  | { type: "tick"; rev: number; epoch?: string }
   /** 即時イベント(チャット/ダイスのみ)。ログ即時表示＋ダイス演出用。状態は state が権威。 */
   | { type: "event"; ev: PlayEvent }
   /**
@@ -51,7 +93,12 @@ export type NetMsg =
    *   - channel "se": 単発再生(効果音 / カットイン音)。
    */
   | { type: "audio"; channel: "bgm" | "se"; src: string | null; loop?: boolean }
-  | { type: "closed" };
+  | { type: "closed" }
+  /**
+   * GM が参加者を退室させる(to = 参加者の participant id)。該当する参加者は
+   * 切断して「退室させられました」を表示する。GM 側はその id の操作を以後受け付けない。
+   */
+  | { type: "kick"; to: string };
 
 /** 参加者 → GM の操作意図。GM が検証して正規イベント化する。 */
 export type NetIntent =
@@ -74,6 +121,10 @@ export type NetIntent =
   | { kind: "remove-char"; panelId: string }
   /** 参加者が GM/他人のキャラ駒を「自分の駒にする」(GM が owner を送信者名で刻む)。 */
   | { kind: "claim-char"; panelId: string }
+  /** 山札から 1 枚、自分の手札に引く(山札が selfDraw のときだけ GM が受け付ける)。 */
+  | { kind: "deck-draw"; deckId: string }
+  /** 自分の手札から場に出す。 */
+  | { kind: "deck-play"; deckId: string; cardId: string }
   | {
       kind: "panel-update";
       panelId: string;
@@ -102,6 +153,10 @@ interface ChunkPayload {
   i: number;
   n: number;
   data: string;
+  /** 送り主の署名(メッセージ全体の JSON に対して。先頭チャンクだけに付く)。 */
+  s?: string;
+  /** 送り主の公開鍵(先頭チャンクだけに付く)。 */
+  pk?: string;
 }
 
 /**
@@ -119,6 +174,15 @@ export interface RoomTransport {
   close(): Promise<void>;
 }
 
+/** presence から分かる参加者(P2P 接続の相手探しに使う)。 */
+export interface PeerInfo {
+  /** 接続ごとの participant id(presence key)。 */
+  id: string;
+  name: string;
+  /** 卓を開いた側(GM)なら "host"。 */
+  role?: "host" | "guest";
+}
+
 export interface Room {
   code: string;
   /** 自分の participant id。 */
@@ -127,7 +191,8 @@ export interface Room {
   send: (msg: NetMsg) => Promise<void>;
   /** ライブ(ephemeral)送信。投げっぱなし(ack 待ち/チャンク/逐次化なし)。 */
   sendLive: (msg: LiveMsg) => void;
-  onMessage: (cb: (msg: NetMsg) => void) => void;
+  /** meta.signer は署名を確かめられた送り主の公開鍵(auth.ts)。 */
+  onMessage: (cb: (msg: NetMsg, meta: MsgMeta) => void) => void;
   /** ライブ(ephemeral)受信。ドラッグ中の駒座標など。 */
   onLive: (cb: (msg: LiveMsg) => void) => void;
   onPresence: (cb: (names: string[]) => void) => void;
@@ -185,23 +250,37 @@ export function createRoom(
     /** 計測ログの出力先。既定は無出力(呼び出し側で console を渡せる)。 */
     log?: (line: string) => void;
     makeId?: () => string;
+    /** 送るメッセージに署名する鍵(なりすまし対策。auth.ts)。 */
+    signer?: Signer;
   },
 ): Room {
   const { code, selfId, transform } = params;
   const log = params.log ?? (() => {});
   const makeId = params.makeId ?? (() => globalThis.crypto.randomUUID());
 
-  let onMsg: (msg: NetMsg) => void = () => {};
+  let onMsg: (msg: NetMsg, meta: MsgMeta) => void = () => {};
+  // 署名の確認は非同期なので、届いた順に 1 本の列で渡す(順序を崩さない)。
+  let deliverQueue: Promise<void> = Promise.resolve();
   let onLiveCb: (msg: LiveMsg) => void = () => {};
   let onPres: (names: string[]) => void = () => {};
   let onProg: (p: { received: number; total: number } | null) => void = () => {};
   const buffers = new Map<
     string,
-    { parts: string[]; got: number; n: number; t0: number }
+    { parts: string[]; got: number; n: number; t0: number; s?: string; pk?: string }
   >();
+  // 組み立て済みの mid。P2P と中継の両方から同じメッセージが届くことがある
+  // (中継へ切り替わった瞬間など)ので、二重に onMessage しないよう覚えておく。
+  const done = new Set<string>();
+  const doneOrder: string[] = [];
+  function markDone(mid: string) {
+    done.add(mid);
+    doneOrder.push(mid);
+    if (doneOrder.length > 512) done.delete(doneOrder.shift()!);
+  }
 
   transport.onBroadcast("chunk", (payload) => {
     const c = payload as ChunkPayload;
+    if (done.has(c.mid)) return;
     let buf = buffers.get(c.mid);
     if (!buf) {
       buf = {
@@ -216,10 +295,15 @@ export function createRoom(
       buf.parts[c.i] = c.data;
       buf.got += 1;
     }
+    if (c.i === 0 && typeof c.s === "string" && typeof c.pk === "string") {
+      buf.s = c.s;
+      buf.pk = c.pk;
+    }
     // 複数チャンクの大きい受信(スナップショット等)は進捗を通知する。
     if (buf.n > 1) onProg({ received: buf.got, total: buf.n });
     if (buf.got === buf.n) {
       buffers.delete(c.mid);
+      markDone(c.mid);
       if (buf.n > 1) onProg(null); // 完了
       const text = buf.parts.join("");
       // 計測: 大きい受信(卓データ等)の所要時間 / サイズ / チャンク数。
@@ -232,11 +316,22 @@ export function createRoom(
           )}KB/s`,
         );
       }
+      let parsed: NetMsg;
       try {
-        onMsg(JSON.parse(text) as NetMsg);
+        parsed = JSON.parse(text) as NetMsg;
       } catch {
-        // 壊れたメッセージは無視
+        return; // 壊れたメッセージは無視
       }
+      const { s, pk } = buf;
+      deliverQueue = deliverQueue.then(async () => {
+        const meta: MsgMeta = {};
+        if (s && pk && (await verifySignature(pk, text, s))) meta.signer = pk;
+        try {
+          onMsg(parsed, meta);
+        } catch {
+          // 受け手の例外で列を止めない
+        }
+      });
     }
   });
 
@@ -260,6 +355,7 @@ export function createRoom(
       const m = transform ? await transform(msg) : msg;
       const tPrepped = now();
       const json = JSON.stringify(m);
+      const sig = params.signer ? await params.signer.sign(json) : undefined;
       const n = Math.max(1, Math.ceil(json.length / CHUNK));
       for (let i = 0; i < n; i++) {
         const payload: ChunkPayload = {
@@ -267,6 +363,9 @@ export function createRoom(
           i,
           n,
           data: json.slice(i * CHUNK, (i + 1) * CHUNK),
+          ...(i === 0 && sig && params.signer
+            ? { s: sig, pk: params.signer.publicKey }
+            : {}),
         };
         // 取りこぼし対策で数回まで再送。
         let ok = false;

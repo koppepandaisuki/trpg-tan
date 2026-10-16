@@ -15,6 +15,8 @@ export const feedbackCategoryEnum = z.enum([
   "bug",
   "feature_request",
   "question",
+  /** 権利侵害・規約違反の申告(削除申出の窓口)。 */
+  "report",
   "other",
 ]);
 

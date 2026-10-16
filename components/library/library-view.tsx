@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import {
   Dices,
@@ -18,7 +19,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TableGrid } from "@/components/play/table-grid";
-import { deletePlaySession } from "@/lib/play/store";
+import { deletePlaySession, duplicatePlaySession } from "@/lib/play/store";
 import { uploadPlayAudio, uploadPlayImage } from "@/lib/play/media";
 import {
   listMyAssets,
@@ -29,6 +30,7 @@ import {
 } from "@/lib/play/assets";
 import type { PlaySessionSummary } from "@/lib/queries/play-sessions";
 import { cn } from "@/lib/utils";
+import { chipVariants, tabListVariants, tabVariants } from "@/components/ui/tabs";
 
 type Tab = "tables" | "assets";
 type Filter = "all" | AssetKind;
@@ -55,6 +57,17 @@ export function LibraryView({
   const [tables, setTables] = useState(sessions);
   const [error, setError] = useState<string | null>(null);
 
+  const router = useRouter();
+  async function duplicateTable(s: PlaySessionSummary) {
+    setError(null);
+    try {
+      const id = await duplicatePlaySession(s.id);
+      router.push(`/play/${id}` as Route);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function removeTable(s: PlaySessionSummary) {
     if (!confirm(`「${s.title}」を削除しますか？この操作は取り消せません。`))
       return;
@@ -72,7 +85,7 @@ export function LibraryView({
       <div
         role="tablist"
         aria-label="ライブラリの表示"
-        className="inline-flex rounded-lg border border-border bg-muted/40 p-1"
+        className={tabListVariants()}
       >
         <TabButton active={tab === "tables"} onClick={() => setTab("tables")}>
           <Dices className="h-4 w-4" aria-hidden />卓（{tables.length}）
@@ -103,6 +116,7 @@ export function LibraryView({
           <TableGrid
             sessions={tables}
             onRemove={(s) => void removeTable(s)}
+            onDuplicate={(s) => void duplicateTable(s)}
             empty="まだ卓がありません。PLAY で卓を立てると、ここに保存されます。"
           />
         </div>
@@ -127,12 +141,7 @@ function TabButton({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-        active
-          ? "bg-background text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
-      )}
+      className={cn(tabVariants(), "h-8 px-4 text-sm")}
     >
       {children}
     </button>
@@ -250,7 +259,7 @@ function AssetsPanel({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-md border border-border p-0.5 text-xs">
+        <div className="flex flex-wrap gap-1">
           {(
             [
               ["all", `すべて（${assets.length}）`],
@@ -262,12 +271,7 @@ function AssetsPanel({
               key={k}
               onClick={() => setFilter(k)}
               aria-pressed={filter === k}
-              className={cn(
-                "rounded px-2.5 py-1 transition",
-                filter === k
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
+              className={chipVariants()}
             >
               {label}
             </button>
@@ -344,7 +348,7 @@ function AssetsPanel({
                         ? `「${a.name}」の試聴を止める`
                         : `「${a.name}」を試聴`
                     }
-                    className="flex aspect-square w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-amber-500/10 to-red-500/10 text-muted-foreground transition hover:text-foreground"
+                    className="flex aspect-square w-full flex-col items-center justify-center gap-2 bg-muted text-muted-foreground transition hover:text-foreground"
                   >
                     <Music className="h-7 w-7" aria-hidden />
                     <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-background shadow-sm">

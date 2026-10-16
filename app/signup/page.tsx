@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { UserPlus, Sparkles } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
@@ -6,6 +7,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { SignupForm } from "@/components/auth/signup-form";
 import { getCurrentUser } from "@/lib/session/get-user";
+import { safeNext } from "@/lib/api/redirect";
 
 export const metadata = { title: "新規登録" };
 
@@ -17,22 +19,24 @@ export const metadata = { title: "新規登録" };
  * violet トーンで「新規参加」のニュアンス、α テスター歓迎の補足を
  * 小さく添える(α 期間限定の案内、後段で消す)。
  */
-export default async function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: { next?: string };
+}) {
+  // 既ログインなら ?next= があればそこへ(アプリへの受け渡し等)、無ければ /。
   const user = await getCurrentUser();
-  if (user) redirect("/");
+  if (user) redirect(safeNext(searchParams.next));
 
   return (
     <>
       <TopHeader />
       <PageContainer className="py-12">
-        <Card className="mx-auto max-w-sm overflow-hidden border-border bg-gradient-to-br from-amber-500/10 via-transparent to-rose-500/8 shadow-sm">
+        <Card className="mx-auto max-w-sm overflow-hidden border-border shadow-sm">
           <CardContent className="relative space-y-5 py-8">
-            {/* 装飾ブラー(控えめ) */}
-            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-500/12 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-rose-500/10 blur-3xl" />
 
             <div className="relative z-10 flex flex-col items-center gap-2 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-amber-700">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-white">
                 <UserPlus className="h-5 w-5" aria-hidden />
               </div>
               <h1 className="text-xl font-semibold tracking-tight">新規登録</h1>
@@ -42,9 +46,9 @@ export default async function SignupPage() {
             </div>
 
             {/* α 期間中の歓迎メッセージ(Phase 2 で削除予定) */}
-            <div className="relative z-10 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+            <div className="relative z-10 flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-xs text-foreground/80">
               <Sparkles
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700"
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
                 aria-hidden
               />
               <span>
@@ -59,7 +63,11 @@ export default async function SignupPage() {
             <p className="relative z-10 text-center text-xs text-muted-foreground">
               すでにアカウントをお持ちの方は{" "}
               <Link
-                href="/login"
+                href={
+                  (searchParams.next
+                    ? `/login?next=${encodeURIComponent(safeNext(searchParams.next))}`
+                    : "/login") as Route
+                }
                 className="text-accent underline-offset-4 hover:underline"
               >
                 ログイン

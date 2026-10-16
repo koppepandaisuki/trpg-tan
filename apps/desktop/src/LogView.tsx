@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Ref } from "react";
-import { DICE_BOTS, getDiceBot } from "@trpg/core";
+import { DICE_BOTS, getDiceBot, directRecipient } from "@trpg/core";
 import {
   CircleHelp,
   MessageSquare,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { PlayEvent, CoCCheckResult } from "@trpg/core";
 import { QuickRollBar } from "./QuickRollBar";
+import { listBcdiceSystems, BCDICE_PREFIX } from "./bcdice";
 
 /** 発言者の選択肢(GM + 卓上の駒)。 */
 export interface Speaker {
@@ -24,7 +25,11 @@ type LogFilter = "all" | "chat" | "dice";
 
 /** イベントの所属チャンネル(chat / roll 以外は常にメイン)。 */
 function channelOf(ev: PlayEvent): string {
-  if (ev.kind === "chat" || ev.kind === "roll") return ev.channel ?? "main";
+  if (ev.kind === "chat" || ev.kind === "roll") {
+    // 入室名宛て(ハンドアウトの配布など)はメインに並べる(宛先にだけ届いている)。
+    if (directRecipient(ev.channel)) return "main";
+    return ev.channel ?? "main";
+  }
   return "main";
 }
 
@@ -127,6 +132,18 @@ export function LogView({
   const [exportMenu, setExportMenu] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
+  // BCDice のシステム一覧(一覧の JSON だけを後から読む。本体はシステムを選んだときに読む)。
+  const [bcdiceSystems, setBcdiceSystems] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!onDiceBotChange) return;
+    let alive = true;
+    listBcdiceSystems()
+      .then((l) => alive && setBcdiceSystems(l))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [onDiceBotChange]);
   const shown = useMemo(() => {
     const inChannel = log.filter(
       (ev) => !LOG_HIDDEN_KINDS.has(ev.kind) && channelOf(ev) === channel,
@@ -366,11 +383,20 @@ export function LogView({
               onChange={(e) => onDiceBotChange(e.target.value)}
               title={`ダイスボット（システム別のダイス処理）\n例: ${getDiceBot(diceBot).help}`}
             >
-              {DICE_BOTS.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
+              <optgroup label="内蔵(軽量)">
+                {DICE_BOTS.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="BCDice(選んだシステムだけ読み込み)">
+                {bcdiceSystems.map((s) => (
+                  <option key={s.id} value={BCDICE_PREFIX + s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           )}
           <button
@@ -419,6 +445,9 @@ export function LogRow({
     return (
       <p className="logrow" style={ev.color ? { color: ev.color } : undefined}>
         <b className="log-actor">{ev.actor}</b>
+        {directRecipient(ev.channel) && (
+          <span className="log-dm">📨 {directRecipient(ev.channel)} へ(個別)</span>
+        )}
         <span>{ev.text}</span>
       </p>
     );

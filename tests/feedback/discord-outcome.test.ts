@@ -110,11 +110,12 @@ describe("decideFeedbackOutcome", () => {
     expect(bodyField!.value.length).toBeLessThanOrEqual(900);
   });
 
-  it("includes all 4 categories with distinct titles", () => {
+  it("includes all 5 categories with distinct titles", () => {
     const categories: FeedbackInput["category"][] = [
       "bug",
       "feature_request",
       "question",
+      "report",
       "other",
     ];
     const titles = categories.map((category) => {
@@ -128,6 +129,6 @@ describe("decideFeedbackOutcome", () => {
     });
 
     const uniqueTitles = new Set(titles);
-    expect(uniqueTitles.size).toBe(4);
+    expect(uniqueTitles.size).toBe(5);
   });
 });

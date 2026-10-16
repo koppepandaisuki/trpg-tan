@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Bell, LogOut, MessageCircle } from "lucide-react";
+import type { Route } from "next";
+import { Bell, Dices, LogOut, MessageCircle } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { MobileMenu } from "@/components/layout/mobile-menu";
-import { NavLinks } from "@/components/layout/nav-links";
+import { NavLinks, SecondaryNavLinks } from "@/components/layout/nav-links";
 import { PresenceHeartbeat } from "@/components/friends/presence-heartbeat";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { cn } from "@/lib/utils";
@@ -31,13 +32,13 @@ export async function TopHeader({ className }: { className?: string }) {
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur",
+        "sticky top-0 z-40 border-b border-border bg-white/85 backdrop-blur-md",
         className,
       )}
     >
       {/* ログイン中は在席の心拍を打つ(描画なし) */}
       {user && <PresenceHeartbeat />}
-      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
+      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-stretch gap-3 px-4 sm:gap-8 sm:px-6">
         <Link
           href="/"
           className="flex shrink-0 items-center"
@@ -49,11 +50,24 @@ export async function TopHeader({ className }: { className?: string }) {
         {/* デスクトップ用 nav(現在地ハイライト付き。アプリのトップバーと同挙動) */}
         <NavLinks />
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 self-center">
+          <SecondaryNavLinks />
           {/* デスクトップ用ユーザーメニュー */}
           <div className="hidden items-center gap-2 md:flex">
             {user ? <AuthedMenu user={user} /> : <UnauthedMenu />}
           </div>
+
+          {/* スマホでも PLAY は 1 タップ(メニューを開かずに行ける) */}
+          <Link
+            href={"/play" as Route}
+            className={cn(
+              buttonVariants({ variant: "primary", size: "sm" }),
+              "md:hidden",
+            )}
+          >
+            <Dices aria-hidden />
+            PLAY
+          </Link>
 
           {/* モバイル用ハンバーガー(MobileMenu の中で md:hidden 制御) */}
           <MobileMenu
@@ -70,11 +84,6 @@ export async function TopHeader({ className }: { className?: string }) {
           />
         </div>
       </div>
-      {/* ブランドのスカイ→シアンを下端の細いアクセントに(アプリと同じトーン)。 */}
-      <div
-        aria-hidden
-        className="h-0.5 w-full bg-gradient-to-r from-red-500/70 via-amber-400/40 to-transparent"
-      />
     </header>
   );
 }
@@ -88,9 +97,10 @@ function UnauthedMenu() {
       >
         ログイン
       </Link>
+      {/* 紅は PLAY に譲る(1 画面に紅のボタンは 1 つ) */}
       <Link
         href="/signup"
-        className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+        className={cn(buttonVariants({ variant: "ink", size: "sm" }))}
       >
         新規登録
       </Link>
@@ -159,7 +169,7 @@ function DiscordOrBellButton() {
         aria-label="α テスター Discord に参加(別タブで開く)"
         className={cn(
           buttonVariants({ variant: "ghost", size: "sm" }),
-          "text-red-700 hover:text-red-800",
+          "text-primary",
         )}
       >
         <MessageCircle className="h-4 w-4" />

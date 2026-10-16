@@ -5,9 +5,9 @@
 @layer base {
   :root {
     /*
-     * Re-dice ブランドトークン(青いダイス / 白い清潔感 / 柔らかい光)。
-     * shadcn 互換の HSL 成分(空白区切り)。コンポーネントは bg-primary /
-     * border-border 等のトークン経由で参照するため、ここを変えると全画面に反映。
+     * Re-dice ブランドトークン。shadcn 互換の HSL 成分(空白区切り)。
+     * コンポーネントは bg-primary / border-border 等のトークン経由で参照するため、
+     * ここを変えると全画面に反映される。
      */
 
     /*
@@ -19,39 +19,49 @@
      */
     color-scheme: only light;
 
-    /* 2026-07 リブランド: 深紅(primary)/ 白磁(background)/ 金(accent 装飾) */
-    --background: 38 67% 98%; /* アイボリーホワイト #FDFAF5 */
-    --foreground: 22 35% 12%; /* ウォームインク #2A1C14 */
-    --muted: 39 58% 95%; /* #FAF5EC */
-    --muted-foreground: 32 20% 39%; /* #77644F */
-    --border: 38 40% 88%; /* 金のヘアライン(淡) */
+    /*
+     * 2026-10 リブランド「白・黒・紅」(YouTube / Netflix / Nintendo / Pinterest と同じ
+     * 「無彩色 + 赤ひとつ」の型)。
+     *   - 面と文字は無彩色(白 / 薄いグレー / 墨)。色味のある装飾(金・アイボリー)は使わない。
+     *   - 赤はアイコンのダイスと同じ #A51A1D。「押すもの」(主ボタン・送信)と
+     *     現在地の印だけに使い、面を赤で塗らない。
+     *   - 選択中の状態(タブ・チップ)は墨で示す(赤 = 行動、墨 = 状態)。
+     */
+    --background: 0 0% 98%; /* #FAFAFA ページ */
+    --foreground: 0 0% 7%; /* #121212 墨 */
+    --muted: 0 0% 95%; /* #F2F2F2 チップ・副ボタン */
+    --muted-foreground: 0 0% 38%; /* #616161 */
+    --border: 0 0% 89%; /* #E3E3E3 */
 
-    --primary: 356 63% 42%; /* 深紅 #B02832 */
-    --primary-hover: 355 64% 35%; /* #93202A */
+    --primary: 359 73% 37%; /* 紅 #A51A1D(アイコンのダイス) */
+    --primary-hover: 359 75% 30%; /* #861316 */
     --primary-foreground: 0 0% 100%;
 
-    --accent: 355 65% 33%; /* 濃い深紅 #8A1D26(リンク等) */
+    --accent: 359 73% 37%; /* リンク等 = 紅 */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%; /* #DC2626 */
     --destructive-foreground: 0 0% 100%;
 
-    --ring: 356 63% 42%; /* フォーカスリング = 深紅 */
+    --ring: 359 73% 37%; /* フォーカスリング = 紅 */
 
     --card: 0 0% 100%; /* カードは白で面を立てる */
-    --card-foreground: 22 35% 12%;
+    --card-foreground: 0 0% 7%;
 
     /* 補助カラー */
-    --primary-soft: 4 74% 96%; /* #FCECEB */
-    --mint: 42 62% 61%; /* #D9B45C シャンパンゴールド(旧ミントの座) */
-    --mint-soft: 43 72% 92%;
-    --gold: 46 68% 47%; /* #C9A227 アンティークゴールド */
-    --gold-soft: 46 71% 91%;
+    --primary-soft: 0 60% 96%; /* #F9ECEC 紅のごく淡い面 */
+    --ink: 0 0% 7%; /* 墨(選択中のタブ・チップ、暗い帯) */
+    --ink-foreground: 0 0% 100%;
+    /* 旧トークン(互換のため残す。無彩色寄りに寄せた) */
+    --mint: 0 0% 60%;
+    --mint-soft: 0 0% 95%;
+    --gold: 40 55% 42%; /* #A67F30 「プレミアム」表示だけに使う */
+    --gold-soft: 40 50% 94%;
 
-    /* Radius(中程度) */
-    --radius-sm: 10px;
-    --radius-md: 12px;
-    --radius-lg: 18px;
+    /* Radius: ボタン・チップ・タブは丸(rounded-full)、面は 12〜16px */
+    --radius-sm: 8px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
 
     /* Font(--font-sans / --font-serif は next/font が注入。ここはフォールバック) */
   }
@@ -67,176 +77,21 @@
   }
 
   body {
-    @apply text-foreground font-sans leading-relaxed;
-    /* 白 → アイボリーのグラデーション + 右上の金の柔らかい光(高級感) */
-    background:
-      radial-gradient(
-        1100px 560px at 82% -8%,
-        hsl(var(--gold-soft) / 0.6),
-        transparent 60%
-      ),
-      radial-gradient(
-        900px 480px at -10% 108%,
-        hsl(var(--primary-soft) / 0.5),
-        transparent 55%
-      ),
-      linear-gradient(180deg, #ffffff 0%, hsl(var(--background)) 100%);
-    background-attachment: fixed;
+    @apply bg-background text-foreground font-sans leading-relaxed;
     min-height: 100vh;
   }
 
-  /* Default heading sizes are intentionally restrained.
-     見出しはセリフ(Noto Serif JP)で公式感・高級感を出す。本文はサンセリフ。 */
+  /* 見出しは本文と同じサンセリフの太字で、字間を詰めて締める。
+     セリフ(font-serif)はロゴの「R」に合わせた大見出し(ヒーロー)だけに使う。 */
   h1 {
-    @apply font-serif text-2xl font-bold tracking-tight;
+    @apply text-2xl font-bold tracking-tight;
   }
   h2 {
-    @apply font-serif text-xl font-bold tracking-tight;
+    @apply text-xl font-bold tracking-tight;
   }
   h3 {
     @apply text-lg font-semibold;
   }
-}
-
-/* ===== 背景の控えめな装飾(サイコロ・キラキラ) ===== */
-.amb-item {
-  position: absolute;
-  opacity: 0.15;
-  transform: rotate(var(--rot, 0deg));
-  animation: amb-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite;
-  will-change: transform;
-}
-.amb-dice {
-  color: #b02832;
-}
-.amb-spark {
-  color: #c9a227;
-}
-.amb-star {
-  color: #d9b45c;
-}
-/* キラキラ系は薄く明滅(サイコロは浮遊のみ)。 */
-.amb-spark,
-.amb-star {
-  animation:
-    amb-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite,
-    amb-twinkle calc(var(--d, 14s) / 2) ease-in-out var(--delay, 0s) infinite;
-}
-@keyframes amb-float {
-  0%,
-  100% {
-    transform: translateY(0) rotate(var(--rot, 0deg));
-  }
-  50% {
-    transform: translateY(-14px) rotate(calc(var(--rot, 0deg) + 6deg));
-  }
-}
-@keyframes amb-twinkle {
-  0%,
-  100% {
-    opacity: 0.1;
-  }
-  50% {
-    opacity: 0.24;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .amb-item {
-    animation: none;
-  }
-}
-
-/* ===== ストア専用: サイコロの目(pip)モチーフ・アンビエント =====
-   サイト全体の .amb-item(lucide アイコン)とは別に、ストアのヒーロー/
-   ランキング周りだけ「ダイスの目」そのものを CSS で描く濃いめの装飾
-   (design_handoff_store_redesign 準拠)。amb-float / amb-twinkle は既存の
-   キーフレームを再利用する。 */
-.dc-amb {
-  position: absolute;
-  opacity: 0.15;
-  transform: rotate(var(--rot, 0deg));
-  animation: amb-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite;
-  will-change: transform;
-  pointer-events: none;
-}
-.dc-die-c,
-.dc-die-g {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
-  border: 2px solid;
-  background-repeat: no-repeat;
-}
-.dc-die-c {
-  border-color: #b02832;
-  background-image:
-    radial-gradient(circle 3px at 28% 28%, #b02832 95%, transparent),
-    radial-gradient(circle 3px at 72% 28%, #b02832 95%, transparent),
-    radial-gradient(circle 3px at 50% 50%, #b02832 95%, transparent),
-    radial-gradient(circle 3px at 28% 72%, #b02832 95%, transparent),
-    radial-gradient(circle 3px at 72% 72%, #b02832 95%, transparent);
-}
-.dc-die-g {
-  border-color: #c9a227;
-  background-image:
-    radial-gradient(circle 3px at 30% 30%, #c9a227 95%, transparent),
-    radial-gradient(circle 3px at 70% 30%, #c9a227 95%, transparent),
-    radial-gradient(circle 3px at 30% 70%, #c9a227 95%, transparent),
-    radial-gradient(circle 3px at 70% 70%, #c9a227 95%, transparent);
-}
-.dc-spark {
-  width: 18px;
-  height: 18px;
-  background: #c9a227;
-  clip-path: polygon(
-    50% 0,
-    60% 40%,
-    100% 50%,
-    60% 60%,
-    50% 100%,
-    40% 60%,
-    0 50%,
-    40% 40%
-  );
-  animation:
-    amb-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite,
-    amb-twinkle calc(var(--d, 14s) / 2) ease-in-out var(--delay, 0s) infinite;
-}
-.dc-star {
-  width: 12px;
-  height: 12px;
-  background: #d9b45c;
-  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-  animation:
-    amb-float var(--d, 14s) ease-in-out var(--delay, 0s) infinite,
-    amb-twinkle calc(var(--d, 14s) / 2) ease-in-out var(--delay, 0s) infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .dc-amb {
-    animation: none;
-  }
-}
-/* 見出し用の小さいダイスアイコン(「人気ランキング」等の見出しに添える) */
-.die-ico {
-  display: inline-flex;
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: 1.5px solid #b02832;
-  background-color: #fff;
-  background-repeat: no-repeat;
-  background-image:
-    radial-gradient(circle 2px at 27% 27%, #b02832 95%, transparent),
-    radial-gradient(circle 2px at 73% 27%, #b02832 95%, transparent),
-    radial-gradient(circle 2px at 50% 50%, #b02832 95%, transparent),
-    radial-gradient(circle 2px at 27% 73%, #b02832 95%, transparent),
-    radial-gradient(circle 2px at 73% 73%, #b02832 95%, transparent);
-  box-shadow: 0 1px 3px rgba(176, 40, 50, 0.22);
-}
-.die-ico.on-dark {
-  border-color: #f3e6c8;
-  background-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ===== PLAY の演出(カットイン / テロップ) =====
@@ -261,10 +116,10 @@
   height: 46%;
   background: linear-gradient(
     100deg,
-    rgba(16, 49, 74, 0) 0%,
-    rgba(16, 49, 74, 0.78) 18%,
-    rgba(16, 49, 74, 0.78) 82%,
-    rgba(16, 49, 74, 0) 100%
+    rgba(10, 10, 10, 0) 0%,
+    rgba(10, 10, 10, 0.8) 18%,
+    rgba(10, 10, 10, 0.8) 82%,
+    rgba(10, 10, 10, 0) 100%
   );
   transform: skewY(-3deg);
   animation: cutin-band 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -320,10 +175,10 @@
   height: 38%;
   background: linear-gradient(
     100deg,
-    rgba(16, 49, 74, 0) 0%,
-    rgba(16, 49, 74, 0.82) 16%,
-    rgba(16, 49, 74, 0.82) 84%,
-    rgba(16, 49, 74, 0) 100%
+    rgba(10, 10, 10, 0) 0%,
+    rgba(10, 10, 10, 0.84) 16%,
+    rgba(10, 10, 10, 0.84) 84%,
+    rgba(10, 10, 10, 0) 100%
   );
   transform: skewY(-2deg);
   animation-name: cutin-band;

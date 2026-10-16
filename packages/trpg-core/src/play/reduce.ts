@@ -3,6 +3,7 @@ import {
   type PlayScene,
   type PlayEvent,
 } from "./types.js";
+import { applyDeckOp } from "./deck.js";
 
 /**
  * PlayScene のイベント遷移(純粋・決定論的)。乱数や時刻に依存しない。
@@ -148,6 +149,8 @@ export function reduce(scene: PlayScene, event: PlayEvent): PlayScene {
     case "roll":
     case "system":
       return { ...scene, log, meta };
+    case "deck":
+      return { ...scene, decks: applyDeckOp(scene.decks ?? [], event.op), log, meta };
     case "log-clear":
       // 履歴を空に。駒/盤面/シーン等の状態フィールドはそのまま(別管理なので無傷)。
       return { ...scene, log: [], meta };

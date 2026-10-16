@@ -42,6 +42,11 @@ const config: Config = {
           foreground: "hsl(var(--card-foreground))",
         },
         "primary-soft": "hsl(var(--primary-soft))",
+        /* 墨: 選択中のタブ・チップ、暗い帯(赤 = 行動、墨 = 状態) */
+        ink: {
+          DEFAULT: "hsl(var(--ink))",
+          foreground: "hsl(var(--ink-foreground))",
+        },
         mint: {
           DEFAULT: "hsl(var(--mint))",
           soft: "hsl(var(--mint-soft))",
@@ -57,11 +62,13 @@ const config: Config = {
         lg: "var(--radius-lg)",
       },
       boxShadow: {
-        /* 柔らかい暖色の影(ブランド) */
-        sm: "0 4px 14px rgba(94, 52, 24, 0.06)",
-        card: "0 1px 2px rgba(94, 52, 24, 0.06), 0 0 0 1px rgba(164, 120, 44, 0.14)",
-        md: "0 10px 30px rgba(94, 52, 24, 0.10)",
-        lg: "0 24px 60px rgba(94, 52, 24, 0.14)",
+        /* 無彩色の薄い影(面は影より境界線で分ける) */
+        sm: "0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.04)",
+        card: "0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.06)",
+        md: "0 8px 24px rgba(0, 0, 0, 0.08)",
+        lg: "0 20px 50px rgba(0, 0, 0, 0.14)",
+        /* 主ボタン(紅)の下に落とす色付きの影 */
+        brand: "0 1px 2px rgba(165, 26, 29, 0.25), 0 4px 12px rgba(165, 26, 29, 0.18)",
       },
       spacing: {
         "18": "4.5rem",

@@ -40,6 +40,7 @@ const CATEGORY_LABEL: Record<FeedbackCategory, string> = {
   bug: "🐛 バグ",
   feature_request: "✨ 機能要望",
   question: "❓ 質問",
+  report: "🚩 権利侵害・違反の申告",
   other: "📝 その他",
 };
 
@@ -48,6 +49,7 @@ const CATEGORY_COLOR: Record<FeedbackCategory, number> = {
   bug: 0xef4444, // red-500
   feature_request: 0x3b82f6, // blue-500
   question: 0xeab308, // yellow-500
+  report: 0x9333ea, // purple-600(削除申出は優先して見る)
   other: 0x6b7280, // gray-500
 };
 

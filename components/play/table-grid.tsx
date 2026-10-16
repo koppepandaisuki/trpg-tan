@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { Dices, Trash2, Users } from "lucide-react";
+import { Copy, Dices, Trash2, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PlaySessionSummary } from "@/lib/queries/play-sessions";
 
@@ -13,11 +13,14 @@ import type { PlaySessionSummary } from "@/lib/queries/play-sessions";
 export function TableGrid({
   sessions,
   onRemove,
+  onDuplicate,
   empty,
 }: {
   sessions: PlaySessionSummary[];
   /** 渡すとカードに削除ボタンが出る。 */
   onRemove?: (s: PlaySessionSummary) => void;
+  /** 渡すとカードに複製ボタンが出る。 */
+  onDuplicate?: (s: PlaySessionSummary) => void;
   empty: string;
 }) {
   const router = useRouter();
@@ -81,6 +84,16 @@ export function TableGrid({
                 </div>
               </CardContent>
             </button>
+            {onDuplicate && (
+              <button
+                onClick={() => onDuplicate(s)}
+                title="この卓を複製(ログは引き継がない)"
+                aria-label={`「${s.title}」を複製`}
+                className="absolute right-10 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-muted-foreground opacity-0 transition hover:text-primary focus-visible:opacity-100 group-hover:opacity-100"
+              >
+                <Copy className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            )}
             {onRemove && (
               <button
                 onClick={() => onRemove(s)}
