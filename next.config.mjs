@@ -51,18 +51,37 @@ const ADSENSE = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
     }
   : { script: [], frame: [], connect: [] };
 
+/** R2 の公開 URL のオリジン(素材の再生用)。未設定なら null。 */
+function mediaOrigin() {
+  const url = process.env.NEXT_PUBLIC_MEDIA_BASE_URL;
+  if (!url) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/** R2 へ直接 PUT する先(署名付き URL のホスト)。未設定なら null。 */
+function r2UploadOrigin() {
+  const id = process.env.R2_ACCOUNT_ID;
+  return id && /^[0-9a-f]+$/i.test(id) ? `https://${id}.r2.cloudflarestorage.com` : null;
+}
+
 function buildCsp() {
   const origin = supabaseOrigin();
   const wsOrigin = origin ? origin.replace(/^http/, "ws") : null;
-  const connectSrc = ["'self'", origin, wsOrigin, ...ADSENSE.connect]
+  const connectSrc = ["'self'", origin, wsOrigin, r2UploadOrigin(), ...ADSENSE.connect]
     .filter(Boolean)
     .join(" ");
   // 画像は https 全般を許可: ココフォリアの駒(外部ストレージの立ち絵 URL)や
   // 利用者が URL で指定した画像・広告の画像を表示するため。
   const imgSrc = ["'self'", "data:", "blob:", "https:"].join(" ");
-  // 音声(BGM/SE)は Supabase Storage の公開 URL から再生する。media-src を
+  // 音声(BGM/SE)は Supabase Storage(または R2)の公開 URL から再生する。media-src を
   // 書かないと default-src 'self' に落ちて、本番だけ音が鳴らない。
-  const mediaSrc = ["'self'", "data:", "blob:", origin].filter(Boolean).join(" ");
+  const mediaSrc = ["'self'", "data:", "blob:", origin, mediaOrigin()]
+    .filter(Boolean)
+    .join(" ");
 
   // 開発サーバー(next dev)は React Refresh 等で eval を使う。これを禁止すると
   // ハイドレーションが失敗し、dev では全ページが操作できなくなる。本番ビルドは

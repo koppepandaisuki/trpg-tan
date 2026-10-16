@@ -3,8 +3,8 @@ import type { Route } from "next";
 import { getOperator } from "@/lib/legal/operator";
 
 /**
- * 規約類の「お問い合わせ先」。メール(env: CONTACT_EMAIL)があればメールを、
- * 無ければ不具合報告フォーム + Discord を案内する。
+ * 規約類の「お問い合わせ先」。メール(env: CONTACT_EMAIL、未設定なら既定のアドレス)、
+ * ログイン中のフィードバックボタン、Discord を案内する。
  */
 export function ContactInfo({ purpose }: { purpose?: string }) {
   const { email } = getOperator();
@@ -21,11 +21,11 @@ export function ContactInfo({ purpose }: { purpose?: string }) {
         </li>
       )}
       <li>
-        サイト内の
+        ログイン中は、画面右下の「フィードバックを送る」ボタン(よくある質問は
         <Link className="underline" href={"/help" as Route}>
           ヘルプ
         </Link>
-        にある「不具合・ご意見を送る」フォーム
+        )
       </li>
       {discord && (
         <li>

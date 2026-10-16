@@ -37,6 +37,17 @@ import {
   parseCcfoliaCharacter,
   createSceneBroadcaster,
   createSecretBox,
+  createSigner,
+  codeForKey,
+  createMemberGate,
+  deckEvent,
+  systemEvent,
+  applyDeckOp,
+  handOf,
+  drawnBy,
+  cardLabel,
+  TO_TABLE,
+  type DeckOp,
   publicEventFor,
   privateBacklog,
   sendPrivateEvents,
@@ -49,10 +60,10 @@ import {
   type PlayEvent,
   type PlayScene,
 } from "@trpg/core";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants, toolButton } from "@/components/ui/button";
 import { PlayBoard } from "./play-board";
 import { PlayLog } from "./play-log";
-import { PlayPanelCard } from "./play-panel-card";
+import { PlayPanelCard, quickActionsFor } from "./play-panel-card";
 import { PlayComposer } from "./play-composer";
 import { PlaySceneBar } from "./play-scene-bar";
 import { PlayTurnBar } from "./play-turn-bar";
@@ -66,18 +77,27 @@ import { usePlayAudio } from "./use-play-audio";
 import { savePlayScene, downloadPlayFile } from "@/lib/play/store";
 import { uploadPlayImage } from "@/lib/play/media";
 import { resolveInputToEvent, newEventCtx } from "@/lib/play/roll";
-import {
-  connectRoom,
-  makeRoomCode,
-  type Room,
-  type NetIntent,
-  type LinkStatus,
-} from "@/lib/play/net";
+import { connectRoom, type Room, type NetIntent, type LinkStatus } from "@/lib/play/net";
 import { PlayLinkBadge } from "./play-link-badge";
 import { PlayScenarioPanel } from "./play-scenario-panel";
 import { DiceBotPicker } from "./dicebot-picker";
 import { PlayTimer } from "./play-timer";
+import { PlayDeckPanel } from "./play-deck-panel";
+import { FullscreenButton } from "./fullscreen-button";
+import { PlayDiceFlash } from "./play-dice-flash";
+import { useFocusShortcut } from "./use-focus-shortcut";
+import { ShortcutHelp } from "./shortcut-help";
 import { bcdiceIdOf, evalBcdice } from "@/lib/play/bcdice";
+import { Tab, TabList } from "@/components/ui/tabs";
+
+type ToolTab = "scenario" | "fx" | "cards" | "memo" | "chars";
+const TOOL_TABS: { id: ToolTab; label: string }[] = [
+  { id: "scenario", label: "シナリオ" },
+  { id: "fx", label: "演出" },
+  { id: "cards", label: "カード" },
+  { id: "memo", label: "メモ" },
+  { id: "chars", label: "キャラ" },
+];
 
 /** 卓のダイスボットが BCDice のときだけ、GM 端末で読み込んだ BCDice で振る。 */
 function bcdiceExternal(bot: string, raw: string) {
@@ -151,7 +171,17 @@ export function PlayTable({
   const kicked = useRef(new Set<string>());
   // 参加者ごとの暗号鍵(シークレットダイスの出目・個別チャットを宛先にだけ送る)。
   const boxRef = useRef<SecretBox | null>(null);
+  // 右下の道具のタブ。シナリオ情報がある卓ではシナリオから開く。
+  const hasScenario = !!(
+    scene.scenario ||
+    scene.textStock ||
+    scene.scenes?.some((x) => x.script || x.gmNote || x.clues?.length)
+  );
+  const [toolTab, setToolTab] = useState<ToolTab>(hasScenario ? "scenario" : "chars");
+  // 参加者 id → hello に署名した鍵(以後の操作はこの鍵の署名があるものだけ受け付ける)。
+  const memberGate = useRef(createMemberGate());
   const inputRef = useRef<HTMLInputElement>(null);
+  useFocusShortcut(inputRef);
 
   /* ===== オートセーブ(変更が落ち着いたら保存) ===== */
   const saveTimer = useRef<number | undefined>(undefined);
@@ -203,6 +233,52 @@ export function PlayTable({
       }
     },
     [room],
+  );
+
+  /** その人(入室名)に今の手札を、本人だけが読める暗号文で送る。 */
+  const sendHand = useCallback(
+    (name: string, decks: NonNullable<PlayScene["decks"]>) => {
+      const box = boxRef.current;
+      if (!room || !box) return;
+      const hands = handOf(decks, name);
+      for (const [id, n] of memberNames.current) {
+        if (n !== name) continue;
+        void box.seal(id, { type: "hand", hands }).then((m) => m && room.send(m));
+      }
+    },
+    [room],
+  );
+
+  /**
+   * カードの操作: 状態を進め、全員へは「何が起きたか」(場に出たカード以外は枚数だけ)を
+   * ログに残し、手札が変わった人へは手札を個別に送る。
+   */
+  const deckOp = useCallback(
+    (op: DeckOp, note: string, actor = "GM") => {
+      const before = sceneRef.current.decks ?? [];
+      const deck = before.find((d) => "deckId" in op && d.id === op.deckId);
+      dispatch(deckEvent(newEventCtx(), actor, op));
+      let text = note;
+      if (op.op === "draw" && op.to === TO_TABLE && deck) {
+        text = `${note}: ${drawnBy(deck, op)
+          .map((id) => cardLabel(deck, id))
+          .join("、")}`;
+      }
+      if (op.op === "play" && deck) {
+        text = `🃏 ${op.from} が「${cardLabel(deck, op.cardId)}」を場に出しました`;
+      }
+      if (text) dispatch(systemEvent(newEventCtx(), text));
+      // 手札が変わった人へ、新しい手札を送る。
+      const after = applyDeckOp(before, op);
+      const owners = new Set<string>();
+      if (op.op === "draw" && op.to !== TO_TABLE) owners.add(op.to);
+      if (op.op === "play") owners.add(op.from);
+      if ((op.op === "shuffle" && op.gather) || op.op === "remove") {
+        for (const k of Object.keys(deck?.hands ?? {})) owners.add(k);
+      }
+      for (const o of owners) if (o !== "GM") sendHand(o, after);
+    },
+    [dispatch, sendHand],
   );
 
   /* ===== 参加者からの intent を処理(GM が権威) ===== */
@@ -274,6 +350,20 @@ export function PlayTable({
           dispatch(panelUpdateEvent(newEventCtx(), p.id, intent.patch));
           break;
         }
+        case "deck-draw": {
+          const d = cur.decks?.find((x) => x.id === intent.deckId);
+          if (!d || !d.selfDraw || d.pile.length === 0) break;
+          deckOp(
+            { op: "draw", deckId: d.id, count: 1, to: from },
+            `🃏 ${from} が「${d.name}」から 1 枚引きました`,
+            from,
+          );
+          break;
+        }
+        case "deck-play": {
+          deckOp({ op: "play", deckId: intent.deckId, from, cardId: intent.cardId }, "", from);
+          break;
+        }
         case "memo": {
           // 共有メモは卓の覚書なので全員が編集できる(駒のような所有者検証はしない)。
           // イベントソーシング対象外なので state を直接置き換える。
@@ -285,7 +375,7 @@ export function PlayTable({
           break;
       }
     },
-    [dispatch],
+    [dispatch, deckOp],
   );
 
   /** 参加募集を開始(参加コードを発行してルームを開く)。 */
@@ -297,17 +387,23 @@ export function PlayTable({
     setBusy("卓を公開しています…");
     setError(null);
     try {
-      const code = makeRoomCode();
+      // 参加コードは GM の署名鍵から作る(参加者が本物の GM を見分けられる)。
+      const signer = await createSigner();
+      const code = await codeForKey(signer.publicKey);
       const r = await connectRoom(code, "GM", {
         role: "host",
         onLinkStatus: setLink,
+        signer,
       });
       const b = createSceneBroadcaster({ send: (m) => r.send(m) });
       broadcasterRef.current = b;
       b.update(sceneRef.current);
       const box = await createSecretBox();
       boxRef.current = box;
-      r.onMessage((msg) => {
+      r.onMessage((msg, meta) => {
+        // なりすまし対策: この参加者 id で最初に署名した鍵以外の hello / 操作は無視
+        // (署名の無い旧版の参加者は従来どおり受け付ける)。
+        if (!memberGate.current.accept(msg, meta)) return;
         if (msg.type === "intent") handleIntent(msg.from, msg.intent);
         // hello(入室 / 再同期の要求)を受けたら全量を送って追いつかせる。
         if (msg.type === "hello") {
@@ -328,6 +424,12 @@ export function PlayTable({
                 scene: sceneRef.current,
                 evs: privateBacklog(sceneRef.current, name),
               });
+              // 持っている手札も渡す(入り直したとき用)。
+              const hands = handOf(sceneRef.current.decks ?? [], name);
+              if (hands.length > 0) {
+                const m = await box.seal(from, { type: "hand", hands });
+                if (m) await r.send(m);
+              }
             })();
           }
           // 途中入室でも今かかっている曲が揃うように BGM を配り直す。
@@ -373,6 +475,7 @@ export function PlayTable({
     setParticipants([]);
     setLink(null);
     memberNames.current.clear();
+    memberGate.current.clear();
   }
 
   /* ===== 演出(GM が発火 → 自分の画面 + 参加者へ) ===== */
@@ -406,6 +509,57 @@ export function PlayTable({
     setTelop(text);
     void room?.send({ type: "telop", text });
   }
+
+  /* ===== GM のキーボード操作(一覧は shortcut-help.tsx) ===== */
+  // ハンドラは毎レンダーで最新の state を掴み直す(登録は 1 回だけ)。
+  const shortcutRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  shortcutRef.current = (e: KeyboardEvent) => {
+    if (!e.altKey || e.ctrlKey || e.metaKey) return;
+    const scenes = scene.scenes ?? [];
+    const at = scenes.findIndex((x) => x.id === scene.activeSceneId);
+    const digit = /^Digit([1-9])$/.exec(e.code)?.[1];
+    if (digit) {
+      const n = Number(digit) - 1;
+      if (e.shiftKey) {
+        const c = scene.cutins?.[n];
+        if (c) {
+          e.preventDefault();
+          fireCutin(c);
+        }
+      } else if (scenes[n]) {
+        e.preventDefault();
+        dispatch(sceneSelectEvent(newEventCtx(), scenes[n].id));
+      }
+      return;
+    }
+    // 入力中の Option/Alt + ←→ は単語単位のカーソル移動なので奪わない。
+    const typing =
+      e.target instanceof HTMLElement &&
+      (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName));
+    if ((e.code === "ArrowRight" || e.code === "ArrowLeft") && scenes.length > 1 && !typing) {
+      e.preventDefault();
+      const next =
+        e.code === "ArrowRight" ? Math.min(scenes.length - 1, at + 1) : Math.max(0, at - 1);
+      if (next !== at && scenes[next]) dispatch(sceneSelectEvent(newEventCtx(), scenes[next].id));
+      return;
+    }
+    if (e.code === "KeyB") {
+      e.preventDefault();
+      if (playingBgm) {
+        setBgm(null);
+        return;
+      }
+      const tracks = scene.bgm?.tracks ?? [];
+      const sceneTrack = tracks.find((t) => t.id === scenes[at]?.bgmId);
+      const track = sceneTrack ?? tracks[0];
+      if (track) setBgm(track);
+    }
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => shortcutRef.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   /* ===== GM の操作 ===== */
 
@@ -468,7 +622,7 @@ export function PlayTable({
   const board = scene.scenes?.find((s) => s.id === scene.activeSceneId)?.board ?? scene.board;
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-2 p-2 sm:p-3 lg:h-dvh lg:overflow-hidden">
       {/* ヘッダー行 */}
       <div className="flex flex-wrap items-center gap-2">
         <Link
@@ -478,7 +632,7 @@ export function PlayTable({
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           ロビー
         </Link>
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
+        <h1 className="min-w-0 flex-1 basis-full truncate text-lg font-semibold tracking-tight sm:basis-auto">
           {scene.title}
         </h1>
         {saving && (
@@ -487,6 +641,8 @@ export function PlayTable({
             保存中
           </span>
         )}
+        <ShortcutHelp />
+        <FullscreenButton />
         {roomCode ? (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-800">
@@ -527,7 +683,7 @@ export function PlayTable({
                 window.setTimeout(() => setLinkCopied(false), 1600);
               }}
               title="招待リンクをコピー(開くだけで参加できます。ログイン不要)"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:border-primary/40"
+              className={toolButton}
             >
               {linkCopied ? (
                 <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
@@ -558,7 +714,7 @@ export function PlayTable({
           </p>
           <Link
             href={"/pricing" as Route}
-            className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+            className={buttonVariants({ variant: "primary", size: "sm" })}
           >
             プランを見る
           </Link>
@@ -582,18 +738,10 @@ export function PlayTable({
         </p>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
-        {/* 左: 盤面 + 操作 */}
-        <div className="min-w-0 space-y-2">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {/* 左: 盤面 + 操作(盤面が主役。画面の高さに収める) */}
+        <div className="flex min-h-0 min-w-0 flex-col gap-2 lg:overflow-y-auto">
           {/* シーン(場面ごとに盤面を持ち替える。駒は卓に属したまま) */}
-          <PlayTurnBar
-            panels={scene.panels}
-            turn={scene.turn}
-            onNext={(round, panel, label) =>
-              dispatch(turnSetEvent(newEventCtx(), round, panel.id, label))
-            }
-            onReset={() => dispatch(turnSetEvent(newEventCtx(), 0, null, "⏱ ターン管理をリセット"))}
-          />
 
           <PlaySceneBar
             scenes={scene.scenes ?? []}
@@ -612,9 +760,22 @@ export function PlayTable({
           />
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted">
+            <PlayTurnBar
+              panels={scene.panels}
+              turn={scene.turn}
+              onNext={(round, panel, label) =>
+                dispatch(turnSetEvent(newEventCtx(), round, panel.id, label))
+              }
+              onReset={() =>
+                dispatch(turnSetEvent(newEventCtx(), 0, null, "⏱ ターン管理をリセット"))
+              }
+            />
+            <label
+              title="画像ファイルを盤面の背景にする"
+              className={`${toolButton} cursor-pointer`}
+            >
               <ImagePlus className="h-3.5 w-3.5" aria-hidden />
-              背景を設定
+              背景
               <input
                 type="file"
                 accept="image/*"
@@ -628,12 +789,13 @@ export function PlayTable({
             <button
               onClick={() => setBgPicker(true)}
               title="ライブラリの画像を背景にする"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <FolderOpen className="h-3.5 w-3.5" aria-hidden />
-              ライブラリから
+              素材から
             </button>
             <button
+              title="盤面のマス目の表示を切り替える"
               onClick={() =>
                 dispatch(
                   boardSetEvent(newEventCtx(), {
@@ -641,22 +803,22 @@ export function PlayTable({
                   }),
                 )
               }
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <Grid3x3 className="h-3.5 w-3.5" aria-hidden />
-              グリッド: {board?.grid !== false ? "ON" : "OFF"}
+              {board?.grid !== false ? "グリッド" : "グリッドなし"}
             </button>
             <button
               onClick={addToken}
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              title="円形の駒を追加"
+              className={toolButton}
             >
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              駒を追加
+              <Plus className="h-3.5 w-3.5" aria-hidden />駒
             </button>
             <button
               onClick={pasteCcfolia}
               title="ココフォリアの「コマをコピー」した内容から駒を作る"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
               コマ貼付
@@ -664,10 +826,10 @@ export function PlayTable({
             <button
               onClick={() => setCharPicker(true)}
               title="キャラシで保存したキャラを駒として出す"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <ScrollText className="h-3.5 w-3.5" aria-hidden />
-              キャラを出す
+              キャラ
             </button>
             <PlayTimer
               timer={scene.timer}
@@ -690,26 +852,33 @@ export function PlayTable({
             <button
               onClick={() => downloadPlayFile(scene)}
               title="卓をファイル(.play)に書き出す。バックアップや、デスクトップ版・別の卓への持ち運びに"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+              className={toolButton}
             >
               <Download className="h-3.5 w-3.5" aria-hidden />
-              卓を書き出す
+              書き出し
             </button>
           </div>
 
-          <PlayBoard
-            board={board}
-            panels={scene.panels}
-            canDrag={() => true}
-            selectedId={selectedId}
-            activeTurnId={scene.turn?.activePanelId ?? null}
-            onSelect={setSelectedId}
-            liveDrag={(panelId, x, y) => room?.sendLive({ kind: "drag", panelId, x, y })}
-            onMove={(panelId, x, y) => dispatch(panelMoveEvent(newEventCtx(), panelId, x, y))}
-          />
+          {/* 盤面 + ダイスの結果(盤面の上に一瞬大きく。GM は秘匿も自分の画面だけに出す) */}
+          <div className="relative">
+            <PlayBoard
+              board={board}
+              panels={scene.panels}
+              canDrag={() => true}
+              selectedId={selectedId}
+              activeTurnId={scene.turn?.activePanelId ?? null}
+              onSelect={setSelectedId}
+              liveDrag={(panelId, x, y) => room?.sendLive({ kind: "drag", panelId, x, y })}
+              onMove={(panelId, x, y) => dispatch(panelMoveEvent(newEventCtx(), panelId, x, y))}
+            />
+            <PlayDiceFlash log={scene.log} showSecret />
+          </div>
+        </div>
 
-          {/* ログ + 入力 */}
-          <div className="flex h-[320px] flex-col gap-2">
+        {/* 右: チャット + 道具(シナリオ / 演出 / カード / メモ / キャラ) */}
+        <aside className="flex min-h-0 flex-col gap-2">
+          {/* チャット(入力欄が常に見える位置に固定。GM が一番使う) */}
+          <div className="flex h-[50vh] min-h-[260px] flex-col gap-2 lg:h-auto lg:min-h-0 lg:flex-[3]">
             <PlayLog log={scene.log} isGm />
             <PlayComposer
               ref={inputRef}
@@ -723,111 +892,148 @@ export function PlayTable({
               secret={secret}
               onSecretChange={setSecret}
               canSecret
+              actions={(() => {
+                const sp = scene.panels.find((p) => p.id === speakerId);
+                return sp ? quickActionsFor(sp, scene.systemId) : [];
+              })()}
             />
           </div>
-        </div>
 
-        {/* 右: シナリオ(GM のみ)+ 演出 + 共有メモ + 駒一覧 */}
-        <aside className="space-y-2">
-          <PlayScenarioPanel
-            scene={scene}
-            members={participants}
-            onDistribute={(h, to) => {
-              const body = [
-                `【${h.label} ${h.title}】`,
-                h.publicText?.trim(),
-                h.secretText?.trim() ? `(あなただけの情報)\n${h.secretText.trim()}` : "",
-              ]
-                .filter(Boolean)
-                .join("\n");
-              dispatch(chatEvent(newEventCtx(), "GM", body, directChannel(to)));
-            }}
-            onSay={(text) => {
-              const ev = resolveInputToEvent({
-                external: bcdiceExternal,
-                ctx: newEventCtx(),
-                scene,
-                speakerId: "GM",
-                as: "GM",
-                raw: text,
-                secret: false,
-                visibleTo: [],
-              });
-              if (ev) dispatch(ev);
-            }}
-          />
-
-          <PlayFxBar
-            bgmTracks={scene.bgm?.tracks ?? []}
-            seTracks={scene.se?.tracks ?? []}
-            onTracksChange={(kind, tracks) => setScene((s) => ({ ...s, [kind]: { tracks } }))}
-            cutins={scene.cutins ?? []}
-            onCutinsChange={(cutins) => setScene((s) => ({ ...s, cutins }))}
-            playingBgm={playingBgm}
-            onBgm={setBgm}
-            onSe={fireSe}
-            onFireCutin={fireCutin}
-            onTelop={fireTelop}
-            volume={audio.volume}
-            onVolumeChange={audio.setVolume}
-          />
-
-          <PlayMemo
-            memos={scene.sharedMemos ?? []}
-            onChange={(memos) =>
-              // イベントではなく state に直接持つ(desktop 版と同じ扱い)。
-              // 参加者へは scene 変更に反応する state 配信で届く。
-              setScene((s) => ({ ...s, sharedMemos: memos }))
-            }
-          />
-
-          <h2 className="text-xs font-semibold tracking-tight text-muted-foreground">
-            キャラクター({scene.panels.length})
-          </h2>
-          {scene.panels.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-              「駒を追加」または「コマ貼付」で
-              <br />
-              キャラクターを登場させましょう。
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {scene.panels.map((p) => (
-                <PlayPanelCard
-                  key={p.id}
-                  panel={p}
-                  canControl
-                  onFill={fill}
-                  onSend={(t) => {
-                    setSpeakerId(p.id);
+          {/* 道具(タブで切り替え。長い縦並びをやめて、どれも 1 クリックで出す) */}
+          <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-card shadow-sm lg:flex-[2]">
+            <div className="shrink-0 border-b border-border p-1.5">
+              <TabList className="w-full">
+                {TOOL_TABS.filter((t) => t.id !== "scenario" || hasScenario).map((t) => (
+                  <Tab
+                    key={t.id}
+                    selected={toolTab === t.id}
+                    onClick={() => setToolTab(t.id)}
+                    className="flex-1"
+                  >
+                    {t.label}
+                    {t.id === "chars" ? ` ${scene.panels.length}` : ""}
+                    {t.id === "cards" && (scene.decks?.length ?? 0) > 0
+                      ? ` ${scene.decks?.length ?? 0}`
+                      : ""}
+                  </Tab>
+                ))}
+              </TabList>
+            </div>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+              {toolTab === "scenario" && hasScenario && (
+                <PlayScenarioPanel
+                  scene={scene}
+                  members={participants}
+                  onDistribute={(h, to) => {
+                    const body = [
+                      `【${h.label} ${h.title}】`,
+                      h.publicText?.trim(),
+                      h.secretText?.trim() ? `(あなただけの情報)\n${h.secretText.trim()}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join("\n");
+                    dispatch(chatEvent(newEventCtx(), "GM", body, directChannel(to)));
+                  }}
+                  onSay={(text) => {
                     const ev = resolveInputToEvent({
                       external: bcdiceExternal,
                       ctx: newEventCtx(),
                       scene,
-                      speakerId: p.id,
-                      raw: t,
-                      secret,
+                      speakerId: "GM",
+                      as: "GM",
+                      raw: text,
+                      secret: false,
+                      visibleTo: [],
                     });
                     if (ev) dispatch(ev);
                   }}
-                  onResource={(panel, r, delta) =>
-                    dispatch(resourceEvent(newEventCtx(), panel.name, panel, r, delta))
-                  }
-                  onToggleHidden={(panel) =>
-                    dispatch(
-                      panelUpdateEvent(newEventCtx(), panel.id, {
-                        hidden: !panel.hidden,
-                      }),
-                    )
-                  }
-                  onRemove={(panel) => {
-                    if (!confirm(`「${panel.name}」を卓から外しますか？`)) return;
-                    dispatch(panelRemoveEvent(newEventCtx(), panel.id));
-                  }}
                 />
-              ))}
+              )}
+
+              {toolTab === "fx" && (
+                <PlayFxBar
+                  bgmTracks={scene.bgm?.tracks ?? []}
+                  seTracks={scene.se?.tracks ?? []}
+                  onTracksChange={(kind, tracks) => setScene((s) => ({ ...s, [kind]: { tracks } }))}
+                  cutins={scene.cutins ?? []}
+                  onCutinsChange={(cutins) => setScene((s) => ({ ...s, cutins }))}
+                  playingBgm={playingBgm}
+                  onBgm={setBgm}
+                  onSe={fireSe}
+                  onFireCutin={fireCutin}
+                  onTelop={fireTelop}
+                  volume={audio.volume}
+                  onVolumeChange={audio.setVolume}
+                />
+              )}
+
+              {toolTab === "cards" && (
+                <PlayDeckPanel
+                  mode="gm"
+                  decks={scene.decks ?? []}
+                  members={participants}
+                  onOp={(op, note) => deckOp(op, note)}
+                />
+              )}
+
+              {toolTab === "memo" && (
+                <PlayMemo
+                  memos={scene.sharedMemos ?? []}
+                  onChange={(memos) =>
+                    // イベントではなく state に直接持つ(desktop 版と同じ扱い)。
+                    // 参加者へは scene 変更に反応する state 配信で届く。
+                    setScene((s) => ({ ...s, sharedMemos: memos }))
+                  }
+                />
+              )}
+
+              {toolTab === "chars" &&
+                (scene.panels.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
+                    「駒を追加」または「コマ貼付」で
+                    <br />
+                    キャラクターを登場させましょう。
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {scene.panels.map((p) => (
+                      <PlayPanelCard
+                        key={p.id}
+                        panel={p}
+                        canControl
+                        onFill={fill}
+                        onSend={(t) => {
+                          setSpeakerId(p.id);
+                          const ev = resolveInputToEvent({
+                            external: bcdiceExternal,
+                            ctx: newEventCtx(),
+                            scene,
+                            speakerId: p.id,
+                            raw: t,
+                            secret,
+                          });
+                          if (ev) dispatch(ev);
+                        }}
+                        onResource={(panel, r, delta) =>
+                          dispatch(resourceEvent(newEventCtx(), panel.name, panel, r, delta))
+                        }
+                        onToggleHidden={(panel) =>
+                          dispatch(
+                            panelUpdateEvent(newEventCtx(), panel.id, {
+                              hidden: !panel.hidden,
+                            }),
+                          )
+                        }
+                        onRemove={(panel) => {
+                          if (!confirm(`「${panel.name}」を卓から外しますか？`)) return;
+                          dispatch(panelRemoveEvent(newEventCtx(), panel.id));
+                        }}
+                      />
+                    ))}
+                  </div>
+                ))}
             </div>
-          )}
+          </div>
         </aside>
       </div>
 

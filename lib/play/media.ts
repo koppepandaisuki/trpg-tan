@@ -63,7 +63,28 @@ async function upload(
 
   const buf = await file.arrayBuffer();
   const hash = await sha256Hex(buf);
-  const path = `${user.id}/${hash}.${extOf(file)}`;
+  const ext = extOf(file);
+  const path = `${user.id}/${hash}.${ext}`;
+
+  // R2 が設定されていればそちらへ(参加者のダウンロード転送量が無料)。
+  const r2 = await uploadToR2(file, hash, ext).catch((e) => {
+    console.warn("[play-media] R2 へのアップロードに失敗。Supabase に切り替えます:", e);
+    return null;
+  });
+  if (r2) {
+    if (register) {
+      await registerAsset({
+        ownerId: user.id,
+        kind,
+        name: assetNameFromFile(file.name),
+        path: r2.path,
+        url: r2.url,
+        sizeBytes: file.size,
+        mime: file.type,
+      }).catch((e) => console.warn("[play-media] ライブラリ登録に失敗:", e));
+    }
+    return r2.url;
+  }
 
   const { error } = await supabase.storage.from("play").upload(path, file, {
     contentType: file.type,
@@ -96,6 +117,39 @@ async function upload(
   }).catch((e) => console.warn("[play-media] ライブラリ登録に失敗:", e));
 
   return url;
+}
+
+/**
+ * R2 への直接アップロード(/api/play/upload-url が署名付き URL を発行)。
+ * R2 未設定なら null(呼び出し側は Supabase Storage に上げる)。
+ */
+async function uploadToR2(
+  file: File,
+  hash: string,
+  ext: string,
+): Promise<{ url: string; path: string } | null> {
+  const res = await fetch("/api/play/upload-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hash, ext, mime: file.type, size: file.size }),
+  });
+  const body = (await res.json()) as {
+    ok?: boolean;
+    mode?: "r2" | "supabase";
+    uploadUrl?: string;
+    publicUrl?: string;
+    path?: string;
+    message?: string;
+  };
+  if (!res.ok) throw new Error(body.message ?? `HTTP ${res.status}`);
+  if (body.mode !== "r2" || !body.uploadUrl || !body.publicUrl || !body.path) return null;
+  const put = await fetch(body.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!put.ok) throw new Error(`R2 PUT ${put.status}`);
+  return { url: body.publicUrl, path: body.path };
 }
 
 async function sha256Hex(buf: ArrayBuffer): Promise<string> {

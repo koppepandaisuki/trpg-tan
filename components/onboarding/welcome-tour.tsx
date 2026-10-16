@@ -46,7 +46,6 @@ const REOPEN_EVENT = "paradice:open-welcome-tour";
 
 interface Step {
   icon: LucideIcon;
-  iconTone: "indigo" | "emerald" | "amber" | "violet" | "rose";
   title: string;
   description: string;
   primaryLabel?: string;
@@ -56,14 +55,12 @@ interface Step {
 const STEPS: Step[] = [
   {
     icon: Sparkles,
-    iconTone: "violet",
     title: "ようこそ、Re-dice TRPGサイトへ",
     description:
       "卓を立てて、すぐ遊ぶ。盤面・ダイス・キャラシ・BGM が 1 つに。\n1 分で主要機能を見ていきましょう。",
   },
   {
     icon: Dices,
-    iconTone: "indigo",
     title: "PLAY で卓を立てる",
     description:
       "ブラウザで卓を作って、参加コードを渡すだけ。参加者はインストール不要です。",
@@ -72,7 +69,6 @@ const STEPS: Step[] = [
   },
   {
     icon: FolderOpen,
-    iconTone: "emerald",
     title: "ライブラリに卓と素材を保管",
     description:
       "立てた卓と、背景・駒・BGM などの素材がまとめて並びます。次のセッションでそのまま使えます。",
@@ -81,7 +77,6 @@ const STEPS: Step[] = [
   },
   {
     icon: ScrollText,
-    iconTone: "amber",
     title: "キャラシを作る",
     description:
       "13 システム対応のキャラクターシートを、ブラウザでもアプリと同じエディタで作れます。シナリオ/システムのビルダーはデスクトップアプリで。",
@@ -90,7 +85,6 @@ const STEPS: Step[] = [
   },
   {
     icon: MessageCircle,
-    iconTone: "rose",
     title: "Discord でフィードバック",
     description:
       "α 期間中の不具合報告・改善要望・新機能のリクエストは Discord でお気軽に。テスターの声で品質を上げていきます。",
@@ -99,13 +93,6 @@ const STEPS: Step[] = [
   },
 ];
 
-const ICON_TONE_CLASSES: Record<Step["iconTone"], string> = {
-  indigo: "border-red-200 bg-red-50 text-red-700",
-  emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  amber: "border-amber-200 bg-amber-50 text-amber-700",
-  violet: "border-orange-200 bg-orange-50 text-orange-700",
-  rose: "border-rose-200 bg-rose-50 text-rose-700",
-};
 
 export function WelcomeTour() {
   const [open, setOpen] = useState(false);
@@ -213,12 +200,7 @@ export function WelcomeTour() {
 
         {/* Body */}
         <div className="space-y-4 px-6 py-7 text-center">
-          <div
-            className={cn(
-              "mx-auto flex h-14 w-14 items-center justify-center rounded-full border",
-              ICON_TONE_CLASSES[current.iconTone],
-            )}
-          >
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ink text-white">
             <Icon className="h-7 w-7" aria-hidden />
           </div>
 

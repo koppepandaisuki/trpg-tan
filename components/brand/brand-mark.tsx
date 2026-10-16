@@ -45,7 +45,7 @@ export function BrandMark({
         alt="Re-dice"
         className={cn(
           LOGO_SIZE[size],
-          "w-auto shrink-0 object-contain drop-shadow-[0_2px_5px_rgba(153,27,27,0.15)]",
+          "w-auto shrink-0 object-contain",
         )}
       />
       {showSubtitle && (

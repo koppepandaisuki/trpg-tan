@@ -1,5 +1,6 @@
 import type { CoCEdition, CoCCheckResult } from "../dice/coc-check.js";
 import type { CompareOp } from "../dice/command.js";
+import type { Deck, DeckOp } from "./deck.js";
 
 /**
  * PLAY(セッション卓)の永続化スキーマと、イベントソーシングの型。
@@ -322,6 +323,8 @@ export interface PlayScene {
   turn?: { round: number; activePanelId: string | null };
   /** 卓のタイマー(GM が動かし、全員の画面に同じ残り時間が出る)。play/timer.ts。 */
   timer?: PlayTimer;
+  /** カード・山札(play/deck.ts)。並び順・手札は GM の手元だけ。 */
+  decks?: Deck[];
   log: PlayEvent[];
   meta: { createdAt: string; updatedAt: string };
 }
@@ -488,6 +491,12 @@ export interface TurnSetEvent extends BaseEvent {
   label: string;
 }
 
+/** カード・山札の操作(play/deck.ts の DeckOp)。 */
+export interface DeckEvent extends BaseEvent {
+  kind: "deck";
+  op: DeckOp;
+}
+
 /** チャット/ログ履歴の全消去(駒・盤面・シーン等の状態には影響しない)。 */
 export interface LogClearEvent extends BaseEvent {
   kind: "log-clear";
@@ -508,4 +517,5 @@ export type PlayEvent =
   | SceneRenameEvent
   | SceneRemoveEvent
   | TurnSetEvent
-  | LogClearEvent;
+  | LogClearEvent
+  | DeckEvent;

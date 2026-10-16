@@ -81,7 +81,7 @@ export function CharacterPicker({
           <button
             onClick={onClose}
             aria-label="閉じる"
-            className="ml-auto rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="ml-auto rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
           >
             <X className="h-4 w-4" aria-hidden />
           </button>

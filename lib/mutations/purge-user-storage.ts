@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { deleteKey, isR2Configured, listKeys } from "@/lib/storage/r2";
 
 /**
  * 退会したユーザーのアップロードファイル(Storage)を消す。
@@ -37,6 +38,19 @@ export async function purgeUserStorage(
       }
     } catch (e) {
       console.error(`[purgeUserStorage] ${bucket}/${userId} の削除に失敗`, e);
+    }
+  }
+  // R2(卓の素材の置き場を R2 にしている場合)。
+  if (isR2Configured()) {
+    try {
+      for (let round = 0; round < 50; round++) {
+        const keys = await listKeys(`${userId}/`);
+        if (keys.length === 0) break;
+        for (const k of keys) await deleteKey(k);
+        if (keys.length < 1000) break;
+      }
+    } catch (e) {
+      console.error(`[purgeUserStorage] R2 ${userId} の削除に失敗`, e);
     }
   }
 }

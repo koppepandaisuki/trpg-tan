@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ClipboardCheck, Copy, Download, ScrollText } from "lucide-react";
 import { replayToText, replayToHtml, type PlayScene } from "@trpg/core";
+import { toolButton } from "@/components/ui/button";
 
 /**
  * リプレイ書き出し(Web 版)。
@@ -73,7 +74,7 @@ export function PlayReplayButton({
             ? "まだログがありません"
             : "リプレイを書き出す"
         }
-        className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted disabled:opacity-40"
+        className={toolButton}
       >
         <ScrollText className="h-3.5 w-3.5" aria-hidden />
         リプレイ

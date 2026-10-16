@@ -17,38 +17,39 @@ import {
 } from "lucide-react";
 
 /**
- * システム選択 UI のビジュアル(アイコン + アクセントカラー)。
+ * システム選択 UI のビジュアル(線画アイコン)。
  *
  * データ層(SystemDef.icon = 絵文字)には手を入れず、表示側だけを
- * 「色付きタイル + 線画アイコン」に差し替えるためのマッピング。
- * 自作システム(ビルダー製)はユーザーが選んだ絵文字をタイル内に出す。
+ * 「タイル + 線画アイコン」に差し替えるためのマッピング。色はどのシステムも同じ
+ * (墨の線画、触れたら紅。decisions.md D-105)。自作システム(ビルダー製)は
+ * ユーザーが選んだ絵文字をタイル内に出す。
  */
 
-export type SystemVisual = { Icon: LucideIcon; tone: string };
+export type SystemVisual = { Icon: LucideIcon };
 
 export const SYSTEM_VISUALS: Record<string, SystemVisual> = {
   // CoC(専用エディタ)
-  coc7: { Icon: Skull, tone: "#0ea5e9" },
-  coc6: { Icon: Skull, tone: "#8b5cf6" },
+  coc7: { Icon: Skull },
+  coc6: { Icon: Skull },
   // ビルダーのプリセット
-  "preset-sw25": { Icon: Swords, tone: "#f59e0b" },
-  "preset-dx3": { Icon: Dna, tone: "#ef4444" },
-  "preset-shinobigami": { Icon: Moon, tone: "#6366f1" },
-  "preset-paranoia": { Icon: Cpu, tone: "#f43f5e" },
-  "preset-tnova": { Icon: WalletCards, tone: "#06b6d4" },
-  "preset-yuyake": { Icon: Sunset, tone: "#f97316" },
-  "preset-nechronica": { Icon: HeartCrack, tone: "#ec4899" },
-  "preset-emoklore": { Icon: Eye, tone: "#a855f7" },
-  "preset-insane": { Icon: Brain, tone: "#b91c1c" },
-  "preset-magicalogia": { Icon: BookMarked, tone: "#2563eb" },
-  "preset-arianrhod2e": { Icon: Shield, tone: "#d97706" },
-  "preset-loghorizon": { Icon: Castle, tone: "#059669" },
-  "preset-dnd5e": { Icon: Dices, tone: "#dc2626" },
+  "preset-sw25": { Icon: Swords },
+  "preset-dx3": { Icon: Dna },
+  "preset-shinobigami": { Icon: Moon },
+  "preset-paranoia": { Icon: Cpu },
+  "preset-tnova": { Icon: WalletCards },
+  "preset-yuyake": { Icon: Sunset },
+  "preset-nechronica": { Icon: HeartCrack },
+  "preset-emoklore": { Icon: Eye },
+  "preset-insane": { Icon: Brain },
+  "preset-magicalogia": { Icon: BookMarked },
+  "preset-arianrhod2e": { Icon: Shield },
+  "preset-loghorizon": { Icon: Castle },
+  "preset-dnd5e": { Icon: Dices },
 };
 
 /**
- * システムのアイコンタイル。既知のシステムは線画アイコン + 固有色、
- * 未知(自作)は絵文字をタイル内に表示(トーンはブランドのスカイ)。
+ * システムのアイコンタイル。既知のシステムは線画アイコン、
+ * 未知(自作)は絵文字をタイル内に表示。
  * size: sm=最近使ったピル / md=一覧カード / lg=フィーチャーカード。
  */
 export function SystemIcon({
@@ -61,9 +62,8 @@ export function SystemIcon({
   size?: "sm" | "md" | "lg";
 }) {
   const v = SYSTEM_VISUALS[systemId];
-  const style = { "--si-c": v?.tone ?? "#37ace8" } as React.CSSProperties;
   return (
-    <span className={`sysic ${size}`} style={style} aria-hidden>
+    <span className={`sysic ${size}`} aria-hidden>
       {v ? <v.Icon /> : <span className="sysic-emoji">{emoji || "🎲"}</span>}
     </span>
   );

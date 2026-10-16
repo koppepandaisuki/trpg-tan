@@ -24,7 +24,8 @@ type GatePlan = {
   code: string;
   label: string;
   price: string;
-  accent: "cyan" | "sky" | "indigo";
+  /** 色(Web の料金ページと同じ: 無料 = 無彩色 / PLAY = 紅 / PRO = 墨)。 */
+  accent: "basic" | "play" | "pro";
   perks: string[];
   featured?: boolean;
 };
@@ -35,25 +36,25 @@ const PLANS: GatePlan[] = [
     code: "BASIC",
     label: "基本",
     price: "無料",
-    accent: "cyan",
-    perks: ["購入・ライブラリ", "キャラ作成・レビュー", "他の人の卓に参加"],
+    accent: "basic",
+    perks: ["他の人の卓に参加", "キャラシ作成(保存 10 体まで)", "ライブラリ・日程調整・フレンド"],
   },
   {
     key: "play",
     code: "PLAY",
     label: "プレイ",
     price: "¥500 / 月",
-    accent: "sky",
+    accent: "play",
     featured: true,
-    perks: ["卓を立てる（ホスト）", "BGM・カットイン等 全機能", "フレンド無制限"],
+    perks: ["卓を立てる（ホスト）", "BGM・カットイン等 全機能", "広告なし（予定）"],
   },
   {
     key: "pro",
     code: "PRO",
     label: "Pro",
     price: "¥980 / 月",
-    accent: "indigo",
-    perks: ["プレイの全部", "キャラシ保存数 無制限（Web）", "日程調整の強化（予定）"],
+    accent: "pro",
+    perks: ["プレイの全部", "キャラシ保存数 無制限", "日程調整の強化（予定）"],
   },
 ];
 

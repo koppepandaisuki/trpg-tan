@@ -83,9 +83,21 @@ const ADSENSE_ROW: ExternalTransmission = {
   when: "広告が表示されるページを開いたとき",
 };
 
+const R2_ROW: ExternalTransmission = {
+  to: "Cloudflare, Inc.(米国)",
+  purpose: "卓の画像・音声の保存と配信(Cloudflare R2)",
+  data: "IP アドレス、ブラウザ情報、アップロードしたファイル",
+  policy: "https://www.cloudflare.com/privacypolicy/",
+  when: "卓の画像・音声を読み込む / アップロードするとき",
+};
+
 export default function PrivacyPage() {
   const op = getOperator();
-  const external = adsenseClient() ? [...EXTERNAL, ADSENSE_ROW] : EXTERNAL;
+  const external = [
+    ...EXTERNAL,
+    ...(process.env.NEXT_PUBLIC_MEDIA_BASE_URL ? [R2_ROW] : []),
+    ...(adsenseClient() ? [ADSENSE_ROW] : []),
+  ];
   return (
     <LegalLayout
       title="プライバシーポリシー"

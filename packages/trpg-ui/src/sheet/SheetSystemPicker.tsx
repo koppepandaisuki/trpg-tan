@@ -219,7 +219,6 @@ export function SheetSystemPicker({
             >
               <span
                 className="sysic md"
-                style={{ "--si-c": "#b02832" } as React.CSSProperties}
                 aria-hidden
               >
                 <ClipboardPaste />
@@ -283,7 +282,6 @@ export function SheetSystemPicker({
           >
             <span
               className="sysic md"
-              style={{ "--si-c": "#37ace8" } as React.CSSProperties}
               aria-hidden
             >
               <Globe />

@@ -12,7 +12,11 @@ import {
 import {
   createSceneMirror,
   createSecretBox,
+  createSigner,
+  createGmGate,
   SYNC_PROTOCOL,
+  type NetMsg,
+  type DeckCard,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
@@ -37,6 +41,8 @@ import { PlayBoard } from "./PlayBoard";
 import { PlayPanel } from "./PlayPanel";
 import { LogView } from "./LogView";
 import { BoardStatusBar } from "./BoardStatusBar";
+import { TableTimer } from "./TableTimer";
+import { DeckPanel } from "./DeckPanel";
 import { PortraitLayer } from "./PortraitLayer";
 import { MemoPanel } from "./MemoPanel";
 import { SideStack } from "./SideStack";
@@ -110,6 +116,8 @@ export function PlayClient({
   const [phase, setPhase] = useState<Phase>("connecting");
   // GM により退室させられた(closed の表示文言を変える)。
   const [kickedOut, setKickedOut] = useState(false);
+  // 自分の手札(GM から本人宛ての暗号文で届く)。
+  const [myHands, setMyHands] = useState<{ deckId: string; cards: DeckCard[] }[]>([]);
   const [netError, setNetError] = useState<string | null>(null);
   // 無料(basic / 未ログイン)参加者か。卓DL中のハウス広告(JoinPromo)の表示判定に使う。
   // 課金(play/pro)・管理者には広告を出さない。
@@ -210,7 +218,12 @@ export function PlayClient({
     let helloTimer: number | undefined;
     void (async () => {
       try {
-        r = await connectRoom(code, name, { onLinkStatus: setLink });
+        // 自分の操作に署名する鍵(GM が「この参加者本人の操作か」を確かめる)。
+        const signer = await createSigner();
+        r = await connectRoom(code, name, { onLinkStatus: setLink, signer });
+        // 参加コードの鍵で署名された配信だけを GM のものとして受け入れる(なりすまし対策)。
+        const gate = createGmGate(code);
+        let gateQueue: Promise<void> = Promise.resolve();
         if (!alive) {
           r.close();
           return;
@@ -248,7 +261,12 @@ export function PlayClient({
             overlayOptimistic(resolveSceneMedia(mirror.scene, mediaMapRef.current)),
           );
         };
-        r.onMessage((msg) => {
+        r.onMessage((msg, meta) => {
+          gateQueue = gateQueue.then(async () => {
+            if (alive && (await gate.accept(msg, meta))) handleMsg(msg);
+          });
+        });
+        const handleMsg = (msg: NetMsg) => {
           if (!alive) return;
           const res = mirror.receive(msg);
           if (res.resync) hello();
@@ -274,7 +292,9 @@ export function PlayClient({
             const sealed = msg;
             secretQueue = secretQueue.then(async () => {
               const inner = await box.open("GM", sealed);
-              if (alive && inner && mirror.receive(inner).changed) show();
+              if (!alive || !inner) return;
+              if (inner.type === "hand") setMyHands(inner.hands);
+              else if (mirror.receive(inner).changed) show();
             });
           } else if (msg.type === "media") {
             // 画像束を受け取りキャッシュ。表示中 scene に残る未解決参照を埋める
@@ -298,7 +318,7 @@ export function PlayClient({
             setPhase("closed");
             roomRef.current?.close();
           }
-        });
+        };
         hello();
         setPhase("waiting");
         // snapshot が来るまで hello を再送する。GM が後から共有を開始した場合や、
@@ -763,17 +783,21 @@ export function PlayClient({
     }
   }
 
-  // 発言者は「自分(入室名)」か自分のキャラのみ。駒が消えるなど無効になったら
-  // 自分(地の声)へ戻す。"self" は常に有効。
+  // 発言者は「自分(入室名)」か自分のキャラのみ。既定は自分のキャラ(TRPG ではキャラとして
+  // 話すのが基本。Web の参加者画面と同じ)。自分で選び直したらそれを尊重し、選んでいた駒が
+  // 消えたら次の自分の駒(無ければ自分)へ戻す。
   const myIds = myCards.map((p) => p.id).join(",");
+  const speakerTouched = useRef(false);
   useEffect(() => {
-    const valid =
-      compose.speakerId === "self" ||
-      myCards.some((p) => p.id === compose.speakerId);
-    if (!valid) setCompose((c) => ({ ...c, speakerId: "self" }));
-    // myIds で myCards の変化を検知(配列参照は毎回変わるため)。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myIds, compose.speakerId]);
+    const ids = myIds ? myIds.split(",") : [];
+    setCompose((c) => {
+      if (c.speakerId !== "self" && !ids.includes(c.speakerId))
+        return { ...c, speakerId: ids[0] ?? "self" };
+      if (c.speakerId === "self" && !speakerTouched.current && ids.length > 0)
+        return { ...c, speakerId: ids[0] };
+      return c;
+    });
+  }, [myIds]);
 
   /* ===== 操作 → intent ===== */
 
@@ -1063,6 +1087,7 @@ export function PlayClient({
             />
             <PortraitLayer log={scene.log} panels={scene.panels} playId={scene.id} />
             <BoardStatusBar cards={playerCards} turn={scene.turn} />
+            <TableTimer timer={scene.timer} />
           </div>
         </main>
 
@@ -1204,6 +1229,32 @@ export function PlayClient({
               </div>
             )}
 
+            {/* カード(場のカード・残り枚数・自分の手札)。 */}
+            {((scene?.decks?.length ?? 0) > 0 || myHands.length > 0) && (
+              <div className="pside-block">
+                <div className="pside-title">カード</div>
+                <DeckPanel
+                  mode="player"
+                  decks={scene?.decks ?? []}
+                  hands={myHands}
+                  onDraw={(deckId) =>
+                    roomRef.current?.send({
+                      type: "intent",
+                      from: roomRef.current.selfId,
+                      intent: { kind: "deck-draw", deckId },
+                    })
+                  }
+                  onPlay={(deckId, cardId) =>
+                    roomRef.current?.send({
+                      type: "intent",
+                      from: roomRef.current.selfId,
+                      intent: { kind: "deck-play", deckId, cardId },
+                    })
+                  }
+                />
+              </div>
+            )}
+
             {/* 画像 D&D の案内(参加者も盤面にオブジェクトを置ける)。 */}
             <p className="pside-empty muted" style={{ fontSize: 11 }}>
               画像ファイルを画面にドラッグ＆ドロップすると、盤面にオブジェクトとして
@@ -1251,9 +1302,10 @@ export function PlayClient({
                         onChannelChange={setChannel}
                         color={chatColor}
                         onColorChange={changeChatColor}
-                        onSpeakerChange={(id) =>
-                          setCompose((c) => ({ ...c, speakerId: id }))
-                        }
+                        onSpeakerChange={(id) => {
+                          speakerTouched.current = true;
+                          setCompose((c) => ({ ...c, speakerId: id }));
+                        }}
                         onTextChange={(t) =>
                           setCompose((c) => ({ ...c, text: t }))
                         }
