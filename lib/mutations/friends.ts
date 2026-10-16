@@ -1,5 +1,13 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { friendLimitMessage, friendLimitReason } from "@/lib/friends/limit";
+
+/** フレンド数の上限に当たった(無料プラン)。message は利用者向けの文言。 */
+export class FriendLimitError extends Error {
+  constructor(readonly reason: "mine" | "theirs") {
+    super(friendLimitMessage(reason));
+  }
+}
 
 /**
  * フレンド機能の書き込み(招待トークン発行/失効、承認、解除、在席心拍)。
@@ -67,6 +75,8 @@ export async function acceptFriendInvite(token: string): Promise<string | null> 
     p_token: token,
   });
   if (error) {
+    const reason = friendLimitReason(error);
+    if (reason) throw new FriendLimitError(reason);
     console.error("[acceptFriendInvite] failed", error);
     throw new Error(error.message);
   }
@@ -81,8 +91,7 @@ export async function removeFriend(otherId: string): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("not authenticated");
 
-  const [low, high] =
-    user.id < otherId ? [user.id, otherId] : [otherId, user.id];
+  const [low, high] = user.id < otherId ? [user.id, otherId] : [otherId, user.id];
   const { error } = await supabase
     .from("friendships")
     .delete()

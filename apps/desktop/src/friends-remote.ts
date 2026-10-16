@@ -90,7 +90,18 @@ export async function respondFriendRequest(
     p_notification: notificationId,
     p_accept: accept,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(friendErrorMessage(error));
+}
+
+/**
+ * フレンド数の上限(無料プラン 30 人。DB の friend_limit() / migration 0051)に当たったときの
+ * 文言。Web の lib/friends/limit.ts と同じ。それ以外のエラーはそのまま。
+ */
+function friendErrorMessage(err: { message: string; details?: string | null }): string {
+  if (!err.message.includes("friend_limit_reached")) return err.message;
+  return err.details === "theirs"
+    ? "相手のフレンドが上限(無料プランは 30 人)に達しているため、フレンドになれませんでした。"
+    : "フレンドが上限(無料プランは 30 人)に達しています。プレイ・Pro プランなら無制限です。";
 }
 
 /** 卓の参加コードをフレンドに通知。 */
