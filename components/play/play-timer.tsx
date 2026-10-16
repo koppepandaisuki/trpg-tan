@@ -60,11 +60,11 @@ export function PlayTimer({
     <span className="relative inline-flex items-center gap-1">
       {timer ? (
         <span
-          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 font-mono text-xs tabular-nums ${
+          className={`inline-flex h-7 items-center gap-1 rounded-full border px-3 font-mono text-xs tabular-nums ${
             done
-              ? "animate-pulse border-red-300 bg-red-50 text-red-700"
+              ? "animate-pulse border-primary bg-primary text-primary-foreground"
               : timer.endsAt
-                ? "border-sky-200 bg-sky-50 text-sky-800"
+                ? "border-ink bg-ink text-ink-foreground"
                 : "border-border bg-muted text-muted-foreground"
           }`}
           title={timer.label ? `タイマー: ${timer.label}` : "タイマー"}

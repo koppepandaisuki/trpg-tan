@@ -38,7 +38,7 @@ export default function NotFound() {
               </h1>
               <p className="mx-auto max-w-sm text-sm text-muted-foreground">
                 URL が間違っているか、ページが移動・削除された可能性があります。
-                作品 ID やリンクの綴りをもう一度ご確認ください。
+                URL やリンクの綴りをもう一度ご確認ください。
               </p>
             </div>
 

@@ -4,7 +4,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { MobileMenu } from "@/components/layout/mobile-menu";
-import { NavLinks } from "@/components/layout/nav-links";
+import { NavLinks, SecondaryNavLinks } from "@/components/layout/nav-links";
 import { PresenceHeartbeat } from "@/components/friends/presence-heartbeat";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { cn } from "@/lib/utils";
@@ -50,6 +50,7 @@ export async function TopHeader({ className }: { className?: string }) {
         <NavLinks />
 
         <div className="ml-auto flex items-center gap-2 self-center">
+          <SecondaryNavLinks />
           {/* デスクトップ用ユーザーメニュー */}
           <div className="hidden items-center gap-2 md:flex">
             {user ? <AuthedMenu user={user} /> : <UnauthedMenu />}

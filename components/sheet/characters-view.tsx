@@ -23,6 +23,7 @@ import {
   type SheetQuota,
   type SheetSummary,
 } from "@/lib/sheets/client";
+import { toolButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /** エディタに何を出しているか。key を変えるとエディタの内部状態を作り直す。 */
@@ -161,7 +162,7 @@ export function CharactersView({
         </div>
 
         {!loggedIn ? (
-          <div className="m-3 space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <div className="m-3 space-y-2 rounded-lg bg-muted p-3 text-xs text-foreground/80">
             <p>ログインしなくても作成・編集できます。保存するにはログインしてください。</p>
             <Link
               href={"/login?next=/characters" as Route}
@@ -255,7 +256,7 @@ export function CharactersView({
         <div className="border-t border-border p-2">
           <button
             onClick={() => void importFile()}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2 py-1.5 text-xs transition hover:bg-muted"
+            className={`${toolButton} w-full`}
             title="デスクトップアプリで保存した .ccsheet ファイルを開きます"
           >
             <FileInput className="h-3.5 w-3.5" aria-hidden />

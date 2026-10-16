@@ -41,7 +41,7 @@ export function PlayLinkBadge({
         ? "直結"
         : `直結 ${direct}/${total}`;
   const tone = allDirect
-    ? "border-sky-200 bg-sky-50 text-sky-800"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
     : "border-border bg-muted text-muted-foreground";
 
   return (
@@ -49,7 +49,7 @@ export function PlayLinkBadge({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] ${tone}`}
+        className={`inline-flex h-7 items-center gap-1 rounded-full border px-3 text-[11px] ${tone}`}
         title="接続の種類"
         aria-expanded={open}
       >

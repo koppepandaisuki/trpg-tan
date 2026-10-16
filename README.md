@@ -1,38 +1,44 @@
-# TRPG プラットフォーム (MVP)
+# Re-dice(リダイス)
 
-TRPG向けデジタル作品マーケットの A版 MVP。
-クリエイターがシナリオ・ルールブック・マップ・アート・BGM を販売し、購入者がライブラリからダウンロードする。
+卓を立てて、すぐ遊ぶ。ブラウザとデスクトップアプリで遊べる TRPG オンラインセッションツール。
+参加者はログインもインストールも不要で、GM から届いたリンクを開くだけで遊べる。
+
+- 公開サイト: https://re-dice.net
+- 2026-09 にストア(作品の売買)を廃止し、「卓を立てて遊ぶ道具」に絞った(decisions.md)。
+  この README のうち §6 以降の一部(Storage バケット・返金など)はストア時代の記述が残っている。
 
 > **α版を動作確認する人へ**: [ACCEPTANCE.md](ACCEPTANCE.md) の A〜G を上から順に実行してください。
-> **次フェーズに進む人へ**: [decisions.md §7 P2 Backlog](decisions.md) で優先度を確認してください。
+> **方針・優先度**: [docs/strategy.md](docs/strategy.md) と [decisions.md](decisions.md)。
 
 ---
 
-## 1. 機能範囲(MVP)
+## 1. 機能
 
-| カテゴリ | 含む | 含まない |
-|---|---|---|
-| 認証 | Email + パスワード、メール確認 | OAuth、MFA、パスワードリセット UI |
-| ストア | 公開作品の一覧 / カテゴリタブ / 詳細 | レビュー、フォロー、お気に入り |
-| ビルダー | テキスト中心の作品作成・編集、下書き / 公開、タグ | 表紙・本体ファイルのアップロード、自動保存、プレビュー |
-| ライブラリ | 購入済み一覧、署名URL でのダウンロード | DL履歴、複数ファイル、プレビュー再生 |
-| 決済 | Stripe Checkout(JPY)、webhook で paid 反映 | 無料作品の入手、返金実行 UI、収益分配、クーポン、税率 |
-| admin | creator 権限の付与/剥奪、作品の停止/復帰、取引一覧、Stripe Dashboard 導線 | 返金の自前実行、CSV export、bulk、analytics、impersonation |
-| 監査 | admin 操作はすべて `admin_audit_logs` にアトミック記録 | 監査ログの閲覧 UI(Phase 9 以降) |
+| 機能 | 内容 |
+|---|---|
+| PLAY(Web / デスクトップ) | 盤面・駒・シーン・BGM・カットイン・テロップ・タイマー・ターン管理・カード(山札)・共有メモ・リプレイ。BCDice で 280 以上のシステムのダイス。シークレットダイスと秘密のチャットは本人宛てに暗号化。全メッセージに署名(なりすまし対策) |
+| 通信 | GM を中心にした WebRTC 直結(P2P)+ Supabase Realtime の中継へ自動で切り替え。有料プランは Cloudflare TURN(設定時) |
+| シナリオ工房の取り込み | 「TRPGシナリオ工房」のバックアップ zip から、シーン・読み上げ文・NPC・ハンドアウト入りの卓を作る |
+| キャラシ | クトゥルフ神話TRPG(第7版・第6版)の専用エディタと、各システムのプリセット。ログインなしで作成、保存はクラウド(無料 10 体 / Pro 無制限) |
+| ライブラリ | 自分の卓(自動保存)と素材(画像・音声。R2 または Supabase Storage) |
+| 日程調整・フレンド | 候補日を並べて URL を配る日程調整(回答はログイン不要)、招待リンクでフレンド |
+| デスクトップアプリ | Tauri 2(Windows)。PLAY・キャラクター・ビルダー(シナリオ / システム)・ルールブック Q&A(AI。ゴールド消費) |
+| プラン | 基本(無料)/ プレイ / Pro を Stripe Subscription で。ゴールド(AI 用の前払い)とリデームコード |
 
-すべての画面・実装は日本語の単一ロケール前提です。
+すべての画面は日本語の単一ロケール前提。配色・ボタン・タブの規則は decisions.md の D-105。
 
 ---
 
 ## 2. 技術スタック
 
-- **Next.js 14+ (App Router) / TypeScript / React 18**
-- **Tailwind CSS** + 手書きの最小 UI プリミティブ(`components/ui/*`)
-- **Supabase**: Auth / Postgres / Storage / RLS / RPC
-- **Stripe Checkout (Hosted)** + Webhook、API バージョン `2024-06-20` 固定
-- **react-hook-form + zod**: 認証フォーム、ビルダー
-- **Vitest**: 純関数ユニットテスト
-- **pnpm 9+ / Node 20+**
+- **Next.js 14(App Router)/ TypeScript / React 18** — Web(`app/`, `components/`, `lib/`)
+- **Tauri 2 + Vite + React** — デスクトップアプリ(`apps/desktop/`)。同じものを PWA として `/app` でも配信
+- **pnpm workspace** — 共通の純粋 TS(`packages/trpg-core`: ダイス・卓の状態・同期・暗号)と共通 UI(`packages/trpg-ui`: キャラシ)
+- **Tailwind CSS** + 最小の UI 部品(`components/ui/*`: Button / Tabs / Badge / Card / Input)
+- **Supabase**: Auth / Postgres / Storage / RLS / RPC / Realtime(卓の中継・在席)
+- **Stripe**: Checkout(Hosted)+ Customer Portal + Webhook(プランとゴールド)
+- **任意**: Cloudflare R2(素材)、Cloudflare TURN(確実接続)、Google AdSense
+- **Vitest**: 純関数ユニットテスト(Web と `packages/trpg-core`)
 
 ---
 
@@ -289,41 +295,22 @@ pnpm test           # watch モード
 
 ## 10. ロール別の動作確認
 
-α版受け入れの**完全な手順**は [ACCEPTANCE.md](ACCEPTANCE.md) に集約しています。各ロールのフロー要約のみ以下に残します。
+α版受け入れの手順は [ACCEPTANCE.md](ACCEPTANCE.md)。要約:
 
-| ロール | 主要フロー | ACCEPTANCE 該当 |
-|---|---|---|
-| 一般ユーザー(購入者) | サインアップ → 閲覧 → 購入(Stripe Checkout) → ライブラリで DL | D, F |
-| クリエイター(creator、admin が付与) | 作品作成 → 下書き → 公開 → ストア掲載 | F-1〜F-3 |
-| admin | creator 付与/剥奪、作品停止/復帰、取引確認、audit log 確認 | E |
+| ロール | 主要フロー |
+|---|---|
+| ゲスト(未ログイン) | 招待リンク / 参加コードで卓に入る → 発言・ダイス・自分の駒を動かす。キャラシの作成、日程調整の回答 |
+| ユーザー | 卓を立てる(GM)→ 参加コードを共有 → 遊ぶ → ライブラリに自動保存。キャラシの保存、フレンド、プランの変更 |
+| admin | ユーザー管理(プラン・ゴールドの付与)、MFA、異常検知 |
 
 ---
 
-## 11. 決済 / 返金の運用メモ
+## 11. 決済の運用メモ
 
-### 購入フロー
-```
-/store/[slug] → BuyButton → POST /api/checkout → Stripe Hosted Page
-   完了 → success_url + 並行で Webhook が purchases に paid を書き込む
-   キャンセル → cancel_url
-```
-
-webhook が **真実の源**。`/checkout/success` ページは webhook 遅延を前提にした文言で、`/library` で反映を確認します。
-
-### 返金(Phase 8 時点)
-
-返金は **Stripe Dashboard で実行** します。アプリ側に自前の Refund UI はありません。
-
-```
-1. /admin/orders で対象を確認
-2. 「Stripe で開く」リンクから Stripe Dashboard を開く
-3. Stripe Dashboard 内で Refund を実行
-4. アプリ側の purchases.status は自動更新されない(paid のまま)
-5. 配布を止めたい場合は /admin/products で当該作品を「停止」にする
-6. 完全な自動化(`charge.refunded` webhook 反映)は P2 Backlog の B-1
-```
-
-詳細: [decisions.md](decisions.md) の D-016 / D-017。P2 着手計画は [decisions.md §7 P2 Backlog](decisions.md) の B-1 を参照。
+- プラン: `/pricing` → Stripe Checkout(サブスクリプション)。解約・支払い方法の変更は、利用中のプランの「契約を管理」から Customer Portal
+- ゴールド(AI 用の前払い): デスクトップアプリから Checkout
+- 反映の正は webhook(`/api/stripe/webhook`)。`/checkout/success` は遅延を前提にした文言
+- 詳しい運用は [docs/stripe-operations.md](docs/stripe-operations.md)。Stripe の商品画像は `branding/stripe-plan-*.png`(作り直しは [scripts/brand/README.md](scripts/brand/README.md))
 
 ---
 
@@ -349,39 +336,20 @@ webhook が **真実の源**。`/checkout/success` ページは webhook 遅延�
 
 ---
 
-## 13. 既知の制約 / MVP 対象外
+## 13. 既知の制約
 
 | 項目 | 状態 |
 |---|---|
-| 無料作品の入手機能 | 詳細ページに「無料で入手(準備中)」表示のみ |
-| 返金の自前実行 | Stripe Dashboard で手動。`charge.refunded` webhook は ack のみ |
-| `purchases.status='refunded'` 自動反映 | しない(返金時は別途 admin が作品を suspended で対応) |
-| 監査ログ閲覧 UI | 無し。Supabase Studio で参照 |
-| 表紙・本体ファイルのアップロード UI | 無し。Storage Studio で手動投入 |
-| 自動保存(ビルダー) | 手動保存のみ |
-| 同一ユーザー × 同一作品の二重 paid | レース条件で発生しうる(購入1件として機能はする、累計集計が二重になる) |
-| 検索 | `ilike` の部分一致のみ。本文検索なし |
-| ページネーション | offset 方式、cursor 化未対応 |
-| 多通貨 / 税率 / クーポン | JPY 固定、税込み表示、割引なし |
-| OAuth / MFA / パスワードリセット UI | 未実装 |
-| メール通知 | Supabase / Stripe 標準のみ |
+| 事業者情報(特商法の表記) | env の `OPERATOR_*` が未設定なら「請求があれば遅滞なく開示」の表記(docs/legal) |
+| 電気通信事業の届出 | 手続き中([docs/legal/README.md](docs/legal/README.md) §1) |
+| モバイルアプリ | なし(スマホはブラウザで参加できる) |
 | i18n | 日本語のみ |
-| モバイルアプリ | なし |
-| Stripe Connect / 収益分配 | なし(プラットフォーム取り) |
 
 ---
 
 ## 14. 今後の保留項目
 
-P2 以降の作業候補は [decisions.md §7 P2 Backlog](decisions.md) に **Now / Next / Later** で整理しています。
-α版運用開始前に着手する項目はありません。
-
-要約:
-- **Now**: `charge.refunded` webhook 本実装(B-1)
-- **Next**: 監査ログ UI / アップロード UI / パスワードリセット / 自動保存
-- **Later**: asset marketplace、AI 補助プレイのプリペイドポイント課金(いずれも構想段階)
-
-詳細と着手ルールは [decisions.md §7](decisions.md) を参照。
+[docs/strategy.md](docs/strategy.md)(大手との比較と優先度)と [decisions.md §7 Backlog](decisions.md)。
 
 ---
 
@@ -390,10 +358,11 @@ P2 以降の作業候補は [decisions.md §7 P2 Backlog](decisions.md) に **No
 | ファイル | 役割 |
 |---|---|
 | [ACCEPTANCE.md](ACCEPTANCE.md) | **α版受け入れチェックリスト**(A〜G を上から順に実行) |
-| [spec.md](spec.md) | MVP の対象範囲、画面一覧、主要ユースケース、非機能要件 |
-| [plan.md](plan.md) | フェーズ分割、完了条件、依存関係 |
-| [tasks.md](tasks.md) | フェーズごとの実装タスクチェックリスト(MVP は完了済み) |
-| [decisions.md](decisions.md) | 技術判断 / 保留事項 / 前提 / 規約 / **§7 P2 Backlog** |
+| [decisions.md](decisions.md) | 技術判断 / UI 判断(D-105 配色)/ 保留事項 / **§7 Backlog** |
+| [docs/strategy.md](docs/strategy.md) | 大手(ココフォリア等)との比較と、改良の優先度 |
+| [docs/legal/README.md](docs/legal/README.md) | 規約・届出・表記の整理 |
+| [scripts/brand/README.md](scripts/brand/README.md) | OGP・Stripe・インストーラー画像の作り直し |
+| [spec.md](spec.md) / [plan.md](plan.md) / [tasks.md](tasks.md) | ストア時代(MVP)の記録 |
 
 ---
 

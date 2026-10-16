@@ -22,34 +22,37 @@
 
 /* ---------- 1. テーマ変数 + 文字の既定(デスクトップの :root / body 相当) ---------- */
 .rd-sheet {
-  --bg: #fdfaf5;
+  /* デスクトップの :root(apps/desktop/src/styles.css)と同じ「白・黒・紅」(decisions.md D-105) */
+  --bg: #fafafa;
   --surface: #ffffff;
-  --surface-2: #faf5ec;
-  --surface-3: #f3ead9;
-  --border: rgba(164, 120, 44, 0.18);
-  --border-strong: rgba(164, 120, 44, 0.34);
-  --text: #2a1c14;
-  --text-muted: #77644f;
-  --text-faint: #8b7862;
-  --primary: #b02832;
-  --primary-hover: #93202a;
-  --primary-soft: #fceceb;
-  --primary-deep: #8a1d26;
-  --mint: #d9b45c;
-  --mint-soft: #f9f0da;
-  --mint-deep: #8f6f1a;
-  --gold: #c9a227;
-  --gold-soft: #f8f0d6;
-  --gold-deep: #8f6f1a;
-  --coral: #f0876b;
-  --shadow-xs: 0 1px 2px rgba(94, 52, 24, 0.06);
-  --shadow-sm: 0 1px 2px rgba(94, 52, 24, 0.05), 0 3px 10px rgba(94, 52, 24, 0.07);
-  --shadow-md: 0 6px 14px rgba(94, 52, 24, 0.09), 0 18px 38px rgba(94, 52, 24, 0.12);
-  --shadow-lg: 0 12px 28px rgba(94, 52, 24, 0.12), 0 34px 64px rgba(94, 52, 24, 0.18);
-  --ring: 0 0 0 3px rgba(176, 40, 50, 0.22);
+  --surface-2: #f5f5f5;
+  --surface-3: #ededed;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.2);
+  --text: #121212;
+  --text-muted: #616161;
+  --text-faint: #7a7a7a;
+  --primary: #a51a1d;
+  --primary-hover: #861316;
+  --primary-soft: #f9ecec;
+  --primary-deep: #861316;
+  --ink: #121212;
+  --ink-text: #ffffff;
+  --mint: #9e9e9e;
+  --mint-soft: #f2f2f2;
+  --mint-deep: #3d3d3d;
+  --gold: #a67f30;
+  --gold-soft: #f6f0e3;
+  --gold-deep: #8a6a24;
+  --coral: #e5484d;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 6px 14px rgba(0, 0, 0, 0.07), 0 16px 34px rgba(0, 0, 0, 0.09);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.1), 0 30px 60px rgba(0, 0, 0, 0.14);
+  --ring: 0 0 0 3px rgba(165, 26, 29, 0.2);
   --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --grad-primary: linear-gradient(135deg, #c8434c 0%, #93202a 100%);
-  --grad-accent: linear-gradient(120deg, var(--primary) 0%, var(--mint) 100%);
+  --grad-primary: linear-gradient(135deg, #b8262a 0%, #861316 100%);
+  --grad-accent: linear-gradient(120deg, var(--primary) 0%, var(--primary-deep) 100%);
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 18px;
@@ -137,7 +140,7 @@
 :where(.rd-sheet) * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: rgba(164, 120, 44, 0.35) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
 }
 :where(.rd-sheet) :focus-visible {
   outline: none;
@@ -164,13 +167,11 @@
 }
 :where(.rd-sheet) .tabs {
   display: flex;
-  gap: 3px;
-  padding: 3px;
+  gap: 2px;
+  padding: 4px;
   margin-bottom: 14px;
-  background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: inset 0 1px 2px rgba(94, 52, 24, 0.05);
+  background: var(--surface-3);
+  border-radius: 999px;
 }
 :where(.rd-sheet) .tab {
   flex: 1;
@@ -179,8 +180,8 @@
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 8px;
-  border-radius: 9px;
+  padding: 7px 10px;
+  border-radius: 999px;
   cursor: pointer;
   transition:
     color var(--dur-2) var(--ease-out),
@@ -189,17 +190,11 @@
 }
 :where(.rd-sheet) .tab:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.5);
 }
-:where(.rd-sheet) .tab.active {
-  background: linear-gradient(180deg, var(--surface), var(--surface-2));
-  color: var(--primary-deep);
-  box-shadow:
-    0 1px 2px rgba(94, 52, 24, 0.08),
-    0 2px 6px rgba(94, 52, 24, 0.06);
-}
+:where(.rd-sheet) .tab.active,
 :where(.rd-sheet) .tab.active:hover {
-  background: linear-gradient(180deg, var(--surface), var(--surface-2));
+  background: var(--ink);
+  color: var(--ink-text);
 }
 :where(.rd-sheet) .input:disabled {
   background: var(--surface-2);
@@ -254,7 +249,7 @@
   border: 1px solid var(--border-strong);
   background: var(--surface);
   color: var(--text);
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   padding: 9px 16px;
   font-size: 15px;
   font-family: inherit;
@@ -269,8 +264,7 @@
     color var(--dur-2) var(--ease-out);
 }
 :where(.rd-sheet) .btn:hover {
-  border-color: var(--primary);
-  color: var(--primary-deep);
+  border-color: var(--text-faint);
   background: var(--surface-2);
 }
 :where(.rd-sheet) .btn:active {
@@ -278,46 +272,21 @@
   box-shadow: none;
 }
 :where(.rd-sheet) .btn-primary {
-  position: relative;
-  overflow: hidden;
-  background: var(--grad-primary);
+  background: var(--primary);
   border-color: transparent;
   color: #fff;
   font-weight: 600;
   box-shadow:
-    0 2px 6px rgba(33, 152, 214, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-:where(.rd-sheet) .btn-primary::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.4) 48%,
-    rgba(255, 255, 255, 0.4) 52%,
-    transparent 70%
-  );
-  transform: translateX(-130%);
-  transition: transform 0.62s var(--ease-out);
-  pointer-events: none;
-}
-:where(.rd-sheet) .btn-primary:hover::after {
-  transform: translateX(130%);
+    0 1px 2px rgba(165, 26, 29, 0.25),
+    0 4px 12px rgba(165, 26, 29, 0.18);
 }
 :where(.rd-sheet) .btn-primary:hover {
   color: #fff;
-  background: var(--grad-primary);
-  filter: brightness(1.06) saturate(1.05);
-  transform: translateY(-1px);
-  box-shadow:
-    0 8px 20px rgba(33, 152, 214, 0.46),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  background: var(--primary-hover);
+  border-color: transparent;
 }
 :where(.rd-sheet) .btn-primary:active {
-  filter: brightness(0.98);
-  transform: translateY(0);
+  transform: translateY(1px);
 }
 :where(.rd-sheet) .tag {
   display: inline-block;
@@ -327,9 +296,9 @@
   border: 1px solid;
 }
 :where(.rd-sheet) .tag.ok {
-  background: var(--mint-soft);
-  border-color: var(--mint);
-  color: #0f766e;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
 }
 :where(.rd-sheet) .tag.fail {
   background: #fef2f2;
@@ -352,18 +321,17 @@
   box-shadow: var(--ring);
 }
 :where(.rd-sheet) .btn.mini {
-  padding: 5px 11px;
+  padding: 5px 12px;
   font-size: 13px;
-  border-radius: 9px;
+  border-radius: 999px;
 }
 :where(.rd-sheet) .chip {
   display: inline-block;
   font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: var(--primary-soft);
-  border: 1px solid var(--border);
-  color: var(--primary-deep);
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text);
 }
 :where(.rd-sheet) .skills {
   width: 100%;

@@ -75,6 +75,7 @@ const PLANS: {
       { label: "参加者はログイン不要・インストール不要" },
       { label: "シナリオ工房から卓を作る" },
       { label: "キャラシ作成(保存 10 体まで)・日程調整" },
+      { label: "フレンド(人数の制限なし)" },
     ],
   },
   {
@@ -90,7 +91,6 @@ const PLANS: {
         star: true,
         soon: true,
       },
-      { label: "フレンド無制限" },
     ],
   },
   {
@@ -100,7 +100,7 @@ const PLANS: {
     perks: [
       { label: "プレイのすべて" },
       { label: "キャラシの保存数 無制限", star: true },
-      { label: "日程調整 強化（無制限＋空き時間レコメンド）", soon: true },
+      { label: "日程調整の強化(空き時間のおすすめなど)", soon: true },
       { label: "Pro バッジ", soon: true },
     ],
   },

@@ -74,7 +74,7 @@ export default async function ResetPasswordPage() {
           <CardContent className="relative space-y-5 py-8">
 
             <div className="relative z-10 flex flex-col items-center gap-2 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-amber-700">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-white">
                 <Lock className="h-5 w-5" aria-hidden />
               </div>
               <h1 className="text-xl font-semibold tracking-tight">

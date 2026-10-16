@@ -61,7 +61,7 @@ export default function CheckEmailPage() {
               </li>
             </ul>
 
-            <div className="relative z-10 rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+            <div className="relative z-10 rounded-lg bg-muted px-3 py-2 text-xs text-foreground/80">
               数分待ってもメールが届かない場合は、
               <strong>迷惑メールフォルダ</strong>もご確認ください。
               それでも届かなければ Discord でご連絡ください。

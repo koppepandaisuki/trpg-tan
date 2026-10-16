@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { MessageCircle, Sparkles } from "lucide-react";
+import { Mail, MessageCircle, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { OpenWelcomeTourButton } from "@/components/onboarding/welcome-tour";
+import { getOperator } from "@/lib/legal/operator";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,6 +33,7 @@ function getDiscordUrl(): string {
 
 export function SiteFooter() {
   const discordUrl = getDiscordUrl();
+  const { email } = getOperator();
   return (
     <footer className="border-t border-border bg-card/50">
       <div className="mx-auto max-w-screen-2xl px-4 py-10 sm:px-6">
@@ -77,9 +79,9 @@ export function SiteFooter() {
             <FooterLink href={"/play" as Route} label="PLAY" />
             <FooterLink href="/library" label="ライブラリ" />
             <FooterLink href={"/characters" as Route} label="キャラシ" />
-            <FooterLink href={"/friends" as Route} label="フレンド" />
-            <FooterLink href={"/download" as Route} label="アプリDL" />
             <FooterLink href={"/schedule/new" as Route} label="日程調整" />
+            <FooterLink href={"/friends" as Route} label="フレンド" />
+            <FooterLink href={"/download" as Route} label="アプリをダウンロード" />
             <FooterLink href={"/pricing" as Route} label="料金プラン" />
           </FooterColumn>
 
@@ -101,11 +103,21 @@ export function SiteFooter() {
 
           {/* サポート */}
           <FooterColumn title="サポート">
-            {/* α 期間中は Discord が問い合わせの主チャネル。ブランド列の
-                ボタンと重複してでも、ナビ脈絡からも辿れるようリンクを置く。 */}
+            {/* お問い合わせはメール(Discord を使わない人のため)と Discord の両方。 */}
+            {email && (
+              <li>
+                <a
+                  href={`mailto:${email}`}
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
+                >
+                  <Mail className="h-3.5 w-3.5" aria-hidden />
+                  お問い合わせ(メール)
+                </a>
+              </li>
+            )}
             <FooterExternal
               href={discordUrl}
-              label="お問い合わせ — Discord"
+              label="Discord コミュニティ"
               icon={MessageCircle}
             />
             {/* 初回ガイドを再表示するトリガー。テスターが「あれ何だっけ」

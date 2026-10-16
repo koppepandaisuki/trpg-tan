@@ -104,7 +104,7 @@ function LogRow({ ev, canSeeSecret }: { ev: PlayEvent; canSeeSecret: boolean }) 
           {ev.actor}
         </span>
         {dm && (
-          <span className="mr-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-800">
+          <span className="mr-1.5 rounded-full bg-ink px-2 py-0.5 text-[10px] text-ink-foreground">
             📨 {dm} へ(個別)
           </span>
         )}
