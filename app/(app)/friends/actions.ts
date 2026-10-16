@@ -6,12 +6,12 @@ import {
   ensureMyInviteToken,
   regenerateMyInviteToken,
   acceptFriendInvite,
+  FriendLimitError,
   removeFriend,
   touchPresence,
 } from "@/lib/mutations/friends";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** 自分の招待トークンを取得(無ければ作成)。 */
 export async function ensureInviteTokenAction(): Promise<string> {
@@ -30,12 +30,18 @@ export async function regenerateInviteTokenAction(): Promise<string> {
 /** 招待リンクを承認してフレンドになる。 */
 export async function acceptInviteAction(
   token: string,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; message?: string }> {
   await requireUser();
   if (!UUID_RE.test(token)) return { ok: false };
-  const inviter = await acceptFriendInvite(token);
-  revalidatePath("/friends");
-  return { ok: inviter !== null };
+  try {
+    const inviter = await acceptFriendInvite(token);
+    revalidatePath("/friends");
+    return { ok: inviter !== null };
+  } catch (e) {
+    // 上限(無料プラン)はリンクの不備ではないので、理由をそのまま見せる。
+    if (e instanceof FriendLimitError) return { ok: false, message: e.message };
+    throw e;
+  }
 }
 
 /** フレンド解除(フォーム: friendId)。 */

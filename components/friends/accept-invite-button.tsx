@@ -13,10 +13,12 @@ export function AcceptInviteButton({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   async function accept() {
     setBusy(true);
     setError(false);
+    setMessage(null);
     try {
       const result = await acceptInviteAction(token);
       if (result.ok) {
@@ -24,6 +26,7 @@ export function AcceptInviteButton({ token }: { token: string }) {
         setTimeout(() => router.push("/friends" as Route), 800);
       } else {
         setError(true);
+        setMessage(result.message ?? null);
       }
     } catch {
       setError(true);
@@ -47,7 +50,7 @@ export function AcceptInviteButton({ token }: { token: string }) {
       </Button>
       {error && (
         <p className="text-center text-sm text-destructive">
-          リンクが無効か、期限切れの可能性があります。
+          {message ?? "リンクが無効か、期限切れの可能性があります。"}
         </p>
       )}
     </div>

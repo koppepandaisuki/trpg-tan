@@ -37,9 +37,7 @@ export async function listFriends(): Promise<FriendListItem[]> {
     avatarPath: r.avatar_path,
     lastSeenAt: r.last_seen_at,
     since: r.since,
-    online: r.last_seen_at
-      ? now - new Date(r.last_seen_at).getTime() < ONLINE_WINDOW_MS
-      : false,
+    online: r.last_seen_at ? now - new Date(r.last_seen_at).getTime() < ONLINE_WINDOW_MS : false,
   }));
 }
 
@@ -56,9 +54,7 @@ type InviteInfoRow = {
 };
 
 /** 招待トークンの招待主プレビュー(無効なら null)。RPC friend_invite_info() 経由。 */
-export async function getFriendInviteInfo(
-  token: string,
-): Promise<FriendInviteInfo | null> {
+export async function getFriendInviteInfo(token: string): Promise<FriendInviteInfo | null> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("friend_invite_info", {
     p_token: token,
@@ -92,4 +88,19 @@ export async function getMyInviteToken(): Promise<string | null> {
     return null;
   }
   return data?.token ?? null;
+}
+
+/**
+ * 自分のフレンド数と上限(上限 null = 無制限)。migration 0051 の my_friend_quota。
+ * まだ SQL を当てていない環境では関数が無いので null(画面に出さない)。
+ */
+export async function getMyFriendQuota(): Promise<{ used: number; limit: number | null } | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("my_friend_quota");
+  if (error || !data) return null;
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { used?: number | null; friend_limit?: number | null }
+    | undefined;
+  if (!row) return null;
+  return { used: row.used ?? 0, limit: row.friend_limit ?? null };
 }

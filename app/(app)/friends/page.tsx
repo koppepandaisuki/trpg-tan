@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
+import Link from "next/link";
 import { Users } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { requireUser } from "@/lib/session/require";
-import { listFriends, getMyInviteToken } from "@/lib/queries/friends";
+import { listFriends, getMyInviteToken, getMyFriendQuota } from "@/lib/queries/friends";
 import { FriendList } from "@/components/friends/friend-list";
 import { InviteLinkBox } from "@/components/friends/invite-link-box";
 
@@ -13,9 +14,10 @@ export const dynamic = "force-dynamic";
 
 export default async function FriendsPage() {
   await requireUser();
-  const [friends, token] = await Promise.all([
+  const [friends, token, quota] = await Promise.all([
     listFriends(),
     getMyInviteToken(),
+    getMyFriendQuota(),
   ]);
 
   return (
@@ -31,6 +33,18 @@ export default async function FriendsPage() {
           <p className="text-sm text-muted-foreground">
             招待リンクを送るだけでフレンドに。オンライン状況も確認できます。
           </p>
+          {/* 無料プランは上限あり(プレイ・Pro は無制限なので出さない) */}
+          {quota && quota.limit !== null && (
+            <p className="text-xs text-muted-foreground">
+              フレンド {quota.used} / {quota.limit} 人(無料プラン)。
+              <Link
+                href={"/pricing" as Route}
+                className="ml-1 font-semibold text-primary hover:underline"
+              >
+                プレイ・Pro なら無制限
+              </Link>
+            </p>
+          )}
         </header>
 
         <section className="space-y-3 rounded-lg border border-border bg-card p-4">

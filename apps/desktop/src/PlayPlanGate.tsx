@@ -37,7 +37,7 @@ const PLANS: GatePlan[] = [
     label: "基本",
     price: "無料",
     accent: "basic",
-    perks: ["他の人の卓に参加", "キャラシ作成(保存 10 体まで)", "ライブラリ・日程調整・フレンド"],
+    perks: ["他の人の卓に参加", "キャラシ作成(保存 10 体まで)", "フレンド(30 人まで)"],
   },
   {
     key: "play",
@@ -46,7 +46,7 @@ const PLANS: GatePlan[] = [
     price: "¥500 / 月",
     accent: "play",
     featured: true,
-    perks: ["卓を立てる（ホスト）", "BGM・カットイン等 全機能", "広告なし（予定）"],
+    perks: ["卓を立てる（ホスト）", "BGM・カットイン等 全機能", "フレンド無制限"],
   },
   {
     key: "pro",

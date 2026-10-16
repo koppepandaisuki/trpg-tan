@@ -533,7 +533,7 @@ function InboxTab({
       toast(accept ? "フレンドになりました" : "申請を辞退しました");
       await reload();
     } catch (e) {
-      toast(`応答できませんでした: ${String(e)}`);
+      toast(`応答できませんでした: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusyId(null);
     }
