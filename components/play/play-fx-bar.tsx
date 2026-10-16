@@ -16,6 +16,7 @@ import type { BgmTrack, CutIn } from "@trpg/core";
 import { uploadPlayAudio, uploadPlayImage } from "@/lib/play/media";
 import type { PlayAsset } from "@/lib/play/assets";
 import { AssetPicker } from "./asset-picker";
+import { toolButton } from "@/components/ui/button";
 
 /**
  * GM 用の演出コントロール(BGM / SE / カットイン / テロップ)。
@@ -125,7 +126,7 @@ export function PlayFxBar({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-background p-2">
+    <div className="space-y-2 rounded-xl border border-border bg-card p-2">
       <div className="flex items-center gap-1.5">
         <Clapperboard
           className="h-3.5 w-3.5 text-muted-foreground"
@@ -160,7 +161,7 @@ export function PlayFxBar({
               onClick={() => onBgm(null)}
               disabled={disabled}
               title="BGMを止める"
-              className="ml-auto inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className={`${toolButton} ml-auto text-muted-foreground`}
             >
               <Square className="h-2.5 w-2.5" aria-hidden />
               停止
@@ -388,7 +389,7 @@ export function PlayFxBar({
         <button
           type="submit"
           disabled={disabled || !telop.trim()}
-          className="rounded border border-border px-1.5 py-1 text-[10.5px] transition hover:bg-muted disabled:opacity-40"
+          className={toolButton}
         >
           送信
         </button>
@@ -440,10 +441,10 @@ function TrackList({
           <span
             key={t.id}
             className={[
-              "group inline-flex max-w-full items-center gap-1 rounded border px-1.5 py-0.5 text-[10.5px] transition",
+              "group inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition",
               active
-                ? "border-primary bg-primary/10 font-semibold"
-                : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                ? "border-ink bg-ink font-semibold text-ink-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
             ].join(" ")}
           >
             <button

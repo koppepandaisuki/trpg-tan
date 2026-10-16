@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { BookOpenText, Lock, Send } from "lucide-react";
 import type { Handout, PlayScene } from "@trpg/core";
+import { toolButton } from "@/components/ui/button";
+import { Tab, TabList } from "@/components/ui/tabs";
 
 /**
  * GM 専用のシナリオパネル(Web 版)。
@@ -57,19 +59,13 @@ export function PlayScenarioPanel({
 
   const tabBtn = (id: typeof tab, label: string, show: boolean) =>
     show && (
-      <button
-        type="button"
-        onClick={() => setTab(id)}
-        className={`rounded px-2 py-0.5 text-[11px] ${
-          tab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-        }`}
-      >
+      <Tab selected={tab === id} onClick={() => setTab(id)}>
         {label}
-      </button>
+      </Tab>
     );
 
   return (
-    <section className="rounded-lg border border-border bg-background">
+    <section className="rounded-xl border border-border bg-card">
       <header className="flex items-center gap-1.5 border-b border-border px-3 py-2">
         <BookOpenText className="h-3.5 w-3.5 text-primary" aria-hidden />
         <h2 className="flex-1 text-xs font-semibold">シナリオ</h2>
@@ -78,12 +74,12 @@ export function PlayScenarioPanel({
           GMのみ
         </span>
       </header>
-      <div className="flex gap-1 border-b border-border px-2 py-1.5">
+      <TabList className="m-1.5 flex">
         {tabBtn("scene", "このシーン", hasScene)}
-        {tabBtn("stock", `テキスト(${stock.length})`, stock.length > 0)}
+        {tabBtn("stock", `テキスト ${stock.length}`, stock.length > 0)}
         {tabBtn("info", "シナリオ情報", hasInfo)}
-      </div>
-      <div className="max-h-[360px] space-y-3 overflow-y-auto px-3 py-2.5 text-xs leading-relaxed">
+      </TabList>
+      <div className="space-y-3 px-3 py-2.5 text-xs leading-relaxed">
         {tab === "scene" && (
           <>
             {!hasScene && (
@@ -99,7 +95,7 @@ export function PlayScenarioPanel({
                       type="button"
                       onClick={() => onSay(p)}
                       title="チャットに流す"
-                      className="shrink-0 rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                      className="shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                     >
                       <Send className="h-3 w-3" aria-hidden />
                     </button>
@@ -181,7 +177,7 @@ export function PlayScenarioPanel({
                             onClick={() => {
                               if (confirm(`${h.label} を「${m}」さんだけに配りますか？`)) onDistribute(h, m);
                             }}
-                            className="rounded border border-border px-1.5 py-0.5 text-[10px] hover:bg-muted"
+                            className={toolButton}
                             title="この人だけに届きます(他の参加者には見えません)"
                           >
                             {m}

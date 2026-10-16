@@ -11,6 +11,7 @@ import {
   timerRemaining,
   type PlayTimer as PlayTimerState,
 } from "@trpg/core";
+import { toolButton } from "@/components/ui/button";
 
 /**
  * 卓のタイマー(Web)。GM が操作し、参加者にも同じ残り時間が出る
@@ -59,11 +60,11 @@ export function PlayTimer({
     <span className="relative inline-flex items-center gap-1">
       {timer ? (
         <span
-          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 font-mono text-xs tabular-nums ${
+          className={`inline-flex h-7 items-center gap-1 rounded-full border px-3 font-mono text-xs tabular-nums ${
             done
-              ? "animate-pulse border-red-300 bg-red-50 text-red-700"
+              ? "animate-pulse border-primary bg-primary text-primary-foreground"
               : timer.endsAt
-                ? "border-sky-200 bg-sky-50 text-sky-800"
+                ? "border-ink bg-ink text-ink-foreground"
                 : "border-border bg-muted text-muted-foreground"
           }`}
           title={timer.label ? `タイマー: ${timer.label}` : "タイマー"}
@@ -81,7 +82,7 @@ export function PlayTimer({
               type="button"
               onClick={() => set(pauseTimer(timer, Date.now()))}
               title="一時停止"
-              className="rounded p-1 text-muted-foreground hover:bg-muted"
+              className="rounded-full p-1 text-muted-foreground hover:bg-muted"
             >
               <Pause className="h-3.5 w-3.5" aria-hidden />
             </button>
@@ -91,7 +92,7 @@ export function PlayTimer({
                 type="button"
                 onClick={() => set(resumeTimer(timer, Date.now()))}
                 title="再開"
-                className="rounded p-1 text-muted-foreground hover:bg-muted"
+                className="rounded-full p-1 text-muted-foreground hover:bg-muted"
               >
                 <Play className="h-3.5 w-3.5" aria-hidden />
               </button>
@@ -101,7 +102,7 @@ export function PlayTimer({
             type="button"
             onClick={() => set(resetTimer(timer))}
             title="最初に戻す"
-            className="rounded p-1 text-muted-foreground hover:bg-muted"
+            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -109,7 +110,7 @@ export function PlayTimer({
             type="button"
             onClick={() => set(undefined)}
             title="タイマーを消す"
-            className="rounded p-1 text-muted-foreground hover:bg-muted"
+            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
           >
             <X className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -120,7 +121,7 @@ export function PlayTimer({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+          className={toolButton}
           title="制限時間・休憩などのタイマー(全員の画面に出ます)"
         >
           <Timer className="h-3.5 w-3.5" aria-hidden />
@@ -139,7 +140,7 @@ export function PlayTimer({
                   set(startTimer(s, Date.now()));
                   setOpen(false);
                 }}
-                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
+                className={toolButton}
               >
                 {s / 60}分
               </button>

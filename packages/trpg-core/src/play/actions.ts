@@ -23,8 +23,10 @@ import type {
   SceneRemoveEvent,
   TurnSetEvent,
   LogClearEvent,
+  DeckEvent,
 } from "./types.js";
 import { clampResource } from "./reduce.js";
+import type { DeckOp } from "./deck.js";
 
 /**
  * イベント生成ヘルパ(権威=GM 側で呼ぶ)。乱数を *ここで* 消費し、結果を
@@ -325,6 +327,11 @@ export function turnSetEvent(
 }
 
 /** チャット/ログ履歴の全消去イベント。 */
+/** カード・山札の操作。 */
+export function deckEvent(ctx: EventCtx, actor: string, op: DeckOp): DeckEvent {
+  return { id: ctx.id, ts: ctx.ts, actor, kind: "deck", op };
+}
+
 export function logClearEvent(ctx: EventCtx): LogClearEvent {
   return { id: ctx.id, ts: ctx.ts, actor: "GM", kind: "log-clear" };
 }

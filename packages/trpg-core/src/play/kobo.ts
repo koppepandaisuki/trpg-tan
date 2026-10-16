@@ -328,14 +328,14 @@ export function koboScenarioToPlay(
     memos.push({ id: "handouts", name: "ハンドアウト", text: hoPublic.join("\n\n") });
   }
 
-  // NPC は秘匿の駒として用意(登場したら GM が「公開」する)。
-  const panels = npcs.map((n, i) =>
-    ({
-      ...makeTokenPanel({ id: `${opts.id}::npc${i + 1}`, name: n.name }),
-      hidden: true,
-      note: [n.affiliation, n.profile].filter((x) => x.trim()).join("\n"),
-    }),
-  );
+  // NPC は秘匿の駒として盤面の下の方に並べておく(GM の画面には薄く見え、登場したら
+  // GM が「公開」する。盤面に置かないと GM からも見えず、探しようがない)。
+  const panels = npcs.map((n, i) => ({
+    ...makeTokenPanel({ id: `${opts.id}::npc${i + 1}`, name: n.name }),
+    hidden: true,
+    pos: { x: 0.1 + (i % 9) * 0.1, y: Math.max(0.1, 0.86 - Math.floor(i / 9) * 0.12) },
+    note: [n.affiliation, n.profile].filter((x) => x.trim()).join("\n"),
+  }));
 
   const out: PlayScene = {
     ...base,

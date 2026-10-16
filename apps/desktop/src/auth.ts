@@ -89,6 +89,26 @@ export async function openWebSignup(): Promise<void> {
 }
 
 /**
+ * Web が発行した 1 回限りのログイン用コード(token_hash)から、アプリ専用のセッションを作る。
+ * Web と同じ refresh トークンを共有すると、Supabase の使い回し検知で両方ログアウトされる
+ * ため、アプリは必ず自分のセッションを持つ(app/api/auth/app-login-token)。
+ */
+async function signInWithHandoffCode(tokenHash: string, via: string): Promise<boolean> {
+  const { error } = await supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type: "magiclink",
+  });
+  if (error) {
+    console.error(`[auth] ${via} code failed:`, error.message);
+    toast("ログインを完了できませんでした。もう一度お試しください");
+    return false;
+  }
+  console.info(`[auth] login success (${via})`);
+  void announceLogin();
+  return true;
+}
+
+/**
  * ブラウザ(PWA)起動時: /auth/app-handoff から `#access_token=…&
  * refresh_token=…&type=app-handoff` で戻ってきたらセッションを確立する。
  * 処理後は履歴からフラグメントを消す(トークンを URL に残さない)。
@@ -100,6 +120,7 @@ export async function initBrowserHandoffAuth(): Promise<void> {
   if (!hash) return;
   const hp = new URLSearchParams(hash);
   if (hp.get("type") !== "app-handoff") return;
+  const tokenHash = hp.get("token_hash");
   const accessToken = hp.get("access_token");
   const refreshToken = hp.get("refresh_token");
   // 先に URL からトークンを消す(setSession の成否に関わらず残さない)。
@@ -108,6 +129,11 @@ export async function initBrowserHandoffAuth(): Promise<void> {
     "",
     window.location.pathname + window.location.search,
   );
+  if (tokenHash) {
+    await signInWithHandoffCode(tokenHash, "browser handoff");
+    return;
+  }
+  // 旧形式(Web のトークンをそのまま受け取る)。古い Web から来たときのため。
   if (!accessToken || !refreshToken) return;
   const { error } = await supabase.auth.setSession({
     access_token: accessToken,
@@ -176,6 +202,14 @@ async function handleCallbackUrl(raw: string): Promise<void> {
       : parsed.hash;
     if (hash) {
       const hp = new URLSearchParams(hash);
+      // (A') 1 回限りのコード(今の Web はこちら)。
+      const tokenHash = hp.get("token_hash");
+      if (tokenHash) {
+        if (processedCodes.has(tokenHash)) return;
+        processedCodes.add(tokenHash);
+        await signInWithHandoffCode(tokenHash, "handoff");
+        return;
+      }
       const accessToken = hp.get("access_token");
       const refreshToken = hp.get("refresh_token");
       if (accessToken && refreshToken) {

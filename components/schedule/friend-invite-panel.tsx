@@ -202,9 +202,9 @@ export function FriendInvitePanel({
                   onClick={() => !already && toggle(f.id)}
                   disabled={already}
                   className={cn(
-                    "flex items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs",
+                    "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs",
                     on
-                      ? "border-primary bg-primary/10"
+                      ? "border-ink ring-1 ring-ink"
                       : "border-border hover:bg-muted/50",
                     already && "opacity-50 cursor-default",
                   )}

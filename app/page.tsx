@@ -2,22 +2,18 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   BookOpenText,
-  CalendarDays,
   Dices,
-  FolderOpen,
   Gift,
-  Hammer,
   Link2,
   Lock,
-  ScrollText,
-  Sparkles,
-  Users,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { AppDownloadCta } from "@/components/home/app-download-cta";
+import { ProductShots } from "@/components/home/product-shots";
+import { JoinCodeForm } from "@/components/play/join-code-form";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { listMyPlaySessions } from "@/lib/queries/play-sessions";
@@ -27,62 +23,13 @@ import { cn } from "@/lib/utils";
  * トップページ。
  *
  * 2026-09 にストア(作品売買)を廃止し、Re-dice は「卓を立てて遊ぶ道具」に
- * 絞った。トップは その道具の入口 = PLAY / ライブラリ / キャラシ /
- * ビルダー / フレンド / 日程調整 を並べる。
+ * 絞った。トップの入口は 2 つだけ: GM の「卓を立てる」と、参加者の参加コード。
+ * ほかの道具(ライブラリ・キャラシ・日程調整…)はヘッダーから辿る。
  *
  * ログイン中は自分の卓を最近のものから出して、すぐ再開できるようにする。
  */
 
 // root layout の title.default に任せる(「Re-dice TRPGサイト」)。
-
-interface Feature {
-  href: Route;
-  icon: LucideIcon;
-  title: string;
-  body: string;
-  /** ブラウザでは使えず、デスクトップアプリで使う機能。 */
-  appOnly?: boolean;
-}
-
-const FEATURES: Feature[] = [
-  {
-    href: "/play" as Route,
-    icon: Dices,
-    title: "PLAY",
-    body: "ブラウザで卓を立てて、招待リンクを渡すだけでセッション開始。盤面・ダイス・BGM・カットイン・タイマーまで。",
-  },
-  {
-    href: "/library" as Route,
-    icon: FolderOpen,
-    title: "ライブラリ",
-    body: "立てた卓と、背景・駒・BGM などの素材をまとめて保管。次のセッションでそのまま使えます。",
-  },
-  {
-    href: "/characters" as Route,
-    icon: ScrollText,
-    title: "キャラシ",
-    body: "13 システム対応のキャラクターシート。能力値からチャットパレットまで、ブラウザでもアプリと同じエディタで作れます。",
-  },
-  {
-    href: "/download" as Route,
-    icon: Hammer,
-    title: "ビルダー",
-    body: "自作シナリオ(あらすじ・HO・NPC・シーン)や独自システムを組み立てて、そのまま卓に。",
-    appOnly: true,
-  },
-  {
-    href: "/friends" as Route,
-    icon: Users,
-    title: "フレンド",
-    body: "いつもの仲間を登録して、卓にワンタップで招待。",
-  },
-  {
-    href: "/schedule/new" as Route,
-    icon: CalendarDays,
-    title: "日程調整",
-    body: "候補日を並べて URL を共有するだけ。全員の都合が一目でわかります。",
-  },
-];
 
 /** Re-dice の強み(他のセッションツールと比べたときの違い)。 */
 const STRENGTHS: { icon: LucideIcon; title: string; body: string }[] = [
@@ -126,45 +73,59 @@ export default async function HomePage() {
     <>
       <TopHeader />
       <PageContainer className="space-y-10 py-8">
-        {/* ===== Hero ===== */}
-        <section className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-primary-soft via-white to-mint-soft p-8 shadow-sm sm:p-10">
-          <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-mint/15 blur-3xl" />
-          <Sparkles
-            className="pointer-events-none absolute right-8 top-7 h-5 w-5 text-gold/70"
+        {/* ===== Hero =====
+            墨の面 + 紅の光(Netflix 型)。◆ はロゴの「dicere」の両脇の菱形。 */}
+        <section className="relative isolate overflow-hidden rounded-2xl bg-ink px-6 py-12 text-white shadow-lg sm:px-12 sm:py-16">
+          <div
             aria-hidden
+            className="pointer-events-none absolute -right-20 -top-32 -z-10 h-[30rem] w-[30rem] rounded-full bg-primary/75 blur-[120px]"
           />
-          <Sparkles
-            className="pointer-events-none absolute right-24 top-20 h-3.5 w-3.5 text-primary/50"
+          <div
             aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:22px_22px]"
           />
 
-          <div className="relative max-w-2xl space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-3 py-1 text-xs font-medium text-primary backdrop-blur">
-              <Dices className="h-3.5 w-3.5 text-gold" aria-hidden />
-              TRPG オンラインセッション
+          <div className="relative grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <div className="max-w-2xl space-y-5">
+              <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.25em] text-white/60">
+                <span aria-hidden className="h-1.5 w-1.5 rotate-45 bg-primary" />
+                TRPG ONLINE SESSION
+              </p>
+              <h1 className="font-serif text-3xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
+                卓を立てて、<span className="whitespace-nowrap">すぐ遊ぶ。</span>
+              </h1>
+              <p className="max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
+                盤面・ダイス・キャラシ・BGM が 1 つに。卓を立てるのも参加するのも無料。
+                参加者はログインもインストールも不要で、GM から届いたリンクを開くだけです。
+              </p>
+              {/* 入口は 2 つだけ: GM は「卓を立てる」(1 回押せば新しい卓が開く)、
+                  参加者は参加コード。ログインしていなければ、ログイン後にそのまま卓が開く。 */}
+              <div className="max-w-md space-y-3 pt-2">
+                <Link
+                  href={
+                    (user
+                      ? "/play?new=1"
+                      : `/login?next=${encodeURIComponent("/play?new=1")}`) as Route
+                  }
+                  className={cn(
+                    buttonVariants({ variant: "primary", size: "lg" }),
+                    "w-full sm:w-auto",
+                  )}
+                >
+                  <Dices aria-hidden />
+                  卓を立てる(GM・無料)
+                </Link>
+                <div className="flex items-center gap-3 pt-1 text-[11px] text-white/55">
+                  <span aria-hidden className="h-px flex-1 bg-white/15" />
+                  参加者はこちら
+                  <span aria-hidden className="h-px flex-1 bg-white/15" />
+                </div>
+                <JoinCodeForm variant="hero" />
+              </div>
             </div>
-            <h1 className="font-serif text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
-              卓を立てて、すぐ遊ぶ。
-            </h1>
-            <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-              盤面・ダイス・キャラシ・BGM が 1 つに。卓を立てるのも参加するのも無料。
-              参加者はログインもインストールも不要で、GM から届いたリンクを開くだけです。
-            </p>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Link
-                href={"/play" as Route}
-                className={cn(buttonVariants({ variant: "primary" }))}
-              >
-                卓を立てる
-              </Link>
-              <Link
-                href={"/download" as Route}
-                className={cn(buttonVariants({ variant: "outline" }))}
-              >
-                アプリをダウンロード
-              </Link>
-            </div>
+
+            {/* 実際の画面: GM の卓 + 参加者のスマホ */}
+            <ProductShots priority />
           </div>
         </section>
 
@@ -172,9 +133,7 @@ export default async function HomePage() {
         {recent.length > 0 && (
           <section className="space-y-3">
             <div className="flex items-baseline justify-between">
-              <h2 className="font-serif text-lg font-semibold tracking-tight">
-                最近の卓
-              </h2>
+              <h2 className="text-lg font-bold tracking-tight">最近の卓</h2>
               <Link
                 href={"/library" as Route}
                 className="text-xs text-muted-foreground transition hover:text-foreground"
@@ -211,16 +170,14 @@ export default async function HomePage() {
 
         {/* ===== Re-dice の強み ===== */}
         <section className="space-y-3">
-          <h2 className="font-serif text-lg font-semibold tracking-tight">
-            Re-dice が選ばれる理由
-          </h2>
+          <h2 className="text-lg font-bold tracking-tight">Re-dice が選ばれる理由</h2>
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {STRENGTHS.map((s) => (
               <li
                 key={s.title}
                 className="flex gap-3 rounded-lg border border-border bg-card p-4 shadow-sm"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
                   <s.icon className="h-4 w-4" aria-hidden />
                 </span>
                 <span className="min-w-0 space-y-1">
@@ -229,40 +186,6 @@ export default async function HomePage() {
                     {s.body}
                   </span>
                 </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* ===== できること ===== */}
-        <section className="space-y-3">
-          <h2 className="font-serif text-lg font-semibold tracking-tight">
-            できること
-          </h2>
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
-              <li key={f.title}>
-                <Link
-                  href={f.href}
-                  className="group flex h-full gap-3 rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary-soft text-primary transition-transform duration-300 group-hover:scale-110">
-                    <f.icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <span className="min-w-0 space-y-1">
-                    <span className="flex items-center gap-2">
-                      <span className="font-semibold">{f.title}</span>
-                      {f.appOnly && (
-                        <span className="rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground">
-                          アプリ
-                        </span>
-                      )}
-                    </span>
-                    <span className="block text-xs leading-relaxed text-muted-foreground">
-                      {f.body}
-                    </span>
-                  </span>
-                </Link>
               </li>
             ))}
           </ul>

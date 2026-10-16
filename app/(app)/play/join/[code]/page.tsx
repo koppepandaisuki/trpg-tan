@@ -1,5 +1,3 @@
-import { TopHeader } from "@/components/layout/top-header";
-import { PageContainer } from "@/components/layout/page-container";
 import { PlayGuest } from "@/components/play/play-guest";
 import { getCurrentUser } from "@/lib/session/get-user";
 
@@ -20,12 +18,6 @@ export default async function PlayJoinPage({
   const user = await getCurrentUser();
   const code = decodeURIComponent(params.code).toUpperCase().slice(0, 8);
 
-  return (
-    <>
-      <TopHeader />
-      <PageContainer className="py-4">
-        <PlayGuest code={code} signedIn={!!user} />
-      </PageContainer>
-    </>
-  );
+  // 卓は画面いっぱいのアプリとして出す(サイトのヘッダー・フッターは出さない)。
+  return <PlayGuest code={code} signedIn={!!user} />;
 }

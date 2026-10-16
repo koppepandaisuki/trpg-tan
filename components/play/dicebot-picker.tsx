@@ -11,6 +11,8 @@ import {
   loadBcdiceSystem,
   type BcdiceSystemInfo,
 } from "@/lib/play/bcdice";
+import { toolButton } from "@/components/ui/button";
+import { chipVariants } from "@/components/ui/tabs";
 
 /**
  * 卓のダイスボット選択(GM)。
@@ -87,7 +89,7 @@ export function DiceBotPicker({
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="ダイスボット(システム固有のダイスコマンド)を選ぶ"
-        className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs transition hover:bg-muted"
+        className={toolButton}
       >
         <Dice5 className="h-3.5 w-3.5" aria-hidden />
         <span className="max-w-[12rem] truncate">{label}</span>
@@ -99,7 +101,7 @@ export function DiceBotPicker({
             setHelp(bcdiceHelp(bcId) || "読み込み中です。少し待ってから開いてください。")
           }
           title="コマンド一覧"
-          className="rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          className="rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
         >
           <HelpCircle className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -117,11 +119,8 @@ export function DiceBotPicker({
                   onChange(b.id);
                   setOpen(false);
                 }}
-                className={`rounded border px-2 py-0.5 ${
-                  !bcId && effective === b.id
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:bg-muted"
-                }`}
+                aria-pressed={!bcId && effective === b.id}
+                className={chipVariants()}
               >
                 {b.name}
               </button>
@@ -155,7 +154,7 @@ export function DiceBotPicker({
                   onClick={() => void pickBcdice(s.id)}
                   disabled={!!loadingId}
                   className={`flex w-full items-center justify-between rounded px-1.5 py-1 text-left hover:bg-muted ${
-                    bcId === s.id ? "bg-primary/10 font-semibold" : ""
+                    bcId === s.id ? "bg-ink font-semibold text-ink-foreground hover:bg-ink/90" : ""
                   }`}
                 >
                   <span className="truncate">{s.name}</span>

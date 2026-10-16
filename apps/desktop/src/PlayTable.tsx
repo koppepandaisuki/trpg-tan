@@ -3,11 +3,23 @@ import {
   reduce,
   createSceneBroadcaster,
   createSecretBox,
+  createSigner,
+  codeForKey,
+  createMemberGate,
+  deckEvent,
+  applyDeckOp,
+  handOf,
+  drawnBy,
+  cardLabel,
+  TO_TABLE,
+  type DeckOp,
+  systemEvent,
   publicEventFor,
   privateBacklog,
   sendPrivateEvents,
   type SceneBroadcaster,
   type SecretBox,
+  type MsgMeta,
   panelFromSheet,
   panelFromGeneric,
   makeTokenPanel,
@@ -67,6 +79,7 @@ import {
   StickyNote,
   BookMarked,
   ClipboardPaste,
+  Layers,
 } from "lucide-react";
 import { ask, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -93,7 +106,6 @@ import { uploadAudioPath, sanitizeForNet, splitSceneMedia } from "./play-media";
 import { probeImageWidth } from "./play-thumb";
 import {
   connectRoom,
-  makeRoomCode,
   type NetIntent,
   type NetMsg,
   type Room,
@@ -102,6 +114,7 @@ import {
 import { LinkBadge } from "./LinkBadge";
 import { TableTimer } from "./TableTimer";
 import { ScenarioInfoPanel } from "./ScenarioInfoPanel";
+import { DeckPanel } from "./DeckPanel";
 import { bcdiceIdOf, evalBcdice, loadBcdiceSystem } from "./bcdice";
 import { useLiveDrag } from "./use-live-drag";
 import { WEB_BASE } from "./platform";
@@ -219,7 +232,9 @@ export function PlayTable({
   const roomRef = useRef<Room | null>(null);
   roomRef.current = room;
   // 受信処理は毎レンダー最新のクロージャに差し替える(古い scene を見ない)。
-  const netMsgRef = useRef<(msg: NetMsg) => void>(() => {});
+  const netMsgRef = useRef<(msg: NetMsg, meta: MsgMeta) => void>(() => {});
+  // 参加者 id → hello に署名した鍵(以後の操作はこの鍵の署名があるものだけ受け付ける)。
+  const memberGateRef = useRef(createMemberGate());
   // 最新の scene を常に参照できるように(集約スナップショット送信が読む)。
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
@@ -268,6 +283,41 @@ export function PlayTable({
     });
     return () => setDiagContext(null);
   }, []);
+
+  // GM ビューの左右サイドバーの折りたたみ(盤面を広く使う)。端末に保存。
+  const [gmSides, setGmSides] = useState<{ left: boolean; right: boolean }>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem("trpg.play.gm-sides.v1") ?? "null") as {
+        left?: boolean;
+        right?: boolean;
+      } | null;
+      return { left: v?.left ?? true, right: v?.right ?? true };
+    } catch {
+      return { left: true, right: true };
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("trpg.play.gm-sides.v1", JSON.stringify(gmSides));
+    } catch {
+      // 保存できなくても今回は効く
+    }
+  }, [gmSides]);
+
+  // GM ビューのキーボード操作: [ で左、] で右のサイドバーを開閉(参加者ビューと同じキー)。
+  useEffect(() => {
+    if (playerMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) {
+        return;
+      }
+      if (e.key === "[") setGmSides((s) => ({ ...s, left: !s.left }));
+      if (e.key === "]") setGmSides((s) => ({ ...s, right: !s.right }));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [playerMode]);
 
   // 参加者ビューのキーボード操作: [ で左(キャラ)、] で右(チャット)を開閉。
   useEffect(() => {
@@ -1225,7 +1275,57 @@ export function PlayTable({
     return !!owner && owner === memberNames.current.get(from);
   }
 
+  /** その人(入室名)に今の手札を、本人だけが読める暗号文で送る。 */
+  function sendHand(name: string, decks: NonNullable<PlayScene["decks"]>) {
+    const box = boxRef.current;
+    const r = roomRef.current;
+    if (!box || !r) return;
+    const hands = handOf(decks, name);
+    for (const [id, n] of memberNames.current) {
+      if (n !== name) continue;
+      void box.seal(id, { type: "hand", hands }).then((m) => m && r.send(m));
+    }
+  }
+
+  /**
+   * カードの操作: 状態を進め、全員へは何が起きたか(場に出たカード以外は枚数だけ)を
+   * ログに残し、手札が変わった人へは手札を個別に送る(Web 版 play-table と同じ)。
+   */
+  function deckOp(op: DeckOp, note: string, actor = "GM") {
+    const before = sceneRef.current.decks ?? [];
+    const deck = before.find((d) => "deckId" in op && d.id === op.deckId);
+    dispatch(deckEvent(newCtx(), actor, op));
+    let text = note;
+    if (op.op === "draw" && op.to === TO_TABLE && deck) {
+      text = `${note}: ${drawnBy(deck, op).map((id) => cardLabel(deck, id)).join("、")}`;
+    }
+    if (op.op === "play" && deck) {
+      text = `🃏 ${op.from} が「${cardLabel(deck, op.cardId)}」を場に出しました`;
+    }
+    if (text) dispatch(systemEvent(newCtx(), text));
+    const after = applyDeckOp(before, op);
+    const owners = new Set<string>();
+    if (op.op === "draw" && op.to !== TO_TABLE) owners.add(op.to);
+    if (op.op === "play") owners.add(op.from);
+    if ((op.op === "shuffle" && op.gather) || op.op === "remove") {
+      for (const k of Object.keys(deck?.hands ?? {})) owners.add(k);
+    }
+    for (const o of owners) if (o !== "GM") sendHand(o, after);
+  }
+
   function applyIntent(intent: NetIntent, from: string) {
+    if (intent.kind === "deck-draw" || intent.kind === "deck-play") {
+      const who = memberNames.current.get(from);
+      if (!who) return;
+      if (intent.kind === "deck-draw") {
+        const d = sceneRef.current.decks?.find((x) => x.id === intent.deckId);
+        if (!d || !d.selfDraw || d.pile.length === 0) return;
+        deckOp({ op: "draw", deckId: d.id, count: 1, to: who }, `🃏 ${who} が「${d.name}」から 1 枚引きました`, who);
+      } else {
+        deckOp({ op: "play", deckId: intent.deckId, from: who, cardId: intent.cardId }, "", who);
+      }
+      return;
+    }
     if (intent.kind === "send") {
       // GM 発言は不可(参加者がなりすませない)。
       if (intent.speakerId === "GM") return;
@@ -1291,7 +1391,10 @@ export function PlayTable({
 
   // 受信ハンドラは毎レンダー最新化(古い scene を掴んだままにしない)。
   useEffect(() => {
-    netMsgRef.current = (msg: NetMsg) => {
+    netMsgRef.current = (msg: NetMsg, meta: MsgMeta) => {
+      // なりすまし対策: この参加者 id で最初に署名した鍵以外の hello / 操作は無視
+      // (署名の無い旧版の参加者は従来どおり受け付ける)。
+      if (!memberGateRef.current.accept(msg, meta)) return;
       if (msg.type === "hello") {
         if (kickedRef.current.has(msg.from)) return;
         // 参加者名を記録(intent の所有権判定に使う)。
@@ -1317,6 +1420,12 @@ export function PlayTable({
               scene: sceneRef.current,
               evs: privateBacklog(sceneRef.current, name),
             });
+            // 持っている手札も渡す(入り直したとき用)。
+            const hands = handOf(sceneRef.current.decks ?? [], name);
+            if (hands.length > 0) {
+              const m = await box.seal(from, { type: "hand", hands });
+              if (m) await r.send(m);
+            }
           })();
         }
         // 既に BGM を流しているなら再配信して、途中入室でも鳴るようにする
@@ -1354,11 +1463,15 @@ export function PlayTable({
         return;
       }
       // transform: 送信直前にメディアを Storage の URL へ逃がす(Realtime を軽く)。
-      const r = await connectRoom(makeRoomCode(), "GM", {
+      // 参加コードは GM の署名鍵から作る(参加者が本物の GM を見分けられる)。
+      const signer = await createSigner();
+      const r = await connectRoom(await codeForKey(signer.publicKey), "GM", {
         transform: sanitizeForNet,
         role: "host",
         onLinkStatus: setLink,
+        signer,
       });
+      memberGateRef.current.clear();
       sentMediaRef.current.clear();
       const b = createSceneBroadcaster({
         send: (m) => r.send(m),
@@ -1378,7 +1491,7 @@ export function PlayTable({
       broadcasterRef.current = b;
       b.update(sceneRef.current);
       boxRef.current = await createSecretBox();
-      r.onMessage((m) => netMsgRef.current(m));
+      r.onMessage((m, meta) => netMsgRef.current(m, meta));
       r.onPresence(setMembers);
       setRoom(r);
       setSharePop(true);
@@ -1844,8 +1957,8 @@ export function PlayTable({
 
       {!playerMode && (
       <div className="ptable-body2">
-        {/* 左サイドバー(固定): ブロックはドラッグで並べ替え・高さ変更可 */}
-        <aside className="pside">
+        {/* 左サイドバー(固定): ブロックはドラッグで並べ替え・高さ変更可。[ で折りたたみ */}
+        <aside className={`pside ${gmSides.left ? "" : "collapsed"}`}>
           <SideStack
             storageKey={`trpg.play.stack-left.v1::${scene.id}`}
             onDetach={(id) => void toggleDetach(id)}
@@ -1935,6 +2048,20 @@ export function PlayTable({
                 ),
               },
               {
+                id: "cards",
+                title: "カード",
+                icon: <Layers size={14} />,
+                defaultOpen: (scene.decks?.length ?? 0) > 0,
+                body: (
+                  <DeckPanel
+                    mode="gm"
+                    decks={scene.decks ?? []}
+                    members={members.filter((n) => n !== "GM")}
+                    onOp={(op, note) => deckOp(op, note)}
+                  />
+                ),
+              },
+              {
                 id: "scinfo",
                 title: "シナリオ情報(GM)",
                 icon: <ScrollText size={14} />,
@@ -2013,6 +2140,22 @@ export function PlayTable({
 
         {/* メイン: シーンバー + 盤面 */}
         <main className="pmain">
+          <button
+            className={`pside-fold left ${gmSides.left ? "" : "closed"}`}
+            onClick={() => setGmSides((s) => ({ ...s, left: !s.left }))}
+            title={gmSides.left ? "左のサイドバーをたたむ([ キー)" : "左のサイドバーを開く([ キー)"}
+            aria-label="左のサイドバーを開閉"
+          >
+            {gmSides.left ? "◀" : "▶"}
+          </button>
+          <button
+            className={`pside-fold right ${gmSides.right ? "" : "closed"}`}
+            onClick={() => setGmSides((s) => ({ ...s, right: !s.right }))}
+            title={gmSides.right ? "右のサイドバーをたたむ(] キー)" : "右のサイドバーを開く(] キー)"}
+            aria-label="右のサイドバーを開閉"
+          >
+            {gmSides.right ? "▶" : "◀"}
+          </button>
           <SceneBar
             scenes={scene.scenes ?? []}
             activeId={scene.activeSceneId}
@@ -2066,7 +2209,7 @@ export function PlayTable({
         </main>
 
         {/* 右サイドバー(固定): チャット / メモ / ルールQ&A(並べ替え・高さ変更可) */}
-        <aside className="psider">
+        <aside className={`psider ${gmSides.right ? "" : "collapsed"}`}>
           <SideStack
             storageKey={`trpg.play.stack-right.v1::${scene.id}`}
             onDetach={(id) => void toggleDetach(id)}

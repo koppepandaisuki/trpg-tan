@@ -23,6 +23,7 @@ describe("RATE_LIMITS config", () => {
     expect(Object.keys(RATE_LIMITS).sort()).toEqual(
       [
         "ai",
+        "appLogin",
         "feedback",
         "goldCheckout",
         "mediaUpload",

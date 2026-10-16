@@ -286,7 +286,7 @@ export function ScheduleCreateForm() {
                       className={cn(
                         "rounded-full border px-3 py-1 text-sm transition-colors",
                         on
-                          ? "border-primary bg-primary/10 text-primary"
+                          ? "border-ink bg-ink text-ink-foreground"
                           : "border-border text-muted-foreground hover:bg-muted",
                       )}
                     >
@@ -362,9 +362,9 @@ function ModeButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors",
+        "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm transition-colors",
         active
-          ? "border-primary bg-primary/10 text-primary"
+          ? "border-ink bg-ink text-ink-foreground"
           : "border-border text-muted-foreground hover:bg-muted",
       )}
     >

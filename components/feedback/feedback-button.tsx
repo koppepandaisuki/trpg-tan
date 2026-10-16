@@ -142,9 +142,9 @@ export function FeedbackButton() {
                     type="button"
                     onClick={() => setCategory(c.value)}
                     className={cn(
-                      "rounded-md border px-3 py-1.5 text-sm transition",
+                      "rounded-full border px-3.5 py-1.5 text-sm transition",
                       category === c.value
-                        ? "border-primary bg-primary/10 text-foreground"
+                        ? "border-ink bg-ink text-ink-foreground"
                         : "border-border bg-card text-muted-foreground hover:bg-muted",
                     )}
                   >
