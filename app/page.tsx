@@ -2,15 +2,10 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   BookOpenText,
-  CalendarDays,
   Dices,
-  FolderOpen,
   Gift,
-  Hammer,
   Link2,
   Lock,
-  ScrollText,
-  Users,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -18,6 +13,7 @@ import { TopHeader } from "@/components/layout/top-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { AppDownloadCta } from "@/components/home/app-download-cta";
 import { ProductShots } from "@/components/home/product-shots";
+import { JoinCodeForm } from "@/components/play/join-code-form";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/session/get-user";
 import { listMyPlaySessions } from "@/lib/queries/play-sessions";
@@ -27,62 +23,13 @@ import { cn } from "@/lib/utils";
  * トップページ。
  *
  * 2026-09 にストア(作品売買)を廃止し、Re-dice は「卓を立てて遊ぶ道具」に
- * 絞った。トップは その道具の入口 = PLAY / ライブラリ / キャラシ /
- * ビルダー / フレンド / 日程調整 を並べる。
+ * 絞った。トップの入口は 2 つだけ: GM の「卓を立てる」と、参加者の参加コード。
+ * ほかの道具(ライブラリ・キャラシ・日程調整…)はヘッダーから辿る。
  *
  * ログイン中は自分の卓を最近のものから出して、すぐ再開できるようにする。
  */
 
 // root layout の title.default に任せる(「Re-dice TRPGサイト」)。
-
-interface Feature {
-  href: Route;
-  icon: LucideIcon;
-  title: string;
-  body: string;
-  /** ブラウザでは使えず、デスクトップアプリで使う機能。 */
-  appOnly?: boolean;
-}
-
-const FEATURES: Feature[] = [
-  {
-    href: "/play" as Route,
-    icon: Dices,
-    title: "PLAY",
-    body: "ブラウザで卓を立てて、招待リンクを渡すだけでセッション開始。盤面・ダイス・BGM・カットイン・タイマーまで。",
-  },
-  {
-    href: "/library" as Route,
-    icon: FolderOpen,
-    title: "ライブラリ",
-    body: "立てた卓と、背景・駒・BGM などの素材をまとめて保管。次のセッションでそのまま使えます。",
-  },
-  {
-    href: "/characters" as Route,
-    icon: ScrollText,
-    title: "キャラシ",
-    body: "13 システム対応のキャラクターシート。能力値からチャットパレットまで、ブラウザでもアプリと同じエディタで作れます。",
-  },
-  {
-    href: "/download" as Route,
-    icon: Hammer,
-    title: "ビルダー",
-    body: "自作シナリオ(あらすじ・HO・NPC・シーン)や独自システムを組み立てて、そのまま卓に。",
-    appOnly: true,
-  },
-  {
-    href: "/friends" as Route,
-    icon: Users,
-    title: "フレンド",
-    body: "いつもの仲間を登録して、卓にワンタップで招待。",
-  },
-  {
-    href: "/schedule/new" as Route,
-    icon: CalendarDays,
-    title: "日程調整",
-    body: "候補日を並べて URL を共有するだけ。全員の都合が一目でわかります。",
-  },
-];
 
 /** Re-dice の強み(他のセッションツールと比べたときの違い)。 */
 const STRENGTHS: { icon: LucideIcon; title: string; body: string }[] = [
@@ -138,7 +85,7 @@ export default async function HomePage() {
             className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:22px_22px]"
           />
 
-          <div className="relative grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          <div className="relative grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             <div className="max-w-2xl space-y-5">
               <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.25em] text-white/60">
                 <span aria-hidden className="h-1.5 w-1.5 rotate-45 bg-primary" />
@@ -151,23 +98,29 @@ export default async function HomePage() {
                 盤面・ダイス・キャラシ・BGM が 1 つに。卓を立てるのも参加するのも無料。
                 参加者はログインもインストールも不要で、GM から届いたリンクを開くだけです。
               </p>
-              <div className="flex flex-wrap gap-3 pt-2">
+              {/* 入口は 2 つだけ: GM は「卓を立てる」(1 回押せば新しい卓が開く)、
+                  参加者は参加コード。ログインしていなければ、ログイン後にそのまま卓が開く。 */}
+              <div className="max-w-md space-y-3 pt-2">
                 <Link
-                  href={"/play" as Route}
-                  className={cn(buttonVariants({ variant: "primary", size: "lg" }))}
-                >
-                  <Dices aria-hidden />
-                  卓を立てる
-                </Link>
-                <Link
-                  href={"/download" as Route}
+                  href={
+                    (user
+                      ? "/play?new=1"
+                      : `/login?next=${encodeURIComponent("/play?new=1")}`) as Route
+                  }
                   className={cn(
-                    buttonVariants({ variant: "outline", size: "lg" }),
-                    "border-white/25 bg-transparent text-white hover:border-white/50 hover:bg-white/10",
+                    buttonVariants({ variant: "primary", size: "lg" }),
+                    "w-full sm:w-auto",
                   )}
                 >
-                  アプリをダウンロード
+                  <Dices aria-hidden />
+                  卓を立てる(GM・無料)
                 </Link>
+                <div className="flex items-center gap-3 pt-1 text-[11px] text-white/55">
+                  <span aria-hidden className="h-px flex-1 bg-white/15" />
+                  参加者はこちら
+                  <span aria-hidden className="h-px flex-1 bg-white/15" />
+                </div>
+                <JoinCodeForm variant="hero" />
               </div>
             </div>
 
@@ -233,38 +186,6 @@ export default async function HomePage() {
                     {s.body}
                   </span>
                 </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* ===== できること ===== */}
-        <section className="space-y-3">
-          <h2 className="text-lg font-bold tracking-tight">できること</h2>
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
-              <li key={f.title}>
-                <Link
-                  href={f.href}
-                  className="group flex h-full gap-3 rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-white transition-colors duration-200 group-hover:bg-primary">
-                    <f.icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <span className="min-w-0 space-y-1">
-                    <span className="flex items-center gap-2">
-                      <span className="font-semibold">{f.title}</span>
-                      {f.appOnly && (
-                        <span className="rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground">
-                          アプリ
-                        </span>
-                      )}
-                    </span>
-                    <span className="block text-xs leading-relaxed text-muted-foreground">
-                      {f.body}
-                    </span>
-                  </span>
-                </Link>
               </li>
             ))}
           </ul>

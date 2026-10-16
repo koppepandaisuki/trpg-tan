@@ -17,6 +17,23 @@ export function NavLinks() {
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
         const active = isNavActive(pathname, item.href);
+        // PLAY はサイトの主役なので紅の丸ボタン(デスクトップアプリの上部ナビと同じ)。
+        if (item.href === "/play") {
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "inline-flex h-9 items-center gap-1.5 self-center rounded-full bg-primary px-4 text-sm font-bold tracking-wide text-primary-foreground shadow-brand transition-colors hover:bg-primary-hover",
+                active && "ring-4 ring-primary/15",
+              )}
+            >
+              <Icon className="h-4 w-4" aria-hidden />
+              <span>{item.label}</span>
+            </Link>
+          );
+        }
         return (
           <Link
             key={item.href}

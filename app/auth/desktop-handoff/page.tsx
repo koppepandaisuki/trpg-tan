@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2, LogIn, MonitorSmartphone } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { buildAppHandoffFragment } from "@/lib/auth/app-handoff";
 
 /**
  * デスクトップアプリへセッションを受け渡す中継ページ。
@@ -12,13 +12,14 @@ import { createClient } from "@/lib/supabase/client";
  *  1. アプリが `${WEB}/login?next=/auth/desktop-handoff` をブラウザで開く。
  *  2. ユーザーがログイン(メール/パス or Google)→ ここに着地。
  *     (既にログイン済みなら login ページが即ここへ飛ばす)
- *  3. 現在のセッションの access/refresh トークンを
- *     `redice://auth/callback#access_token=…&refresh_token=…` に載せて
- *     deep-link を起動 → アプリ側が setSession で受け取る。
+ *  3. 1 回限りのログイン用コード(token_hash)を発行してもらい、
+ *     `redice://auth/callback#token_hash=…` に載せて deep-link を起動 →
+ *     アプリ側が verifyOtp で自分専用のセッションを作る(lib/auth/app-handoff.ts)。
  *     (アプリは旧 paradice:// も受理するが、発行は新スキームに統一)
  *
  * これにより 1 回のログインで「ブラウザ(web の Cookie)」と
- * 「アプリ(WebView の localStorage)」の両方がログイン済みになる。
+ * 「アプリ(WebView の localStorage)」の両方が、別々のセッションでログイン済みになる
+ * (同じ refresh トークンを共有すると、使い回し検知で両方ログアウトされる)。
  *
  * トークンはフラグメント(#)に載るためサーバーには送られず、deep-link は
  * OS 内でアプリへ直接渡る(ネットワークを経由しない)。
@@ -40,20 +41,13 @@ export default function DesktopHandoffPage() {
   React.useEffect(() => {
     let alive = true;
     (async () => {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
+      const frag = await buildAppHandoffFragment("desktop-handoff");
       if (!alive) return;
-      if (!session?.access_token || !session?.refresh_token) {
+      if (!frag) {
         setPhase("no-session");
         return;
       }
-      const frag = new URLSearchParams({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-        type: "desktop-handoff",
-      });
-      const url = `${DEEP_LINK}#${frag.toString()}`;
+      const url = `${DEEP_LINK}#${frag}`;
       setDeepLink(url);
       setPhase("ready");
       // 自動でアプリ起動を試みる(ブロックされたら手動ボタンで)。

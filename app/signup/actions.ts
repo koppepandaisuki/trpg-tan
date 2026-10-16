@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { signupSchema } from "@/lib/validators/auth";
+import { safeNext } from "@/lib/api/redirect";
 
 // Signup keeps the original "return error on failure, redirect on success"
 // shape because it never establishes a session (email confirmation flow).
@@ -16,7 +17,15 @@ type SignupActionResult = { error: string } | undefined;
  * /signup/check-email regardless of whether the email already exists
  * (avoid revealing account enumeration).
  */
-export async function signupAction(input: unknown): Promise<SignupActionResult> {
+/**
+ * next: 確認メールのリンクから戻ったあとの行き先(ログインと同じ ?next=)。
+ * アプリの「新規登録」(/auth/desktop-handoff)や「ログインして卓を立てる」(/play?new=1)
+ * から来た人を、登録後にそこへ戻す(落とすと、もう一度ログインさせることになる)。
+ */
+export async function signupAction(
+  input: unknown,
+  next?: string | null,
+): Promise<SignupActionResult> {
   const parsed = signupSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.errors[0]?.message ?? "入力内容を確認してください" };
@@ -29,7 +38,9 @@ export async function signupAction(input: unknown): Promise<SignupActionResult> 
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${siteUrl}/auth/callback`,
+      emailRedirectTo: next
+        ? `${siteUrl}/auth/callback?next=${encodeURIComponent(safeNext(next))}`
+        : `${siteUrl}/auth/callback`,
       data: {
         display_name: parsed.data.displayName,
       },

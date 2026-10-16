@@ -3,8 +3,8 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
-import { Dices, Plus, LogIn, BookOpenText } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Dices, Plus, LogIn, BookOpenText, Users } from "lucide-react";
 import { createScene } from "@trpg/core";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {
 } from "@/lib/play/store";
 import type { PlaySessionSummary } from "@/lib/queries/play-sessions";
 import { TableGrid } from "./table-grid";
+import { JoinCodeForm } from "./join-code-form";
 import { readKoboBackup, type KoboBackup } from "@/lib/play/kobo-import";
 import type { KoboScenarioRef } from "@trpg/core";
 
@@ -34,16 +35,21 @@ const RECENT_LIMIT = 6;
 export function PlayLobby({
   sessions,
   signedIn = true,
+  autoCreate = false,
 }: {
   sessions: PlaySessionSummary[];
   /** 未ログインでもロビーは開ける(参加だけできる)。卓を立てるにはログイン。 */
   signedIn?: boolean;
+  /**
+   * 開いたらすぐ新しい卓を作って入る(/play?new=1)。トップの「卓を立てる」と、
+   * 「ログインして卓を立てる」からログインして戻ってきたとき用(もう一度押させない)。
+   */
+  autoCreate?: boolean;
 }) {
   const router = useRouter();
   const [list, setList] = useState(sessions);
   const [title, setTitle] = useState("");
   const [creating, setCreating] = useState(false);
-  const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   // シナリオ工房のバックアップ(複数シナリオ入りなら選んでもらう)。
   const koboInput = useRef<HTMLInputElement>(null);
@@ -93,7 +99,7 @@ export function PlayLobby({
         now: new Date().toISOString(),
       });
       await savePlayScene(scene);
-      router.push(`/play/${scene.id}`);
+      router.replace(`/play/${scene.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setCreating(false);
@@ -137,11 +143,14 @@ export function PlayLobby({
     }
   }
 
-  function join() {
-    const code = joinCode.trim().toUpperCase();
-    if (code.length < 4) return;
-    router.push(`/play/join/${encodeURIComponent(code)}`);
-  }
+  // /play?new=1: ログイン済みなら、その場で新しい卓を作って入る(1 回だけ)。
+  const autoCreated = useRef(false);
+  useEffect(() => {
+    if (!autoCreate || !signedIn || autoCreated.current) return;
+    autoCreated.current = true;
+    void createTable();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCreate, signedIn]);
 
   return (
     <div className="space-y-6">
@@ -151,68 +160,71 @@ export function PlayLobby({
         </p>
       )}
 
-      {/* 卓を立てる / 参加する */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card className="border-border">
-          <CardContent className="space-y-3 py-5">
-            <div className="flex items-center gap-2">
-              <Dices className="h-4 w-4 text-primary" aria-hidden />
-              <h2 className="text-sm font-semibold tracking-tight">卓を立てる（GM）</h2>
+      {/* 参加する / 卓を立てる。どちらも同じ重さで見せる(スマホは参加が先: 参加者はスマホが多い) */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="order-2 space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6 md:order-1">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+              <Dices className="h-5 w-5" aria-hidden />
+            </span>
+            <div>
+              <h2 className="text-base font-bold tracking-tight">卓を立てる(GM)</h2>
+              <p className="text-xs text-muted-foreground">
+                盤面を用意して、参加コードで仲間を呼ぶ
+              </p>
             </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              新しい卓を作って盤面を用意します。参加コードを共有すると、
-              相手はブラウザからそのまま参加できます。
-            </p>
-            {!signedIn ? (
+          </div>
+          {!signedIn ? (
+            <div className="space-y-2">
               <Link
-                href={`/login?next=${encodeURIComponent("/play")}` as Route}
-                className={buttonVariants({ variant: "primary" })}
+                href={`/login?next=${encodeURIComponent("/play?new=1")}` as Route}
+                className={buttonVariants({ variant: "primary", size: "lg", className: "w-full" })}
               >
+                <LogIn aria-hidden />
                 ログインして卓を立てる(無料)
               </Link>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && void createTable()}
-                  maxLength={60}
-                  placeholder="卓のタイトル（例: 白嶺の裁 1話）"
-                  className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <Button onClick={() => void createTable()} disabled={creating}>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  {creating ? "作成中…" : "作る"}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-border">
-          <CardContent className="space-y-3 py-5">
-            <div className="flex items-center gap-2">
-              <LogIn className="h-4 w-4 text-accent" aria-hidden />
-              <h2 className="text-sm font-semibold tracking-tight">卓に参加する</h2>
+              <p className="text-center text-[11px] text-muted-foreground">
+                ログインすると、そのまま新しい卓が開きます。
+              </p>
             </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              GM から共有された 6 桁の参加コードを入れてください。 インストールは不要です。
-            </p>
-            <div className="flex gap-2">
+          ) : (
+            <div className="space-y-2">
               <input
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === "Enter" && join()}
-                maxLength={8}
-                placeholder="参加コード"
-                className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono text-sm tracking-[0.2em] focus:outline-none focus:ring-2 focus:ring-ring"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void createTable()}
+                maxLength={60}
+                placeholder="卓のタイトル(あとで変えられます)"
+                className="h-11 w-full rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/25 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
               />
-              <Button variant="outline" onClick={join} disabled={joinCode.trim().length < 4}>
-                参加
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => void createTable()}
+                disabled={creating}
+              >
+                <Plus aria-hidden />
+                {creating ? "卓を作っています…" : "卓を立てる"}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </section>
+
+        <section className="order-1 space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6 md:order-2">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-white">
+              <Users className="h-5 w-5" aria-hidden />
+            </span>
+            <div>
+              <h2 className="text-base font-bold tracking-tight">卓に参加する(参加者)</h2>
+              <p className="text-xs text-muted-foreground">ログインもインストールも不要</p>
+            </div>
+          </div>
+          <JoinCodeForm />
+          <p className="text-center text-[11px] text-muted-foreground">
+            GM から届いた招待リンクを開いても参加できます。
+          </p>
+        </section>
       </div>
 
       {/* 姉妹アプリ「TRPGシナリオ工房」から(卓を保存するのでログイン時のみ) */}
@@ -221,7 +233,9 @@ export function PlayLobby({
           <CardContent className="flex flex-wrap items-center gap-3 py-4">
             <BookOpenText className="h-5 w-5 shrink-0 text-primary" aria-hidden />
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold tracking-tight">シナリオ工房・卓ファイルから作る</h2>
+              <h2 className="text-sm font-semibold tracking-tight">
+                シナリオ工房・卓ファイルから作る
+              </h2>
               <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                 「TRPGシナリオ工房」の設定 →「バックアップ」で書き出した .zip を選ぶと、
                 シーン・読み上げ文・NPC・ハンドアウト・判定メモ入りの卓ができます (秘密の情報は GM
@@ -301,7 +315,7 @@ export function PlayLobby({
           <TableGrid
             sessions={list.slice(0, RECENT_LIMIT)}
             onRemove={(s) => void remove(s.id, s.title)}
-          onDuplicate={(s) => void duplicate(s.id)}
+            onDuplicate={(s) => void duplicate(s.id)}
             empty="まだ卓がありません。上の「作る」から最初の卓を立ててみましょう。"
           />
         </div>

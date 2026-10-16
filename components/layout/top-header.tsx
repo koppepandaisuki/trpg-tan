@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Bell, LogOut, MessageCircle } from "lucide-react";
+import type { Route } from "next";
+import { Bell, Dices, LogOut, MessageCircle } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/brand/brand-mark";
@@ -56,6 +57,18 @@ export async function TopHeader({ className }: { className?: string }) {
             {user ? <AuthedMenu user={user} /> : <UnauthedMenu />}
           </div>
 
+          {/* スマホでも PLAY は 1 タップ(メニューを開かずに行ける) */}
+          <Link
+            href={"/play" as Route}
+            className={cn(
+              buttonVariants({ variant: "primary", size: "sm" }),
+              "md:hidden",
+            )}
+          >
+            <Dices aria-hidden />
+            PLAY
+          </Link>
+
           {/* モバイル用ハンバーガー(MobileMenu の中で md:hidden 制御) */}
           <MobileMenu
             user={
@@ -84,9 +97,10 @@ function UnauthedMenu() {
       >
         ログイン
       </Link>
+      {/* 紅は PLAY に譲る(1 画面に紅のボタンは 1 つ) */}
       <Link
         href="/signup"
-        className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+        className={cn(buttonVariants({ variant: "ink", size: "sm" }))}
       >
         新規登録
       </Link>

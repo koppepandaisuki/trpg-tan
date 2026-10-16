@@ -210,7 +210,7 @@ export function MobileMenu({ user, discordUrl }: MobileMenuProps) {
                     <Link
                       href="/signup"
                       onClick={close}
-                      className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+                      className={cn(buttonVariants({ variant: "ink", size: "sm" }))}
                     >
                       <UserPlus className="h-4 w-4" />
                       新規登録

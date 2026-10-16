@@ -32,6 +32,8 @@ export const RATE_LIMITS = {
   playIce: { limit: 30, windowSeconds: 600 },
   /** 卓の素材アップロード先(R2 署名付き URL)の発行。 */
   mediaUpload: { limit: 200, windowSeconds: 600 },
+  /** アプリへ渡す 1 回限りのログイン用コードの発行(/api/auth/app-login-token)。 */
+  appLogin: { limit: 10, windowSeconds: 600 },
 } as const satisfies Record<string, RateRule>;
 
 /**

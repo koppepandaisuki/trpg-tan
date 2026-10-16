@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { UserPlus, Sparkles } from "lucide-react";
 import { TopHeader } from "@/components/layout/top-header";
@@ -6,6 +7,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
 import { SignupForm } from "@/components/auth/signup-form";
 import { getCurrentUser } from "@/lib/session/get-user";
+import { safeNext } from "@/lib/api/redirect";
 
 export const metadata = { title: "新規登録" };
 
@@ -17,9 +19,14 @@ export const metadata = { title: "新規登録" };
  * violet トーンで「新規参加」のニュアンス、α テスター歓迎の補足を
  * 小さく添える(α 期間限定の案内、後段で消す)。
  */
-export default async function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: { next?: string };
+}) {
+  // 既ログインなら ?next= があればそこへ(アプリへの受け渡し等)、無ければ /。
   const user = await getCurrentUser();
-  if (user) redirect("/");
+  if (user) redirect(safeNext(searchParams.next));
 
   return (
     <>
@@ -56,7 +63,11 @@ export default async function SignupPage() {
             <p className="relative z-10 text-center text-xs text-muted-foreground">
               すでにアカウントをお持ちの方は{" "}
               <Link
-                href="/login"
+                href={
+                  (searchParams.next
+                    ? `/login?next=${encodeURIComponent(safeNext(searchParams.next))}`
+                    : "/login") as Route
+                }
                 className="text-accent underline-offset-4 hover:underline"
               >
                 ログイン
